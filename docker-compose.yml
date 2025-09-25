@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=db;Database=KatanaLucaIntegration;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=true;
+    depends_on:
+      - db
+    networks:
+      - katana-network
+    volumes:
+      - ./logs:/app/logs
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=YourStrong@Passw0rd
+      - MSSQL_PID=Express
+    ports:
+      - "1433:1433"
+    networks:
+      - katana-network
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+
+networks:
+  katana-network:
+    driver: bridge
+
+volumes:
+  sqlserver-data:
+    driver: local
