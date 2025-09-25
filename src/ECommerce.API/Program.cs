@@ -5,6 +5,7 @@ using ECommerce.Core.Interfaces;
 using ECommerce.Data.Context;
 using ECommerce.Data.Repositories;
 using ECommerce.Infrastructure.Jobs;
+using ECommerce.Infrastructure.Logging;
 using ECommerce.Infrastructure.Workers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -17,15 +18,7 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Serilog
-builder.Host.UseSerilog((context, configuration) =>
-{
-    configuration
-        .ReadFrom.Configuration(context.Configuration)
-        .WriteTo.Console()
-        .WriteTo.File("logs/integration-.txt", 
-            rollingInterval: RollingInterval.Day,
-            retainedFileCountLimit: 30);
-});
+builder.Host.UseSerilogConfiguration();
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -41,13 +34,12 @@ builder.Services.AddSwaggerGen(c =>
         Description = "API for managing integration between Katana MRP/ERP and Luca Accounting systems"
     });
     
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    c.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme",
-        Name = "Authorization",
+        Description = "API Key needed to access the endpoints. X-API-Key: Your_API_Key",
         In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Name = "X-API-Key",
+        Type = SecuritySchemeType.ApiKey
     });
     
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -58,7 +50,7 @@ builder.Services.AddSwaggerGen(c =>
                 Reference = new OpenApiReference
                 {
                     Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
+                    Id = "ApiKey"
                 }
             },
             Array.Empty<string>()
@@ -127,7 +119,7 @@ builder.Services.AddCors(options =>
 
 // Health Checks
 builder.Services.AddHealthChecks()
-    .AddDbContext<IntegrationDbContext>();
+    .AddDbContextCheck<IntegrationDbContext>();
 
 // Background Services
 builder.Services.AddHostedService<SyncWorkerService>();
@@ -135,7 +127,6 @@ builder.Services.AddHostedService<SyncWorkerService>();
 // Quartz.NET
 builder.Services.AddQuartz(q =>
 {
-    q.UseMicrosoftDependencyInjection();
     
     // Stock sync job - every 6 hours
     var stockJobKey = new JobKey("StockSyncJob");
@@ -182,6 +173,7 @@ app.UseCors("AllowSpecificOrigins");
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseMiddleware<AuthMiddleware>();
 app.UseMiddleware<ErrorHandlingMiddleware>();
 
 app.MapControllers();

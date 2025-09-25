@@ -10,13 +10,13 @@ Bu kılavuz, Katana MRP/ERP sistemi ile Luca Koza muhasebe sistemi arasındaki v
 
 Katana'daki ürün SKU kodlarını Luca'daki muhasebe hesap kodlarıyla eşleştirir.
 
-| Katana SKU | Luca Hesap Kodu | Kategori | Açıklama |
-|------------|-----------------|----------|----------|
-| PRD-001 | 600.10 | Elektronik | Akıllı Telefon |
-| PRD-002 | 600.11 | Elektronik | Tablet |
-| PRD-003 | 600.20 | Giyim | T-Shirt |
-| PRD-004 | 600.21 | Giyim | Pantolon |
-| DEFAULT | 600.01 | - | Varsayılan hesap kodu |
+| Katana SKU | Luca Hesap Kodu | Kategori   | Açıklama              |
+| ---------- | --------------- | ---------- | --------------------- |
+| PRD-001    | 600.10          | Elektronik | Akıllı Telefon        |
+| PRD-002    | 600.11          | Elektronik | Tablet                |
+| PRD-003    | 600.20          | Giyim      | T-Shirt               |
+| PRD-004    | 600.21          | Giyim      | Pantolon              |
+| DEFAULT    | 600.01          | -          | Varsayılan hesap kodu |
 
 #### API ile Yönetim
 
@@ -48,14 +48,14 @@ curl -X PUT "https://api.yourcompany.com/api/mapping/1" \
 
 Katana'daki stok lokasyonlarını Luca'daki depo kodlarıyla eşleştirir.
 
-| Katana Lokasyon | Luca Depo Kodu | Açıklama |
-|-----------------|----------------|----------|
-| MAIN_WAREHOUSE | MAIN | Ana Depo |
-| SECONDARY_STORE | SEC | İkincil Depo |
-| RETAIL_SHOP_1 | RT01 | Perakende Mağaza 1 |
-| RETAIL_SHOP_2 | RT02 | Perakende Mağaza 2 |
-| ONLINE_STOCK | ONLINE | Online Stok |
-| DEFAULT | MAIN | Varsayılan depo |
+| Katana Lokasyon | Luca Depo Kodu | Açıklama           |
+| --------------- | -------------- | ------------------ |
+| MAIN_WAREHOUSE  | MAIN           | Ana Depo           |
+| SECONDARY_STORE | SEC            | İkincil Depo       |
+| RETAIL_SHOP_1   | RT01           | Perakende Mağaza 1 |
+| RETAIL_SHOP_2   | RT02           | Perakende Mağaza 2 |
+| ONLINE_STOCK    | ONLINE         | Online Stok        |
+| DEFAULT         | MAIN           | Varsayılan depo    |
 
 #### API ile Yönetim
 
@@ -108,7 +108,7 @@ Kategori bazlı otomatik mapping için kural tanımlama:
       "description": "Elektronik ürünler"
     },
     {
-      "condition": "category_id == 2", 
+      "condition": "category_id == 2",
       "accountCode": "600.20",
       "description": "Giyim ürünleri"
     },
@@ -150,9 +150,11 @@ curl -X GET "https://api.yourcompany.com/api/reports/last" \
 ### Yaygın Sorunlar
 
 1. **"Unknown SKU" Hatası**
+
    - Çözüm: SKU_ACCOUNT mapping tablosuna eksik SKU'yu ekleyin
 
 2. **"Invalid Account Code" Hatası**
+
    - Çözüm: Luca sistemindeki geçerli hesap kodlarını kontrol edin
 
 3. **"Warehouse Not Found" Hatası**
@@ -167,7 +169,7 @@ curl -X GET "https://api.yourcompany.com/api/reports/last" \
 ## Best Practices
 
 1. **Standart Kodlama**: Hesap kodları için şirket standartlarını kullanın
-2. **Dokümantasyon**: Her mapping için açıklayıcı description yazın  
+2. **Dokümantasyon**: Her mapping için açıklayıcı description yazın
 3. **Backup**: Mapping değişikliklerinden önce backup alın
 4. **Test**: Production'da değişiklik yapmadan önce test ortamında deneyin
 5. **Monitoring**: Başarısız mapping'leri düzenli kontrol edin

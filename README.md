@@ -27,33 +27,39 @@ ECommerce.Integration/
 ## 🧩 Katman Yapısı
 
 ### 🔹 ECommerce.Core (Domain Layer)
+
 - **Entities**: Product, Stock, Invoice, Customer modelleri
 - **DTOs**: KatanaStockDto, LucaInvoiceDto, SyncResultDto
 - **Helpers**: MappingHelper, JwtTokenHelper, HashingHelper
 
 ### 🔹 ECommerce.Data (Data Access Layer)
+
 - **DbContext**: IntegrationDbContext (EF Core)
 - **Repositories**: Repository pattern implementasyonu
 - **Models**: IntegrationLog, MappingTable, FailedSyncRecord
 - **Migrations**: Veritabanı migration dosyaları
 
 ### 🔹 ECommerce.Business (Business Logic Layer)
+
 - **KatanaService**: Katana API çağrıları ve veri çekme
 - **LucaService**: Luca'ya veri gönderimi (API/CSV/XML)
 - **SyncService**: Tüm entegrasyon sürecini koordine eder
 
 ### 🔹 ECommerce.API (Presentation Layer)
+
 - **Controllers**: SyncController, ReportController, MappingController
 - **Middleware**: ErrorHandling, Authentication, CORS
 - **Endpoints**: REST API endpoints
 
 ### 🔹 ECommerce.Infrastructure (Infrastructure Layer)
+
 - **Logging**: Serilog ile dosya + DB loglama
 - **Jobs**: Quartz.NET ile zamanlanmış senkronizasyon
 - **Config**: Yapılandırma yönetimi
 - **Workers**: Background services
 
 ### 🔹 ECommerce.Tests (Test Layer)
+
 - **Unit Tests**: Servislerin birim testleri
 - **Integration Tests**: End-to-end test senaryoları
 - **Contract Tests**: API şema doğrulamaları
@@ -70,6 +76,7 @@ ECommerce.Integration/
 ## 🛠 Kurulum
 
 ### Gereksinimler
+
 - .NET 8.0+
 - SQL Server / PostgreSQL / SQLite
 - Visual Studio 2022 / VS Code
@@ -122,17 +129,20 @@ dotnet run --project ECommerce.API
 ## 🚀 Kullanım
 
 ### Manuel Senkronizasyon
+
 ```bash
 POST /api/sync/run
 ```
 
 ### Rapor Alma
+
 ```bash
 GET /api/reports/last
 GET /api/reports/failed
 ```
 
 ### Mapping Yönetimi
+
 ```bash
 GET /api/mapping
 POST /api/mapping

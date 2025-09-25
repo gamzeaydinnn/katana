@@ -103,11 +103,17 @@ public class SyncService : ISyncService
             if (syncResult.IsSuccess)
             {
                 var stockIds = stockEntities.Select(s => s.Id).ToList();
-                await _context.Stocks
+                var stocksToUpdate = await _context.Stocks
                     .Where(s => stockIds.Contains(s.Id))
-                    .ExecuteUpdateAsync(s => s
-                        .SetProperty(p => p.IsSynced, true)
-                        .SetProperty(p => p.SyncedAt, DateTime.UtcNow));
+                    .ToListAsync();
+                
+                foreach (var stock in stocksToUpdate)
+                {
+                    stock.IsSynced = true;
+                    stock.SyncedAt = DateTime.UtcNow;
+                }
+                
+                await _context.SaveChangesAsync();
             }
 
             return syncResult;
@@ -200,11 +206,17 @@ public class SyncService : ISyncService
             if (syncResult.IsSuccess)
             {
                 var invoiceNumbers = validInvoices.Select(i => i.InvoiceNo).ToList();
-                await _context.Invoices
+                var invoicesToUpdate = await _context.Invoices
                     .Where(i => invoiceNumbers.Contains(i.InvoiceNo))
-                    .ExecuteUpdateAsync(s => s
-                        .SetProperty(p => p.IsSynced, true)
-                        .SetProperty(p => p.SyncedAt, DateTime.UtcNow));
+                    .ToListAsync();
+                
+                foreach (var invoice in invoicesToUpdate)
+                {
+                    invoice.IsSynced = true;
+                    invoice.SyncedAt = DateTime.UtcNow;
+                }
+                
+                await _context.SaveChangesAsync();
             }
 
             return syncResult;
@@ -215,9 +227,15 @@ public class SyncService : ISyncService
     {
         return await ExecuteSyncAsync("CUSTOMER", async () =>
         {
+            fromDate ??= await GetLastSyncTimeAsync("CUSTOMER") ?? DateTime.UtcNow.AddDays(-1);
+
+            _logger.LogInformation("Starting customer sync from {FromDate}", fromDate);
+
             // Get unsynchronized customers from database
             var customers = await _context.Customers
-                .Where(c => c.IsActive && (fromDate == null || c.CreatedAt >= fromDate))
+                .Where(c => c.IsActive 
+                    && !c.IsSynced 
+                    && (fromDate == null || c.UpdatedAt >= fromDate))
                 .ToListAsync();
 
             if (!customers.Any())
@@ -236,8 +254,22 @@ public class SyncService : ISyncService
             // Convert to Luca format
             var lucaCustomers = customers.Select(MappingHelper.MapToLucaCustomer).ToList();
 
+            _logger.LogInformation("Sending {Count} customers to Luca", lucaCustomers.Count);
+
             // Send to Luca
             var syncResult = await _lucaService.SendCustomersAsync(lucaCustomers);
+
+            // Update sync status for successful records
+            if (syncResult.IsSuccess)
+            {
+                foreach (var customer in customers)
+                {
+                    customer.IsSynced = true;
+                    customer.SyncedAt = DateTime.UtcNow;
+                }
+                
+                await _context.SaveChangesAsync();
+            }
 
             return syncResult;
         });
@@ -285,7 +317,7 @@ public class SyncService : ISyncService
             {
                 "STOCK" => await _context.Stocks.CountAsync(s => !s.IsSynced),
                 "INVOICE" => await _context.Invoices.CountAsync(i => !i.IsSynced),
-                "CUSTOMER" => await _context.Customers.CountAsync(c => c.IsActive),
+                "CUSTOMER" => await _context.Customers.CountAsync(c => c.IsActive && !c.IsSynced),
                 _ => 0
             };
 
@@ -351,7 +383,7 @@ public class SyncService : ISyncService
                 log.EndTime = DateTime.UtcNow;
                 log.ProcessedRecords = result.ProcessedRecords;
                 log.SuccessfulRecords = result.SuccessfulRecords;
-                log.FailedRecords = result.FailedRecords;
+                log.FailedRecordsCount = result.FailedRecords;
                 log.ErrorMessage = result.Errors.Any() ? string.Join("; ", result.Errors) : null;
                 log.Details = JsonSerializer.Serialize(result);
 
@@ -381,10 +413,10 @@ public class SyncService : ISyncService
     {
         var lastLog = await _context.IntegrationLogs
             .Where(l => l.SyncType == syncType && l.Status == "SUCCESS")
-            .OrderByDescending(l => l.StartTime)
+            .OrderByDescending(l => l.EndTime)
             .FirstOrDefaultAsync();
 
-        return lastLog?.StartTime;
+        return lastLog?.EndTime;
     }
 
     private async Task<Product?> GetOrCreateProductAsync(string sku, string name)

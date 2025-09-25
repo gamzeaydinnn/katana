@@ -222,7 +222,7 @@ public class ReportsController : ControllerBase
                     FailedRuns = g.Count(l => l.Status == "FAILED"),
                     TotalProcessedRecords = g.Sum(l => l.ProcessedRecords),
                     TotalSuccessfulRecords = g.Sum(l => l.SuccessfulRecords),
-                    TotalFailedRecords = g.Sum(l => l.FailedRecords),
+                    TotalFailedRecords = g.Sum(l => l.FailedRecordsCount),
                     AverageDuration = g.Where(l => l.Duration.HasValue)
                                      .Average(l => l.Duration!.Value.TotalSeconds),
                     LastRunTime = g.Max(l => l.StartTime)

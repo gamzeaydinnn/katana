@@ -24,7 +24,7 @@ public class IntegrationLog
     
     public int SuccessfulRecords { get; set; }
     
-    public int FailedRecords { get; set; }
+    public int FailedRecordsCount { get; set; }
     
     [MaxLength(2000)]
     public string? ErrorMessage { get; set; }

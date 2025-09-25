@@ -39,8 +39,8 @@ public class ErrorHandlingMiddleware
 
         switch (exception)
         {
-            case ArgumentException:
             case ArgumentNullException:
+            case ArgumentException:
                 response.Message = "Invalid request parameters.";
                 context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                 break;

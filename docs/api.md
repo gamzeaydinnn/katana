@@ -31,6 +31,7 @@ Authorization: Bearer <your-jwt-token>
 ### Sync Controller
 
 #### Complete Sync
+
 Tüm veri tiplerini senkronize eder.
 
 ```http
@@ -39,6 +40,7 @@ Authorization: Bearer <token>
 ```
 
 #### Stock Sync
+
 Sadece stok verilerini senkronize eder.
 
 ```http
@@ -47,6 +49,7 @@ Authorization: Bearer <token>
 ```
 
 #### Invoice Sync
+
 Sadece fatura verilerini senkronize eder.
 
 ```http
@@ -55,6 +58,7 @@ Authorization: Bearer <token>
 ```
 
 #### Customer Sync
+
 Sadece müşteri verilerini senkronize eder.
 
 ```http
@@ -63,6 +67,7 @@ Authorization: Bearer <token>
 ```
 
 #### Sync Status
+
 Tüm senkronizasyon durumlarını getirir.
 
 ```http
@@ -71,6 +76,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:**
+
 ```json
 [
   {
@@ -87,6 +93,7 @@ Authorization: Bearer <token>
 ### Reports Controller
 
 #### Integration Logs
+
 Entegrasyon loglarını getirir.
 
 ```http
@@ -95,6 +102,7 @@ Authorization: Bearer <token>
 ```
 
 #### Last Sync Reports
+
 Her senkronizasyon tipi için son raporu getirir.
 
 ```http
@@ -103,6 +111,7 @@ Authorization: Bearer <token>
 ```
 
 #### Failed Records
+
 Başarısız kayıtları getirir.
 
 ```http
@@ -111,6 +120,7 @@ Authorization: Bearer <token>
 ```
 
 #### Statistics
+
 Senkronizasyon istatistiklerini getirir.
 
 ```http
@@ -121,6 +131,7 @@ Authorization: Bearer <token>
 ### Mapping Controller
 
 #### Get All Mappings
+
 Tüm mapping kayıtlarını getirir.
 
 ```http
@@ -129,6 +140,7 @@ Authorization: Bearer <token>
 ```
 
 #### Get SKU Account Mappings
+
 SKU - hesap kodu eşleştirmelerini getirir.
 
 ```http
@@ -137,6 +149,7 @@ Authorization: Bearer <token>
 ```
 
 #### Get Location Mappings
+
 Lokasyon - depo eşleştirmelerini getirir.
 
 ```http
@@ -145,6 +158,7 @@ Authorization: Bearer <token>
 ```
 
 #### Create Mapping
+
 Yeni mapping kaydı oluşturur.
 
 ```http
@@ -162,6 +176,7 @@ Content-Type: application/json
 ```
 
 #### Update Mapping
+
 Mevcut mapping kaydını günceller.
 
 ```http
@@ -177,6 +192,7 @@ Content-Type: application/json
 ```
 
 #### Delete Mapping
+
 Mapping kaydını siler.
 
 ```http
@@ -187,6 +203,7 @@ Authorization: Bearer <token>
 ## Response Formatları
 
 ### Başarılı Response
+
 ```json
 {
   "isSuccess": true,
@@ -202,6 +219,7 @@ Authorization: Bearer <token>
 ```
 
 ### Hata Response
+
 ```json
 {
   "message": "An error occurred while processing your request.",
@@ -223,6 +241,7 @@ Authorization: Bearer <token>
 ## Rate Limiting
 
 API'de rate limiting uygulanmaktadır:
+
 - Dakikada maksimum 100 istek
 - Saatte maksimum 1000 istek
 
@@ -235,6 +254,7 @@ GET /health
 ```
 
 Response:
+
 ```json
 {
   "status": "Healthy",
