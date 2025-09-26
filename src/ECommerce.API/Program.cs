@@ -58,11 +58,11 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Database Configuration
+// Database Configuration - Using SQLite (Persistent)
 builder.Services.AddDbContext<IntegrationDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    options.UseSqlServer(connectionString);
+    options.UseSqlite(connectionString);
 });
 
 // Configuration
@@ -156,15 +156,13 @@ builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Enable Swagger for all environments during development
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Katana-Luca Integration API v1");
-        c.RoutePrefix = string.Empty; // Serve Swagger UI at the app's root
-    });
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Katana-Luca Integration API v1");
+    c.RoutePrefix = string.Empty; // Serve Swagger UI at the app's root
+});
 
 app.UseHttpsRedirection();
 
