@@ -45,3 +45,8 @@ pids
 .env.development.local
 .env.test.local
 .env.production.local
+
+
+# .NET build output
+/bin/
+/obj/
