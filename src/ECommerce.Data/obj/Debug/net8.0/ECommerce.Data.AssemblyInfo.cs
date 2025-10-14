@@ -10,12 +10,12 @@
 using System;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyCompanyAttribute("ECommerce.Infrastructure")]
+[assembly: System.Reflection.AssemblyCompanyAttribute("ECommerce.Data")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
 [assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4b461a5938cc31d29e7ebe3d6780152ae03351b6")]
-[assembly: System.Reflection.AssemblyProductAttribute("ECommerce.Infrastructure")]
-[assembly: System.Reflection.AssemblyTitleAttribute("ECommerce.Infrastructure")]
+[assembly: System.Reflection.AssemblyProductAttribute("ECommerce.Data")]
+[assembly: System.Reflection.AssemblyTitleAttribute("ECommerce.Data")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
 
 // MSBuild WriteCodeFragment sınıfı tarafından oluşturuldu.
