@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -18,9 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ECommerce.Core\ECommerce.Core.csproj" />
-    <ProjectReference Include="..\..\src\ECommerce.Business\ECommerce.Business.csproj" />
-    <ProjectReference Include="..\..\src\ECommerce.Data\ECommerce.Data.csproj" />
+    <ProjectReference Include="..\..\src\Katana.Core\Katana.Core.csproj" />
+    <ProjectReference Include="..\..\src\Katana.Business\Katana.Business.csproj" />
+    <ProjectReference Include="..\..\src\Katana.Data\Katana.Data.csproj" />
   </ItemGroup>
 
 </Project>

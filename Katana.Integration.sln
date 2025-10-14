@@ -9,22 +9,22 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{B2C3D4E5-F6G7-8901-BCDE-F12345678901}"
 EndProject
 
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ECommerce.Core", "src\ECommerce.Core\ECommerce.Core.csproj", "{C3D4E5F6-G7H8-9012-CDEF-123456789012}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Katana.Core", "src\Katana.Core\Katana.Core.csproj", "{C3D4E5F6-G7H8-9012-CDEF-123456789012}"
 EndProject
 
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ECommerce.Data", "src\ECommerce.Data\ECommerce.Data.csproj", "{D4E5F6G7-H8I9-0123-DEF1-234567890123}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Katana.Data", "src\Katana.Data\Katana.Data.csproj", "{D4E5F6G7-H8I9-0123-DEF1-234567890123}"
 EndProject
 
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ECommerce.Business", "src\ECommerce.Business\ECommerce.Business.csproj", "{E5F6G7H8-I9J0-1234-EF12-345678901234}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Katana.Business", "src\Katana.Business\Katana.Business.csproj", "{E5F6G7H8-I9J0-1234-EF12-345678901234}"
 EndProject
 
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ECommerce.API", "src\ECommerce.API\ECommerce.API.csproj", "{F6G7H8I9-J0K1-2345-F123-456789012345}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Katana.API", "src\Katana.API\Katana.API.csproj", "{F6G7H8I9-J0K1-2345-F123-456789012345}"
 EndProject
 
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ECommerce.Infrastructure", "src\ECommerce.Infrastructure\ECommerce.Infrastructure.csproj", "{G7H8I9J0-K1L2-3456-1234-567890123456}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Katana.Infrastructure", "src\Katana.Infrastructure\Katana.Infrastructure.csproj", "{G7H8I9J0-K1L2-3456-1234-567890123456}"
 EndProject
 
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ECommerce.Tests", "tests\ECommerce.Tests\ECommerce.Tests.csproj", "{H8I9J0K1-L2M3-4567-2345-678901234567}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Katana.Tests", "tests\Katana.Tests\Katana.Tests.csproj", "{H8I9J0K1-L2M3-4567-2345-678901234567}"
 EndProject
 
 Global
