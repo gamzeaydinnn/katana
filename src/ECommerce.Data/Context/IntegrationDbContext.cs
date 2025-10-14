@@ -16,11 +16,14 @@ public class IntegrationDbContext : DbContext
     public DbSet<Customer> Customers { get; set; } = null!;
     public DbSet<Invoice> Invoices { get; set; } = null!;
     public DbSet<InvoiceItem> InvoiceItems { get; set; } = null!;
+   
 
     // Integration specific entities
     public DbSet<IntegrationLog> IntegrationLogs { get; set; } = null!;
     public DbSet<MappingTable> MappingTables { get; set; } = null!;
     public DbSet<FailedSyncRecord> FailedSyncRecords { get; set; } = null!;
+     public DbSet<SyncLog> SyncLogs { get; set; }
+    public DbSet<ErrorLog> ErrorLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
