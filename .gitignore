@@ -50,3 +50,7 @@ pids
 # .NET build output
 /bin/
 /obj/
+
+# .NET build output
+/bin/
+/obj/
