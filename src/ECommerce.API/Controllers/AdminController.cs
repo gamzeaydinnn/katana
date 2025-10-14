@@ -1,3 +1,4 @@
+using ECommerce.Core.DTOs;
 using ECommerce.Core.Interfaces;
 using ECommerce.Data.Context;
 using ECommerce.Data.Models;
@@ -22,7 +23,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("sync-status")]
-    public async Task<ActionResult<List<SyncStatusDto>>> GetSyncStatuses()
+    public async Task<ActionResult<List<AdminSyncStatusDto>>> GetSyncStatuses()
     {
         return Ok(await _adminService.GetSyncStatusesAsync());
     }

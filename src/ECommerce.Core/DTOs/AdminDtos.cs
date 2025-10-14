@@ -1,6 +1,6 @@
 namespace ECommerce.Core.DTOs;
 
-public class SyncStatusDto
+public class AdminSyncStatusDto
 {
     public string IntegrationName { get; set; } = string.Empty; // Katana / Luca
     public DateTime LastSyncDate { get; set; }

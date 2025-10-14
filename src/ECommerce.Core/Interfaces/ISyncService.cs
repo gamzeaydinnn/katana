@@ -1,4 +1,7 @@
+using ECommerce.Core.DTOs;
+
 namespace ECommerce.Core.Interfaces;
+
 public interface ISyncService
 {
     Task<SyncResultDto> SyncStockAsync(DateTime? fromDate = null);

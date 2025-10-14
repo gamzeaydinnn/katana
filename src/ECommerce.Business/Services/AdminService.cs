@@ -26,12 +26,12 @@ public class AdminService : IAdminService
         _logger = logger;
     }
 
-    public async Task<List<SyncStatusDto>> GetSyncStatusesAsync()
+    public async Task<List<AdminSyncStatusDto>> GetSyncStatusesAsync()
     {
-        var statuses = new List<SyncStatusDto>();
+        var statuses = new List<AdminSyncStatusDto>();
         try
         {
-            var katanaStatus = new SyncStatusDto
+            var katanaStatus = new AdminSyncStatusDto
             {
                 IntegrationName = "Katana",
                 LastSyncDate = await _context.SyncLogs
@@ -43,7 +43,7 @@ public class AdminService : IAdminService
             };
             statuses.Add(katanaStatus);
 
-            var lucaStatus = new SyncStatusDto
+            var lucaStatus = new AdminSyncStatusDto
             {
                 IntegrationName = "Luca",
                 LastSyncDate = await _context.SyncLogs

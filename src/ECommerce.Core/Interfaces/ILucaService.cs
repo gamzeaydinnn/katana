@@ -1,4 +1,7 @@
+using ECommerce.Core.DTOs;
+
 namespace ECommerce.Core.Interfaces;
+
 public interface ILucaService
 {
     Task<SyncResultDto> SendInvoicesAsync(List<LucaInvoiceDto> invoices);

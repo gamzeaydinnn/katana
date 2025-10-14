@@ -14,51 +14,51 @@
 ## 🏗 Proje Mimarisi
 
 ```
-ECommerce.Integration/
-├── ECommerce.Core/          # Domain modelleri, DTO'lar, yardımcılar
-├── ECommerce.Data/          # Veritabanı katmanı
-├── ECommerce.Business/      # Servisler ve iş mantığı
-├── ECommerce.API/           # REST API (kontroller, middleware)
-├── ECommerce.Infrastructure/# Logging, jobs, background services
-├── ECommerce.Tests/         # Unit & Integration testleri
+Katana.Integration/
+├── Katana.Core/             # Domain modelleri, DTO'lar, yardımcılar
+├── Katana.Data/             # Veritabanı katmanı
+├── Katana.Business/         # Servisler ve iş mantığı
+├── Katana.API/              # REST API (kontroller, middleware)
+├── Katana.Infrastructure/   # Logging, jobs, background services
+├── Katana.Tests/            # Unit & Integration testleri
 └── docs/                    # Dökümantasyon, mapping tabloları
 ```
 
 ## 🧩 Katman Yapısı
 
-### 🔹 ECommerce.Core (Domain Layer)
+### 🔹 Katana.Core (Domain Layer)
 
 - **Entities**: Product, Stock, Invoice, Customer modelleri
 - **DTOs**: KatanaStockDto, LucaInvoiceDto, SyncResultDto
 - **Helpers**: MappingHelper, JwtTokenHelper, HashingHelper
 
-### 🔹 ECommerce.Data (Data Access Layer)
+### 🔹 Katana.Data (Data Access Layer)
 
 - **DbContext**: IntegrationDbContext (EF Core)
 - **Repositories**: Repository pattern implementasyonu
 - **Models**: IntegrationLog, MappingTable, FailedSyncRecord
 - **Migrations**: Veritabanı migration dosyaları
 
-### 🔹 ECommerce.Business (Business Logic Layer)
+### 🔹 Katana.Business (Business Logic Layer)
 
 - **KatanaService**: Katana API çağrıları ve veri çekme
 - **LucaService**: Luca'ya veri gönderimi (API/CSV/XML)
 - **SyncService**: Tüm entegrasyon sürecini koordine eder
 
-### 🔹 ECommerce.API (Presentation Layer)
+### 🔹 Katana.API (Presentation Layer)
 
 - **Controllers**: SyncController, ReportController, MappingController
 - **Middleware**: ErrorHandling, Authentication, CORS
 - **Endpoints**: REST API endpoints
 
-### 🔹 ECommerce.Infrastructure (Infrastructure Layer)
+### 🔹 Katana.Infrastructure (Infrastructure Layer)
 
 - **Logging**: Serilog ile dosya + DB loglama
 - **Jobs**: Quartz.NET ile zamanlanmış senkronizasyon
 - **Config**: Yapılandırma yönetimi
 - **Workers**: Background services
 
-### 🔹 ECommerce.Tests (Test Layer)
+### 🔹 Katana.Tests (Test Layer)
 
 - **Unit Tests**: Servislerin birim testleri
 - **Integration Tests**: End-to-end test senaryoları
@@ -92,13 +92,13 @@ cd katana
 dotnet restore
 
 # 3. Veritabanını oluşturun
-dotnet ef database update --project ECommerce.Data
+dotnet ef database update --project src/ECommerce.Data
 
 # 4. Yapılandırma dosyasını düzenleyin
-cp appsettings.json.example appsettings.json
+cp src/ECommerce.API/appsettings.json.example src/ECommerce.API/appsettings.json
 
 # 5. Projeyi çalıştırın
-dotnet run --project ECommerce.API
+dotnet run --project src/ECommerce.API
 ```
 
 ### Yapılandırma
@@ -174,10 +174,10 @@ PUT /api/mapping/{id}
 
 ```bash
 # Unit testleri çalıştır
-dotnet test ECommerce.Tests
+dotnet test tests/ECommerce.Tests
 
 # Integration testleri çalıştır
-dotnet test ECommerce.Tests --filter Category=Integration
+dotnet test tests/ECommerce.Tests --filter Category=Integration
 
 # Test coverage raporu
 dotnet test --collect:"XPlat Code Coverage"
