@@ -1,9 +1,9 @@
-using ECommerce.Core.Interfaces;
-using ECommerce.Data.Context;
+﻿using Katana.Core.Interfaces;
+using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace ECommerce.Business.Services;
+namespace Katana.Business.Services;
 
 public class MappingService : IMappingService
 {
@@ -130,3 +130,4 @@ public class MappingService : IMappingService
         }
     }
 }
+

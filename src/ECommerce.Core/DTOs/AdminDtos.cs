@@ -1,4 +1,4 @@
-namespace ECommerce.Core.DTOs;
+﻿namespace Katana.Core.DTOs;
 
 public class AdminSyncStatusDto
 {
@@ -30,3 +30,5 @@ public class SyncReportDto
     public int FailedCount { get; set; }
     public DateTime ReportDate { get; set; }
 }
+
+

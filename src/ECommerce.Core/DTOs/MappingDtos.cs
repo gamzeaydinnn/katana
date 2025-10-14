@@ -1,4 +1,4 @@
-namespace ECommerce.Core.DTOs;
+﻿namespace Katana.Core.DTOs;
 
 /// <summary>
 /// DTO for SKU to Account mapping
@@ -39,3 +39,5 @@ public class MappingDto
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
+
+

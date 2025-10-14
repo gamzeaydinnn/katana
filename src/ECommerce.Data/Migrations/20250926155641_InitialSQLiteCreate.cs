@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
 
-namespace ECommerce.Data.Migrations
+namespace Katana.Data.Migrations
 {
     /// <inheritdoc />
     public partial class InitialSQLiteCreate : Migration
@@ -351,3 +351,5 @@ namespace ECommerce.Data.Migrations
         }
     }
 }
+
+

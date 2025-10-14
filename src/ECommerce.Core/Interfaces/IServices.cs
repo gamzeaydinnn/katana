@@ -1,10 +1,10 @@
-using ECommerce.Core.DTOs;
+﻿using Katana.Core.DTOs;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
 
-namespace ECommerce.Core.Interfaces;
+namespace Katana.Core.Interfaces;
 
 public interface IRepository<T> where T : class
 {
@@ -23,3 +23,4 @@ public interface IUnitOfWork : IDisposable
     Task CommitTransactionAsync();
     Task RollbackTransactionAsync();
 }
+

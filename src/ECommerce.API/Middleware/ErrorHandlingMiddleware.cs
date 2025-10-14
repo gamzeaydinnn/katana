@@ -1,7 +1,7 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 
-namespace ECommerce.API.Middleware;
+namespace Katana.API.Middleware;
 
 public class ErrorHandlingMiddleware
 {
@@ -86,3 +86,4 @@ public class ErrorResponse
     public string Details { get; set; } = string.Empty;
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
+

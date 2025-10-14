@@ -1,11 +1,11 @@
-using ECommerce.Core.DTOs;
-using ECommerce.Core.Interfaces;
-using ECommerce.Data.Context;
-using ECommerce.Data.Models;
+﻿using Katana.Core.DTOs;
+using Katana.Core.Interfaces;
+using Katana.Data.Context;
+using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace ECommerce.Business.Services;
+namespace Katana.Business.Services;
 
 public class AdminService : IAdminService
 {
@@ -102,7 +102,7 @@ public class AdminService : IAdminService
             if (request.IntegrationName.Equals("Katana", StringComparison.OrdinalIgnoreCase))
             {
                 var products = await _katanaService.GetProductsAsync();
-                // Burada gönderme işlemi yapılabilir
+                // Burada gÃ¶nderme iÅŸlemi yapÄ±labilir
                 return true;
             }
             else if (request.IntegrationName.Equals("Luca", StringComparison.OrdinalIgnoreCase))
@@ -119,3 +119,5 @@ public class AdminService : IAdminService
         }
     }
 }
+
+

@@ -1,9 +1,9 @@
-using Microsoft.IdentityModel.Tokens;
+﻿using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
-namespace ECommerce.Core.Helpers;
+namespace Katana.Core.Helpers;
 
 public static class JwtTokenHelper
 {
@@ -95,3 +95,4 @@ public static class JwtTokenHelper
             .Select(s => s[random.Next(s.Length)]).ToArray());
     }
 }
+

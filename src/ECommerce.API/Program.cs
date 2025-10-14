@@ -1,12 +1,12 @@
-using ECommerce.API.Middleware;
-using ECommerce.Business.Configuration;
-using ECommerce.Business.Services;
-using ECommerce.Core.Interfaces;
-using ECommerce.Data.Context;
-using ECommerce.Data.Repositories;
-using ECommerce.Infrastructure.Jobs;
-using ECommerce.Infrastructure.Logging;
-using ECommerce.Infrastructure.Workers;
+﻿using Katana.API.Middleware;
+using Katana.Business.Configuration;
+using Katana.Business.Services;
+using Katana.Core.Interfaces;
+using Katana.Data.Context;
+using Katana.Data.Repositories;
+using Katana.Infrastructure.Jobs;
+using Katana.Infrastructure.Logging;
+using Katana.Infrastructure.Workers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -179,3 +179,4 @@ app.MapControllers();
 app.MapHealthChecks("/health");
 
 app.Run();
+

@@ -1,8 +1,8 @@
-using ECommerce.Core.Interfaces;
-using ECommerce.Data.Context;
+﻿using Katana.Core.Interfaces;
+using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 
-namespace ECommerce.Data.Repositories;
+namespace Katana.Data.Repositories;
 
 public class Repository<T> : IRepository<T> where T : class
 {
@@ -52,3 +52,4 @@ public class Repository<T> : IRepository<T> where T : class
         return entity != null;
     }
 }
+

@@ -1,7 +1,7 @@
-using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.Hosting;
 using Serilog;
 
-namespace ECommerce.Infrastructure.Logging;
+namespace Katana.Infrastructure.Logging;
 
 public static class SerilogExtensions
 {
@@ -16,3 +16,4 @@ public static class SerilogExtensions
         });
     }
 }
+

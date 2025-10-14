@@ -1,11 +1,11 @@
-using ECommerce.Core.Interfaces;
-using ECommerce.Data.Context;
-using ECommerce.Data.Models;
+﻿using Katana.Core.Interfaces;
+using Katana.Data.Context;
+using Katana.Data.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace ECommerce.API.Controllers;
+namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -293,3 +293,4 @@ public class UpdateMappingRequest
     public string? Description { get; set; }
     public bool? IsActive { get; set; }
 }
+

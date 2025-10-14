@@ -1,12 +1,12 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using ECommerce.Core.Interfaces;
+using Katana.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace ECommerce.Infrastructure.Workers;
+namespace Katana.Infrastructure.Workers;
 
 public class SyncWorkerService : BackgroundService
 {
@@ -73,3 +73,4 @@ public class SyncWorkerService : BackgroundService
         await base.StopAsync(cancellationToken);
     }
 }
+

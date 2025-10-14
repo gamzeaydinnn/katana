@@ -1,6 +1,6 @@
-using ECommerce.Core.DTOs;
+﻿using Katana.Core.DTOs;
 
-namespace ECommerce.Core.Interfaces;
+namespace Katana.Core.Interfaces;
 
 public interface IAdminService
 {
@@ -9,3 +9,5 @@ public interface IAdminService
     Task<SyncReportDto> GetSyncReportAsync(string integrationName);
     Task<bool> RunManualSyncAsync(ManualSyncRequest request);
 }
+
+

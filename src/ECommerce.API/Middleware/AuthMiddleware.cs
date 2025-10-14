@@ -1,7 +1,7 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 
-namespace ECommerce.API.Middleware;
+namespace Katana.API.Middleware;
 
 public class AuthMiddleware
 {
@@ -70,3 +70,4 @@ public class AuthMiddleware
         await context.Response.WriteAsync(jsonResponse);
     }
 }
+

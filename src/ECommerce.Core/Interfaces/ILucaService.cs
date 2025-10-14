@@ -1,6 +1,6 @@
-using ECommerce.Core.DTOs;
+﻿using Katana.Core.DTOs;
 
-namespace ECommerce.Core.Interfaces;
+namespace Katana.Core.Interfaces;
 
 public interface ILucaService
 {
@@ -9,3 +9,5 @@ public interface ILucaService
     Task<SyncResultDto> SendCustomersAsync(List<LucaCustomerDto> customers);
     Task<bool> TestConnectionAsync();
 }
+
+

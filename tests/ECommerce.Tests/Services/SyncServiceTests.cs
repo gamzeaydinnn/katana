@@ -1,16 +1,16 @@
-using System;
-using ECommerce.Business.Services;
-using ECommerce.Core.Interfaces;
-using ECommerce.Core.DTOs;
-using ECommerce.Core.Entities;
-using ECommerce.Data.Context;
+﻿using System;
+using Katana.Business.Services;
+using Katana.Core.Interfaces;
+using Katana.Core.DTOs;
+using Katana.Core.Entities;
+using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 using FluentAssertions;
 using Xunit;
 
-namespace ECommerce.Tests.Services;
+namespace Katana.Tests.Services;
 
 public class SyncServiceTests : IDisposable
 {
@@ -116,3 +116,4 @@ public class SyncServiceTests : IDisposable
         GC.SuppressFinalize(this);
     }
 }
+

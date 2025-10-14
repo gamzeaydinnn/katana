@@ -1,6 +1,6 @@
-using ECommerce.Core.DTOs;
+﻿using Katana.Core.DTOs;
 
-namespace ECommerce.Core.Interfaces;
+namespace Katana.Core.Interfaces;
 
 public interface ISyncService
 {
@@ -11,3 +11,4 @@ public interface ISyncService
     Task<List<SyncStatusDto>> GetSyncStatusAsync();
     Task<bool> IsSyncRunningAsync(string syncType);
 }
+

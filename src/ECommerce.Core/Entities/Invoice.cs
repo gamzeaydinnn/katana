@@ -1,6 +1,6 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
-namespace ECommerce.Core.Entities;
+namespace Katana.Core.Entities;
 
 public class Invoice
 {
@@ -44,3 +44,4 @@ public class Invoice
     public virtual Customer Customer { get; set; } = null!;
     public virtual ICollection<InvoiceItem> InvoiceItems { get; set; } = new List<InvoiceItem>();
 }
+

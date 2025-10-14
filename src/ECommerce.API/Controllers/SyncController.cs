@@ -1,9 +1,9 @@
-using ECommerce.Core.DTOs;
-using ECommerce.Core.Interfaces;
+﻿using Katana.Core.DTOs;
+using Katana.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace ECommerce.API.Controllers;
+namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -155,3 +155,4 @@ public class SyncController : ControllerBase
         }
     }
 }
+

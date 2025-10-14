@@ -1,8 +1,8 @@
-using ECommerce.Core.Entities;
-using ECommerce.Data.Models;
+﻿using Katana.Core.Entities;
+using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace ECommerce.Data.Context;
+namespace Katana.Data.Context;
 
 public class IntegrationDbContext : DbContext
 {
@@ -179,3 +179,4 @@ public class IntegrationDbContext : DbContext
         return await base.SaveChangesAsync(cancellationToken);
     }
 }
+

@@ -1,6 +1,6 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
-namespace ECommerce.Data.Models;
+namespace Katana.Data.Models;
 
 public class SyncLog
 {
@@ -17,3 +17,5 @@ public class SyncLog
     [MaxLength(2000)]
     public string? Details { get; set; }
 }
+
+

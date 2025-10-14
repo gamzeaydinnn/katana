@@ -1,9 +1,9 @@
-using ECommerce.Core.DTOs;
-using ECommerce.Core.Helpers;
+﻿using Katana.Core.DTOs;
+using Katana.Core.Helpers;
 using FluentAssertions;
 using Xunit;
 
-namespace ECommerce.Tests.Helpers;
+namespace Katana.Tests.Helpers;
 
 public class MappingHelperTests
 {
@@ -66,3 +66,4 @@ public class MappingHelperTests
         result.WarehouseCode.Should().Be("WH001");
     }
 }
+

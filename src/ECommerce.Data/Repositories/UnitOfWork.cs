@@ -1,8 +1,8 @@
-using ECommerce.Core.Interfaces;
-using ECommerce.Data.Context;
+﻿using Katana.Core.Interfaces;
+using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace ECommerce.Data.Repositories;
+namespace Katana.Data.Repositories;
 
 public class UnitOfWork : IUnitOfWork
 {
@@ -50,3 +50,4 @@ public class UnitOfWork : IUnitOfWork
         _context.Dispose();
     }
 }
+

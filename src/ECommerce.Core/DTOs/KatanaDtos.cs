@@ -1,4 +1,4 @@
-namespace ECommerce.Core.DTOs;
+﻿namespace Katana.Core.DTOs;
 
 public class KatanaStockDto
 {
@@ -47,3 +47,4 @@ public class KatanaInvoiceItemDto
     public decimal TaxAmount { get; set; }
     public decimal TotalAmount { get; set; }
 }
+

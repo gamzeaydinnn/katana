@@ -1,4 +1,4 @@
-namespace ECommerce.Business.Configuration;
+﻿namespace Katana.Business.Configuration;
 
 public class KatanaApiSettings
 {
@@ -76,3 +76,4 @@ public class SyncTypeSettings
     public int SyncIntervalMinutes { get; set; } = 360; // 6 hours
     public DateTime? LastSyncTime { get; set; }
 }
+

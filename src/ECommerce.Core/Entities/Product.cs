@@ -1,6 +1,6 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
-namespace ECommerce.Core.Entities;
+namespace Katana.Core.Entities;
 
 public class Product
 {
@@ -35,3 +35,4 @@ public class Product
     // Navigation properties
     public virtual ICollection<Stock> StockMovements { get; set; } = new List<Stock>();
 }
+

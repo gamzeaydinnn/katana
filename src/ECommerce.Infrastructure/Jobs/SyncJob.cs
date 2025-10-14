@@ -1,8 +1,8 @@
-using ECommerce.Core.Interfaces;
+﻿using Katana.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 using Quartz;
 
-namespace ECommerce.Infrastructure.Jobs;
+namespace Katana.Infrastructure.Jobs;
 
 [DisallowConcurrentExecution]
 public class SyncJob : IJob
@@ -57,3 +57,4 @@ public class SyncJob : IJob
         }
     }
 }
+

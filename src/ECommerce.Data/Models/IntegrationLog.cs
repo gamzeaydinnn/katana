@@ -1,6 +1,6 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
-namespace ECommerce.Data.Models;
+namespace Katana.Data.Models;
 
 public class IntegrationLog
 {
@@ -37,3 +37,4 @@ public class IntegrationLog
     // Navigation properties
     public virtual ICollection<FailedSyncRecord> FailedRecords { get; set; } = new List<FailedSyncRecord>();
 }
+

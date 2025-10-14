@@ -1,14 +1,14 @@
-using ECommerce.Core.DTOs;
-using ECommerce.Core.Interfaces;
-using ECommerce.Core.Entities;
-using ECommerce.Core.Helpers;
-using ECommerce.Data.Context;
-using ECommerce.Data.Models;
+﻿using Katana.Core.DTOs;
+using Katana.Core.Interfaces;
+using Katana.Core.Entities;
+using Katana.Core.Helpers;
+using Katana.Data.Context;
+using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
-namespace ECommerce.Business.Services;
+namespace Katana.Business.Services;
 
 public class SyncService : ISyncService
 {
@@ -464,3 +464,4 @@ public class SyncService : ISyncService
         return DateTime.UtcNow.AddHours(6);
     }
 }
+

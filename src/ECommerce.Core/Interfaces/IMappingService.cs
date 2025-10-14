@@ -1,4 +1,4 @@
-namespace ECommerce.Core.Interfaces;
+﻿namespace Katana.Core.Interfaces;
 public interface IMappingService
 {
     Task<Dictionary<string, string>> GetSkuToAccountMappingAsync();
@@ -6,3 +6,5 @@ public interface IMappingService
     Task UpdateSkuMappingAsync(string sku, string accountCode);
     Task UpdateLocationMappingAsync(string location, string warehouseCode);
 }
+
+

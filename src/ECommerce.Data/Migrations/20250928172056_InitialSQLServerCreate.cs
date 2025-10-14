@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace ECommerce.Data.Migrations
+namespace Katana.Data.Migrations
 {
     /// <inheritdoc />
     public partial class InitialSQLServerCreate : Migration
@@ -1895,3 +1895,5 @@ namespace ECommerce.Data.Migrations
         }
     }
 }
+
+

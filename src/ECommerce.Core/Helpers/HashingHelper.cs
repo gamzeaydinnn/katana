@@ -1,8 +1,8 @@
-using Microsoft.AspNetCore.Cryptography.KeyDerivation;
+﻿using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace ECommerce.Core.Helpers;
+namespace Katana.Core.Helpers;
 
 public static class HashingHelper
 {
@@ -65,3 +65,4 @@ public static class HashingHelper
         return computedSignature == signature;
     }
 }
+

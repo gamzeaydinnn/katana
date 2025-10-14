@@ -1,13 +1,13 @@
-using ECommerce.Core.DTOs;
-using ECommerce.Core.Interfaces;
-using ECommerce.Business.Configuration;
+﻿using Katana.Core.DTOs;
+using Katana.Core.Interfaces;
+using Katana.Business.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Text;
 using System.Net.Http.Headers;
 
-namespace ECommerce.Business.Services;
+namespace Katana.Business.Services;
 
 public class KatanaService : IKatanaService
 {
@@ -190,3 +190,4 @@ public class KatanaService : IKatanaService
         }
     }
 }
+

@@ -1,6 +1,6 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
-namespace ECommerce.Data.Models;
+namespace Katana.Data.Models;
 
 public class MappingTable
 {
@@ -33,3 +33,4 @@ public class MappingTable
     [MaxLength(100)]
     public string? UpdatedBy { get; set; }
 }
+

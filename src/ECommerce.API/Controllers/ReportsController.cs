@@ -1,10 +1,10 @@
-using ECommerce.Data.Context;
-using ECommerce.Data.Models;
+﻿using Katana.Data.Context;
+using Katana.Data.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace ECommerce.API.Controllers;
+namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -246,3 +246,4 @@ public class ReportsController : ControllerBase
         }
     }
 }
+

@@ -1,6 +1,6 @@
-using ECommerce.Core.DTOs;
+﻿using Katana.Core.DTOs;
 
-namespace ECommerce.Core.Interfaces;
+namespace Katana.Core.Interfaces;
 
 public interface IKatanaService
 {
@@ -10,3 +10,4 @@ public interface IKatanaService
     Task<KatanaProductDto?> GetProductBySkuAsync(string sku);
     Task<bool> TestConnectionAsync();
 }
+

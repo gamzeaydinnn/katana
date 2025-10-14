@@ -1,4 +1,4 @@
-namespace ECommerce.Core.DTOs;
+﻿namespace Katana.Core.DTOs;
 
 public class SyncResultDto
 {
@@ -33,3 +33,4 @@ public class SyncStatusDto
     public int PendingRecords { get; set; }
     public DateTime? NextScheduledSync { get; set; }
 }
+

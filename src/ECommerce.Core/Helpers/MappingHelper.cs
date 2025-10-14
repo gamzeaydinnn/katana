@@ -1,7 +1,7 @@
-using ECommerce.Core.DTOs;
-using ECommerce.Core.Entities;
+﻿using Katana.Core.DTOs;
+using Katana.Core.Entities;
 
-namespace ECommerce.Core.Helpers;
+namespace Katana.Core.Helpers;
 
 public static class MappingHelper
 {
@@ -178,3 +178,4 @@ public static class MappingHelper
                item.UnitPrice >= 0;
     }
 }
+

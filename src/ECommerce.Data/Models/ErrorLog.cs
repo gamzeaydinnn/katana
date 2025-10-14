@@ -1,6 +1,6 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
-namespace ECommerce.Data.Models;
+namespace Katana.Data.Models;
 
 public class ErrorLog
 {
@@ -16,3 +16,5 @@ public class ErrorLog
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
+
+

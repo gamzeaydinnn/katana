@@ -1,7 +1,7 @@
-using ECommerce.Core.DTOs;
-/*tüm senkronizasyonu birleştiren “üst seviye” bir interface olacak. 
-Yani Katana ve Luca servislerini çağırıp senkronizasyonu koordine edecek bir interface.*/
-namespace ECommerce.Core.Interfaces
+﻿using Katana.Core.DTOs;
+/*tÃ¼m senkronizasyonu birleÅŸtiren â€œÃ¼st seviyeâ€ bir interface olacak. 
+Yani Katana ve Luca servislerini Ã§aÄŸÄ±rÄ±p senkronizasyonu koordine edecek bir interface.*/
+namespace Katana.Core.Interfaces
 {
     /// <summary>
     /// Integration service combines Katana and Luca services for synchronization
@@ -17,3 +17,5 @@ namespace ECommerce.Core.Interfaces
         Task<bool> IsSyncRunningAsync(string syncType);
     }
 }
+
+

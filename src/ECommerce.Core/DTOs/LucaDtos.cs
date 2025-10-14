@@ -1,4 +1,4 @@
-namespace ECommerce.Core.DTOs;
+﻿namespace Katana.Core.DTOs;
 
 public class LucaInvoiceDto
 {
@@ -54,3 +54,4 @@ public class LucaCustomerDto
     public string? City { get; set; }
     public string? Country { get; set; }
 }
+

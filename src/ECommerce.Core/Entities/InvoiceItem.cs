@@ -1,6 +1,6 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
-namespace ECommerce.Core.Entities;
+namespace Katana.Core.Entities;
 
 public class InvoiceItem
 {
@@ -35,3 +35,4 @@ public class InvoiceItem
     public virtual Invoice Invoice { get; set; } = null!;
     public virtual Product Product { get; set; } = null!;
 }
+
