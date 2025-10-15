@@ -1,32 +1,86 @@
-using System;
+using Katana.Data.Context;
+using Katana.Data.Models;
+using Microsoft.EntityFrameworkCore;
 
-namespace Katana.Business.Configuration
+namespace Katana.Data.Repositories
 {
-    public class KatanaApiSettings
+    public class MappingRepository
     {
-        // Ana API adresi (değiştirme, Katana'nın resmi API URL'si)
-        public string BaseUrl { get; set; } = "https://api.katanamrp.com/v1/";
+        private readonly IntegrationDbContext _context;
 
-        // Katana hesabından aldığın API anahtarı
-        public string ApiKey { get; set; } = "ed8c38d1-4015-45e5-9c28-381d3fe148b6";
+        public MappingRepository(IntegrationDbContext context)
+        {
+            _context = context;
+        }
 
-        // Eğer Katana kullanıcı adı/şifre ile doğrulama kullanıyorsan (çoğu durumda gerekmez)
-        public bool UseBasicAuth { get; set; } = false;
-        public string? Username { get; set; }
-        public string? Password { get; set; }
+        // SKU -> Account mapping
+        public async Task<Dictionary<string, string>> GetSkuToAccountMappingsAsync()
+        {
+            return await _context.MappingTables
+                .Where(m => m.MappingType == "SKU_ACCOUNT" && m.IsActive)
+                .ToDictionaryAsync(m => m.SourceValue, m => m.TargetValue);
+        }
 
-        // Zaman aşımı (isteklerin 30 saniyede yanıt dönmezse iptal olur)
-        public int TimeoutSeconds { get; set; } = 30;
+        // Location -> Warehouse mapping
+        public async Task<Dictionary<string, string>> GetLocationMappingsAsync()
+        {
+            return await _context.MappingTables
+                .Where(m => m.MappingType == "LOCATION_WAREHOUSE" && m.IsActive)
+                .ToDictionaryAsync(m => m.SourceValue, m => m.TargetValue);
+        }
 
-        // Katana API içindeki alt endpoint adresleri
-        public KatanaApiEndpoints Endpoints { get; set; } = new();
-    }
+        // Add or update SKU mapping
+        public async Task UpsertSkuMappingAsync(string sku, string accountCode)
+        {
+            var mapping = await _context.MappingTables
+                .FirstOrDefaultAsync(m => m.MappingType == "SKU_ACCOUNT" && m.SourceValue == sku);
 
-    public class KatanaApiEndpoints
-    {
-        public string Products { get; set; } = "products";
-        public string Stock { get; set; } = "stock-movements";
-        public string Invoices { get; set; } = "sales-orders";
-        public string Health { get; set; } = "health";
+            if (mapping != null)
+            {
+                mapping.TargetValue = accountCode;
+                mapping.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                _context.MappingTables.Add(new MappingTable
+                {
+                    MappingType = "SKU_ACCOUNT",
+                    SourceValue = sku,
+                    TargetValue = accountCode,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        // Add or update Location mapping
+        public async Task UpsertLocationMappingAsync(string location, string warehouseCode)
+        {
+            var mapping = await _context.MappingTables
+                .FirstOrDefaultAsync(m => m.MappingType == "LOCATION_WAREHOUSE" && m.SourceValue == location);
+
+            if (mapping != null)
+            {
+                mapping.TargetValue = warehouseCode;
+                mapping.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                _context.MappingTables.Add(new MappingTable
+                {
+                    MappingType = "LOCATION_WAREHOUSE",
+                    SourceValue = location,
+                    TargetValue = warehouseCode,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
+            await _context.SaveChangesAsync();
+        }
     }
 }

@@ -1,4 +1,4 @@
-namespace Katana.Business.Configuration{
+namespace Katana.Business.Configuration;
 
 public class LucaApiSettings
 {
@@ -23,4 +23,4 @@ public class LucaEndpoints
     public string Customers { get; set; } = "/api/customers";
     public string Auth { get; set; } = "/api/auth/token";
     public string Health { get; set; } = "/api/health";
-}}
+}

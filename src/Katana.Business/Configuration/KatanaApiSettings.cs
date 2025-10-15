@@ -1,8 +1,8 @@
 using System;
 
 
-namespace Katana.Business.Configuration
-{
+namespace Katana.Business.Configuration;
+
     public class KatanaApiSettings
     {
         // Ana API adresi (değiştirme, Katana'nın resmi API URL'si)
@@ -16,7 +16,6 @@ namespace Katana.Business.Configuration
         public string? Username { get; set; }
         public string? Password { get; set; }
         public int MaxRetryAttempts { get; set; } = 3;
-         public bool UseBasicAuth { get; set; } = false;
 
         // Zaman aşımı (isteklerin 30 saniyede yanıt dönmezse iptal olur)
         public int TimeoutSeconds { get; set; } = 30;
@@ -33,5 +32,5 @@ namespace Katana.Business.Configuration
         public string Health { get; set; } = "health";
           public string Customers { get; set; } = "/api/customers";
     }
-}
+
 
