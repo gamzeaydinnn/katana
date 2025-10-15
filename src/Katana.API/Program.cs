@@ -17,23 +17,29 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure Serilog
+// -----------------------------
+// Logging (Serilog)
+// -----------------------------
 builder.Host.UseSerilogConfiguration();
 
-// Add services to the container.
+// -----------------------------
+// Services
+// -----------------------------
 builder.Services.AddControllers();
-
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
+
+// -----------------------------
+// Swagger Configuration
+// -----------------------------
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo 
-    { 
-        Title = "Katana-Luca Integration API", 
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Katana-Luca Integration API",
         Version = "v1",
         Description = "API for managing integration between Katana MRP/ERP and Luca Accounting systems"
     });
-    
+
     c.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
     {
         Description = "API Key needed to access the endpoints. X-API-Key: Your_API_Key",
@@ -41,7 +47,7 @@ builder.Services.AddSwaggerGen(c =>
         Name = "X-API-Key",
         Type = SecuritySchemeType.ApiKey
     });
-    
+
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -58,34 +64,43 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Database Configuration - Using SQLite (Persistent)
+// -----------------------------
+// Database (SQLite)
+// -----------------------------
 builder.Services.AddDbContext<IntegrationDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
     options.UseSqlite(connectionString);
 });
 
-// Configuration
-builder.Services.Configure<KatanaApiSettings>(
-    builder.Configuration.GetSection(KatanaApiSettings.SectionName));
-builder.Services.Configure<LucaApiSettings>(
-    builder.Configuration.GetSection(LucaApiSettings.SectionName));
-builder.Services.Configure<SyncSettings>(
-    builder.Configuration.GetSection(SyncSettings.SectionName));
+// -----------------------------
+// Configuration Bindings
+// -----------------------------
+builder.Services.Configure<KatanaApiSettings>(builder.Configuration.GetSection("KatanaApiSettings"));
+builder.Services.Configure<LucaApiSettings>(builder.Configuration.GetSection("LucaApiSettings"));
+builder.Services.Configure<SyncSettings>(builder.Configuration.GetSection("SyncSettings"));
 
+// -----------------------------
 // HTTP Clients
+// -----------------------------
 builder.Services.AddHttpClient<IKatanaService, KatanaService>();
 builder.Services.AddHttpClient<ILucaService, LucaService>();
 
-// Repository and UnitOfWork
+// -----------------------------
+// Repository + UnitOfWork
+// -----------------------------
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
+// -----------------------------
 // Business Services
+// -----------------------------
 builder.Services.AddScoped<ISyncService, SyncService>();
 builder.Services.AddScoped<IMappingService, MappingService>();
 
-// Authentication
+// -----------------------------
+// JWT Authentication
+// -----------------------------
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
 
@@ -106,7 +121,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+// -----------------------------
 // CORS
+// -----------------------------
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins", policy =>
@@ -117,66 +134,49 @@ builder.Services.AddCors(options =>
     });
 });
 
+// -----------------------------
 // Health Checks
-builder.Services.AddHealthChecks()
-    .AddDbContextCheck<IntegrationDbContext>();
+// -----------------------------
+builder.Services.AddHealthChecks().AddDbContextCheck<IntegrationDbContext>();
 
-// Background Services
+// -----------------------------
+// Background Services (Worker + Quartz)
+// -----------------------------
 builder.Services.AddHostedService<SyncWorkerService>();
 
-// Quartz.NET
 builder.Services.AddQuartz(q =>
 {
-    
     // Stock sync job - every 6 hours
     var stockJobKey = new JobKey("StockSyncJob");
-    q.AddJob<SyncJob>(opts => opts
-        .WithIdentity(stockJobKey)
-        .UsingJobData("SyncType", "STOCK"));
-    
-    q.AddTrigger(opts => opts
-        .ForJob(stockJobKey)
-        .WithIdentity("StockSyncTrigger")
-        .WithCronSchedule("0 0 */6 * * ?"));
-    
+    q.AddJob<SyncJob>(opts => opts.WithIdentity(stockJobKey).UsingJobData("SyncType", "STOCK"));
+    q.AddTrigger(opts => opts.ForJob(stockJobKey).WithIdentity("StockSyncTrigger").WithCronSchedule("0 0 */6 * * ?"));
+
     // Invoice sync job - every 4 hours
     var invoiceJobKey = new JobKey("InvoiceSyncJob");
-    q.AddJob<SyncJob>(opts => opts
-        .WithIdentity(invoiceJobKey)
-        .UsingJobData("SyncType", "INVOICE"));
-    
-    q.AddTrigger(opts => opts
-        .ForJob(invoiceJobKey)
-        .WithIdentity("InvoiceSyncTrigger")
-        .WithCronSchedule("0 0 */4 * * ?"));
+    q.AddJob<SyncJob>(opts => opts.WithIdentity(invoiceJobKey).UsingJobData("SyncType", "INVOICE"));
+    q.AddTrigger(opts => opts.ForJob(invoiceJobKey).WithIdentity("InvoiceSyncTrigger").WithCronSchedule("0 0 */4 * * ?"));
 });
 
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
+// -----------------------------
+// Build & Run
+// -----------------------------
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-// Enable Swagger for all environments during development
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Katana-Luca Integration API v1");
-    c.RoutePrefix = string.Empty; // Serve Swagger UI at the app's root
+    c.RoutePrefix = string.Empty; // Swagger UI ana dizinde
 });
 
 app.UseHttpsRedirection();
-
 app.UseCors("AllowSpecificOrigins");
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.UseMiddleware<AuthMiddleware>();
 app.UseMiddleware<ErrorHandlingMiddleware>();
-
 app.MapControllers();
-
 app.MapHealthChecks("/health");
-
 app.Run();
-
