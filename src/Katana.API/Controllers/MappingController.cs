@@ -6,7 +6,15 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace Katana.API.Controllers;
+/*Tüm eşleştirme türlerini (Ürün, Müşteri vb.) getiren bir endpoint (GET /api/mapping/types).
 
+Belirli bir türe ait tüm eşleştirmeleri getiren endpoint (GET /api/mapping/{type}).
+
+Yeni bir eşleştirme kaydı oluşturma (POST /api/mapping).
+
+Mevcut bir eşleştirmeyi güncelleme (PUT /api/mapping/{id}).
+
+Bir eşleştirmeyi silme (DELETE /api/mapping/{id}).*/
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]

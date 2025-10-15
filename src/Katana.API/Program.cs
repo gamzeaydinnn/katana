@@ -79,7 +79,9 @@ builder.Services.AddDbContext<IntegrationDbContext>(options =>
 builder.Services.Configure<KatanaApiSettings>(builder.Configuration.GetSection("KatanaApiSettings"));
 builder.Services.Configure<LucaApiSettings>(builder.Configuration.GetSection("LucaApiSettings"));
 builder.Services.Configure<SyncSettings>(builder.Configuration.GetSection("SyncSettings"));
-
+// Program.cs
+builder.Services.AddAuthentication();
+builder.Services.AddAuthorization();
 // -----------------------------
 // HTTP Clients
 // -----------------------------

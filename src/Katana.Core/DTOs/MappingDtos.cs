@@ -1,5 +1,7 @@
 ﻿namespace Katana.Core.DTOs;
+/*Arayüzden eşleştirme verilerini almak ve göndermek için CreateMappingDto, UpdateMappingDto gibi sınıflar eklenecek.
 
+*/
 /// <summary>
 /// DTO for SKU to Account mapping
 /// </summary>

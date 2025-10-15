@@ -6,7 +6,15 @@ using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Text;
 using System.Net.Http.Headers;
+/*LucaService.cs (Genişletilecek): Luca Koza API'sına veri yazma operasyonlarını içerecek.
 
+Amacı: Sadece Luca'ya veri yazmaktan sorumlu olmak.
+
+Sorumlulukları (Yeni):
+
+Dönüştürülmüş fatura verisini muhasebe kaydı olarak işleme metodu.
+
+Stok hareketlerini işleme metodu.*/
 namespace Katana.Business.Services;
 
 public class LucaService : ILucaService

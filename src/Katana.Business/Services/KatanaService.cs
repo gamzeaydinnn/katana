@@ -6,7 +6,15 @@ using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Text;
 using System.Net.Http.Headers;
+/*Katana API'sından veri okuma operasyonlarını içerecek.
 
+Amacı: Sadece Katana'dan veri okumaktan sorumlu olmak.
+
+Sorumlulukları (Yeni):
+
+Belirli bir tarihten sonraki stok hareketlerini getirme metodu.
+
+Ödeme durumu değişen faturaları getirme metodu.*/
 namespace Katana.Business.Services;
 
 public class KatanaService : IKatanaService

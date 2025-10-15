@@ -1,6 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 namespace Katana.Data.Models;
+//Eşleştirmenin hangi türe ait olduğunu belirten bir alan (MappingType - örn: "Product", "Customer") eklenmeli.
+
 
 public class MappingTable
 {

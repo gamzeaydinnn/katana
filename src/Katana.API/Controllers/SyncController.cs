@@ -2,9 +2,15 @@
 using Katana.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
+/*Amacı: Kullanıcının arayüzden tek tuşla senkronizasyonu tetiklemesini sağlamak ve logları görüntülemek.*/
 namespace Katana.API.Controllers;
+/*Sorumlulukları (Yeni):
 
+Belirli bir veri türü (örn: Stok, Fatura) için manuel senkronizasyonu başlatan endpoint (POST /api/sync/run/{type}).
+
+Tüm senkronizasyon geçmişini (logları) getiren endpoint (GET /api/sync/history).
+
+Belirli bir senkronizasyon işleminin detaylarını (başarılı/hatalı kayıtlar) getiren endpoint (GET /api/sync/history/{logId}).*/
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]

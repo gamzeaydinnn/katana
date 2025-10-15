@@ -1,0 +1,1 @@
+/*Arayüzün ihtiyaç duyacağı özet verileri taşımak için kullanılacak DTO'lar (örn: SyncSummaryDto, StatsDto).*/
