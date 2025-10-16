@@ -1,4 +1,4 @@
-using Katana.Infrastructure.Services;
+using Katana.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,14 +8,14 @@ namespace Katana.API.Controllers;
 [Route("api/[controller]")]
 public class StockController : ControllerBase
 {
-    private readonly IKatanaStockService _katanaStockService;
+    private readonly IKatanaService _katanaService;
     private readonly ILogger<StockController> _logger;
 
     public StockController(
-        IKatanaStockService katanaStockService,
+        IKatanaService katanaService,
         ILogger<StockController> logger)
     {
-        _katanaStockService = katanaStockService;
+        _katanaService = katanaService;
         _logger = logger;
     }
 
@@ -31,7 +31,9 @@ public class StockController : ControllerBase
     {
         try
         {
-            var movements = await _katanaStockService.GetStockMovementsAsync(fromDate, page);
+            var from = fromDate ?? DateTime.UtcNow.AddMonths(-1);
+            var to = DateTime.UtcNow;
+            var movements = await _katanaService.GetStockChangesAsync(from, to);
             return Ok(new { data = movements, count = movements.Count });
         }
         catch (Exception ex)
@@ -51,21 +53,21 @@ public class StockController : ControllerBase
     {
         try
         {
-            var products = await _katanaStockService.GetAllProductsAsync(page, limit);
+            var products = await _katanaService.GetProductsAsync();
             
             // Transform to stock status format using correct Product properties
             var stockStatus = products.Select(p => new
             {
-                id = p.Id.ToString(),
+                id = p.SKU,
                 name = p.Name,
                 sku = p.SKU,
-                quantity = p.Stock,
-                unit = "pcs", // Default unit
-                minStock = 10, // Default min stock
-                maxStock = (int?)null, // No max stock
-                status = GetStockStatus(p.Stock),
-                lastUpdated = p.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss"),
-                category = "" // No category in Product entity
+                quantity = 0,
+                unit = "pcs",
+                minStock = 10,
+                maxStock = (int?)null,
+                status = p.IsActive ? "Normal" : "Out",
+                lastUpdated = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"),
+                category = ""
             }).ToList();
             
             return Ok(new { data = stockStatus, count = stockStatus.Count });

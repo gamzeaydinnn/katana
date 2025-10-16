@@ -78,22 +78,14 @@ builder.Services.AddDbContext<IntegrationDbContext>(options =>
 // -----------------------------
 builder.Services.Configure<KatanaApiSettings>(builder.Configuration.GetSection("KatanaApiSettings"));
 builder.Services.Configure<LucaApiSettings>(builder.Configuration.GetSection("LucaApiSettings"));
-builder.Services.Configure<SyncSettings>(builder.Configuration.GetSection("SyncSettings"));
-// Program.cs
+
 builder.Services.AddAuthentication();
 builder.Services.AddAuthorization();
+
 // -----------------------------
 // HTTP Clients
 // -----------------------------
 builder.Services.AddHttpClient<IKatanaService, KatanaService>();
-// Luca Service - Disabled (no API key yet)
-// builder.Services.AddHttpClient<ILucaService, LucaService>();
-
-// Katana API Client
-builder.Services.AddHttpClient<Katana.Infrastructure.ExternalServices.Katana.IKatanaApiClient, Katana.Infrastructure.ExternalServices.Katana.KatanaApiClient>(client =>
-{
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
 
 // -----------------------------
 // Repository + UnitOfWork
@@ -106,7 +98,6 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 // -----------------------------
 builder.Services.AddScoped<ISyncService, SyncService>();
 builder.Services.AddScoped<IMappingService, MappingService>();
-builder.Services.AddScoped<Katana.Infrastructure.Services.IKatanaStockService, Katana.Infrastructure.Services.KatanaStockService>();
 
 // -----------------------------
 // JWT Authentication

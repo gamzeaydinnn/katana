@@ -1,4 +1,3 @@
-using Katana.Infrastructure.Services;
 using Katana.Core.Interfaces;
 using Katana.Data.Context;
 using Microsoft.AspNetCore.Authorization;
@@ -11,16 +10,16 @@ namespace Katana.API.Controllers;
 [Route("api/[controller]")]
 public class DashboardController : ControllerBase
 {
-    private readonly IKatanaStockService _katanaStockService;
+    private readonly IKatanaService _katanaService;
     private readonly IntegrationDbContext _context;
     private readonly ILogger<DashboardController> _logger;
 
     public DashboardController(
-        IKatanaStockService katanaStockService,
+        IKatanaService katanaService,
         IntegrationDbContext context,
         ILogger<DashboardController> logger)
     {
-        _katanaStockService = katanaStockService;
+        _katanaService = katanaService;
         _context = context;
         _logger = logger;
     }
@@ -35,7 +34,7 @@ public class DashboardController : ControllerBase
         try
         {
             // Check Katana API health
-            var isHealthy = await _katanaStockService.IsKatanaApiHealthyAsync();
+            var isHealthy = await _katanaService.TestConnectionAsync();
             
             if (!isHealthy)
             {
@@ -53,13 +52,13 @@ public class DashboardController : ControllerBase
             }
 
             // Fetch products from Katana API
-            var products = await _katanaStockService.GetAllProductsAsync(limit: 1000);
+            var products = await _katanaService.GetProductsAsync();
             
             // Calculate statistics based on model structure
             var totalProducts = products.Count;
-            var totalStock = products.Sum(p => (decimal)p.Stock);
-            var outOfStockItems = products.Count(p => p.Stock == 0);
-            var lowStockItems = products.Count(p => p.Stock > 0 && p.Stock < 10);
+            var totalStock = products.Count(p => p.IsActive);
+            var outOfStockItems = products.Count(p => !p.IsActive);
+            var lowStockItems = 0;
             
             // Get sync logs from database
             var pendingSync = await _context.SyncLogs

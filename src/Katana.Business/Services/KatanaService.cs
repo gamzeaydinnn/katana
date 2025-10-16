@@ -44,14 +44,9 @@ public class KatanaService : IKatanaService
         _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
         _httpClient.Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds);
 
-        if (_settings.UseBasicAuth && !string.IsNullOrEmpty(_settings.Username))
+        if (!string.IsNullOrEmpty(_settings.ApiKey))
         {
-            var authValue = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_settings.Username}:{_settings.Password}"));
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", authValue);
-        }
-        else if (!string.IsNullOrEmpty(_settings.ApiKey))
-        {
-            _httpClient.DefaultRequestHeaders.Add("X-API-Key", _settings.ApiKey);
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _settings.ApiKey);
         }
 
         _httpClient.DefaultRequestHeaders.Accept.Clear();
@@ -93,19 +88,23 @@ public class KatanaService : IKatanaService
         {
             _logger.LogInformation("Getting products from Katana");
 
-            var response = await _httpClient.GetAsync(_settings.Endpoints.Products);
+            var response = await _httpClient.GetAsync("/v1/products");
 
             if (response.IsSuccessStatusCode)
             {
                 var jsonContent = await response.Content.ReadAsStringAsync();
-                var products = JsonSerializer.Deserialize<List<KatanaProductDto>>(jsonContent, _jsonOptions) ?? new List<KatanaProductDto>();
+                _logger.LogDebug("Katana API Response: {Response}", jsonContent);
+
+                var apiResponse = JsonSerializer.Deserialize<KatanaApiResponse>(jsonContent, _jsonOptions);
+                var products = apiResponse?.Data ?? new List<KatanaProductDto>();
                 
                 _logger.LogInformation("Retrieved {Count} products from Katana", products.Count);
                 return products;
             }
 
-            _logger.LogWarning("Failed to get products from Katana. Status: {StatusCode}, Reason: {ReasonPhrase}", 
-                response.StatusCode, response.ReasonPhrase);
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("Failed to get products from Katana. Status: {StatusCode}, Error: {Error}", 
+                response.StatusCode, errorContent);
             return new List<KatanaProductDto>();
         }
         catch (Exception ex)
@@ -113,6 +112,11 @@ public class KatanaService : IKatanaService
             _logger.LogError(ex, "Error getting products from Katana API");
             throw;
         }
+    }
+
+    private class KatanaApiResponse
+    {
+        public List<KatanaProductDto>? Data { get; set; }
     }
 
     public async Task<List<KatanaInvoiceDto>> GetInvoicesAsync(DateTime fromDate, DateTime toDate)
@@ -150,7 +154,7 @@ public class KatanaService : IKatanaService
         {
             _logger.LogInformation("Getting product by SKU: {SKU}", sku);
 
-            var url = $"{_settings.Endpoints.Products}/{sku}";
+            var url = $"/v1/products/{sku}";
             var response = await _httpClient.GetAsync(url);
 
             if (response.IsSuccessStatusCode)
@@ -185,7 +189,7 @@ public class KatanaService : IKatanaService
         {
             _logger.LogInformation("Testing connection to Katana API");
 
-            var response = await _httpClient.GetAsync(_settings.Endpoints.Health);
+            var response = await _httpClient.GetAsync("/v1/products?limit=1");
             var isConnected = response.IsSuccessStatusCode;
             
             _logger.LogInformation("Katana API connection test result: {IsConnected}", isConnected);

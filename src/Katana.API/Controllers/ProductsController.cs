@@ -1,4 +1,4 @@
-using Katana.Infrastructure.Services;
+using Katana.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,14 +8,14 @@ namespace Katana.API.Controllers;
 [Route("api/[controller]")]
 public class ProductsController : ControllerBase
 {
-    private readonly IKatanaStockService _katanaStockService;
+    private readonly IKatanaService _katanaService;
     private readonly ILogger<ProductsController> _logger;
 
     public ProductsController(
-        IKatanaStockService katanaStockService,
+        IKatanaService katanaService,
         ILogger<ProductsController> logger)
     {
-        _katanaStockService = katanaStockService;
+        _katanaService = katanaService;
         _logger = logger;
     }
 
@@ -29,7 +29,7 @@ public class ProductsController : ControllerBase
     {
         try
         {
-            var products = await _katanaStockService.GetAllProductsAsync(page, limit);
+            var products = await _katanaService.GetProductsAsync();
             return Ok(new { data = products, count = products.Count });
         }
         catch (Exception ex)
@@ -50,7 +50,7 @@ public class ProductsController : ControllerBase
     {
         try
         {
-            var product = await _katanaStockService.GetProductByIdAsync(id);
+            var product = await _katanaService.GetProductBySkuAsync(id);
             
             if (product == null)
             {

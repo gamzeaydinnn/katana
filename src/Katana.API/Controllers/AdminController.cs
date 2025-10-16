@@ -1,9 +1,7 @@
 ﻿using Katana.Core.DTOs;
 using Katana.Core.Interfaces;
 using Katana.Data.Context;
-using Katana.Data.Models;
-using Katana.Infrastructure.Services;
-using Microsoft.AspNetCore.Authorization;
+using Katana.Business.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,16 +11,16 @@ namespace Katana.API.Controllers;
 [Route("api/adminpanel")]
 public class AdminController : ControllerBase
 {
-    private readonly IKatanaStockService _stockService;
+    private readonly IKatanaService _katanaService;
     private readonly IntegrationDbContext _context;
     private readonly ILogger<AdminController> _logger;
 
     public AdminController(
-        IKatanaStockService stockService,
+        IKatanaService katanaService,
         IntegrationDbContext context,
         ILogger<AdminController> logger)
     {
-        _stockService = stockService;
+        _katanaService = katanaService;
         _context = context;
         _logger = logger;
     }
@@ -32,19 +30,17 @@ public class AdminController : ControllerBase
     {
         try
         {
-            var products = await _stockService.GetAllProductsAsync(1, 100);
+            var products = await _katanaService.GetProductsAsync();
             var totalProducts = products.Count;
-            var totalStock = products.Sum(p => (int)p.Stock);
+            var activeProducts = products.Count(p => p.IsActive);
 
-            var stats = new
+            return Ok(new
             {
                 totalProducts,
-                totalStock,
+                totalStock = activeProducts,
                 successfulSyncs = 0,
                 failedSyncs = 0
-            };
-
-            return Ok(stats);
+            });
         }
         catch (Exception ex)
         {
@@ -58,7 +54,7 @@ public class AdminController : ControllerBase
     {
         try
         {
-            var allProducts = await _stockService.GetAllProductsAsync(1, 100);
+            var allProducts = await _katanaService.GetProductsAsync();
 
             var startIndex = (page - 1) * pageSize;
             var products = allProducts
@@ -66,11 +62,11 @@ public class AdminController : ControllerBase
                 .Take(pageSize)
                 .Select(p => new
                 {
-                    id = p.Id.ToString(),
+                    id = p.SKU,
                     sku = p.SKU,
                     name = p.Name,
-                    stock = (int)p.Stock,
-                    status = p.Stock > 0 ? "Aktif" : "Stokta Yok"
+                    stock = 0,
+                    isActive = p.IsActive
                 }).ToList();
 
             return Ok(new { products, total = allProducts.Count });
@@ -87,7 +83,8 @@ public class AdminController : ControllerBase
     {
         try
         {
-            var product = await _stockService.GetProductByIdAsync(id);
+            var product = await _katanaService.GetProductBySkuAsync(id);
+            
             if (product == null)
                 return NotFound();
 
@@ -119,7 +116,7 @@ public class AdminController : ControllerBase
     {
         try
         {
-            var isHealthy = await _stockService.IsKatanaApiHealthyAsync();
+            var isHealthy = await _katanaService.TestConnectionAsync();
             return Ok(new { isHealthy });
         }
         catch (Exception)
