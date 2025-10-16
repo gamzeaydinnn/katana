@@ -1,0 +1,215 @@
+import React, { useState, useEffect } from "react";
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  IconButton,
+  Box,
+  Avatar,
+  Menu,
+  MenuItem,
+  Badge,
+  Tooltip,
+  useTheme,
+  Chip,
+} from "@mui/material";
+import {
+  Menu as MenuIcon,
+  Notifications as NotificationsIcon,
+  AccountCircle,
+  Logout,
+  Settings,
+  Sync,
+  CheckCircle,
+  Error,
+} from "@mui/icons-material";
+import { stockAPI } from "../../services/api";
+
+interface HeaderProps {
+  onMenuClick: () => void;
+  sidebarOpen: boolean;
+}
+
+const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
+  const theme = useTheme();
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [notificationAnchor, setNotificationAnchor] =
+    React.useState<null | HTMLElement>(null);
+  const [backendStatus, setBackendStatus] = useState<
+    "connected" | "disconnected" | "checking"
+  >("checking");
+
+  // Backend health check
+  useEffect(() => {
+    const checkBackendHealth = async () => {
+      try {
+        await stockAPI.getHealthStatus();
+        setBackendStatus("connected");
+      } catch (error) {
+        setBackendStatus("disconnected");
+      }
+    };
+
+    checkBackendHealth();
+    const interval = setInterval(checkBackendHealth, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleNotificationOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setNotificationAnchor(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleNotificationClose = () => {
+    setNotificationAnchor(null);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("authToken");
+    window.location.href = "/login";
+  };
+
+  return (
+    <AppBar
+      position="fixed"
+      sx={{
+        zIndex: (theme) => theme.zIndex.drawer + 1,
+        backgroundColor: "white",
+        color: theme.palette.text.primary,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+      }}
+    >
+      <Toolbar>
+        <IconButton
+          color="inherit"
+          aria-label="open drawer"
+          onClick={onMenuClick}
+          edge="start"
+          sx={{ mr: 2 }}
+        >
+          <MenuIcon />
+        </IconButton>
+
+        <Typography
+          variant="h6"
+          noWrap
+          component="div"
+          sx={{ flexGrow: 1, fontWeight: 600 }}
+        >
+          Katana Stok Yönetim Sistemi
+        </Typography>
+
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          {/* Backend Status */}
+          <Chip
+            icon={backendStatus === "connected" ? <CheckCircle /> : <Error />}
+            label={
+              backendStatus === "connected" ? "API Bağlı" : "API Bağlantısı Yok"
+            }
+            color={backendStatus === "connected" ? "success" : "error"}
+            size="small"
+            variant="outlined"
+          />
+
+          {/* Sync Status */}
+          <Tooltip title="Son senkronizasyon: 10 dakika önce">
+            <IconButton size="small" color="success">
+              <Sync />
+            </IconButton>
+          </Tooltip>
+
+          {/* Notifications */}
+          <Tooltip title="Bildirimler">
+            <IconButton
+              size="large"
+              color="inherit"
+              onClick={handleNotificationOpen}
+            >
+              <Badge badgeContent={3} color="error">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+          </Tooltip>
+
+          {/* Profile Menu */}
+          <Tooltip title="Profil">
+            <IconButton
+              size="large"
+              edge="end"
+              onClick={handleProfileMenuOpen}
+              color="inherit"
+            >
+              <Avatar sx={{ width: 32, height: 32 }}>A</Avatar>
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        {/* Profile Menu */}
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={handleMenuClose}
+          onClick={handleMenuClose}
+        >
+          <MenuItem onClick={handleMenuClose}>
+            <AccountCircle sx={{ mr: 1 }} /> Profil
+          </MenuItem>
+          <MenuItem onClick={handleMenuClose}>
+            <Settings sx={{ mr: 1 }} /> Ayarlar
+          </MenuItem>
+          <MenuItem onClick={handleLogout}>
+            <Logout sx={{ mr: 1 }} /> Çıkış Yap
+          </MenuItem>
+        </Menu>
+
+        {/* Notification Menu */}
+        <Menu
+          anchorEl={notificationAnchor}
+          open={Boolean(notificationAnchor)}
+          onClose={handleNotificationClose}
+          onClick={handleNotificationClose}
+        >
+          <MenuItem>
+            <Box>
+              <Typography variant="body2" fontWeight="bold">
+                Senkronizasyon Tamamlandı
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                5 dakika önce
+              </Typography>
+            </Box>
+          </MenuItem>
+          <MenuItem>
+            <Box>
+              <Typography variant="body2" fontWeight="bold">
+                Stok Seviyesi Düşük
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                15 dakika önce
+              </Typography>
+            </Box>
+          </MenuItem>
+          <MenuItem>
+            <Box>
+              <Typography variant="body2" fontWeight="bold">
+                Yeni Sipariş Alındı
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                1 saat önce
+              </Typography>
+            </Box>
+          </MenuItem>
+        </Menu>
+      </Toolbar>
+    </AppBar>
+  );
+};
+
+export default Header;

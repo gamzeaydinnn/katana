@@ -86,7 +86,14 @@ builder.Services.AddAuthorization();
 // HTTP Clients
 // -----------------------------
 builder.Services.AddHttpClient<IKatanaService, KatanaService>();
-builder.Services.AddHttpClient<ILucaService, LucaService>();
+// Luca Service - Disabled (no API key yet)
+// builder.Services.AddHttpClient<ILucaService, LucaService>();
+
+// Katana API Client
+builder.Services.AddHttpClient<Katana.Infrastructure.ExternalServices.Katana.IKatanaApiClient, Katana.Infrastructure.ExternalServices.Katana.KatanaApiClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 // -----------------------------
 // Repository + UnitOfWork
@@ -99,12 +106,13 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 // -----------------------------
 builder.Services.AddScoped<ISyncService, SyncService>();
 builder.Services.AddScoped<IMappingService, MappingService>();
+builder.Services.AddScoped<Katana.Infrastructure.Services.IKatanaStockService, Katana.Infrastructure.Services.KatanaStockService>();
 
 // -----------------------------
 // JWT Authentication
 // -----------------------------
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
+var secretKey = jwtSettings["Key"] ?? throw new InvalidOperationException("JWT Key not configured");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -142,9 +150,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddHealthChecks().AddDbContextCheck<IntegrationDbContext>();
 
 // -----------------------------
-// Background Services (Worker + Quartz)
+// Background Services (Worker + Quartz) - Disabled (requires Luca API)
 // -----------------------------
-builder.Services.AddHostedService<SyncWorkerService>();
+// builder.Services.AddHostedService<SyncWorkerService>();
 
 builder.Services.AddQuartz(q =>
 {
@@ -173,8 +181,8 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = string.Empty; // Swagger UI ana dizinde
 });
 
-app.UseHttpsRedirection();
 app.UseCors("AllowSpecificOrigins");
+app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<AuthMiddleware>();
