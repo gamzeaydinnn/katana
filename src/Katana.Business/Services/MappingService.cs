@@ -1,4 +1,4 @@
-﻿using Katana.Core.Interfaces;
+﻿using Katana.Business.Interfaces;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;

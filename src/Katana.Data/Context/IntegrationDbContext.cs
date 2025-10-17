@@ -1,6 +1,7 @@
 ﻿using Katana.Core.Entities;
 using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace Katana.Data.Context;
 
@@ -16,14 +17,14 @@ public class IntegrationDbContext : DbContext
     public DbSet<Customer> Customers { get; set; } = null!;
     public DbSet<Invoice> Invoices { get; set; } = null!;
     public DbSet<InvoiceItem> InvoiceItems { get; set; } = null!;
-   
 
     // Integration specific entities
     public DbSet<IntegrationLog> IntegrationLogs { get; set; } = null!;
     public DbSet<MappingTable> MappingTables { get; set; } = null!;
     public DbSet<FailedSyncRecord> FailedSyncRecords { get; set; } = null!;
-     public DbSet<SyncLog> SyncLogs { get; set; }
-    public DbSet<ErrorLog> ErrorLogs { get; set; }
+    public DbSet<SyncLog> SyncLogs { get; set; } = null!;
+    public DbSet<ErrorLog> ErrorLogs { get; set; } = null!;
+    public DbSet<AuditLog> AuditLogs { get; set; } = null!; // ✅ Audit kayıtları için
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -55,7 +56,7 @@ public class IntegrationDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.TaxNo).IsUnique();
-            
+
             entity.HasMany(e => e.Invoices)
                 .WithOne(e => e.Customer)
                 .HasForeignKey(e => e.CustomerId)
@@ -68,11 +69,11 @@ public class IntegrationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.InvoiceNo).IsUnique();
             entity.HasIndex(e => e.IsSynced);
-            
+
             entity.Property(e => e.Amount).HasPrecision(18, 2);
             entity.Property(e => e.TaxAmount).HasPrecision(18, 2);
             entity.Property(e => e.TotalAmount).HasPrecision(18, 2);
-            
+
             entity.HasMany(e => e.InvoiceItems)
                 .WithOne(e => e.Invoice)
                 .HasForeignKey(e => e.InvoiceId)
@@ -83,12 +84,12 @@ public class IntegrationDbContext : DbContext
         modelBuilder.Entity<InvoiceItem>(entity =>
         {
             entity.HasKey(e => e.Id);
-            
+
             entity.Property(e => e.UnitPrice).HasPrecision(18, 2);
             entity.Property(e => e.TaxRate).HasPrecision(5, 4);
             entity.Property(e => e.TaxAmount).HasPrecision(18, 2);
             entity.Property(e => e.TotalAmount).HasPrecision(18, 2);
-            
+
             entity.HasOne(e => e.Product)
                 .WithMany()
                 .HasForeignKey(e => e.ProductId)
@@ -101,7 +102,7 @@ public class IntegrationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.SyncType, e.StartTime });
             entity.HasIndex(e => e.Status);
-            
+
             entity.HasMany(e => e.FailedRecords)
                 .WithOne(e => e.IntegrationLog)
                 .HasForeignKey(e => e.IntegrationLogId)
@@ -124,13 +125,21 @@ public class IntegrationDbContext : DbContext
             entity.HasIndex(e => e.NextRetryAt);
         });
 
+        // AuditLog configuration ✅
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.EntityName);
+            entity.HasIndex(e => e.Action);
+            entity.Property(e => e.Timestamp).IsRequired();
+        });
+
         // Seed data
         SeedData(modelBuilder);
     }
 
     private static void SeedData(ModelBuilder modelBuilder)
     {
-        // Default mapping data
         modelBuilder.Entity<MappingTable>().HasData(
             new MappingTable
             {
@@ -159,24 +168,45 @@ public class IntegrationDbContext : DbContext
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        // Auto-update UpdatedAt field
-        var entries = ChangeTracker.Entries()
-            .Where(e => e.State == EntityState.Modified)
-            .Select(e => e.Entity);
+        var now = DateTime.UtcNow;
 
-        foreach (var entity in entries)
+        var entries = ChangeTracker.Entries()
+            .Where(e => e.State is EntityState.Modified or EntityState.Added or EntityState.Deleted)
+            .ToList();
+
+        foreach (var entry in entries)
         {
-            if (entity is Product product)
-                product.UpdatedAt = DateTime.UtcNow;
-            else if (entity is Customer customer)
-                customer.UpdatedAt = DateTime.UtcNow;
-            else if (entity is Invoice invoice)
-                invoice.UpdatedAt = DateTime.UtcNow;
-            else if (entity is MappingTable mapping)
-                mapping.UpdatedAt = DateTime.UtcNow;
+            switch (entry.Entity)
+            {
+                case Product product:
+                    if (entry.State == EntityState.Modified) product.UpdatedAt = now;
+                    break;
+                case Customer customer:
+                    if (entry.State == EntityState.Modified) customer.UpdatedAt = now;
+                    break;
+                case Invoice invoice:
+                    if (entry.State == EntityState.Modified) invoice.UpdatedAt = now;
+                    break;
+                case MappingTable mapping:
+                    if (entry.State == EntityState.Modified) mapping.UpdatedAt = now;
+                    break;
+            }
+
+            // ✅ Audit log kaydı oluştur
+            var audit = new AuditLog
+            {
+                EntityName = entry.Entity.GetType().Name,
+                ActionType = entry.State.ToString(),
+                Timestamp = now,
+                Changes = string.Join(", ", entry.Properties
+                    .Where(p => p.IsModified)
+                    .Select(p => $"{p.Metadata.Name}: {p.OriginalValue} -> {p.CurrentValue}")
+                )
+            };
+
+            AuditLogs.Add(audit);
         }
 
         return await base.SaveChangesAsync(cancellationToken);
     }
 }
-

@@ -7,13 +7,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Katana.API.Controllers;
 /*Tüm eşleştirme türlerini (Ürün, Müşteri vb.) getiren bir endpoint (GET /api/mapping/types).
-
 Belirli bir türe ait tüm eşleştirmeleri getiren endpoint (GET /api/mapping/{type}).
-
 Yeni bir eşleştirme kaydı oluşturma (POST /api/mapping).
-
 Mevcut bir eşleştirmeyi güncelleme (PUT /api/mapping/{id}).
-
 Bir eşleştirmeyi silme (DELETE /api/mapping/{id}).*/
 [ApiController]
 [Route("api/[controller]")]
@@ -23,17 +19,19 @@ public class MappingController : ControllerBase
     private readonly IMappingService _mappingService;
     private readonly IntegrationDbContext _context;
     private readonly ILogger<MappingController> _logger;
+    private readonly IAuditLoggerService _auditLogger;
 
     public MappingController(
-        IMappingService mappingService, 
-        IntegrationDbContext context, 
-        ILogger<MappingController> logger)
+        IMappingService mappingService,
+        IntegrationDbContext context,
+        ILogger<MappingController> logger,
+        IAuditLoggerService auditLogger)
     {
         _mappingService = mappingService;
         _context = context;
         _logger = logger;
+        _auditLogger = auditLogger;
     }
-
     /// <summary>
     /// Gets all mapping entries
     /// </summary>
@@ -106,7 +104,6 @@ public class MappingController : ControllerBase
             return StatusCode(500, new { error = "Internal server error retrieving SKU mappings" });
         }
     }
-
     /// <summary>
     /// Gets location to warehouse mappings
     /// </summary>
@@ -124,7 +121,6 @@ public class MappingController : ControllerBase
             return StatusCode(500, new { error = "Internal server error retrieving location mappings" });
         }
     }
-
     /// <summary>
     /// Creates a new mapping entry
     /// </summary>
@@ -155,6 +151,10 @@ public class MappingController : ControllerBase
 
             _context.MappingTables.Add(mapping);
             await _context.SaveChangesAsync();
+            await _auditLogger.LogAsync("CREATE", "MappingTable", mapping.Id, 
+            $"Created mapping {mapping.SourceValue} -> {mapping.TargetValue}", 
+            User.Identity?.Name ?? "API");
+
 
             _logger.LogInformation("Created new mapping: {MappingType} {SourceValue} -> {TargetValue}", 
                 mapping.MappingType, mapping.SourceValue, mapping.TargetValue);
@@ -177,7 +177,6 @@ public class MappingController : ControllerBase
             return StatusCode(500, new { error = "Internal server error creating mapping" });
         }
     }
-
     /// <summary>
     /// Updates an existing mapping entry
     /// </summary>
@@ -199,6 +198,10 @@ public class MappingController : ControllerBase
             mapping.UpdatedBy = User.Identity?.Name ?? "API";
 
             await _context.SaveChangesAsync();
+            await _auditLogger.LogAsync("UPDATE", "MappingTable", mapping.Id, 
+           $"Updated mapping to {mapping.TargetValue}", 
+           User.Identity?.Name ?? "API");
+
 
             _logger.LogInformation("Updated mapping {Id}: {SourceValue} -> {TargetValue}", 
                 mapping.Id, mapping.SourceValue, mapping.TargetValue);
@@ -272,6 +275,10 @@ public class MappingController : ControllerBase
 
             _context.MappingTables.Remove(mapping);
             await _context.SaveChangesAsync();
+            await _auditLogger.LogAsync("DELETE", "MappingTable", mapping.Id, 
+            $"Deleted mapping {mapping.SourceValue}", 
+            User.Identity?.Name ?? "API");
+
 
             _logger.LogInformation("Deleted mapping {Id}: {SourceValue} -> {TargetValue}", 
                 id, mapping.SourceValue, mapping.TargetValue);
@@ -293,6 +300,7 @@ public class CreateMappingRequest
     public string TargetValue { get; set; } = string.Empty;
     public string? Description { get; set; }
     public bool? IsActive { get; set; }
+    
 }
 
 public class UpdateMappingRequest

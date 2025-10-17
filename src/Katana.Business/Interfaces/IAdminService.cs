@@ -11,7 +11,6 @@ public interface IAdminService
     Task<bool> RunManualSyncAsync(ManualSyncRequest request);
 }
 
-
 /*Interfaces/
 │   │       ├── IKatanaClient.cs
 │   │       ├── ILucaClient.cs

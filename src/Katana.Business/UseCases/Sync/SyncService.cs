@@ -10,21 +10,13 @@ using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using Katana.Core.DTOs;
 /*(Genişletilecek): ETL (Extract-Transform-Load) sürecinin tamamını yönetecek ana servis.
-
 Amacı: Katana'dan veriyi almak, MappingService yardımıyla Luca formatına dönüştürmek ve LucaService aracılığıyla Luca'ya göndermek.
-
 Sorumlulukları (Yeni):
-
 Extract: KatanaService'i kullanarak Katana'dan stok, fatura, müşteri verilerini çekmek.
-
 Transform: Çekilen Katana verilerini MappingService'i kullanarak Luca'nın anlayacağı DTO'lara dönüştürmek. Eşleşmeyen kayıtları belirlemek.
-
 Load: Dönüştürülen verileri LucaService'e göndererek Luca'ya aktarmak.
-
 Tüm süreci loglamak (IntegrationLogRepository'e kayıt atmak).
-
 Hatalı kayıtları FailedSyncRecordRepository'e kaydetmek.
-
 Toplu (batch) veri işleme mantığını uygulamak.*/
 namespace Katana.Business.UseCases.Sync;
 //ETL akışının orchestration’ı, UnitOfWork, transaction, audit log, publish events.
