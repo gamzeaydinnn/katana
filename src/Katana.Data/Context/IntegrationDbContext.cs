@@ -17,6 +17,7 @@ public class IntegrationDbContext : DbContext
     public DbSet<Customer> Customers { get; set; } = null!;
     public DbSet<Invoice> Invoices { get; set; } = null!;
     public DbSet<InvoiceItem> InvoiceItems { get; set; } = null!;
+    public DbSet<AccountingRecord> AccountingRecords { get; set; } = null!;
 
     // Integration specific entities
     public DbSet<IntegrationLog> IntegrationLogs { get; set; } = null!;

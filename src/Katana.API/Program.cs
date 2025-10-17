@@ -99,6 +99,11 @@ builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 // Business Services
 // -----------------------------
 builder.Services.AddScoped<ISyncService, SyncService>();
+builder.Services.AddScoped<Katana.Core.Interfaces.IStockService, Katana.Business.Services.StockService>();
+builder.Services.AddScoped<Katana.Core.Interfaces.IInvoiceService, Katana.Business.Services.InvoiceService>();
+builder.Services.AddScoped<Katana.Core.Interfaces.ICustomerService, Katana.Business.Services.CustomerService>();
+builder.Services.AddScoped<Katana.Core.Interfaces.IProductService, Katana.Business.Services.ProductService>();
+builder.Services.AddScoped<Katana.Core.Interfaces.IAccountingService, Katana.Business.Services.AccountingService>();
 //builder.Services.AddScoped<IMappingService, MappingService>();
 
 // -----------------------------
