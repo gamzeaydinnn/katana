@@ -1,9 +1,11 @@
-﻿using Katana.Core.DTOs;
-using Katana.Core.Interfaces;
+﻿using Katana.Business.DTOs;
+using Katana.Business.Interfaces;
 using Katana.Data.Context;
 using Katana.Business.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Katana.Infrastructure.APIClients;
+using Microsoft.Extensions.Logging;
 
 namespace Katana.API.Controllers;
 

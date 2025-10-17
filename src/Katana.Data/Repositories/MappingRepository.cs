@@ -1,7 +1,7 @@
 using Katana.Data.Context;
 using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
-
+//mapping tablolarını DB’de yönetir.
 namespace Katana.Data.Repositories
 {
     public class MappingRepository

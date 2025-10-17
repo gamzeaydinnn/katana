@@ -1,0 +1,1 @@
+namespace Katana.Core.DTOs;

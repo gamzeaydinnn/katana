@@ -1,5 +1,6 @@
-﻿using Katana.Core.DTOs;
-using Katana.Core.Interfaces;
+﻿using Katana.Business.DTOs;
+using Katana.Business.Interfaces;
+using Katana.Core.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 /*Amacı: Kullanıcının arayüzden tek tuşla senkronizasyonu tetiklemesini sağlamak ve logları görüntülemek.*/

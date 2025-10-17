@@ -1,7 +1,7 @@
 
+using System;
 
-
-namespace Katana.Core.DTOs
+namespace Katana.Business.DTOs
 {
     /// <summary>
     /// Kullanıcı giriş isteği (login request) için gerekli bilgileri temsil eder.

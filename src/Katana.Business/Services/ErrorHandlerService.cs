@@ -1,0 +1,1 @@
+/*ErrorHandlerService (Application) — hataların business-level ele alınması; mevcut hata middleware’i bunu kullanmalı.*/

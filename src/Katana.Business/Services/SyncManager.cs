@@ -1,0 +1,1 @@
+//SyncManager (use-case orchestration: orchestration -> transaction -> audit -> error handling)

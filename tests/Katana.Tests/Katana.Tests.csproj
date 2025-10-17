@@ -18,9 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Katana.Core\Katana.Core.csproj" />
-    <ProjectReference Include="..\..\src\Katana.Business\Katana.Business.csproj" />
-    <ProjectReference Include="..\..\src\Katana.Data\Katana.Data.csproj" />
+    <ProjectReference Include="../../src/Katana.Core/Katana.Core.csproj" />
+    <ProjectReference Include="../../src/Katana.Business/Katana.Business.csproj" />
+    <ProjectReference Include="../../src/Katana.Data/Katana.Data.csproj" />
   </ItemGroup>
 
 </Project>

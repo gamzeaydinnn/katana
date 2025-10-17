@@ -12,7 +12,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
-using Katana.Core.DTOs; 
+using Katana.Core.DTOs;
+using Katana.Business.DTOs;
 
 
 namespace Katana.API.Controllers;

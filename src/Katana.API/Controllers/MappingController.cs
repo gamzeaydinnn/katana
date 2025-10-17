@@ -1,4 +1,4 @@
-﻿using Katana.Core.Interfaces;
+﻿using Katana.Business.Interfaces;
 using Katana.Data.Context;
 using Katana.Data.Models;
 using Microsoft.AspNetCore.Authorization;

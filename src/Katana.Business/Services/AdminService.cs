@@ -1,9 +1,11 @@
-﻿using Katana.Core.DTOs;
-using Katana.Core.Interfaces;
+﻿using Katana.Business.DTOs;
+using Katana.Business.Interfaces;
+using Katana.Core.DTOs;
 using Katana.Data.Context;
 using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+
 
 namespace Katana.Business.Services;
 
@@ -118,6 +120,23 @@ public class AdminService : IAdminService
             return false;
         }
     }
+
+    Task<List<AdminSyncStatusDto>> IAdminService.GetSyncStatusesAsync()
+    {
+        throw new NotImplementedException();
+    }
+
+    Task<List<ErrorLogDto>> IAdminService.GetErrorLogsAsync(int page, int pageSize)
+    {
+        throw new NotImplementedException();
+    }
+
+    Task<SyncReportDto> IAdminService.GetSyncReportAsync(string integrationName)
+    {
+        throw new NotImplementedException();
+    }
+
+   
 }
 
 

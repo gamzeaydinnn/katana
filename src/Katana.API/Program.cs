@@ -1,10 +1,10 @@
 ﻿using Katana.API.Middleware;
-using Katana.Business.Configuration;
+using Katana.Data.Configuration;
 using Katana.Business.Services;
-using Katana.Core.Interfaces;
+using Katana.Business.Interfaces;
 using Katana.Data.Context;
 using Katana.Data.Repositories;
-using Katana.Infrastructure.Jobs;
+using Katana.Business.Jobs;
 using Katana.Infrastructure.Logging;
 using Katana.Infrastructure.Workers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +14,8 @@ using Microsoft.OpenApi.Models;
 using Quartz;
 using Serilog;
 using System.Text;
+using Katana.Infrastructure.APIClients;
+using Katana.Business.UseCases.Sync;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -91,13 +93,13 @@ builder.Services.AddHttpClient<IKatanaService, KatanaService>();
 // Repository + UnitOfWork
 // -----------------------------
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
-builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+//builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // -----------------------------
 // Business Services
 // -----------------------------
 builder.Services.AddScoped<ISyncService, SyncService>();
-builder.Services.AddScoped<IMappingService, MappingService>();
+//builder.Services.AddScoped<IMappingService, MappingService>();
 
 // -----------------------------
 // JWT Authentication

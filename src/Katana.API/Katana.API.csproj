@@ -21,10 +21,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Katana.Core\Katana.Core.csproj" />
-    <ProjectReference Include="..\Katana.Data\Katana.Data.csproj" />
-    <ProjectReference Include="..\Katana.Business\Katana.Business.csproj" />
-    <ProjectReference Include="..\Katana.Infrastructure\Katana.Infrastructure.csproj" />
+    <ProjectReference Include="../Katana.Core/Katana.Core.csproj" />
+    <ProjectReference Include="../Katana.Data/Katana.Data.csproj" />
+    <ProjectReference Include="../Katana.Business/Katana.Business.csproj" />
+    <ProjectReference Include="../Katana.Infrastructure/Katana.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

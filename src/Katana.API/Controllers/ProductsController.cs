@@ -1,4 +1,4 @@
-using Katana.Core.Interfaces;
+using Katana.Business.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
