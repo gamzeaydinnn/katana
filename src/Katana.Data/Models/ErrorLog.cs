@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Katana.Core.Enums;
+using System.ComponentModel.DataAnnotations;
 
 namespace Katana.Data.Models;
 
@@ -19,6 +20,11 @@ public class ErrorLog
 
     [MaxLength(200)]
     public string? Operation { get; set; }
+
+    /// <summary>
+    /// Hata türü (örneğin Validation, API, Database, Sync)
+    /// </summary>
+    public ErrorType ErrorType { get; set; } = ErrorType.Unknown;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
