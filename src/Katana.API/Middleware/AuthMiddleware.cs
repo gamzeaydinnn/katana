@@ -24,11 +24,21 @@ public class AuthMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
+        // [AllowAnonymous] attribute'una sahip endpoint'leri atla
+        var endpoint = context.GetEndpoint();
+        var allowAnonymous = endpoint?.Metadata?.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() != null;
+        
+        if (allowAnonymous)
+        {
+            await _next(context);
+            return;
+        }
+
         // Kimlik doğrulama gerektirmeyen yolları (path) atla.
-        // Login, Swagger ve Health check endpoint'leri herkese açık olmalı.
-        if (context.Request.Path.StartsWithSegments("/api/auth/login") ||
-            context.Request.Path.StartsWithSegments("/swagger") ||
-            context.Request.Path.StartsWithSegments("/health"))
+        if (context.Request.Path.StartsWithSegments("/swagger") ||
+            context.Request.Path.StartsWithSegments("/health") ||
+            context.Request.Path.StartsWithSegments("/api/auth", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/api/Health", StringComparison.OrdinalIgnoreCase))
         {
             await _next(context);
             return;
@@ -42,9 +52,6 @@ public class AuthMiddleware
             await AttachUserToContext(context, token);
         }
         
-        // Eğer context.User set edilmemişse ve endpoint [Authorize] attribute'u taşıyorsa,
-        // ASP.NET Core'un kendi mekanizması 401 Unauthorized döndürecektir.
-        // Bu yüzden burada manuel bir engelleme yapmaya gerek kalmıyor.
         await _next(context);
     }
 

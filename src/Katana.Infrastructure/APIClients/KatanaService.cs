@@ -90,28 +90,31 @@ public class KatanaService : IKatanaService
             _logger.LogInformation("Getting products from Katana");
 
             var response = await _httpClient.GetAsync("/v1/products");
+            var responseContent = await response.Content.ReadAsStringAsync();
 
-            if (response.IsSuccessStatusCode)
+            if (!response.IsSuccessStatusCode)
             {
-                var jsonContent = await response.Content.ReadAsStringAsync();
-                _logger.LogDebug("Katana API Response: {Response}", jsonContent);
-
-                var apiResponse = JsonSerializer.Deserialize<KatanaApiResponse>(jsonContent, _jsonOptions);
-                var products = apiResponse?.Data ?? new List<KatanaProductDto>();
-                
-                _logger.LogInformation("Retrieved {Count} products from Katana", products.Count);
-                return products;
+                _logger.LogWarning("Katana API failed. Status: {StatusCode}, Response: {Response}", 
+                    response.StatusCode, responseContent);
+                return new List<KatanaProductDto>();
             }
 
-            var errorContent = await response.Content.ReadAsStringAsync();
-            _logger.LogWarning("Failed to get products from Katana. Status: {StatusCode}, Error: {Error}", 
-                response.StatusCode, errorContent);
+            _logger.LogDebug("Katana API Response: {Response}", responseContent);
+            var apiResponse = JsonSerializer.Deserialize<KatanaApiResponse>(responseContent, _jsonOptions);
+            var products = apiResponse?.Data ?? new List<KatanaProductDto>();
+            
+            _logger.LogInformation("Retrieved {Count} products from Katana", products.Count);
+            return products;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Katana API connection error: {Message}", ex.Message);
             return new List<KatanaProductDto>();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting products from Katana API");
-            throw;
+            _logger.LogError(ex, "Unexpected error calling Katana API");
+            return new List<KatanaProductDto>();
         }
     }
 
@@ -157,30 +160,34 @@ public class KatanaService : IKatanaService
 
             var url = $"/v1/products/{sku}";
             var response = await _httpClient.GetAsync(url);
-
-            if (response.IsSuccessStatusCode)
-            {
-                var jsonContent = await response.Content.ReadAsStringAsync();
-                var product = JsonSerializer.Deserialize<KatanaProductDto>(jsonContent, _jsonOptions);
-                
-                _logger.LogInformation("Retrieved product {SKU} from Katana", sku);
-                return product;
-            }
+            var responseContent = await response.Content.ReadAsStringAsync();
 
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                _logger.LogWarning("Product with SKU {SKU} not found in Katana", sku);
+                _logger.LogWarning("Product with SKU {SKU} not found", sku);
                 return null;
             }
 
-            _logger.LogWarning("Failed to get product {SKU} from Katana. Status: {StatusCode}, Reason: {ReasonPhrase}", 
-                sku, response.StatusCode, response.ReasonPhrase);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Katana API failed for SKU {SKU}. Status: {StatusCode}", 
+                    sku, response.StatusCode);
+                return null;
+            }
+
+            var product = JsonSerializer.Deserialize<KatanaProductDto>(responseContent, _jsonOptions);
+            _logger.LogInformation("Retrieved product {SKU}", sku);
+            return product;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Katana API connection error for SKU {SKU}", sku);
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting product {SKU} from Katana API", sku);
-            throw;
+            _logger.LogError(ex, "Unexpected error getting product {SKU}", sku);
+            return null;
         }
     }
 
@@ -188,12 +195,12 @@ public class KatanaService : IKatanaService
     {
         try
         {
-            _logger.LogInformation("Testing connection to Katana API");
+            _logger.LogInformation("Testing Katana API connection");
 
             var response = await _httpClient.GetAsync("/v1/products?limit=1");
             var isConnected = response.IsSuccessStatusCode;
             
-            _logger.LogInformation("Katana API connection test result: {IsConnected}", isConnected);
+            _logger.LogInformation("Katana API connection: {Status}", isConnected ? "OK" : "Failed");
             return isConnected;
         }
         catch (Exception ex)
@@ -201,26 +208,6 @@ public class KatanaService : IKatanaService
             _logger.LogError(ex, "Error testing connection to Katana API");
             return false;
         }
-    }
-
-    Task<List<KatanaStockDto>> IKatanaService.GetStockChangesAsync(DateTime fromDate, DateTime toDate)
-    {
-        throw new NotImplementedException();
-    }
-
-    Task<List<KatanaProductDto>> IKatanaService.GetProductsAsync()
-    {
-        throw new NotImplementedException();
-    }
-
-    Task<List<KatanaInvoiceDto>> IKatanaService.GetInvoicesAsync(DateTime fromDate, DateTime toDate)
-    {
-        throw new NotImplementedException();
-    }
-
-    Task<KatanaProductDto?> IKatanaService.GetProductBySkuAsync(string sku)
-    {
-        throw new NotImplementedException();
     }
 }
 

@@ -5,14 +5,10 @@ import {
   Card,
   CardContent,
   Typography,
-  LinearProgress,
   Paper,
-  List,
-  ListItem,
-  ListItemText,
-  Chip,
   Button,
-  useTheme,
+  Alert,
+  CircularProgress,
 } from "@mui/material";
 import {
   Inventory,
@@ -20,282 +16,131 @@ import {
   TrendingUp,
   Warning,
   Refresh,
-  Timeline,
 } from "@mui/icons-material";
-import { stockAPI, DashboardStats } from "../../services/api";
+import { stockAPI } from "../../services/api";
 
 const Dashboard: React.FC = () => {
-  const theme = useTheme();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState<string>("");
+  const [error, setError] = useState("");
 
-  const loadDashboardData = async () => {
+  const loadDashboard = async () => {
     try {
       setLoading(true);
-      // Backend API call - Katana.API Dashboard endpoint
-      const dashboardStats = await stockAPI.getDashboardStats();
-      setStats(dashboardStats);
-      setLastUpdate(new Date().toLocaleTimeString("tr-TR"));
-    } catch (error) {
-      console.error("Dashboard data loading error:", error);
-      // Fallback to mock data if backend unavailable
-      const mockStats: DashboardStats = {
-        totalProducts: 1250,
-        totalStock: 45780,
-        pendingSync: 23,
-        lastSyncDate: new Date().toISOString(),
-      };
-      setStats(mockStats);
+      setError("");
+      const data = await stockAPI.getDashboardStats();
+      setStats(data);
+    } catch (err: any) {
+      setError(err.message || "Dashboard yüklenemedi");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadDashboardData();
-    const interval = setInterval(loadDashboardData, 300000); // 5 minutes
-    return () => clearInterval(interval);
+    loadDashboard();
   }, []);
 
-  const StatCard: React.FC<{
-    title: string;
-    value: string | number;
-    icon: React.ReactNode;
-    color: string;
-    subtitle?: string;
-    trend?: number;
-  }> = ({ title, value, icon, color, subtitle, trend }) => (
-    <Card sx={{ height: "100%", position: "relative", overflow: "visible" }}>
+  const StatCard = ({ title, value, icon, color }: any) => (
+    <Card>
       <CardContent>
-        <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-          <Box
-            sx={{
-              p: 1,
-              borderRadius: 2,
-              backgroundColor: color + "20",
-              color: color,
-              mr: 2,
-            }}
-          >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: color + "20", color }}>
             {icon}
           </Box>
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h4" component="div" fontWeight="bold">
-              {value.toLocaleString("tr-TR")}
+          <Box>
+            <Typography variant="h4" fontWeight="bold">
+              {value || 0}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {title}
             </Typography>
-            {subtitle && (
-              <Typography variant="caption" color="text.secondary">
-                {subtitle}
-              </Typography>
-            )}
           </Box>
-          {trend !== undefined && (
-            <Box sx={{ textAlign: "right" }}>
-              <Typography
-                variant="body2"
-                color={trend >= 0 ? "success.main" : "error.main"}
-                sx={{ display: "flex", alignItems: "center" }}
-              >
-                <Timeline sx={{ fontSize: 16, mr: 0.5 }} />
-                {trend >= 0 ? "+" : ""}
-                {trend}%
-              </Typography>
-            </Box>
-          )}
         </Box>
       </CardContent>
     </Card>
   );
 
-  const recentActivities = [
-    {
-      id: 1,
-      action: "Stok güncellendi",
-      product: "Ürün A",
-      time: "10 dk önce",
-      type: "update",
-    },
-    {
-      id: 2,
-      action: "Senkronizasyon tamamlandı",
-      product: "156 ürün",
-      time: "25 dk önce",
-      type: "sync",
-    },
-    {
-      id: 3,
-      action: "Düşük stok uyarısı",
-      product: "Ürün B",
-      time: "1 sa önce",
-      type: "warning",
-    },
-    {
-      id: 4,
-      action: "Yeni ürün eklendi",
-      product: "Ürün C",
-      time: "2 sa önce",
-      type: "add",
-    },
-  ];
-
-  const getActivityColor = (type: string) => {
-    switch (type) {
-      case "update":
-        return "info";
-      case "sync":
-        return "success";
-      case "warning":
-        return "warning";
-      case "add":
-        return "primary";
-      default:
-        return "default";
-    }
-  };
-
-  if (loading && !stats) {
+  if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        <LinearProgress />
+      <Container sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
+        <CircularProgress />
       </Container>
     );
   }
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      {/* Header */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 3,
-        }}
-      >
-        <Box>
-          <Typography
-            variant="h4"
-            component="h1"
-            gutterBottom
-            fontWeight="bold"
-          >
-            Dashboard
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Son güncellenme: {lastUpdate}
-          </Typography>
-        </Box>
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
+        <Typography variant="h4" fontWeight="bold">
+          Dashboard
+        </Typography>
         <Button
           variant="outlined"
           startIcon={<Refresh />}
-          onClick={loadDashboardData}
+          onClick={loadDashboard}
           disabled={loading}
         >
           Yenile
         </Button>
       </Box>
 
-      {/* Stats Cards */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
           gap: 3,
-          mb: 4,
+          mb: 3,
         }}
       >
         <StatCard
           title="Toplam Ürün"
-          value={stats?.totalProducts || 0}
+          value={stats?.totalProducts}
           icon={<Inventory />}
-          color={theme.palette.primary.main}
-          trend={5.2}
+          color="#1976d2"
         />
         <StatCard
           title="Toplam Stok"
-          value={stats?.totalStock || 0}
+          value={stats?.totalStock}
           icon={<TrendingUp />}
-          color={theme.palette.success.main}
-          subtitle="Adet"
-          trend={2.1}
+          color="#2e7d32"
         />
         <StatCard
-          title="Bekleyen Senkronizasyon"
-          value={stats?.pendingSync || 0}
+          title="Bekleyen Sync"
+          value={stats?.pendingSync}
           icon={<Sync />}
-          color={theme.palette.warning.main}
-          subtitle="Kayıt"
-          trend={-15.3}
+          color="#ed6c02"
         />
         <StatCard
           title="Kritik Stok"
-          value={12}
+          value={stats?.criticalStock || 0}
           icon={<Warning />}
-          color={theme.palette.error.main}
-          subtitle="Ürün"
-          trend={-8.7}
+          color="#d32f2f"
         />
       </Box>
 
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" },
-          gap: 3,
-        }}
-      >
-        {/* Recent Activities */}
-        <Paper sx={{ p: 3, height: 400 }}>
-          <Typography variant="h6" gutterBottom fontWeight="bold">
-            Son Aktiviteler
-          </Typography>
-          <List>
-            {recentActivities.map((activity) => (
-              <ListItem key={activity.id} divider>
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Typography variant="body1">{activity.action}</Typography>
-                      <Chip
-                        label={activity.product}
-                        size="small"
-                        color={getActivityColor(activity.type) as any}
-                        variant="outlined"
-                      />
-                    </Box>
-                  }
-                  secondary={activity.time}
-                />
-              </ListItem>
-            ))}
-          </List>
-        </Paper>
-
-        {/* Quick Actions */}
-        <Paper sx={{ p: 3, height: 400 }}>
-          <Typography variant="h6" gutterBottom fontWeight="bold">
-            Hızlı İşlemler
-          </Typography>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
-            <Button variant="contained" fullWidth startIcon={<Sync />}>
-              Senkronizasyon Başlat
-            </Button>
-            <Button variant="outlined" fullWidth startIcon={<Inventory />}>
-              Stok Raporu Al
-            </Button>
-            <Button variant="outlined" fullWidth startIcon={<Warning />}>
-              Kritik Stokları Görüntüle
-            </Button>
-            <Button variant="outlined" fullWidth startIcon={<TrendingUp />}>
-              Satış Analizi
-            </Button>
-          </Box>
-        </Paper>
-      </Box>
+      <Paper sx={{ mt: 3, p: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Hızlı İşlemler
+        </Typography>
+        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+          <Button variant="contained" startIcon={<Sync />}>
+            Senkronizasyon Başlat
+          </Button>
+          <Button variant="outlined" startIcon={<Inventory />}>
+            Stok Raporu
+          </Button>
+          <Button variant="outlined" startIcon={<TrendingUp />}>
+            Satış Analizi
+          </Button>
+        </Box>
+      </Paper>
     </Container>
   );
 };

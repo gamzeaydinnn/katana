@@ -2,6 +2,7 @@
 using Katana.Business.Interfaces;
 using Katana.Data.Context;
 using Katana.Business.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Katana.Infrastructure.APIClients;
@@ -11,6 +12,7 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/adminpanel")]
+[AllowAnonymous]
 public class AdminController : ControllerBase
 {
     private readonly IKatanaService _katanaService;

@@ -197,6 +197,7 @@ builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 // -----------------------------
 var app = builder.Build();
 
+// Swagger her zaman açık (Development ve Production)
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -204,13 +205,20 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = string.Empty; // Swagger UI ana dizinde
 });
 
-// Development için AllowAll, Production için AllowSpecificOrigins
+// CORS - İlk sırada olmalı
 app.UseCors(app.Environment.IsDevelopment() ? "AllowAll" : "AllowSpecificOrigins");
-app.UseHttpsRedirection();
+
+// Routing
+app.UseRouting();
+
+// Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseMiddleware<AuthMiddleware>();
+
+// Custom Middlewares (Authentication'dan SONRA)
 app.UseMiddleware<ErrorHandlingMiddleware>();
+
+// Endpoints
 app.MapControllers();
 app.MapHealthChecks("/health");
 app.Run();

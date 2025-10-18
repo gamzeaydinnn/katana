@@ -1,18 +1,18 @@
 import axios from "axios";
 
-// Backend API URL - Katana.API projesi
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+const API_KEY = "ed8c38d1-4015-45e5-9c28-381d3fe148b6";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     "Content-Type": "application/json",
+    "X-API-Key": API_KEY,
   },
 });
 
-// Request interceptor for auth token
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("authToken");
   if (token) {
@@ -21,7 +21,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -119,103 +118,46 @@ export interface AdminSyncLog {
 }
 
 export const stockAPI = {
-  // Dashboard
-  getDashboardStats: (): Promise<DashboardStats> =>
-    api.get("/dashboard/stats").then((res) => res.data),
+  // Dashboard - GET /api/Dashboard
+  getDashboardStats: () => api.get("/Dashboard").then((res) => res.data),
 
-  // Products from Katana API
-  getProducts: (
-    page?: number,
-    limit?: number
-  ): Promise<{ data: Product[]; count: number }> => {
-    const params = new URLSearchParams();
-    if (page) params.append("page", page.toString());
-    if (limit) params.append("limit", limit.toString());
-    return api.get(`/products?${params.toString()}`).then((res) => res.data);
-  },
+  // Katana Products - GET /api/adminpanel/products
+  getKatanaProducts: () => 
+    api.get("/adminpanel/products?page=1&pageSize=100").then((res) => res.data),
 
-  getProductById: (id: string): Promise<Product> =>
-    api.get(`/products/${id}`).then((res) => res.data),
+  // Stock Status - GET /api/Stock
+  getStockStatus: () => api.get("/Stock").then((res) => res.data),
 
-  // Stock Status from Katana API
-  getStockStatus: (
-    page?: number,
-    limit?: number
-  ): Promise<{ data: StockItem[]; count: number }> => {
-    const params = new URLSearchParams();
-    if (page) params.append("page", page.toString());
-    if (limit) params.append("limit", limit.toString());
-    return api
-      .get(`/stock/status?${params.toString()}`)
-      .then((res) => res.data);
-  },
-
-  // Stock Movements from Katana API
-  getStockMovements: (
-    fromDate?: string,
-    page?: number
-  ): Promise<{ data: StockMovement[]; count: number }> => {
+  // Stock Movements - GET /api/Stock/movements
+  getStockMovements: (fromDate?: string, toDate?: string) => {
     const params = new URLSearchParams();
     if (fromDate) params.append("fromDate", fromDate);
-    if (page) params.append("page", page.toString());
+    if (toDate) params.append("toDate", toDate);
     return api
-      .get(`/stock/movements?${params.toString()}`)
+      .get(`/Stock/movements?${params.toString()}`)
       .then((res) => res.data);
   },
 
-  // Sync Management
-  getSyncLogs: (
-    page = 1,
-    pageSize = 50
-  ): Promise<{ logs: SyncLog[]; total: number }> =>
-    api
-      .get(`/sync/logs?page=${page}&pageSize=${pageSize}`)
-      .then((res) => res.data),
+  // Sync - GET /api/Sync/history
+  getSyncHistory: () => api.get("/Sync/history").then((res) => res.data),
 
-  startSync: (
-    syncType: string
-  ): Promise<{ success: boolean; message: string }> =>
-    api.post("/sync/start", { syncType }).then((res) => res.data),
+  // Sync - POST /api/Sync/start
+  startSync: (syncType: string) =>
+    api.post("/Sync/start", { syncType }).then((res) => res.data),
 
-  // Reports Controller - /api/Reports
-  getStockReport: (): Promise<any[]> =>
-    api.get("/Reports/stock").then((res) => res.data),
+  // Reports - GET /api/Reports/stock
+  getStockReport: () => api.get("/Reports/stock").then((res) => res.data),
 
-  getSyncReport: (): Promise<any[]> =>
-    api.get("/Reports/sync").then((res) => res.data),
+  // Reports - GET /api/Reports/sync
+  getSyncReport: () => api.get("/Reports/sync").then((res) => res.data),
 
-  // Health Controller - /api/Health
-  getHealthStatus: (): Promise<HealthStatus> =>
-    api.get("/Health").then((res) => res.data),
-
-  // Admin Panel Controller - /api/AdminPanel
-  getAdminStatistics: (): Promise<AdminStatistics> =>
-    api.get("/adminpanel/statistics").then((res) => res.data),
-
-  getAdminProducts: (
-    page = 1,
-    pageSize = 10
-  ): Promise<{ products: AdminProduct[]; total: number }> =>
-    api
-      .get(`/adminpanel/products?page=${page}&pageSize=${pageSize}`)
-      .then((res) => res.data),
-
-  getAdminSyncLogs: (
-    page = 1,
-    pageSize = 10
-  ): Promise<{ logs: AdminSyncLog[]; total: number }> =>
-    api
-      .get(`/adminpanel/sync-logs?page=${page}&pageSize=${pageSize}`)
-      .then((res) => res.data),
-
-  getKatanaHealth: (): Promise<{ isHealthy: boolean }> =>
-    api.get("/adminpanel/katana-health").then((res) => res.data),
+  // Health - GET /api/Health
+  getHealthStatus: () => api.get("/Health").then((res) => res.data),
 };
 
-// Auth API - /api/Auth
 export const authAPI = {
-  login: (username: string, password: string): Promise<{ token: string }> =>
-    api.post("/auth/login", { username, password }).then((res) => res.data),
+  login: (username: string, password: string) =>
+    api.post("/Auth/login", { username, password }).then((res) => res.data),
 };
 
 export default api;
