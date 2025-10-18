@@ -16,7 +16,7 @@ public class StockSyncedEvent
     public StockSyncedEvent(Stock stock, string? triggeredBy = null)
     {
         StockId = stock.Id;
-        ProductSku = stock.ProductSku;
+        ProductSku = stock.Product?.SKU ?? $"PRODUCT_{stock.ProductId}";
         Quantity = stock.Quantity;
         SyncedAt = DateTime.UtcNow;
         TriggeredBy = triggeredBy ?? "System";

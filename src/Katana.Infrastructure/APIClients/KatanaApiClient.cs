@@ -111,7 +111,7 @@ public class KatanaApiClient : IKatanaApiClient
         }
     }
 
-    public async Task<List<StockMovement>> GetStockMovementsAsync(DateTime? fromDate = null, int? page = null)
+    public async Task<List<Business.Interfaces.StockMovement>> GetStockMovementsAsync(DateTime? fromDate = null, int? page = null)
     {
         try
         {
@@ -133,7 +133,7 @@ public class KatanaApiClient : IKatanaApiClient
                 PropertyNameCaseInsensitive = true
             });
             
-            return result?.Data ?? new List<StockMovement>();
+            return result?.Data ?? new List<Business.Interfaces.StockMovement>();
         }
         catch (Exception ex)
         {
@@ -180,7 +180,7 @@ internal class KatanaProductsResponse
 
 internal class KatanaStockMovementsResponse
 {
-    public List<StockMovement> Data { get; set; } = new();
+    public List<Business.Interfaces.StockMovement> Data { get; set; } = new();
     public PaginationInfo? Meta { get; set; }
 }
 

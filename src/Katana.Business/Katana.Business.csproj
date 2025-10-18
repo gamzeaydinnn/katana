@@ -23,8 +23,13 @@
   <ItemGroup>
     <ProjectReference Include="../Katana.Core/Katana.Core.csproj" />
     <ProjectReference Include="../Katana.Data/Katana.Data.csproj" />
-    
+  </ItemGroup>
 
+  <!-- Exclude ETL services from build (not used, have errors) -->
+  <ItemGroup>
+    <Compile Remove="Services\ExtractorService.cs" />
+    <Compile Remove="Services\LoaderService.cs" />
+    <Compile Remove="Services\TransformerService.cs" />
   </ItemGroup>
 
 </Project>

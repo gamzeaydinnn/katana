@@ -107,9 +107,11 @@ builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IAccountingService, AccountingService>();
-builder.Services.AddScoped<ExtractorService>();
-builder.Services.AddScoped<TransformerService>();
-builder.Services.AddScoped<LoaderService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+// ETL servisleri (şu an kullanılmıyor - eski Luca entegrasyonu için)
+// builder.Services.AddScoped<ExtractorService>();
+// builder.Services.AddScoped<TransformerService>();
+// builder.Services.AddScoped<LoaderService>();
 builder.Services.AddScoped<ISyncService, SyncService>();
 
 
@@ -155,6 +157,14 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
+
+    // Frontend için açık CORS policy (Development için)
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
 });
 
 // -----------------------------
@@ -194,7 +204,8 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = string.Empty; // Swagger UI ana dizinde
 });
 
-app.UseCors("AllowSpecificOrigins");
+// Development için AllowAll, Production için AllowSpecificOrigins
+app.UseCors(app.Environment.IsDevelopment() ? "AllowAll" : "AllowSpecificOrigins");
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

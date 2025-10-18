@@ -1,4 +1,5 @@
-﻿using Katana.Data.Context;
+﻿using Katana.Core.Enums;
+using Katana.Data.Context;
 using Katana.Data.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -41,7 +42,11 @@ public class ReportsController : ControllerBase
 
             if (!string.IsNullOrEmpty(status))
             {
-                query = query.Where(l => l.Status == status.ToUpper());
+                // Parse string to enum
+                if (Enum.TryParse<SyncStatus>(status, true, out var syncStatus))
+                {
+                    query = query.Where(l => l.Status == syncStatus);
+                }
             }
 
             var totalCount = await query.CountAsync();
@@ -218,8 +223,8 @@ public class ReportsController : ControllerBase
                 {
                     SyncType = g.Key,
                     TotalRuns = g.Count(),
-                    SuccessfulRuns = g.Count(l => l.Status == "SUCCESS"),
-                    FailedRuns = g.Count(l => l.Status == "FAILED"),
+                    SuccessfulRuns = g.Count(l => l.Status == SyncStatus.Success),
+                    FailedRuns = g.Count(l => l.Status == SyncStatus.Failed),
                     TotalProcessedRecords = g.Sum(l => l.ProcessedRecords),
                     TotalSuccessfulRecords = g.Sum(l => l.SuccessfulRecords),
                     TotalFailedRecords = g.Sum(l => l.FailedRecordsCount),

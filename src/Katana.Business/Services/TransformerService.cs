@@ -12,16 +12,13 @@ namespace Katana.Business.Services;
 
 /// <summary>
 /// DTO -> Domain dönüşümleri, alan map'leri, derin validasyon.
-/// (Gerekirse MappingHelper/MappingService kullan)
 /// </summary>
 public class TransformerService
 {
-    private readonly MappingHelper _mapping; // projende var
     private readonly ILogger<TransformerService> _logger;
 
-    public TransformerService(MappingHelper mapping, ILogger<TransformerService> logger)
+    public TransformerService(ILogger<TransformerService> logger)
     {
-        _mapping = mapping;
         _logger = logger;
     }
 
@@ -30,7 +27,6 @@ public class TransformerService
         var list = new List<Product>();
         foreach (var dto in dtos)
         {
-            // Gerekirse mapping tablolarını kullan
             var product = new Product
             {
                 SKU = dto.SKU,

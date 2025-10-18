@@ -1,3 +1,4 @@
+using Katana.Core.Enums;
 using Katana.Data.Context;
 using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
@@ -27,7 +28,7 @@ public class IntegrationLogRepository
         var log = new IntegrationLog
         {
             SyncType = syncType,
-            Status = "RUNNING",
+            Status = SyncStatus.Running,
             StartTime = DateTime.UtcNow,
             TriggeredBy = triggeredBy
         };
@@ -51,7 +52,7 @@ public class IntegrationLogRepository
             return;
         }
 
-        log.Status = "SUCCESS";
+        log.Status = SyncStatus.Success;
         log.EndTime = DateTime.UtcNow;
         log.ProcessedRecords = processed;
         log.SuccessfulRecords = success;
@@ -74,7 +75,7 @@ public class IntegrationLogRepository
             return;
         }
 
-        log.Status = "FAILED";
+        log.Status = SyncStatus.Failed;
         log.EndTime = DateTime.UtcNow;
         log.ErrorMessage = errorMessage;
 
@@ -99,7 +100,7 @@ public class IntegrationLogRepository
     public async Task<IntegrationLog?> GetLastSuccessfulLogAsync(string syncType)
     {
         return await _context.IntegrationLogs
-            .Where(l => l.SyncType == syncType && l.Status == "SUCCESS")
+            .Where(l => l.SyncType == syncType && l.Status == SyncStatus.Success)
             .OrderByDescending(l => l.EndTime)
             .FirstOrDefaultAsync();
     }
@@ -110,7 +111,7 @@ public class IntegrationLogRepository
     public async Task<bool> IsSyncRunningAsync(string syncType)
     {
         return await _context.IntegrationLogs
-            .AnyAsync(l => l.SyncType == syncType && l.Status == "RUNNING");
+            .AnyAsync(l => l.SyncType == syncType && l.Status == SyncStatus.Running);
     }
 
     /// <summary>
