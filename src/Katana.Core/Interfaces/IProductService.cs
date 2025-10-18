@@ -19,4 +19,5 @@ public interface IProductService
     Task<bool> ActivateProductAsync(int id);
     Task<bool> DeactivateProductAsync(int id);
     Task<ProductStatisticsDto> GetProductStatisticsAsync();
+    
 }

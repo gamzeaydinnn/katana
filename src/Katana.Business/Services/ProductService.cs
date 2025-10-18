@@ -56,6 +56,7 @@ public class ProductService : IProductService
 
         return products.Select(MapToDto);
     }
+    
 
     public async Task<IEnumerable<ProductDto>> SearchProductsAsync(string searchTerm)
     {
