@@ -29,6 +29,11 @@ public class IntegrationDbContext : DbContext
     public DbSet<Category> Categories { get; set; }
     public DbSet<Order> Orders { get; set; }
      public DbSet<OrderItem> OrderItems { get; set; }
+     public DbSet<Supplier> Suppliers { get; set; }
+      public DbSet<SupplierPrice> SupplierPrices { get; set; }
+    public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
+    public DbSet<PurchaseOrderItem> PurchaseOrderItems { get; set; }
+
 
 
 
