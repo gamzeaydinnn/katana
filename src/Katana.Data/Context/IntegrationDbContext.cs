@@ -33,6 +33,8 @@ public class IntegrationDbContext : DbContext
       public DbSet<SupplierPrice> SupplierPrices { get; set; }
     public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
     public DbSet<PurchaseOrderItem> PurchaseOrderItems { get; set; }
+    public DbSet<Katana.Core.Entities.User> Users { get; set; }
+
 
 
 

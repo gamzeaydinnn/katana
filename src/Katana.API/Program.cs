@@ -16,6 +16,7 @@ using Serilog;
 using System.Text;
 using Katana.Infrastructure.APIClients;
 using Katana.Business.UseCases.Sync;
+using Katana.Infrastructure.Notifications;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -105,6 +106,14 @@ builder.Services.AddScoped<Katana.Core.Interfaces.ICustomerService, Katana.Busin
 builder.Services.AddScoped<Katana.Core.Interfaces.IProductService, Katana.Business.Services.ProductService>();
 builder.Services.AddScoped<Katana.Core.Interfaces.IAccountingService, Katana.Business.Services.AccountingService>();
 //builder.Services.AddScoped<IMappingService, MappingService>();
+builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<EmailNotificationService>();
+builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<Katana.Infrastructure.Notifications.EmailNotificationService>();
+
+
 
 // -----------------------------
 // JWT Authentication

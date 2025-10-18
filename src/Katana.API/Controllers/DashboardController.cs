@@ -1,6 +1,7 @@
 using Katana.Business.Interfaces;
+using Katana.Business.Services;
+using Katana.Core.DTOs;
 using Katana.Data.Context;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,8 +14,10 @@ public class DashboardController : ControllerBase
     private readonly IKatanaService _katanaService;
     private readonly IntegrationDbContext _context;
     private readonly ILogger<DashboardController> _logger;
+    private readonly DashboardService _dashboardService;
 
     public DashboardController(
+        DashboardService dashboardService,
         IKatanaService katanaService,
         IntegrationDbContext context,
         ILogger<DashboardController> logger)
@@ -22,23 +25,24 @@ public class DashboardController : ControllerBase
         _katanaService = katanaService;
         _context = context;
         _logger = logger;
+        _dashboardService = dashboardService;
     }
 
     /// <summary>
-    /// Get dashboard statistics
+    /// Katana API bağlantısı ve senkronizasyon istatistikleri
     /// </summary>
-    [HttpGet("stats")]
+    [HttpGet("sync-stats")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetStats()
+    public async Task<IActionResult> GetSyncStats()
     {
         try
         {
-            // Check Katana API health
+            // Katana API bağlantısını kontrol et
             var isHealthy = await _katanaService.TestConnectionAsync();
-            
+
             if (!isHealthy)
             {
-                _logger.LogWarning("Katana API is not healthy");
+                _logger.LogWarning("Katana API bağlantısı başarısız.");
                 return Ok(new
                 {
                     totalProducts = 0,
@@ -51,19 +55,17 @@ public class DashboardController : ControllerBase
                 });
             }
 
-            // Fetch products from Katana API
+            // Ürünleri Katana API'den çek
             var products = await _katanaService.GetProductsAsync();
-            
-            // Calculate statistics based on model structure
+
+            // Basit istatistikler hesapla
             var totalProducts = products.Count;
             var totalStock = products.Count(p => p.IsActive);
             var outOfStockItems = products.Count(p => !p.IsActive);
             var lowStockItems = 0;
-            
-            // Get sync logs from database
-            var pendingSync = await _context.SyncLogs
-                .CountAsync(l => !l.IsSuccess);
-            
+
+            // Senkronizasyon loglarını DB'den çek
+            var pendingSync = await _context.SyncLogs.CountAsync(l => !l.IsSuccess);
             var lastSync = await _context.SyncLogs
                 .OrderByDescending(l => l.CreatedAt)
                 .FirstOrDefaultAsync();
@@ -75,18 +77,38 @@ public class DashboardController : ControllerBase
                 lowStockItems,
                 outOfStockItems,
                 pendingSync,
-                lastSyncDate = lastSync?.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss") ?? DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss")
+                lastSyncDate = lastSync?.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss") 
+                               ?? DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss")
             });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching dashboard stats");
-            return StatusCode(500, new { error = "Failed to fetch dashboard stats", details = ex.Message });
+            _logger.LogError(ex, "Error fetching sync stats.");
+            return StatusCode(500, new { error = "Failed to fetch sync stats", details = ex.Message });
         }
     }
 
     /// <summary>
-    /// Get recent activities
+    /// Uygulama veritabanından dashboard istatistiklerini döner (ürün, stok, müşteri, gelir vb.)
+    /// </summary>
+    [HttpGet("stats")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<DashboardStatsDto>> GetDashboardStats()
+    {
+        try
+        {
+            var stats = await _dashboardService.GetDashboardStatsAsync();
+            return Ok(stats);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Dashboard istatistikleri alınamadı.");
+            return StatusCode(500, new { error = "İstatistikler alınamadı", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// En son sistem aktivitelerini döner (örnek: senkronizasyon, hata logları)
     /// </summary>
     [HttpGet("activities")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -98,12 +120,14 @@ public class DashboardController : ControllerBase
                 .OrderByDescending(l => l.CreatedAt)
                 .Take(20)
                 .ToListAsync();
-            
+
             var activities = recentLogs.Select(log => new
             {
                 id = log.Id,
                 type = log.IntegrationName,
-                message = log.IsSuccess ? $"{log.IntegrationName} - Başarılı" : $"{log.IntegrationName} - Başarısız",
+                message = log.IsSuccess
+                    ? $"{log.IntegrationName} - Başarılı"
+                    : $"{log.IntegrationName} - Başarısız",
                 timestamp = log.CreatedAt,
                 status = log.IsSuccess ? "Success" : "Failed"
             }).ToList();
@@ -117,5 +141,3 @@ public class DashboardController : ControllerBase
         }
     }
 }
-
-
