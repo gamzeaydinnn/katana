@@ -3,18 +3,18 @@ using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
 
-namespace Katana.Data.Context;
 
+namespace Katana.Data.Context;
 public class IntegrationDbContext : DbContext
 {
     public IntegrationDbContext(DbContextOptions<IntegrationDbContext> options) : base(options)
     {
     }
-
     // Core entities
     public DbSet<Product> Products { get; set; } = null!;
     public DbSet<Stock> Stocks { get; set; } = null!;
     public DbSet<Customer> Customers { get; set; } = null!;
+    public DbSet<SyncOperationLog> SyncOperationLogs { get; set; } = null!;
     public DbSet<Invoice> Invoices { get; set; } = null!;
     public DbSet<InvoiceItem> InvoiceItems { get; set; } = null!;
     public DbSet<AccountingRecord> AccountingRecords { get; set; } = null!;
@@ -23,7 +23,7 @@ public class IntegrationDbContext : DbContext
     public DbSet<IntegrationLog> IntegrationLogs { get; set; } = null!;
     public DbSet<MappingTable> MappingTables { get; set; } = null!;
     public DbSet<FailedSyncRecord> FailedSyncRecords { get; set; } = null!;
-    public DbSet<SyncLog> SyncLogs { get; set; } = null!;
+    //public DbSet<SyncLog> SyncLogs { get; set; } = null!;
     public DbSet<ErrorLog> ErrorLogs { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!; // ✅ Audit kayıtları için
     public DbSet<Category> Categories { get; set; }
@@ -34,27 +34,34 @@ public class IntegrationDbContext : DbContext
     public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
     public DbSet<PurchaseOrderItem> PurchaseOrderItems { get; set; }
     public DbSet<Katana.Core.Entities.User> Users { get; set; }
-
-
-
-
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        base.OnModelCreating(modelBuilder);
+{
+    base.OnModelCreating(modelBuilder);
 
-        // Product configuration
-        modelBuilder.Entity<Product>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.SKU).IsUnique();
-            entity.Property(e => e.Price).HasPrecision(18, 2);
-            
-            entity.HasMany(e => e.StockMovements)
-                .WithOne(e => e.Product)
-                .HasForeignKey(e => e.ProductId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
+    // ✅ SyncLog configuration
+    modelBuilder.Entity<SyncOperationLog>(entity =>
+    {
+        entity.ToTable("SyncLogs");
+        entity.HasKey(e => e.Id);
+        entity.Property(e => e.SyncType).IsRequired().HasMaxLength(50);
+        entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+        entity.Property(e => e.StartTime).IsRequired();
+        entity.Property(e => e.Details).HasColumnType("TEXT");
+    });
+
+    // Product configuration
+    modelBuilder.Entity<Product>(entity =>
+    {
+        entity.HasKey(e => e.Id);
+        entity.HasIndex(e => e.SKU).IsUnique();
+        entity.Property(e => e.Price).HasPrecision(18, 2);
+        
+        entity.HasMany(e => e.StockMovements)
+            .WithOne(e => e.Product)
+            .HasForeignKey(e => e.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+    });
+
 
         // Stock configuration
         modelBuilder.Entity<Stock>(entity =>
@@ -69,7 +76,6 @@ public class IntegrationDbContext : DbContext
     .WithOne(c => c.Parent)
     .HasForeignKey(c => c.ParentId)
     .OnDelete(DeleteBehavior.Restrict);
-
 
         // Customer configuration
         modelBuilder.Entity<Customer>(entity =>
@@ -157,7 +163,6 @@ public class IntegrationDbContext : DbContext
         // Seed data
         SeedData(modelBuilder);
     }
-
     private static void SeedData(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<MappingTable>().HasData(
@@ -185,7 +190,6 @@ public class IntegrationDbContext : DbContext
             }
         );
     }
-
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;

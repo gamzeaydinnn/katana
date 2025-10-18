@@ -1,20 +1,21 @@
 using Katana.Core.Entities;
-using Katana.Infrastructure.Notifications;
-using System;
-using System.Linq;
+using Katana.Core.Interfaces;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Katana.Core.Entities;
 
 namespace Katana.Business.Services;
 
+/// <summary>
+/// Uygulamanın genelinde bildirimleri (e-posta vb.) yönetmek için kullanılır.
+/// Infrastructure katmanındaki e-posta servislerini interface aracılığıyla çağırır.
+/// </summary>
 public class NotificationService
 {
-    private readonly EmailNotificationService _emailService;
+    private readonly INotificationService _notificationService;
 
-    public NotificationService(EmailNotificationService emailService)
+    public NotificationService(INotificationService notificationService)
     {
-        _emailService = emailService;
+        _notificationService = notificationService;
     }
 
     /// <summary>
@@ -22,10 +23,7 @@ public class NotificationService
     /// </summary>
     public async Task CheckLowStockAsync(IEnumerable<Product> products)
     {
-        foreach (var p in products.Where(x => x.Stock < 10 && x.IsActive))
-        {
-            await _emailService.SendLowStockAlert(p);
-        }
+        await _notificationService.CheckLowStockAsync(products);
     }
 
     /// <summary>
@@ -33,17 +31,14 @@ public class NotificationService
     /// </summary>
     public async Task CheckInvoiceDueAsync(IEnumerable<Invoice> invoices)
     {
-        foreach (var inv in invoices.Where(i => i.DueDate <= DateTime.UtcNow.AddDays(3)))
-        {
-            await _emailService.SendInvoiceDueAlert(inv.InvoiceNumber, inv.DueDate);
-        }
+        await _notificationService.CheckInvoiceDueAsync(invoices);
     }
 
     /// <summary>
-    /// Genel sistem hatası bildirimi.
+    /// Genel sistem hatası bildirimi gönderir.
     /// </summary>
     public async Task SendSystemAlertAsync(string message)
     {
-        await _emailService.SendSystemAlert(message);
+        await _notificationService.SendSystemAlertAsync(message);
     }
 }

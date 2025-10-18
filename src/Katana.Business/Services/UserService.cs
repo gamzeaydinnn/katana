@@ -73,10 +73,6 @@ public async Task<UserDto> UpdateAsync(int id, UpdateUserDto dto)
         IsActive = user.IsActive
     };
 }
-
-
-
-
     public async Task<UserDto> CreateAsync(CreateUserDto dto)
     {
         using var sha = SHA256.Create();
@@ -94,7 +90,6 @@ public async Task<UserDto> UpdateAsync(int id, UpdateUserDto dto)
 
         return new UserDto { Id = user.Id, Username = user.Username, Role = user.Role, IsActive = user.IsActive };
     }
-
     public async Task<bool> DeleteAsync(int id)
     {
         var user = await _context.Set<User>().FindAsync(id);
@@ -112,7 +107,6 @@ public async Task<UserDto> UpdateAsync(int id, UpdateUserDto dto)
         await _context.SaveChangesAsync();
         return true;
     }
-
 
     public async Task<UserDto?> AuthenticateAsync(string email, string password)
 {

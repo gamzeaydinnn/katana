@@ -1,14 +1,16 @@
-﻿using Katana.Business.DTOs;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Katana.Business.DTOs;
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Data.Context;
-using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-
+using Katana.Core.Entities;
 
 namespace Katana.Business.Services;
-
 public class AdminService : IAdminService
 {
     private readonly IntegrationDbContext _context;
@@ -27,35 +29,33 @@ public class AdminService : IAdminService
         _lucaService = lucaService;
         _logger = logger;
     }
-
     public async Task<List<AdminSyncStatusDto>> GetSyncStatusesAsync()
     {
         var statuses = new List<AdminSyncStatusDto>();
         try
         {
-            var katanaStatus = new AdminSyncStatusDto
+            // STOCK / INVOICE / CUSTOMER için son durumları getir
+            foreach (var type in new[] { "STOCK", "INVOICE", "CUSTOMER" })
             {
-                IntegrationName = "Katana",
-                LastSyncDate = await _context.SyncLogs
-                    .Where(l => l.IntegrationName == "Katana")
-                    .OrderByDescending(l => l.CreatedAt)
-                    .Select(l => l.CreatedAt)
-                    .FirstOrDefaultAsync(),
-                Status = "Unknown"
-            };
-            statuses.Add(katanaStatus);
+                var lastTime = await _context.SyncOperationLogs
+                    .Where(l => l.SyncType == type)
+                    .OrderByDescending(l => l.EndTime ?? l.StartTime)
+                    .Select(l => (l.EndTime ?? l.StartTime))
+                    .FirstOrDefaultAsync();
 
-            var lucaStatus = new AdminSyncStatusDto
-            {
-                IntegrationName = "Luca",
-                LastSyncDate = await _context.SyncLogs
-                    .Where(l => l.IntegrationName == "Luca")
-                    .OrderByDescending(l => l.CreatedAt)
-                    .Select(l => l.CreatedAt)
-                    .FirstOrDefaultAsync(),
-                Status = "Unknown"
-            };
-            statuses.Add(lucaStatus);
+                var lastStatus = await _context.SyncOperationLogs
+                    .Where(l => l.SyncType == type)
+                    .OrderByDescending(l => l.EndTime ?? l.StartTime)
+                    .Select(l => l.Status)
+                    .FirstOrDefaultAsync();
+
+                statuses.Add(new AdminSyncStatusDto
+                {
+                    IntegrationName = type,               // burada integration yerine syncType gösteriyoruz
+                    LastSyncDate = lastTime,
+                    Status = lastStatus ?? "Unknown"
+                });
+            }
         }
         catch (Exception ex)
         {
@@ -64,7 +64,6 @@ public class AdminService : IAdminService
 
         return statuses;
     }
-
     public async Task<List<ErrorLogDto>> GetErrorLogsAsync(int page = 1, int pageSize = 50)
     {
         return await _context.ErrorLogs
@@ -81,35 +80,37 @@ public class AdminService : IAdminService
             .ToListAsync();
     }
 
+    // integrationName parametresi yerine syncType beklediğimizi dökümante edebilirsin: "STOCK" | "INVOICE" | "CUSTOMER"
     public async Task<SyncReportDto> GetSyncReportAsync(string integrationName)
     {
-        var total = await _context.SyncLogs.CountAsync(l => l.IntegrationName == integrationName);
-        var success = await _context.SyncLogs.CountAsync(l => l.IntegrationName == integrationName && l.IsSuccess);
-        var failed = total - success;
+        var syncType = integrationName?.ToUpperInvariant();
+
+        var total = await _context.SyncOperationLogs.CountAsync(l => l.SyncType == syncType);
+        var success = await _context.SyncOperationLogs.CountAsync(l => l.SyncType == syncType && l.Status == "SUCCESS");
+         var failed = total - success;
 
         return new SyncReportDto
         {
-            IntegrationName = integrationName,
+            IntegrationName = syncType ?? "UNKNOWN",
             TotalRecords = total,
             SuccessCount = success,
             FailedCount = failed,
             ReportDate = DateTime.UtcNow
         };
     }
-
     public async Task<bool> RunManualSyncAsync(ManualSyncRequest request)
     {
         try
         {
+            // Bu metodu gerçek senaryoya göre zenginleştirebilirsin.
             if (request.IntegrationName.Equals("Katana", StringComparison.OrdinalIgnoreCase))
             {
                 var products = await _katanaService.GetProductsAsync();
-                // Burada gÃ¶nderme iÅŸlemi yapÄ±labilir
-                return true;
+                return products.Any();
             }
             else if (request.IntegrationName.Equals("Luca", StringComparison.OrdinalIgnoreCase))
             {
-                // Luca manuel sync
+                // Luca manuel sync örnek stub
                 return true;
             }
             return false;
@@ -120,23 +121,4 @@ public class AdminService : IAdminService
             return false;
         }
     }
-
-    Task<List<AdminSyncStatusDto>> IAdminService.GetSyncStatusesAsync()
-    {
-        throw new NotImplementedException();
-    }
-
-    Task<List<ErrorLogDto>> IAdminService.GetErrorLogsAsync(int page, int pageSize)
-    {
-        throw new NotImplementedException();
-    }
-
-    Task<SyncReportDto> IAdminService.GetSyncReportAsync(string integrationName)
-    {
-        throw new NotImplementedException();
-    }
-
-   
 }
-
-

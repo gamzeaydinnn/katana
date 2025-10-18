@@ -58,16 +58,17 @@ public class DashboardController : ControllerBase
             // Ürünleri Katana API'den çek
             var products = await _katanaService.GetProductsAsync();
 
-            // Basit istatistikler hesapla
             var totalProducts = products.Count;
             var totalStock = products.Count(p => p.IsActive);
             var outOfStockItems = products.Count(p => !p.IsActive);
             var lowStockItems = 0;
 
             // Senkronizasyon loglarını DB'den çek
-            var pendingSync = await _context.SyncLogs.CountAsync(l => !l.IsSuccess);
-            var lastSync = await _context.SyncLogs
-                .OrderByDescending(l => l.CreatedAt)
+            var pendingSync = await _context.SyncOperationLogs
+                .CountAsync(l => l.Status != "SUCCESS");
+
+            var lastSync = await _context.SyncOperationLogs
+                .OrderByDescending(l => l.EndTime ?? l.StartTime)
                 .FirstOrDefaultAsync();
 
             return Ok(new
@@ -77,8 +78,9 @@ public class DashboardController : ControllerBase
                 lowStockItems,
                 outOfStockItems,
                 pendingSync,
-                lastSyncDate = lastSync?.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss") 
-                               ?? DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss")
+                lastSyncDate = (lastSync != null
+                    ? (lastSync.EndTime ?? lastSync.StartTime).ToString("yyyy-MM-ddTHH:mm:ss")
+                    : DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"))
             });
         }
         catch (Exception ex)
@@ -89,7 +91,7 @@ public class DashboardController : ControllerBase
     }
 
     /// <summary>
-    /// Uygulama veritabanından dashboard istatistiklerini döner (ürün, stok, müşteri, gelir vb.)
+    /// Dashboard istatistikleri
     /// </summary>
     [HttpGet("stats")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -108,7 +110,7 @@ public class DashboardController : ControllerBase
     }
 
     /// <summary>
-    /// En son sistem aktivitelerini döner (örnek: senkronizasyon, hata logları)
+    /// En son sistem aktiviteleri
     /// </summary>
     [HttpGet("activities")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -116,20 +118,20 @@ public class DashboardController : ControllerBase
     {
         try
         {
-            var recentLogs = await _context.SyncLogs
-                .OrderByDescending(l => l.CreatedAt)
+            var recentLogs = await _context.SyncOperationLogs
+                .OrderByDescending(l => l.EndTime ?? l.StartTime)
                 .Take(20)
                 .ToListAsync();
 
             var activities = recentLogs.Select(log => new
             {
                 id = log.Id,
-                type = log.IntegrationName,
-                message = log.IsSuccess
-                    ? $"{log.IntegrationName} - Başarılı"
-                    : $"{log.IntegrationName} - Başarısız",
-                timestamp = log.CreatedAt,
-                status = log.IsSuccess ? "Success" : "Failed"
+                type = log.SyncType,
+                message = log.Status == "SUCCESS"
+                    ? $"{log.SyncType} - Başarılı"
+                    : $"{log.SyncType} - Başarısız",
+                timestamp = log.EndTime ?? log.StartTime,
+                status = log.Status
             }).ToList();
 
             return Ok(new { data = activities, count = activities.Count });

@@ -17,6 +17,8 @@ using System.Text;
 using Katana.Infrastructure.APIClients;
 using Katana.Business.UseCases.Sync;
 using Katana.Infrastructure.Notifications;
+using Katana.Core.Interfaces;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -93,27 +95,26 @@ builder.Services.AddHttpClient<IKatanaService, KatanaService>();
 // -----------------------------
 // Repository + UnitOfWork
 // -----------------------------
-builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+builder.Services.AddScoped(typeof(Katana.Core.Interfaces.IRepository<>), typeof(Repository<>));
 //builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // -----------------------------
 // Business Services
 // -----------------------------
 builder.Services.AddScoped<ISyncService, SyncService>();
-builder.Services.AddScoped<Katana.Core.Interfaces.IStockService, Katana.Business.Services.StockService>();
-builder.Services.AddScoped<Katana.Core.Interfaces.IInvoiceService, Katana.Business.Services.InvoiceService>();
-builder.Services.AddScoped<Katana.Core.Interfaces.ICustomerService, Katana.Business.Services.CustomerService>();
-builder.Services.AddScoped<Katana.Core.Interfaces.IProductService, Katana.Business.Services.ProductService>();
-builder.Services.AddScoped<Katana.Core.Interfaces.IAccountingService, Katana.Business.Services.AccountingService>();
-//builder.Services.AddScoped<IMappingService, MappingService>();
-builder.Services.AddScoped<DashboardService>();
-builder.Services.AddScoped<NotificationService>();
-builder.Services.AddScoped<EmailNotificationService>();
-builder.Services.AddScoped<DashboardService>();
-builder.Services.AddScoped<NotificationService>();
-builder.Services.AddScoped<Katana.Infrastructure.Notifications.EmailNotificationService>();
+builder.Services.AddScoped<IStockService, StockService>();
+builder.Services.AddScoped<IInvoiceService, InvoiceService>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IAccountingService, AccountingService>();
 
 
+// Notification sistemi
+builder.Services.AddScoped<INotificationService, EmailNotificationService>();
+builder.Services.AddScoped<NotificationService>(); // Business katmanı
+
+builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<AdminService>();
 
 // -----------------------------
 // JWT Authentication

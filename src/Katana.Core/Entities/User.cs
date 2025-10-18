@@ -13,12 +13,14 @@ public class User
     public string PasswordHash { get; set; } = string.Empty;
 
     [Required]
-    public string Role { get; set; } = "Staff"; // Default role
+    public string Role { get; set; } = "Staff";
 
     public bool IsActive { get; set; } = true;
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string Email { get; set; } = string.Empty;
-    
 
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // ✅ BU ŞART
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

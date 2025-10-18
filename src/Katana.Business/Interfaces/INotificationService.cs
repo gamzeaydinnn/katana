@@ -1,1 +1,0 @@
-namespace Katana.Business.Interfaces;
