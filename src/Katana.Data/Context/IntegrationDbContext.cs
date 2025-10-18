@@ -26,6 +26,8 @@ public class IntegrationDbContext : DbContext
     public DbSet<SyncLog> SyncLogs { get; set; } = null!;
     public DbSet<ErrorLog> ErrorLogs { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!; // ✅ Audit kayıtları için
+    public DbSet<Category> Categories { get; set; }
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -51,6 +53,13 @@ public class IntegrationDbContext : DbContext
             entity.HasIndex(e => new { e.ProductId, e.Timestamp });
             entity.HasIndex(e => e.IsSynced);
         });
+        //kategori 
+        modelBuilder.Entity<Category>()
+    .HasMany(c => c.Children)
+    .WithOne(c => c.Parent)
+    .HasForeignKey(c => c.ParentId)
+    .OnDelete(DeleteBehavior.Restrict);
+
 
         // Customer configuration
         modelBuilder.Entity<Customer>(entity =>
