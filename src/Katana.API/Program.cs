@@ -107,6 +107,11 @@ builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IAccountingService, AccountingService>();
+builder.Services.AddScoped<ExtractorService>();
+builder.Services.AddScoped<TransformerService>();
+builder.Services.AddScoped<LoaderService>();
+builder.Services.AddScoped<ISyncService, SyncService>();
+
 
 
 // Notification sistemi
