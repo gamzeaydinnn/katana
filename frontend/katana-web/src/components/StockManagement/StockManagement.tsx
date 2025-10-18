@@ -17,11 +17,7 @@ import {
   CircularProgress,
   InputAdornment,
 } from "@mui/material";
-import {
-  Search,
-  Refresh,
-  Inventory,
-} from "@mui/icons-material";
+import { Search, Refresh, Inventory } from "@mui/icons-material";
 import { stockAPI } from "../../services/api";
 
 interface Product {

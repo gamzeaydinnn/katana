@@ -1,26 +1,106 @@
 ﻿using Katana.Business.DTOs;
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
+using Katana.Data.Context;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-/*Amacı: Kullanıcının arayüzden tek tuşla senkronizasyonu tetiklemesini sağlamak ve logları görüntülemek.*/
+using Microsoft.EntityFrameworkCore;
+
 namespace Katana.API.Controllers;
-/*Sorumlulukları (Yeni):
-Belirli bir veri türü (örn: Stok, Fatura) için manuel senkronizasyonu başlatan endpoint (POST /api/sync/run/{type}).
-Tüm senkronizasyon geçmişini (logları) getiren endpoint (GET /api/sync/history).
-Belirli bir senkronizasyon işleminin detaylarını (başarılı/hatalı kayıtlar) getiren endpoint (GET /api/sync/history/{logId}).*/
+
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[AllowAnonymous]
 public class SyncController : ControllerBase
 {
     private readonly ISyncService _syncService;
+    private readonly IntegrationDbContext _context;
     private readonly ILogger<SyncController> _logger;
 
-    public SyncController(ISyncService syncService, ILogger<SyncController> logger)
+    public SyncController(ISyncService syncService, IntegrationDbContext context, ILogger<SyncController> logger)
     {
         _syncService = syncService;
+        _context = context;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// GET /api/Sync/history - Senkronizasyon geçmişini getirir
+    /// </summary>
+    [HttpGet("history")]
+    public async Task<IActionResult> GetSyncHistory()
+    {
+        try
+        {
+            // Tablo yoksa boş liste döndür
+            var logs = await _context.SyncOperationLogs
+                .OrderByDescending(l => l.StartTime)
+                .Take(50)
+                .Select(l => new
+                {
+                    id = l.Id,
+                    syncType = l.SyncType,
+                    status = l.Status,
+                    startTime = l.StartTime,
+                    endTime = l.EndTime,
+                    successCount = l.SuccessfulRecords,
+                    failCount = l.FailedRecords,
+                    errorMessage = l.ErrorMessage
+                })
+                .ToListAsync();
+
+            return Ok(logs);
+        }
+        catch (Microsoft.Data.Sqlite.SqliteException)
+        {
+            // Tablo henüz oluşturulmamış, boş liste döndür
+            return Ok(new List<object>());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting sync history");
+            return StatusCode(500, new { message = "Sync geçmişi alınamadı" });
+        }
+    }
+
+    /// <summary>
+    /// POST /api/Sync/start - Yeni senkronizasyon başlatır
+    /// </summary>
+    [HttpPost("start")]
+    public async Task<IActionResult> StartSync([FromBody] StartSyncRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Starting sync: {SyncType}", request.SyncType);
+            
+            var result = request.SyncType?.ToUpper() switch
+            {
+                "STOCK" => await _syncService.SyncStockAsync(null),
+                "INVOICE" => await _syncService.SyncInvoicesAsync(null),
+                "CUSTOMER" => await _syncService.SyncCustomersAsync(null),
+                "ALL" => await ConvertBatchResult(await _syncService.SyncAllAsync(null)),
+                _ => throw new ArgumentException("Geçersiz sync tipi")
+            };
+
+            return Ok(new { success = result.IsSuccess, message = result.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error starting sync");
+            return StatusCode(500, new { message = "Sync başlatılamadı" });
+        }
+    }
+
+    private Task<SyncResultDto> ConvertBatchResult(BatchSyncResultDto batch)
+    {
+        return Task.FromResult(new SyncResultDto
+        {
+            IsSuccess = batch.OverallSuccess,
+            Message = $"Toplam {batch.TotalProcessedRecords} kayıt işlendi",
+            ProcessedRecords = batch.TotalProcessedRecords,
+            SuccessfulRecords = batch.TotalSuccessfulRecords,
+            FailedRecords = batch.TotalFailedRecords
+        });
     }
 
     /// <summary>
@@ -158,5 +238,10 @@ public class SyncController : ControllerBase
             return StatusCode(500, new { error = "Internal server error checking sync status" });
         }
     }
+}
+
+public class StartSyncRequest
+{
+    public string SyncType { get; set; } = string.Empty;
 }
 

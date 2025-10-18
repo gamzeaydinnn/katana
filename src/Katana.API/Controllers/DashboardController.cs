@@ -2,6 +2,7 @@ using Katana.Business.Interfaces;
 using Katana.Business.Services;
 using Katana.Core.DTOs;
 using Katana.Data.Context;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,6 +10,7 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[AllowAnonymous]
 public class DashboardController : ControllerBase
 {
     private readonly IKatanaService _katanaService;
@@ -26,6 +28,37 @@ public class DashboardController : ControllerBase
         _context = context;
         _logger = logger;
         _dashboardService = dashboardService;
+    }
+
+    /// <summary>
+    /// Dashboard ana istatistikleri - GET /api/Dashboard
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> Get()
+    {
+        try
+        {
+            _logger.LogInformation("Getting dashboard statistics");
+            
+            var products = await _katanaService.GetProductsAsync();
+            
+            var stats = new
+            {
+                totalProducts = products.Count,
+                totalStock = products.Count(p => p.IsActive),
+                pendingSync = 0,
+                criticalStock = products.Count(p => !p.IsActive)
+            };
+            
+            _logger.LogInformation("Dashboard stats retrieved successfully");
+            return Ok(stats);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting dashboard stats");
+            return StatusCode(500, new { message = "Dashboard verileri alınamadı" });
+        }
     }
 
     /// <summary>

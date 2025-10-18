@@ -122,7 +122,7 @@ export const stockAPI = {
   getDashboardStats: () => api.get("/Dashboard").then((res) => res.data),
 
   // Katana Products - GET /api/adminpanel/products
-  getKatanaProducts: () => 
+  getKatanaProducts: () =>
     api.get("/adminpanel/products?page=1&pageSize=100").then((res) => res.data),
 
   // Stock Status - GET /api/Stock

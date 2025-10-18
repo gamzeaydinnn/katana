@@ -20,46 +20,112 @@ import AdminPanel from "./components/AdminPanel/AdminPanel";
 import Login from "./components/Login/Login";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 
-// Create theme
+// Professional Theme
 const theme = createTheme({
   palette: {
     mode: "light",
     primary: {
-      main: "#1976d2",
-      light: "#42a5f5",
-      dark: "#1565c0",
+      main: "#2563eb",
+      light: "#60a5fa",
+      dark: "#1e40af",
     },
     secondary: {
-      main: "#dc004e",
+      main: "#7c3aed",
+      light: "#a78bfa",
+      dark: "#5b21b6",
+    },
+    success: {
+      main: "#10b981",
+      light: "#34d399",
+      dark: "#059669",
+    },
+    warning: {
+      main: "#f59e0b",
+      light: "#fbbf24",
+      dark: "#d97706",
+    },
+    error: {
+      main: "#ef4444",
+      light: "#f87171",
+      dark: "#dc2626",
     },
     background: {
-      default: "#f5f5f5",
+      default: "#f8fafc",
       paper: "#ffffff",
+    },
+    text: {
+      primary: "#1e293b",
+      secondary: "#64748b",
     },
   },
   typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: '"Inter", "Segoe UI", "Roboto", sans-serif',
     h4: {
+      fontWeight: 700,
+      letterSpacing: "-0.02em",
+    },
+    h5: {
       fontWeight: 600,
+      letterSpacing: "-0.01em",
     },
     h6: {
       fontWeight: 600,
+      letterSpacing: "-0.01em",
+    },
+    button: {
+      fontWeight: 600,
+      letterSpacing: "0.02em",
     },
   },
+  shape: {
+    borderRadius: 12,
+  },
+  shadows: [
+    "none",
+    "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+    "0 1px 3px 0 rgb(0 0 0 / 0.1)",
+    "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+    "0 10px 15px -3px rgb(0 0 0 / 0.1)",
+    "0 20px 25px -5px rgb(0 0 0 / 0.1)",
+    "0 25px 50px -12px rgb(0 0 0 / 0.25)",
+    ...Array(18).fill("none"),
+  ] as any,
   components: {
     MuiButton: {
       styleOverrides: {
         root: {
           textTransform: "none",
-          borderRadius: 8,
+          borderRadius: 10,
+          fontWeight: 600,
+          padding: "10px 24px",
+          boxShadow: "none",
+          "&:hover": {
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          },
         },
       },
     },
     MuiCard: {
       styleOverrides: {
         root: {
+          borderRadius: 16,
+          boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
+          border: "1px solid rgba(0,0,0,0.05)",
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
           borderRadius: 12,
-          boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          fontWeight: 600,
+          borderRadius: 8,
         },
       },
     },
@@ -68,10 +134,6 @@ const theme = createTheme({
 
 const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-
-  const handleSidebarToggle = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -85,7 +147,7 @@ const App: React.FC = () => {
               <ProtectedRoute>
                 <Box sx={{ display: "flex", minHeight: "100vh" }}>
                   <Header
-                    onMenuClick={handleSidebarToggle}
+                    onMenuClick={() => setSidebarOpen(!sidebarOpen)}
                     sidebarOpen={sidebarOpen}
                   />
                   <Sidebar
@@ -97,27 +159,24 @@ const App: React.FC = () => {
                     sx={{
                       flexGrow: 1,
                       bgcolor: "background.default",
-                      p: 0,
+                      p: 3,
                       width: { sm: `calc(100% - ${sidebarOpen ? 280 : 0}px)` },
                       ml: { sm: sidebarOpen ? "280px" : 0 },
-                      transition: theme.transitions.create(
-                        ["margin", "width"],
-                        {
-                          easing: theme.transitions.easing.sharp,
-                          duration: theme.transitions.duration.leavingScreen,
-                        }
-                      ),
+                      transition: "all 0.3s ease-in-out",
+                      minHeight: "100vh",
                     }}
                   >
                     <Toolbar />
-                    <Routes>
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/stock" element={<StockManagement />} />
-                      <Route path="/sync" element={<SyncManagement />} />
-                      <Route path="/reports" element={<Reports />} />
-                      <Route path="/settings" element={<Settings />} />
-                      <Route path="/admin" element={<AdminPanel />} />
-                    </Routes>
+                    <Box sx={{ mt: 2 }}>
+                      <Routes>
+                        <Route path="/" element={<Dashboard />} />
+                        <Route path="/stock" element={<StockManagement />} />
+                        <Route path="/sync" element={<SyncManagement />} />
+                        <Route path="/reports" element={<Reports />} />
+                        <Route path="/settings" element={<Settings />} />
+                        <Route path="/admin" element={<AdminPanel />} />
+                      </Routes>
+                    </Box>
                   </Box>
                 </Box>
               </ProtectedRoute>
