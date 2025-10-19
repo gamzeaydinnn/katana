@@ -9,13 +9,13 @@ namespace Katana.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [AllowAnonymous]
-public class ReportController : ControllerBase
+public class AnalyticsController : ControllerBase
 {
     private readonly IKatanaService _katanaService;
     private readonly IntegrationDbContext _context;
-    private readonly ILogger<ReportController> _logger;
+    private readonly ILogger<AnalyticsController> _logger;
 
-    public ReportController(IKatanaService katanaService, IntegrationDbContext context, ILogger<ReportController> logger)
+    public AnalyticsController(IKatanaService katanaService, IntegrationDbContext context, ILogger<AnalyticsController> logger)
     {
         _katanaService = katanaService;
         _context = context;
@@ -23,7 +23,7 @@ public class ReportController : ControllerBase
     }
 
     /// <summary>
-    /// GET /api/Report/stock - Stok raporu
+    /// GET /api/Analytics/stock - Stok raporu
     /// </summary>
     [HttpGet("stock")]
     public async Task<IActionResult> GetStockReport()
@@ -51,7 +51,7 @@ public class ReportController : ControllerBase
     }
 
     /// <summary>
-    /// GET /api/Report/sync - Senkronizasyon raporu
+    /// GET /api/Analytics/sync - Senkronizasyon raporu
     /// </summary>
     [HttpGet("sync")]
     public async Task<IActionResult> GetSyncReport()
@@ -89,7 +89,7 @@ public class ReportController : ControllerBase
     }
 
     /// <summary>
-    /// GET /api/Report/summary - Özet istatistikler
+    /// GET /api/Analytics/summary - Özet istatistikler
     /// </summary>
     [HttpGet("summary")]
     public async Task<IActionResult> GetSummaryReport()

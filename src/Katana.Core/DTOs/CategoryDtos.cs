@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Katana.Core.DTOs;
 
 public class CategoryDto
@@ -14,7 +16,9 @@ public class CategoryDto
 
 public class CreateCategoryDto
 {
+    [Required, StringLength(150)]
     public string Name { get; set; } = string.Empty;
+    [StringLength(500)]
     public string? Description { get; set; }
     public int? ParentId { get; set; }
     public bool IsActive { get; set; } = true;
@@ -22,7 +26,9 @@ public class CreateCategoryDto
 
 public class UpdateCategoryDto
 {
+    [Required, StringLength(150)]
     public string Name { get; set; } = string.Empty;
+    [StringLength(500)]
     public string? Description { get; set; }
     public int? ParentId { get; set; }
     public bool IsActive { get; set; } = true;

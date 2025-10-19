@@ -70,12 +70,20 @@ public class IntegrationDbContext : DbContext
             entity.HasIndex(e => new { e.ProductId, e.Timestamp });
             entity.HasIndex(e => e.IsSynced);
         });
-        //kategori 
+        // Category hierarchy + constraints
         modelBuilder.Entity<Category>()
-    .HasMany(c => c.Children)
-    .WithOne(c => c.Parent)
-    .HasForeignKey(c => c.ParentId)
-    .OnDelete(DeleteBehavior.Restrict);
+            .HasMany(c => c.Children)
+            .WithOne(c => c.Parent)
+            .HasForeignKey(c => c.ParentId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Category>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(150);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            // Same parent cannot have duplicate category names
+            entity.HasIndex(e => new { e.ParentId, e.Name }).IsUnique();
+        });
 
         // Customer configuration
         modelBuilder.Entity<Customer>(entity =>
@@ -250,6 +258,9 @@ public class IntegrationDbContext : DbContext
             {
                 case Product product:
                     if (entry.State == EntityState.Modified) product.UpdatedAt = now;
+                    break;
+                case Category category:
+                    if (entry.State == EntityState.Modified) category.UpdatedAt = now;
                     break;
                 case User user:
                     if (entry.State == EntityState.Modified) user.UpdatedAt = now;
