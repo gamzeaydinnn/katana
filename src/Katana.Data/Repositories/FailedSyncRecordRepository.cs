@@ -22,10 +22,11 @@ public class FailedSyncRecordRepository
     /// <summary>
     /// Yeni bir başarısız kayıt oluşturur.
     /// </summary>
-    public async Task AddFailedRecordAsync(string recordType, string recordId, string originalData, string errorMessage, string? errorCode = null)
+    public async Task AddFailedRecordAsync(int integrationLogId, string recordType, string recordId, string originalData, string errorMessage, string? errorCode = null)
     {
         var failedRecord = new FailedSyncRecord
         {
+            IntegrationLogId = integrationLogId,
             RecordType = recordType,
             RecordId = recordId,
             OriginalData = originalData,
@@ -48,7 +49,7 @@ public class FailedSyncRecordRepository
     {
         var now = DateTime.UtcNow;
         return await _context.FailedSyncRecords
-            .Where(r => r.Status == "FAILED" && r.NextRetryAt != null && r.NextRetryAt <= now)
+            .Where(r => (r.Status == "FAILED" || r.Status == "RETRYING") && r.NextRetryAt != null && r.NextRetryAt <= now)
             .OrderBy(r => r.NextRetryAt)
             .Take(50)
             .ToListAsync();
