@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Text.Json;
+using Katana.Business.Interfaces;
 
 namespace Katana.API.Middleware;
 
@@ -7,11 +8,13 @@ public class ErrorHandlingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ErrorHandlingMiddleware> _logger;
+    private readonly ILoggingService _loggingService;
 
-    public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger)
+    public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger, ILoggingService loggingService)
     {
         _next = next;
         _logger = logger;
+        _loggingService = loggingService;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -22,7 +25,10 @@ public class ErrorHandlingMiddleware
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An unhandled exception occurred");
+            var user = context.User?.Identity?.Name ?? "Anonymous";
+            var path = context.Request.Path;
+            _logger.LogError(ex, "Unhandled exception at {Path}", path);
+            _loggingService.LogError($"Unhandled exception at {path}", ex, user, $"Method: {context.Request.Method}");
             await HandleExceptionAsync(context, ex);
         }
     }

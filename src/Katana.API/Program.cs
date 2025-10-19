@@ -114,7 +114,9 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 // builder.Services.AddScoped<LoaderService>();
 builder.Services.AddScoped<ISyncService, SyncService>();
 
-
+// Logging Service
+builder.Services.AddScoped<ILoggingService, LoggingService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
 
 // Notification sistemi
 builder.Services.AddScoped<INotificationService, EmailNotificationService>();

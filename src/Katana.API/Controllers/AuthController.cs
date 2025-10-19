@@ -14,6 +14,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Katana.Core.DTOs;
 using Katana.Business.DTOs;
+using Katana.Business.Interfaces;
 
 
 namespace Katana.API.Controllers;
@@ -28,11 +29,13 @@ public class AuthController : ControllerBase
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthController> _logger;
+    private readonly IAuditService _auditService;
 
-    public AuthController(IConfiguration configuration, ILogger<AuthController> logger)
+    public AuthController(IConfiguration configuration, ILogger<AuthController> logger, IAuditService auditService)
     {
         _configuration = configuration;
         _logger = logger;
+        _auditService = auditService;
     }
 
     /// <summary>
@@ -59,6 +62,12 @@ public class AuthController : ControllerBase
         if (loginRequest.Username == adminUsername && loginRequest.Password == adminPassword)
         {
             _logger.LogInformation("Admin user '{Username}' successfully logged in.", loginRequest.Username);
+            
+            // Audit log: Login işlemini kaydet
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
+            _auditService.LogLogin(loginRequest.Username, ipAddress, userAgent);
+            
             var token = GenerateJwtToken(loginRequest.Username);
             return Ok(new LoginResponse(token));
         }

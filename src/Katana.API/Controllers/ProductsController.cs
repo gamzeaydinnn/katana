@@ -1,5 +1,6 @@
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
+using Katana.Core.Enums;
 using Katana.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,15 +15,21 @@ public class ProductsController : ControllerBase
     private readonly IKatanaService _katanaService;
     private readonly IProductService _productService;
     private readonly ILogger<ProductsController> _logger;
+    private readonly ILoggingService _loggingService;
+    private readonly IAuditService _auditService;
 
     public ProductsController(
         IKatanaService katanaService,
         IProductService productService,
-        ILogger<ProductsController> logger)
+        ILogger<ProductsController> logger,
+        ILoggingService loggingService,
+        IAuditService auditService)
     {
         _katanaService = katanaService;
         _productService = productService;
         _logger = logger;
+        _loggingService = loggingService;
+        _auditService = auditService;
     }
 
     // ==========================================
@@ -39,12 +46,14 @@ public class ProductsController : ControllerBase
     {
         try
         {
+            _loggingService.LogInfo("Fetching products from Katana API", User?.Identity?.Name, $"Page: {page}, Limit: {limit}", LogCategory.ExternalAPI);
             var products = await _katanaService.GetProductsAsync();
             return Ok(new { data = products, count = products.Count });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching products from Katana API");
+            _loggingService.LogError("Katana products fetch failed", ex, User?.Identity?.Name, null, LogCategory.ExternalAPI);
             return StatusCode(500, new { error = "Failed to fetch products from Katana API", details = ex.Message });
         }
     }
@@ -83,6 +92,7 @@ public class ProductsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetAll()
     {
+        _loggingService.LogInfo("Products listed", User?.Identity?.Name, null, LogCategory.UserAction);
         var products = await _productService.GetAllProductsAsync();
         return Ok(products);
     }
@@ -155,10 +165,14 @@ public class ProductsController : ControllerBase
         try
         {
             var product = await _productService.CreateProductAsync(dto);
+            _auditService.LogCreate("Product", product.Id.ToString(), User?.Identity?.Name ?? "system", 
+                $"SKU: {product.SKU}, Name: {product.Name}");
+            _loggingService.LogInfo($"Product created: {product.SKU}", User?.Identity?.Name, null, LogCategory.UserAction);
             return CreatedAtAction(nameof(GetById), new { id = product.Id }, product);
         }
         catch (InvalidOperationException ex)
         {
+            _loggingService.LogError("Product creation failed", ex, User?.Identity?.Name, null, LogCategory.Business);
             return Conflict(ex.Message);
         }
     }
@@ -173,6 +187,9 @@ public class ProductsController : ControllerBase
         try
         {
             var product = await _productService.UpdateProductAsync(id, dto);
+            _auditService.LogUpdate("Product", id.ToString(), User?.Identity?.Name ?? "system", null, 
+                $"Updated: {product.SKU}");
+            _loggingService.LogInfo($"Product updated: {id}", User?.Identity?.Name, null, LogCategory.UserAction);
             return Ok(product);
         }
         catch (KeyNotFoundException ex)
@@ -181,6 +198,7 @@ public class ProductsController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
+            _loggingService.LogError("Product update failed", ex, User?.Identity?.Name, null, LogCategory.Business);
             return Conflict(ex.Message);
         }
     }
@@ -208,10 +226,13 @@ public class ProductsController : ControllerBase
             if (!result)
                 return NotFound($"Ürün bulunamadı: {id}");
 
+            _auditService.LogDelete("Product", id.ToString(), User?.Identity?.Name ?? "system", null);
+            _loggingService.LogInfo($"Product deleted: {id}", User?.Identity?.Name, null, LogCategory.UserAction);
             return NoContent();
         }
         catch (InvalidOperationException ex)
         {
+            _loggingService.LogError("Product deletion failed", ex, User?.Identity?.Name, null, LogCategory.Business);
             return Conflict(ex.Message);
         }
     }

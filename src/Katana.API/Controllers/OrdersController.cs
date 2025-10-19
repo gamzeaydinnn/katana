@@ -1,3 +1,4 @@
+using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Core.Enums;
 using Katana.Core.Interfaces;
@@ -10,14 +11,22 @@ namespace Katana.API.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly IOrderService _orderService;
+    private readonly ILoggingService _loggingService;
+    private readonly IAuditService _auditService;
 
-    public OrdersController(IOrderService orderService)
+    public OrdersController(IOrderService orderService, ILoggingService loggingService, IAuditService auditService)
     {
         _orderService = orderService;
+        _loggingService = loggingService;
+        _auditService = auditService;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll() => Ok(await _orderService.GetAllAsync());
+    public async Task<IActionResult> GetAll()
+    {
+        _loggingService.LogInfo("Orders listed", User?.Identity?.Name, null, LogCategory.UserAction);
+        return Ok(await _orderService.GetAllAsync());
+    }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
@@ -29,14 +38,31 @@ public class OrdersController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(CreateOrderDto dto)
     {
-        var order = await _orderService.CreateAsync(dto);
-        return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
+        try
+        {
+            var order = await _orderService.CreateAsync(dto);
+            _auditService.LogCreate("Order", order.Id.ToString(), User?.Identity?.Name ?? "system", 
+                $"Customer: {order.CustomerId}, Items: {order.Items?.Count ?? 0}");
+            _loggingService.LogInfo($"Order created: {order.Id}", User?.Identity?.Name, null, LogCategory.UserAction);
+            return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
+        }
+        catch (Exception ex)
+        {
+            _loggingService.LogError("Order creation failed", ex, User?.Identity?.Name, null, LogCategory.Business);
+            return StatusCode(500, "Order creation failed");
+        }
     }
 
     [HttpPut("{id}/status")]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] OrderStatus status)
     {
         var success = await _orderService.UpdateStatusAsync(id, status);
+        if (success)
+        {
+            _auditService.LogUpdate("Order", id.ToString(), User?.Identity?.Name ?? "system", null, 
+                $"Status: {status}");
+            _loggingService.LogInfo($"Order status updated: {id}", User?.Identity?.Name, null, LogCategory.UserAction);
+        }
         return success ? NoContent() : NotFound();
     }
 
@@ -44,6 +70,11 @@ public class OrdersController : ControllerBase
     public async Task<IActionResult> Delete(int id)
     {
         var success = await _orderService.DeleteAsync(id);
+        if (success)
+        {
+            _auditService.LogDelete("Order", id.ToString(), User?.Identity?.Name ?? "system", null);
+            _loggingService.LogInfo($"Order deleted: {id}", User?.Identity?.Name, null, LogCategory.UserAction);
+        }
         return success ? NoContent() : NotFound();
     }
 }

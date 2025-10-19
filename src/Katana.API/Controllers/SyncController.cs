@@ -1,6 +1,7 @@
 ﻿using Katana.Business.DTOs;
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
+using Katana.Core.Enums;
 using Katana.Data.Context;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,12 +17,17 @@ public class SyncController : ControllerBase
     private readonly ISyncService _syncService;
     private readonly IntegrationDbContext _context;
     private readonly ILogger<SyncController> _logger;
+    private readonly ILoggingService _loggingService;
+    private readonly IAuditService _auditService;
 
-    public SyncController(ISyncService syncService, IntegrationDbContext context, ILogger<SyncController> logger)
+    public SyncController(ISyncService syncService, IntegrationDbContext context, ILogger<SyncController> logger, 
+        ILoggingService loggingService, IAuditService auditService)
     {
         _syncService = syncService;
         _context = context;
         _logger = logger;
+        _loggingService = loggingService;
+        _auditService = auditService;
     }
 
     /// <summary>
@@ -71,7 +77,12 @@ public class SyncController : ControllerBase
     {
         try
         {
+            var user = User?.Identity?.Name ?? "System";
             _logger.LogInformation("Starting sync: {SyncType}", request.SyncType);
+            _loggingService.LogInfo($"Sync started: {request.SyncType}", user, "StartSync", LogCategory.Sync);
+            
+            // Audit log: Sync başlatıldı
+            _auditService.LogSync(request.SyncType ?? "UNKNOWN", user, $"Manual sync initiated");
             
             var result = request.SyncType?.ToUpper() switch
             {
@@ -82,11 +93,14 @@ public class SyncController : ControllerBase
                 _ => throw new ArgumentException("Geçersiz sync tipi")
             };
 
+            _loggingService.LogInfo($"Sync completed: {request.SyncType} - Success: {result.IsSuccess}", user, 
+                $"Records: {result.SuccessfulRecords}", LogCategory.Sync);
             return Ok(new { success = result.IsSuccess, message = result.Message });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error starting sync");
+            _loggingService.LogError($"Sync failed: {request.SyncType}", ex, User?.Identity?.Name, null, LogCategory.Sync);
             return StatusCode(500, new { message = "Sync başlatılamadı" });
         }
     }

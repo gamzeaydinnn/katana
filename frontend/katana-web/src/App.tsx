@@ -17,6 +17,8 @@ import SyncManagement from "./components/SyncManagement/SyncManagement";
 import Reports from "./components/Reports/Reports";
 import Settings from "./components/Settings/Settings";
 import AdminPanel from "./components/AdminPanel/AdminPanel";
+import LogsViewer from "./components/AdminPanel/LogsViewer";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Login from "./components/Login/Login";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 
@@ -136,55 +138,60 @@ const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="/*"
-            element={
-              <ProtectedRoute>
-                <Box sx={{ display: "flex", minHeight: "100vh" }}>
-                  <Header
-                    onMenuClick={() => setSidebarOpen(!sidebarOpen)}
-                    sidebarOpen={sidebarOpen}
-                  />
-                  <Sidebar
-                    open={sidebarOpen}
-                    onClose={() => setSidebarOpen(false)}
-                  />
-                  <Box
-                    component="main"
-                    sx={{
-                      flexGrow: 1,
-                      bgcolor: "background.default",
-                      p: 3,
-                      width: { sm: `calc(100% - ${sidebarOpen ? 280 : 0}px)` },
-                      ml: { sm: sidebarOpen ? "280px" : 0 },
-                      transition: "all 0.3s ease-in-out",
-                      minHeight: "100vh",
-                    }}
-                  >
-                    <Toolbar />
-                    <Box sx={{ mt: 2 }}>
-                      <Routes>
-                        <Route path="/" element={<Dashboard />} />
-                        <Route path="/stock" element={<StockManagement />} />
-                        <Route path="/sync" element={<SyncManagement />} />
-                        <Route path="/reports" element={<Reports />} />
-                        <Route path="/settings" element={<Settings />} />
-                        <Route path="/admin" element={<AdminPanel />} />
-                      </Routes>
+    <ErrorBoundary>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <Box sx={{ display: "flex", minHeight: "100vh" }}>
+                    <Header
+                      onMenuClick={() => setSidebarOpen(!sidebarOpen)}
+                      sidebarOpen={sidebarOpen}
+                    />
+                    <Sidebar
+                      open={sidebarOpen}
+                      onClose={() => setSidebarOpen(false)}
+                    />
+                    <Box
+                      component="main"
+                      sx={{
+                        flexGrow: 1,
+                        bgcolor: "background.default",
+                        p: 3,
+                        width: {
+                          sm: `calc(100% - ${sidebarOpen ? 280 : 0}px)`,
+                        },
+                        ml: { sm: sidebarOpen ? "280px" : 0 },
+                        transition: "all 0.3s ease-in-out",
+                        minHeight: "100vh",
+                      }}
+                    >
+                      <Toolbar />
+                      <Box sx={{ mt: 2 }}>
+                        <Routes>
+                          <Route path="/" element={<Dashboard />} />
+                          <Route path="/stock" element={<StockManagement />} />
+                          <Route path="/sync" element={<SyncManagement />} />
+                          <Route path="/reports" element={<Reports />} />
+                          <Route path="/settings" element={<Settings />} />
+                          <Route path="/admin" element={<AdminPanel />} />
+                          <Route path="/admin/logs" element={<LogsViewer />} />
+                        </Routes>
+                      </Box>
                     </Box>
                   </Box>
-                </Box>
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </BrowserRouter>
-    </ThemeProvider>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </BrowserRouter>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 };
 

@@ -1,5 +1,6 @@
 ﻿using Katana.Business.DTOs;
 using Katana.Business.Interfaces;
+using Katana.Core.Enums;
 using Katana.Data.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -23,13 +24,15 @@ public class KatanaService : IKatanaService
     private readonly HttpClient _httpClient;
     private readonly KatanaApiSettings _settings;
     private readonly ILogger<KatanaService> _logger;
+    private readonly ILoggingService _loggingService;
     private readonly JsonSerializerOptions _jsonOptions;
 
-    public KatanaService(HttpClient httpClient, IOptions<KatanaApiSettings> settings, ILogger<KatanaService> logger)
+    public KatanaService(HttpClient httpClient, IOptions<KatanaApiSettings> settings, ILogger<KatanaService> logger, ILoggingService loggingService)
     {
         _httpClient = httpClient;
         _settings = settings.Value;
         _logger = logger;
+        _loggingService = loggingService;
         
         _jsonOptions = new JsonSerializerOptions
         {
@@ -88,6 +91,7 @@ public class KatanaService : IKatanaService
         try
         {
             _logger.LogInformation("Getting products from Katana");
+            _loggingService.LogInfo("Katana API: Fetching products", null, "GetProductsAsync", LogCategory.ExternalAPI);
 
             var response = await _httpClient.GetAsync("/v1/products");
             var responseContent = await response.Content.ReadAsStringAsync();
@@ -104,16 +108,19 @@ public class KatanaService : IKatanaService
             var products = apiResponse?.Data ?? new List<KatanaProductDto>();
             
             _logger.LogInformation("Retrieved {Count} products from Katana", products.Count);
+            _loggingService.LogInfo($"Successfully fetched {products.Count} products from Katana", null, "GetProductsAsync", LogCategory.ExternalAPI);
             return products;
         }
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Katana API connection error: {Message}", ex.Message);
+            _loggingService.LogError("Katana API connection failed", ex, null, "GetProductsAsync", LogCategory.ExternalAPI);
             return new List<KatanaProductDto>();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error calling Katana API");
+            _loggingService.LogError("Unexpected error in Katana API call", ex, null, "GetProductsAsync", LogCategory.ExternalAPI);
             return new List<KatanaProductDto>();
         }
     }

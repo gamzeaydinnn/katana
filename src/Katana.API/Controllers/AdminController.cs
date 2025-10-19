@@ -1,5 +1,6 @@
 ﻿using Katana.Business.DTOs;
 using Katana.Business.Interfaces;
+using Katana.Core.Enums;
 using Katana.Data.Context;
 using Katana.Business.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -18,15 +19,18 @@ public class AdminController : ControllerBase
     private readonly IKatanaService _katanaService;
     private readonly IntegrationDbContext _context;
     private readonly ILogger<AdminController> _logger;
+    private readonly ILoggingService _loggingService;
 
     public AdminController(
         IKatanaService katanaService,
         IntegrationDbContext context,
-        ILogger<AdminController> logger)
+        ILogger<AdminController> logger,
+        ILoggingService loggingService)
     {
         _katanaService = katanaService;
         _context = context;
         _logger = logger;
+        _loggingService = loggingService;
     }
 
     [HttpGet("statistics")]
@@ -34,6 +38,7 @@ public class AdminController : ControllerBase
     {
         try
         {
+            _loggingService.LogInfo("Admin statistics requested", User?.Identity?.Name, "GetStatistics", LogCategory.UserAction);
             var products = await _katanaService.GetProductsAsync();
             var totalProducts = products.Count;
             var activeProducts = products.Count(p => p.IsActive);
@@ -49,6 +54,7 @@ public class AdminController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting admin statistics");
+            _loggingService.LogError("Failed to get admin statistics", ex, User?.Identity?.Name, null, LogCategory.System);
             return StatusCode(500, new { error = "Failed to get statistics" });
         }
     }
@@ -58,6 +64,7 @@ public class AdminController : ControllerBase
     {
         try
         {
+            _loggingService.LogInfo($"Products requested (Page: {page}, Size: {pageSize})", User?.Identity?.Name, "GetProducts", LogCategory.UserAction);
             var allProducts = await _katanaService.GetProductsAsync();
 
             var startIndex = (page - 1) * pageSize;
@@ -78,6 +85,7 @@ public class AdminController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting products");
+            _loggingService.LogError("Failed to get products from Katana API", ex, User?.Identity?.Name, $"Page: {page}, Size: {pageSize}", LogCategory.ExternalAPI);
             return StatusCode(500, new { error = "Failed to get products" });
         }
     }

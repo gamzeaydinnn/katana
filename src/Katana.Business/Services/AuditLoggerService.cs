@@ -24,7 +24,7 @@ public class AuditLoggerService : IAuditLoggerService
     }
 
     /// <summary>
-    /// Veritabanına temel audit kaydı ekler (integer ID üzerinden).
+    /// Veritabanına temel audit kaydı ekler (string ID üzerinden).
     /// </summary>
     public async Task LogAsync(
         string actionType,
@@ -39,10 +39,9 @@ public class AuditLoggerService : IAuditLoggerService
             {
                 ActionType = actionType,
                 EntityName = entityName,
-                EntityId = entityId,
+                EntityId = entityId?.ToString(),
                 Details = details,
                 PerformedBy = performedBy ?? "System",
-                CreatedAt = DateTime.UtcNow,
                 Timestamp = DateTime.UtcNow
             };
 
@@ -76,11 +75,10 @@ public class AuditLoggerService : IAuditLoggerService
             {
                 ActionType = actionType,
                 EntityName = entityName,
-                EntityId = int.TryParse(entityId, out var id) ? id : null,
+                EntityId = entityId,
                 Details = description ?? $"Change detected in {entityName}",
                 PerformedBy = performedBy ?? "System",
                 Changes = BuildChangeSummary(oldValues, newValues),
-                CreatedAt = DateTime.UtcNow,
                 Timestamp = DateTime.UtcNow
             };
 
@@ -102,7 +100,7 @@ public class AuditLoggerService : IAuditLoggerService
     public async Task<List<AuditLog>> GetAllAsync(int page = 1, int pageSize = 50)
     {
         return await _context.AuditLogs
-            .OrderByDescending(a => a.CreatedAt)
+            .OrderByDescending(a => a.Timestamp)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -114,8 +112,8 @@ public class AuditLoggerService : IAuditLoggerService
     public async Task<List<AuditLog>> GetByEntityAsync(string entityName, int entityId)
     {
         return await _context.AuditLogs
-            .Where(a => a.EntityName == entityName && a.EntityId == entityId)
-            .OrderByDescending(a => a.CreatedAt)
+            .Where(a => a.EntityName == entityName && a.EntityId == entityId.ToString())
+            .OrderByDescending(a => a.Timestamp)
             .ToListAsync();
     }
 

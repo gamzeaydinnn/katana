@@ -26,5 +26,29 @@ public class ErrorLog
     /// </summary>
     public ErrorType ErrorType { get; set; } = ErrorType.Unknown;
 
+    /// <summary>
+    /// Log seviyesi: Info, Warning, Error
+    /// </summary>
+    [MaxLength(20)]
+    public string Level { get; set; } = "Error";
+    
+    /// <summary>
+    /// Log kategorisi: Authentication, Sync, ExternalAPI, vb.
+    /// </summary>
+    [MaxLength(50)]
+    public string? Category { get; set; }
+    
+    /// <summary>
+    /// İşlemi yapan kullanıcı
+    /// </summary>
+    [MaxLength(100)]
+    public string? User { get; set; }
+    
+    /// <summary>
+    /// Ek context bilgisi
+    /// </summary>
+    [MaxLength(500)]
+    public string? ContextData { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

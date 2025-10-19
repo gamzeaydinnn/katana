@@ -1,4 +1,6 @@
+using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
+using Katana.Core.Enums;
 using Katana.Core.Interfaces;
 using Katana.Business.Validators;
 using Microsoft.AspNetCore.Mvc;
@@ -11,11 +13,16 @@ public class InvoicesController : ControllerBase
 {
     private readonly IInvoiceService _invoiceService;
     private readonly ILogger<InvoicesController> _logger;
+    private readonly ILoggingService _loggingService;
+    private readonly IAuditService _auditService;
 
-    public InvoicesController(IInvoiceService invoiceService, ILogger<InvoicesController> logger)
+    public InvoicesController(IInvoiceService invoiceService, ILogger<InvoicesController> logger,
+        ILoggingService loggingService, IAuditService auditService)
     {
         _invoiceService = invoiceService;
         _logger = logger;
+        _loggingService = loggingService;
+        _auditService = auditService;
     }
 
     /// <summary>
@@ -25,8 +32,17 @@ public class InvoicesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll()
     {
-        var invoices = await _invoiceService.GetAllInvoicesAsync();
-        return Ok(new { data = invoices, count = invoices.Count });
+        try
+        {
+            _loggingService.LogInfo("Retrieving all invoices", User?.Identity?.Name, null, LogCategory.UserAction);
+            var invoices = await _invoiceService.GetAllInvoicesAsync();
+            return Ok(new { data = invoices, count = invoices.Count });
+        }
+        catch (Exception ex)
+        {
+            _loggingService.LogError("Error retrieving invoices", ex, User?.Identity?.Name, null, LogCategory.Business);
+            throw;
+        }
     }
 
     /// <summary>
@@ -37,11 +53,23 @@ public class InvoicesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(int id)
     {
-        var invoice = await _invoiceService.GetInvoiceByIdAsync(id);
-        if (invoice == null)
-            return NotFound(new { error = $"Invoice with ID {id} not found" });
+        try
+        {
+            _loggingService.LogInfo($"Retrieving invoice {id}", User?.Identity?.Name, $"InvoiceId: {id}", LogCategory.UserAction);
+            var invoice = await _invoiceService.GetInvoiceByIdAsync(id);
+            if (invoice == null)
+            {
+                _loggingService.LogWarning($"Invoice {id} not found", User?.Identity?.Name, null, LogCategory.Business);
+                return NotFound(new { error = $"Invoice with ID {id} not found" });
+            }
 
-        return Ok(invoice);
+            return Ok(invoice);
+        }
+        catch (Exception ex)
+        {
+            _loggingService.LogError($"Error retrieving invoice {id}", ex, User?.Identity?.Name, null, LogCategory.Business);
+            throw;
+        }
     }
 
     /// <summary>
@@ -128,17 +156,22 @@ public class InvoicesController : ControllerBase
 
         try
         {
+            _loggingService.LogInfo("Creating new invoice", User?.Identity?.Name, $"Customer: {dto.CustomerId}", LogCategory.Business);
             var invoice = await _invoiceService.CreateInvoiceAsync(dto);
+            
+            _auditService.LogCreate("Invoice", invoice.Id.ToString(), User?.Identity?.Name ?? "System", 
+                $"Invoice {invoice.InvoiceNo} created for customer {dto.CustomerId}");
+            
             return CreatedAtAction(nameof(GetById), new { id = invoice.Id }, invoice);
         }
         catch (ArgumentException ex)
         {
-            _logger.LogWarning(ex, "Invalid invoice data");
+            _loggingService.LogWarning("Invalid invoice data", User?.Identity?.Name, ex.Message, LogCategory.Business);
             return BadRequest(new { error = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating invoice");
+            _loggingService.LogError("Error creating invoice", ex, User?.Identity?.Name, null, LogCategory.Business);
             return StatusCode(500, new { error = "Failed to create invoice" });
         }
     }
@@ -153,15 +186,22 @@ public class InvoicesController : ControllerBase
     {
         try
         {
+            _loggingService.LogInfo($"Updating invoice {id}", User?.Identity?.Name, $"InvoiceId: {id}", LogCategory.Business);
             var invoice = await _invoiceService.UpdateInvoiceAsync(id, dto);
             if (invoice == null)
+            {
+                _loggingService.LogWarning($"Invoice {id} not found for update", User?.Identity?.Name, null, LogCategory.Business);
                 return NotFound(new { error = $"Invoice with ID {id} not found" });
+            }
+
+            _auditService.LogUpdate("Invoice", id.ToString(), User?.Identity?.Name ?? "System", 
+                null, $"Invoice {id} updated");
 
             return Ok(invoice);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating invoice {Id}", id);
+            _loggingService.LogError($"Error updating invoice {id}", ex, User?.Identity?.Name, null, LogCategory.Business);
             return StatusCode(500, new { error = "Failed to update invoice" });
         }
     }
@@ -181,15 +221,22 @@ public class InvoicesController : ControllerBase
 
         try
         {
+            _loggingService.LogInfo($"Updating invoice {id} status to {dto.Status}", User?.Identity?.Name, $"InvoiceId: {id}, Status: {dto.Status}", LogCategory.Business);
             var result = await _invoiceService.UpdateInvoiceStatusAsync(id, dto);
             if (!result)
+            {
+                _loggingService.LogWarning($"Invoice {id} not found for status update", User?.Identity?.Name, null, LogCategory.Business);
                 return NotFound(new { error = $"Invoice with ID {id} not found" });
+            }
+
+            _auditService.LogUpdate("Invoice", id.ToString(), User?.Identity?.Name ?? "System", 
+                $"Status: {dto.Status}", $"Invoice {id} status changed to {dto.Status}");
 
             return Ok(new { message = "Invoice status updated successfully" });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating invoice {Id} status", id);
+            _loggingService.LogError($"Error updating invoice {id} status", ex, User?.Identity?.Name, null, LogCategory.Business);
             return StatusCode(500, new { error = "Failed to update status" });
         }
     }
@@ -204,15 +251,22 @@ public class InvoicesController : ControllerBase
     {
         try
         {
+            _loggingService.LogInfo($"Deleting invoice {id}", User?.Identity?.Name, $"InvoiceId: {id}", LogCategory.Business);
             var result = await _invoiceService.DeleteInvoiceAsync(id);
             if (!result)
+            {
+                _loggingService.LogWarning($"Invoice {id} not found for deletion", User?.Identity?.Name, null, LogCategory.Business);
                 return NotFound(new { error = $"Invoice with ID {id} not found" });
+            }
+
+            _auditService.LogDelete("Invoice", id.ToString(), User?.Identity?.Name ?? "System", 
+                $"Invoice {id} deleted");
 
             return Ok(new { message = "Invoice deleted successfully" });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting invoice {Id}", id);
+            _loggingService.LogError($"Error deleting invoice {id}", ex, User?.Identity?.Name, null, LogCategory.Business);
             return StatusCode(500, new { error = "Failed to delete invoice" });
         }
     }

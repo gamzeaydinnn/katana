@@ -20,6 +20,7 @@ import {
   Settings as SettingsIcon,
   ChevronLeft as ChevronLeftIcon,
   AdminPanelSettings as AdminIcon,
+  Article as LogsIcon,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -36,6 +37,8 @@ const menuItems = [
   { text: "Senkronizasyon", icon: <SyncIcon />, path: "/sync" },
   { text: "Raporlar", icon: <ReportsIcon />, path: "/reports" },
   { text: "Ayarlar", icon: <SettingsIcon />, path: "/settings" },
+  { text: "Admin Paneli", icon: <AdminIcon />, path: "/admin" },
+  { text: "System Logs", icon: <LogsIcon />, path: "/admin/logs" },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {

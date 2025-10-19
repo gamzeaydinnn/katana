@@ -1,4 +1,6 @@
+using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
+using Katana.Core.Enums;
 using Katana.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,15 +13,20 @@ namespace Katana.API.Controllers;
 public class CustomersController : ControllerBase
 {
     private readonly ICustomerService _customerService;
+    private readonly ILoggingService _loggingService;
+    private readonly IAuditService _auditService;
 
-    public CustomersController(ICustomerService customerService)
+    public CustomersController(ICustomerService customerService, ILoggingService loggingService, IAuditService auditService)
     {
         _customerService = customerService;
+        _loggingService = loggingService;
+        _auditService = auditService;
     }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<CustomerDto>>> GetAll()
     {
+        _loggingService.LogInfo("Customers listed", User?.Identity?.Name, null, LogCategory.UserAction);
         var customers = await _customerService.GetAllCustomersAsync();
         return Ok(customers);
     }
@@ -71,10 +78,14 @@ public class CustomersController : ControllerBase
         try
         {
             var customer = await _customerService.CreateCustomerAsync(dto);
+            _auditService.LogCreate("Customer", customer.Id.ToString(), User?.Identity?.Name ?? "system", 
+                $"Title: {customer.Title}, TaxNo: {customer.TaxNo}");
+            _loggingService.LogInfo($"Customer created: {customer.Title}", User?.Identity?.Name, null, LogCategory.UserAction);
             return CreatedAtAction(nameof(GetById), new { id = customer.Id }, customer);
         }
         catch (InvalidOperationException ex)
         {
+            _loggingService.LogError("Customer creation failed", ex, User?.Identity?.Name, null, LogCategory.Business);
             return Conflict(ex.Message);
         }
     }
@@ -89,6 +100,9 @@ public class CustomersController : ControllerBase
         try
         {
             var customer = await _customerService.UpdateCustomerAsync(id, dto);
+            _auditService.LogUpdate("Customer", id.ToString(), User?.Identity?.Name ?? "system", null, 
+                $"Updated: {customer.Title}");
+            _loggingService.LogInfo($"Customer updated: {id}", User?.Identity?.Name, null, LogCategory.UserAction);
             return Ok(customer);
         }
         catch (KeyNotFoundException ex)
@@ -97,6 +111,7 @@ public class CustomersController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
+            _loggingService.LogError("Customer update failed", ex, User?.Identity?.Name, null, LogCategory.Business);
             return Conflict(ex.Message);
         }
     }
@@ -110,10 +125,13 @@ public class CustomersController : ControllerBase
             if (!result)
                 return NotFound($"Müşteri bulunamadı: {id}");
 
+            _auditService.LogDelete("Customer", id.ToString(), User?.Identity?.Name ?? "system", null);
+            _loggingService.LogInfo($"Customer deleted: {id}", User?.Identity?.Name, null, LogCategory.UserAction);
             return NoContent();
         }
         catch (InvalidOperationException ex)
         {
+            _loggingService.LogError("Customer deletion failed", ex, User?.Identity?.Name, null, LogCategory.Business);
             return Conflict(ex.Message);
         }
     }

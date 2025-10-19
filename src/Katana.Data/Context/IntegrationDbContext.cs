@@ -156,7 +156,7 @@ public class IntegrationDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.EntityName);
-            entity.HasIndex(e => e.Action);
+            entity.HasIndex(e => e.ActionType);
             entity.Property(e => e.Timestamp).IsRequired();
         });
 
