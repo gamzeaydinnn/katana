@@ -124,6 +124,7 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IAccountingService, AccountingService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 // Logging Service
 builder.Services.AddScoped<ILoggingService, LoggingService>();

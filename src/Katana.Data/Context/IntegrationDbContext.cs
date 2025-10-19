@@ -192,6 +192,18 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
         });
 
+        // User configuration
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Username).IsUnique();
+            entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.PasswordHash).IsRequired();
+            entity.Property(e => e.Role).IsRequired();
+            entity.Property(e => e.Email).HasMaxLength(200);
+            entity.HasIndex(e => e.Email).IsUnique(false);
+        });
+
         // Seed data
         SeedData(modelBuilder);
     }
@@ -238,6 +250,9 @@ public class IntegrationDbContext : DbContext
             {
                 case Product product:
                     if (entry.State == EntityState.Modified) product.UpdatedAt = now;
+                    break;
+                case User user:
+                    if (entry.State == EntityState.Modified) user.UpdatedAt = now;
                     break;
                 case Customer customer:
                     if (entry.State == EntityState.Modified) customer.UpdatedAt = now;
