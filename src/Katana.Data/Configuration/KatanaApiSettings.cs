@@ -5,11 +5,11 @@ namespace Katana.Data.Configuration;
 
     public class KatanaApiSettings
     {
-        // Ana API adresi (değiştirme, Katana'nın resmi API URL'si)
+        // Ana API adresi (Katana'nın resmi API URL'si)
         public string BaseUrl { get; set; } = "https://api.katanamrp.com/v1/";
 
-        // Katana hesabından aldığın API anahtarı
-        public string ApiKey { get; set; } = "ed8c38d1-4015-45e5-9c28-381d3fe148b6";
+        // API anahtarını appsettings veya Secret Manager üzerinden sağlayın
+        public string ApiKey { get; set; } = string.Empty;
 
         // Eğer Katana kullanıcı adı/şifre ile doğrulama kullanıyorsan (çoğu durumda gerekmez)
         public bool UseBasicAuth { get; set; } = false;
@@ -30,7 +30,6 @@ namespace Katana.Data.Configuration;
         public string Stock { get; set; } = "stock-movements";
         public string Invoices { get; set; } = "sales-orders";
         public string Health { get; set; } = "health";
-          public string Customers { get; set; } = "/api/customers";
+        public string Customers { get; set; } = "customers";
     }
-
 

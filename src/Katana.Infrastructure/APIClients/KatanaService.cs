@@ -9,13 +9,9 @@ using System.Text;
 using System.Net.Http.Headers;
 using Katana.Core.DTOs;
 /*Katana API'sından veri okuma operasyonlarını içerecek.
-
 Amacı: Sadece Katana'dan veri okumaktan sorumlu olmak.
-
 Sorumlulukları (Yeni):
-
 Belirli bir tarihten sonraki stok hareketlerini getirme metodu.
-
 Ödeme durumu değişen faturaları getirme metodu.*/
 namespace Katana.Infrastructure.APIClients;
 

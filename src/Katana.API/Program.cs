@@ -93,7 +93,6 @@ builder.Services.AddDbContext<IntegrationDbContext>(options =>
 builder.Services.Configure<KatanaApiSettings>(builder.Configuration.GetSection("KatanaApiSettings"));
 builder.Services.Configure<LucaApiSettings>(builder.Configuration.GetSection("LucaApiSettings"));
 
-builder.Services.AddAuthentication();
 builder.Services.AddAuthorization();
 
 // -----------------------------
