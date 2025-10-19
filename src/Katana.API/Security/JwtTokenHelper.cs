@@ -7,7 +7,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Katana.API.Middleware;
+namespace Katana.API.Security;
 
 public static class JwtTokenHelper
 {
