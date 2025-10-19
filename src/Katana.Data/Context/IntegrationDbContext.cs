@@ -160,6 +160,33 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.Timestamp).IsRequired();
         });
 
+        // Supplier configuration
+        modelBuilder.Entity<Supplier>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+        });
+
+        // SupplierPrice relationships
+        modelBuilder.Entity<SupplierPrice>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasOne(sp => sp.Supplier)
+                .WithMany(s => s.PriceList)
+                .HasForeignKey(sp => sp.SupplierId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // PurchaseOrder relationships
+        modelBuilder.Entity<PurchaseOrder>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasOne(po => po.Supplier)
+                .WithMany()
+                .HasForeignKey(po => po.SupplierId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<AccountingRecord>(entity =>
         {
             entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
@@ -220,6 +247,12 @@ public class IntegrationDbContext : DbContext
                     break;
                 case MappingTable mapping:
                     if (entry.State == EntityState.Modified) mapping.UpdatedAt = now;
+                    break;
+                case Supplier supplier:
+                    if (entry.State == EntityState.Modified) supplier.UpdatedAt = now;
+                    break;
+                case PurchaseOrder po:
+                    if (entry.State == EntityState.Modified) po.UpdatedAt = now;
                     break;
             }
 
