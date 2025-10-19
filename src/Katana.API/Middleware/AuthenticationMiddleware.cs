@@ -1,6 +1,10 @@
-﻿using Microsoft.IdentityModel.Tokens;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace Katana.API.Middleware;
@@ -63,12 +67,27 @@ public static class JwtTokenHelper
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var jsonToken = tokenHandler.ReadJwtToken(token);
-            
-            return jsonToken.Claims.ToDictionary(c => c.Type, c => c.Value);
+
+            var claims = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var claim in jsonToken.Claims)
+            {
+                if (claims.TryAdd(claim.Type, claim.Value))
+                {
+                    continue;
+                }
+
+                var suffix = 1;
+                while (!claims.TryAdd($"{claim.Type}_{suffix}", claim.Value))
+                {
+                    suffix++;
+                }
+            }
+
+            return claims;
         }
         catch
         {
-            return new Dictionary<string, string>();
+            return new Dictionary<string, string>(StringComparer.Ordinal);
         }
     }
 
@@ -89,10 +108,21 @@ public static class JwtTokenHelper
 
     public static string GenerateApiKey(int length = 32)
     {
+        if (length <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(length));
+        }
+
         const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        var random = new Random();
-        return new string(Enumerable.Repeat(chars, length)
-            .Select(s => s[random.Next(s.Length)]).ToArray());
+        Span<byte> buffer = stackalloc byte[length];
+        RandomNumberGenerator.Fill(buffer);
+
+        var result = new char[length];
+        for (var i = 0; i < length; i++)
+        {
+            result[i] = chars[buffer[i] % chars.Length];
+        }
+
+        return new string(result);
     }
 }
-

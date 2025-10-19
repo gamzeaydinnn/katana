@@ -70,12 +70,20 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // -----------------------------
-// Database (SQLite)
+// Database
 // -----------------------------
 builder.Services.AddDbContext<IntegrationDbContext>(options =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    options.UseSqlite(connectionString);
+    var sqlServerConnection = builder.Configuration.GetConnectionString("SqlServerConnection");
+    if (!string.IsNullOrWhiteSpace(sqlServerConnection))
+    {
+        options.UseSqlServer(sqlServerConnection);
+        return;
+    }
+
+    var sqliteConnection = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? throw new InvalidOperationException("No database connection string configured.");
+    options.UseSqlite(sqliteConnection);
 });
 
 // -----------------------------
