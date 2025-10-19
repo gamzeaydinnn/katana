@@ -89,7 +89,9 @@ public static class MappingHelper
 
         lucaInvoice.Lines = items.Select(item => new LucaInvoiceItemDto
         {
-            AccountCode = skuToAccountMapping.GetValueOrDefault(item.ProductSKU, "600.01"),
+            AccountCode = skuToAccountMapping.TryGetValue(item.ProductSKU, out var acc)
+                ? acc
+                : (skuToAccountMapping.TryGetValue("DEFAULT", out var defAcc) ? defAcc : "600.01"),
             ProductCode = item.ProductSKU,
             Description = item.ProductName,
             Quantity = item.Quantity,
@@ -110,7 +112,9 @@ public static class MappingHelper
         {
             ProductCode = product.SKU,
             ProductName = product.Name,
-            WarehouseCode = locationMapping.GetValueOrDefault(stock.Location, "MAIN"),
+            WarehouseCode = locationMapping.TryGetValue(stock.Location, out var wh)
+                ? wh
+                : (locationMapping.TryGetValue("DEFAULT", out var defWh) ? defWh : "MAIN"),
             Quantity = Math.Abs(stock.Quantity),
             MovementType = stock.Type == "IN" ? "IN" : "OUT",
             MovementDate = stock.Timestamp,
@@ -179,4 +183,3 @@ public static class MappingHelper
                item.UnitPrice >= 0;
     }
 }
-

@@ -16,24 +16,29 @@ namespace Katana.Data.Repositories
         // SKU -> Account mapping
         public async Task<Dictionary<string, string>> GetSkuToAccountMappingsAsync()
         {
-            return await _context.MappingTables
+            var list = await _context.MappingTables
                 .Where(m => m.MappingType == "SKU_ACCOUNT" && m.IsActive)
-                .ToDictionaryAsync(m => m.SourceValue, m => m.TargetValue);
+                .Select(m => new { m.SourceValue, m.TargetValue })
+                .ToListAsync();
+            return list.ToDictionary(m => m.SourceValue, m => m.TargetValue, StringComparer.OrdinalIgnoreCase);
         }
 
         // Location -> Warehouse mapping
         public async Task<Dictionary<string, string>> GetLocationMappingsAsync()
         {
-            return await _context.MappingTables
+            var list = await _context.MappingTables
                 .Where(m => m.MappingType == "LOCATION_WAREHOUSE" && m.IsActive)
-                .ToDictionaryAsync(m => m.SourceValue, m => m.TargetValue);
+                .Select(m => new { m.SourceValue, m.TargetValue })
+                .ToListAsync();
+            return list.ToDictionary(m => m.SourceValue, m => m.TargetValue, StringComparer.OrdinalIgnoreCase);
         }
 
         // Add or update SKU mapping
         public async Task UpsertSkuMappingAsync(string sku, string accountCode)
         {
+            var normalizedSku = (sku ?? string.Empty).Trim().ToUpperInvariant();
             var mapping = await _context.MappingTables
-                .FirstOrDefaultAsync(m => m.MappingType == "SKU_ACCOUNT" && m.SourceValue == sku);
+                .FirstOrDefaultAsync(m => m.MappingType == "SKU_ACCOUNT" && m.SourceValue == normalizedSku);
 
             if (mapping != null)
             {
@@ -45,7 +50,7 @@ namespace Katana.Data.Repositories
                 _context.MappingTables.Add(new MappingTable
                 {
                     MappingType = "SKU_ACCOUNT",
-                    SourceValue = sku,
+                    SourceValue = normalizedSku,
                     TargetValue = accountCode,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow,
@@ -59,8 +64,9 @@ namespace Katana.Data.Repositories
         // Add or update Location mapping
         public async Task UpsertLocationMappingAsync(string location, string warehouseCode)
         {
+            var normalizedLocation = (location ?? string.Empty).Trim().ToUpperInvariant();
             var mapping = await _context.MappingTables
-                .FirstOrDefaultAsync(m => m.MappingType == "LOCATION_WAREHOUSE" && m.SourceValue == location);
+                .FirstOrDefaultAsync(m => m.MappingType == "LOCATION_WAREHOUSE" && m.SourceValue == normalizedLocation);
 
             if (mapping != null)
             {
@@ -72,7 +78,7 @@ namespace Katana.Data.Repositories
                 _context.MappingTables.Add(new MappingTable
                 {
                     MappingType = "LOCATION_WAREHOUSE",
-                    SourceValue = location,
+                    SourceValue = normalizedLocation,
                     TargetValue = warehouseCode,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow,

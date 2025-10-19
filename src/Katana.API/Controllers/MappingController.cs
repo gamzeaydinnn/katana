@@ -129,8 +129,11 @@ public class MappingController : ControllerBase
     {
         try
         {
+            var normalizedType = (request.MappingType ?? string.Empty).Trim().ToUpperInvariant();
+            var normalizedSource = (request.SourceValue ?? string.Empty).Trim().ToUpperInvariant();
+
             var existingMapping = await _context.MappingTables
-                .FirstOrDefaultAsync(m => m.MappingType == request.MappingType && m.SourceValue == request.SourceValue);
+                .FirstOrDefaultAsync(m => m.MappingType == normalizedType && m.SourceValue == normalizedSource);
 
             if (existingMapping != null)
             {
@@ -139,8 +142,8 @@ public class MappingController : ControllerBase
 
             var mapping = new MappingTable
             {
-                MappingType = request.MappingType.ToUpper(),
-                SourceValue = request.SourceValue,
+                MappingType = normalizedType,
+                SourceValue = normalizedSource,
                 TargetValue = request.TargetValue,
                 Description = request.Description,
                 IsActive = request.IsActive ?? true,
@@ -150,7 +153,15 @@ public class MappingController : ControllerBase
             };
 
             _context.MappingTables.Add(mapping);
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // Unique index violation or similar concurrency issue
+                return Conflict(new { error = "Mapping for the given type and source already exists" });
+            }
             await _auditLogger.LogAsync("CREATE", "MappingTable", mapping.Id, 
             $"Created mapping {mapping.SourceValue} -> {mapping.TargetValue}", 
             User.Identity?.Name ?? "API");
@@ -309,4 +320,3 @@ public class UpdateMappingRequest
     public string? Description { get; set; }
     public bool? IsActive { get; set; }
 }
-

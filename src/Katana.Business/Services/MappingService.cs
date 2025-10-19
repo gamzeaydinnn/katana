@@ -20,17 +20,19 @@ public class MappingService : IMappingService
     {
         try
         {
-            var mappings = await _context.MappingTables
+            var list = await _context.MappingTables
                 .Where(m => m.MappingType == "SKU_ACCOUNT" && m.IsActive)
-                .ToDictionaryAsync(m => m.SourceValue, m => m.TargetValue);
+                .Select(m => new { m.SourceValue, m.TargetValue })
+                .ToListAsync();
 
+            var mappings = list.ToDictionary(m => m.SourceValue, m => m.TargetValue, StringComparer.OrdinalIgnoreCase);
             _logger.LogInformation("Retrieved {Count} SKU to account mappings", mappings.Count);
             return mappings;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving SKU to account mappings");
-            return new Dictionary<string, string>();
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
     }
 
@@ -38,17 +40,19 @@ public class MappingService : IMappingService
     {
         try
         {
-            var mappings = await _context.MappingTables
+            var list = await _context.MappingTables
                 .Where(m => m.MappingType == "LOCATION_WAREHOUSE" && m.IsActive)
-                .ToDictionaryAsync(m => m.SourceValue, m => m.TargetValue);
+                .Select(m => new { m.SourceValue, m.TargetValue })
+                .ToListAsync();
 
+            var mappings = list.ToDictionary(m => m.SourceValue, m => m.TargetValue, StringComparer.OrdinalIgnoreCase);
             _logger.LogInformation("Retrieved {Count} location to warehouse mappings", mappings.Count);
             return mappings;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving location to warehouse mappings");
-            return new Dictionary<string, string>();
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
     }
 
@@ -56,8 +60,9 @@ public class MappingService : IMappingService
     {
         try
         {
+            var normalizedSku = (sku ?? string.Empty).Trim().ToUpperInvariant();
             var existingMapping = await _context.MappingTables
-                .FirstOrDefaultAsync(m => m.MappingType == "SKU_ACCOUNT" && m.SourceValue == sku);
+                .FirstOrDefaultAsync(m => m.MappingType == "SKU_ACCOUNT" && m.SourceValue == normalizedSku);
 
             if (existingMapping != null)
             {
@@ -70,7 +75,7 @@ public class MappingService : IMappingService
                 var newMapping = new Data.Models.MappingTable
                 {
                     MappingType = "SKU_ACCOUNT",
-                    SourceValue = sku,
+                    SourceValue = normalizedSku,
                     TargetValue = accountCode,
                     Description = $"Auto-generated mapping for SKU {sku}",
                     IsActive = true,
@@ -95,8 +100,9 @@ public class MappingService : IMappingService
     {
         try
         {
+            var normalizedLocation = (location ?? string.Empty).Trim().ToUpperInvariant();
             var existingMapping = await _context.MappingTables
-                .FirstOrDefaultAsync(m => m.MappingType == "LOCATION_WAREHOUSE" && m.SourceValue == location);
+                .FirstOrDefaultAsync(m => m.MappingType == "LOCATION_WAREHOUSE" && m.SourceValue == normalizedLocation);
 
             if (existingMapping != null)
             {
@@ -109,7 +115,7 @@ public class MappingService : IMappingService
                 var newMapping = new Data.Models.MappingTable
                 {
                     MappingType = "LOCATION_WAREHOUSE",
-                    SourceValue = location,
+                    SourceValue = normalizedLocation,
                     TargetValue = warehouseCode,
                     Description = $"Auto-generated mapping for location {location}",
                     IsActive = true,
@@ -130,4 +136,3 @@ public class MappingService : IMappingService
         }
     }
 }
-

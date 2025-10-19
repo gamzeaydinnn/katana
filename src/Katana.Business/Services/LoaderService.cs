@@ -73,9 +73,11 @@ public class LoaderService : ILoaderService
             .Where(c => customerIds.Contains(c.Id))
             .ToDictionaryAsync(c => c.Id, ct);
 
-        var accountMappings = await _dbContext.MappingTables
+        var accountMappingsList = await _dbContext.MappingTables
             .Where(m => m.MappingType == "SKU_ACCOUNT" && m.IsActive)
-            .ToDictionaryAsync(m => m.SourceValue, m => m.TargetValue, ct);
+            .Select(m => new { m.SourceValue, m.TargetValue })
+            .ToListAsync(ct);
+        var accountMappings = accountMappingsList.ToDictionary(m => m.SourceValue, m => m.TargetValue, StringComparer.OrdinalIgnoreCase);
 
         var lucaInvoices = new List<LucaInvoiceDto>();
         foreach (var invoice in invoiceList)
