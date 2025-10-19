@@ -5,7 +5,7 @@ using Katana.Core.Entities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Katana.Infrastructure.ExternalServices.Katana;
+namespace Katana.Infrastructure.APIClients;
 
 public class KatanaApiClient : IKatanaApiClient
 {

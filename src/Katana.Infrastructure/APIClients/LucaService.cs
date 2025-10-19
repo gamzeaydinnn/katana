@@ -5,7 +5,6 @@ using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Text;
 using System.Net.Http.Headers;
-using Katana.Data.Configuration;
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 /*LucaService.cs (Genişletilecek): Luca Koza API'sına veri yazma operasyonlarını içerecek.
@@ -217,7 +216,6 @@ public class LucaService : ILucaService
 
         result.Duration = DateTime.UtcNow - startTime;
         return result;
-        throw new NotImplementedException();
     }
 
     public async Task<SyncResultDto> SendCustomersAsync(List<LucaCustomerDto> customers)
@@ -260,7 +258,6 @@ public class LucaService : ILucaService
                 _logger.LogError("Failed to send customers to Luca. Status: {StatusCode}, Error: {Error}",
                     response.StatusCode, errorContent);
             }
-            throw new NotImplementedException();
         }
         catch (Exception ex)
         {
@@ -274,7 +271,6 @@ public class LucaService : ILucaService
 
         result.Duration = DateTime.UtcNow - startTime;
         return result;
-        throw new NotImplementedException();
     }
 
     public async Task<bool> TestConnectionAsync()
@@ -298,4 +294,3 @@ public class LucaService : ILucaService
 
 
 }
-

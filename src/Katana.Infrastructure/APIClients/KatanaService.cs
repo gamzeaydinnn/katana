@@ -93,7 +93,7 @@ public class KatanaService : IKatanaService
             _logger.LogInformation("Getting products from Katana");
             _loggingService.LogInfo("Katana API: Fetching products", null, "GetProductsAsync", LogCategory.ExternalAPI);
 
-            var response = await _httpClient.GetAsync("/v1/products");
+            var response = await _httpClient.GetAsync(_settings.Endpoints.Products);
             var responseContent = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
@@ -165,7 +165,7 @@ public class KatanaService : IKatanaService
         {
             _logger.LogInformation("Getting product by SKU: {SKU}", sku);
 
-            var url = $"/v1/products/{sku}";
+            var url = $"{_settings.Endpoints.Products}/{sku}";
             var response = await _httpClient.GetAsync(url);
             var responseContent = await response.Content.ReadAsStringAsync();
 
@@ -204,7 +204,7 @@ public class KatanaService : IKatanaService
         {
             _logger.LogInformation("Testing Katana API connection");
 
-            var response = await _httpClient.GetAsync("/v1/products?limit=1");
+            var response = await _httpClient.GetAsync($"{_settings.Endpoints.Products}?limit=1");
             var isConnected = response.IsSuccessStatusCode;
             
             _logger.LogInformation("Katana API connection: {Status}", isConnected ? "OK" : "Failed");
@@ -217,4 +217,3 @@ public class KatanaService : IKatanaService
         }
     }
 }
-
