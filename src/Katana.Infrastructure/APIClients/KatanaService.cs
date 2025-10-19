@@ -35,22 +35,6 @@ public class KatanaService : IKatanaService
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = false
         };
-
-        ConfigureHttpClient();
-    }
-
-    private void ConfigureHttpClient()
-    {
-        _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
-        _httpClient.Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds);
-
-        if (!string.IsNullOrEmpty(_settings.ApiKey))
-        {
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _settings.ApiKey);
-        }
-
-        _httpClient.DefaultRequestHeaders.Accept.Clear();
-        _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
     }
 
     public async Task<List<KatanaStockDto>> GetStockChangesAsync(DateTime fromDate, DateTime toDate)
@@ -87,10 +71,16 @@ public class KatanaService : IKatanaService
         try
         {
             _logger.LogInformation("Getting products from Katana");
+            _logger.LogInformation("DEBUG - BaseAddress: {BaseAddress}", _httpClient.BaseAddress);
+            _logger.LogInformation("DEBUG - Endpoint: {Endpoint}", _settings.Endpoints.Products);
+            _logger.LogInformation("DEBUG - Authorization: {Auth}", _httpClient.DefaultRequestHeaders.Authorization);
             _loggingService.LogInfo("Katana API: Fetching products", null, "GetProductsAsync", LogCategory.ExternalAPI);
 
             var response = await _httpClient.GetAsync(_settings.Endpoints.Products);
             var responseContent = await response.Content.ReadAsStringAsync();
+
+            _logger.LogWarning("KATANA API RESPONSE - Status: {StatusCode}, Content Length: {Length}, First 500 chars: {Content}", 
+                response.StatusCode, responseContent.Length, responseContent.Substring(0, Math.Min(500, responseContent.Length)));
 
             if (!response.IsSuccessStatusCode)
             {

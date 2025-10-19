@@ -228,14 +228,7 @@ namespace Katana.Data.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
-            migrationBuilder.InsertData(
-                table: "MappingTables",
-                columns: new[] { "Id", "CreatedAt", "CreatedBy", "Description", "IsActive", "MappingType", "SourceValue", "TargetValue", "UpdatedAt", "UpdatedBy" },
-                values: new object[,]
-                {
-                    { 1, new DateTime(2025, 9, 26, 15, 56, 40, 823, DateTimeKind.Utc).AddTicks(3184), null, "Default account code for unmapped products", true, "SKU_ACCOUNT", "DEFAULT", "600.01", new DateTime(2025, 9, 26, 15, 56, 40, 823, DateTimeKind.Utc).AddTicks(3185), null },
-                    { 2, new DateTime(2025, 9, 26, 15, 56, 40, 823, DateTimeKind.Utc).AddTicks(3188), null, "Default warehouse code for unmapped locations", true, "LOCATION_WAREHOUSE", "DEFAULT", "MAIN", new DateTime(2025, 9, 26, 15, 56, 40, 823, DateTimeKind.Utc).AddTicks(3189), null }
-                });
+            // migrationBuilder.InsertData - Seed data kaldırıldı
 
             migrationBuilder.CreateIndex(
                 name: "IX_Customers_TaxNo",

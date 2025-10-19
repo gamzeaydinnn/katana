@@ -15,7 +15,6 @@ public class ErrorLog
     [MaxLength(2000)]
     public string Message { get; set; } = string.Empty;
 
-    [MaxLength(4000)]
     public string? StackTrace { get; set; }
 
     [MaxLength(200)]
@@ -47,7 +46,7 @@ public class ErrorLog
     /// <summary>
     /// Ek context bilgisi
     /// </summary>
-    [MaxLength(500)]
+    [MaxLength(1000)]
     public string? ContextData { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

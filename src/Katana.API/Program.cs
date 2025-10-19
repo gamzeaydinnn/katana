@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.Extensions.Options;
 using Quartz;
 using Serilog;
 using System.Text;
@@ -90,16 +91,34 @@ builder.Services.AddDbContext<IntegrationDbContext>(options =>
 // -----------------------------
 // Configuration Bindings
 // -----------------------------
-builder.Services.Configure<KatanaApiSettings>(builder.Configuration.GetSection("KatanaApiSettings"));
-builder.Services.Configure<LucaApiSettings>(builder.Configuration.GetSection("LucaApiSettings"));
+builder.Services.Configure<KatanaApiSettings>(builder.Configuration.GetSection("KatanaApi"));
+builder.Services.Configure<LucaApiSettings>(builder.Configuration.GetSection("LucaApi"));
 
 builder.Services.AddAuthorization();
 
 // -----------------------------
 // HTTP Clients
 // -----------------------------
-builder.Services.AddHttpClient<IKatanaService, KatanaService>();
-builder.Services.AddHttpClient<ILucaService, LucaService>();
+builder.Services.AddHttpClient<IKatanaService, KatanaService>((serviceProvider, client) =>
+{
+    var katanaSettings = serviceProvider.GetRequiredService<IOptions<KatanaApiSettings>>().Value;
+    client.BaseAddress = new Uri(katanaSettings.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(katanaSettings.TimeoutSeconds);
+    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", katanaSettings.ApiKey?.Trim());
+    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+});
+
+builder.Services.AddHttpClient<ILucaService, LucaService>((serviceProvider, client) =>
+{
+    var lucaSettings = serviceProvider.GetRequiredService<IOptions<LucaApiSettings>>().Value;
+    client.BaseAddress = new Uri(lucaSettings.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(lucaSettings.TimeoutSeconds);
+    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+    if (!string.IsNullOrEmpty(lucaSettings.ApiKey) && !lucaSettings.UseTokenAuth)
+    {
+        client.DefaultRequestHeaders.Add("X-API-Key", lucaSettings.ApiKey);
+    }
+});
 
 // -----------------------------
 // Repository + UnitOfWork

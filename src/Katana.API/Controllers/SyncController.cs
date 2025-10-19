@@ -1,4 +1,4 @@
-ï»¿using Katana.Business.DTOs;
+using Katana.Business.DTOs;
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Core.Enums;
@@ -31,14 +31,14 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>
-    /// GET /api/Sync/history - Senkronizasyon geÃ§miÅŸini getirir
+    /// GET /api/Sync/history - Senkronizasyon geçmiþini getirir
     /// </summary>
     [HttpGet("history")]
     public async Task<IActionResult> GetSyncHistory()
     {
         try
         {
-            // Tablo yoksa boÅŸ liste dÃ¶ndÃ¼r
+            // Tablo yoksa boþ liste döndür
             var logs = await _context.SyncOperationLogs
                 .OrderByDescending(l => l.StartTime)
                 .Take(50)
@@ -59,18 +59,18 @@ public class SyncController : ControllerBase
         }
         catch (Microsoft.Data.Sqlite.SqliteException)
         {
-            // Tablo henÃ¼z oluÅŸturulmamÄ±ÅŸ, boÅŸ liste dÃ¶ndÃ¼r
+            // Tablo henüz oluþturulmamýþ, boþ liste döndür
             return Ok(new List<object>());
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting sync history");
-            return StatusCode(500, new { message = "Sync geÃ§miÅŸi alÄ±namadÄ±" });
+            return StatusCode(500, new { message = "Sync geçmiþi alýnamadý" });
         }
     }
 
     /// <summary>
-    /// POST /api/Sync/start - Yeni senkronizasyon baÅŸlatÄ±r
+    /// POST /api/Sync/start - Yeni senkronizasyon baþlatýr
     /// </summary>
     [HttpPost("start")]
     public async Task<IActionResult> StartSync([FromBody] StartSyncRequest request)
@@ -81,7 +81,7 @@ public class SyncController : ControllerBase
             _logger.LogInformation("Starting sync: {SyncType}", request.SyncType);
             _loggingService.LogInfo($"Sync started: {request.SyncType}", user, "StartSync", LogCategory.Sync);
             
-            // Audit log: Sync baÅŸlatÄ±ldÄ±
+            // Audit log: Sync baþlatýldý
             _auditService.LogSync(request.SyncType ?? "UNKNOWN", user, $"Manual sync initiated");
             
             var result = request.SyncType?.ToUpper() switch
@@ -90,7 +90,7 @@ public class SyncController : ControllerBase
                 "INVOICE" => await _syncService.SyncInvoicesAsync(null),
                 "CUSTOMER" => await _syncService.SyncCustomersAsync(null),
                 "ALL" => await ConvertBatchResult(await _syncService.SyncAllAsync(null)),
-                _ => throw new ArgumentException("GeÃ§ersiz sync tipi")
+                _ => throw new ArgumentException("Geçersiz sync tipi")
             };
 
             _loggingService.LogInfo($"Sync completed: {request.SyncType} - Success: {result.IsSuccess}", user, 
@@ -101,7 +101,7 @@ public class SyncController : ControllerBase
         {
             _logger.LogError(ex, "Error starting sync");
             _loggingService.LogError($"Sync failed: {request.SyncType}", ex, User?.Identity?.Name, null, LogCategory.Sync);
-            return StatusCode(500, new { message = "Sync baÅŸlatÄ±lamadÄ±" });
+            return StatusCode(500, new { message = "Sync baþlatýlamadý" });
         }
     }
 
@@ -110,7 +110,7 @@ public class SyncController : ControllerBase
         return Task.FromResult(new SyncResultDto
         {
             IsSuccess = batch.OverallSuccess,
-            Message = $"Toplam {batch.TotalProcessedRecords} kayÄ±t iÅŸlendi",
+            Message = $"Toplam {batch.TotalProcessedRecords} kayýt iþlendi",
             ProcessedRecords = batch.TotalProcessedRecords,
             SuccessfulRecords = batch.TotalSuccessfulRecords,
             FailedRecords = batch.TotalFailedRecords

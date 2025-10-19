@@ -35,21 +35,6 @@ public class LucaService : ILucaService
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = false
         };
-
-        ConfigureHttpClient();
-    }
-
-    private void ConfigureHttpClient()
-    {
-        _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
-        _httpClient.Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds);
-        _httpClient.DefaultRequestHeaders.Accept.Clear();
-        _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-        if (!string.IsNullOrEmpty(_settings.ApiKey) && !_settings.UseTokenAuth)
-        {
-            _httpClient.DefaultRequestHeaders.Add("X-API-Key", _settings.ApiKey);
-        }
     }
 
     private async Task EnsureAuthenticatedAsync()

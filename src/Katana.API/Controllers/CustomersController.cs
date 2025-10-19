@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Katana.API.Controllers;
 
-[Authorize]
+[AllowAnonymous]
 [ApiController]
 [Route("api/[controller]")]
 public class CustomersController : ControllerBase

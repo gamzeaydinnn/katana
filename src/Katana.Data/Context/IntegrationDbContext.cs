@@ -168,6 +168,16 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.Timestamp).IsRequired();
         });
 
+        // ErrorLog configuration ✅
+        modelBuilder.Entity<ErrorLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Level);
+            entity.HasIndex(e => e.Category);
+            entity.Property(e => e.StackTrace).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.ContextData).HasMaxLength(1000);
+        });
+
         // Supplier configuration
         modelBuilder.Entity<Supplier>(entity =>
         {
@@ -213,7 +223,7 @@ public class IntegrationDbContext : DbContext
         });
 
         // Seed data
-        SeedData(modelBuilder);
+        // SeedData(modelBuilder); // ❌ Geçici olarak kapalı
     }
     private static void SeedData(ModelBuilder modelBuilder)
     {
