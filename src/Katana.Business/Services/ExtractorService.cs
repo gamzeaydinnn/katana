@@ -1,86 +1,191 @@
-//ExtractorService (KatanaClient çağrıları, paging, batch)
-//IKatanaClient çağır, page’le, ham DTO al, validate minimal.
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+using Katana.Business.Interfaces;
 using Katana.Business.Validators;
 using Katana.Core.DTOs;
-using Katana.Business.Interfaces; // IKatanaService
+using Katana.Data.Context;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Katana.Business.Services;
 
 /// <summary>
-/// Kaynak sistem (Katana) çağrılarını yapar, basit/ucuz validasyon uygular,
-/// ham DTO'ları Sync hattına iletir.
+/// Katana API'sinden veya yerel depodan ham veriyi çıkarır ve temel doğrulamaları uygular.
 /// </summary>
-public class ExtractorService
+public class ExtractorService : IExtractorService
 {
-    private readonly IKatanaService _katana;
+    private readonly IKatanaService _katanaService;
+    private readonly IntegrationDbContext _dbContext;
     private readonly ILogger<ExtractorService> _logger;
 
-    public ExtractorService(IKatanaService katana, ILogger<ExtractorService> logger)
+    public ExtractorService(
+        IKatanaService katanaService,
+        IntegrationDbContext dbContext,
+        ILogger<ExtractorService> logger)
     {
-        _katana = katana;
+        _katanaService = katanaService;
+        _dbContext = dbContext;
         _logger = logger;
     }
 
-    public async Task<List<ProductDto>> ExtractProductsAsync(CancellationToken ct = default)
+    public async Task<List<ProductDto>> ExtractProductsAsync(DateTime? fromDate = null, CancellationToken ct = default)
     {
-        _logger.LogInformation("Extractor: products çekiliyor...");
-        var items = await _katana.GetProductsAsync(ct);
+        _logger.LogInformation("ExtractorService => Fetching products from Katana API.");
 
-        // Ucuz validasyon (filtreleme) — kokan kayıtları dönüştürmeye göndermeyelim
-        var valid = new List<ProductDto>();
-        foreach (var p in items)
+        var katanaProducts = await _katanaService.GetProductsAsync();
+        var result = new List<ProductDto>();
+
+        foreach (var product in katanaProducts)
         {
-            var errs = ProductValidator.ValidateUpdate(new UpdateProductDto {
-                Name = p.Name, SKU = p.SKU, Price = p.Price, Stock = p.Stock,
-                CategoryId = p.CategoryId, Description = p.Description, MainImageUrl = p.MainImageUrl
+            if (ct.IsCancellationRequested)
+            {
+                _logger.LogWarning("ExtractorService => Product extraction cancelled.");
+                break;
+            }
+
+            var dto = new ProductDto
+            {
+                SKU = product.SKU,
+                Name = product.Name,
+                Price = product.Price,
+                CategoryId = product.CategoryId,
+                MainImageUrl = product.ImageUrl,
+                Description = product.Description,
+                IsActive = product.IsActive,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var validationErrors = ProductValidator.ValidateUpdate(new UpdateProductDto
+            {
+                SKU = dto.SKU,
+                Name = dto.Name,
+                Price = dto.Price,
+                CategoryId = dto.CategoryId,
+                Description = dto.Description,
+                MainImageUrl = dto.MainImageUrl,
+                Stock = dto.Stock,
+                IsActive = dto.IsActive
             });
-            if (errs.Count == 0) valid.Add(p);
-            else _logger.LogWarning("Extractor: ürün atlandı SKU={SKU} -> {Errors}", p.SKU, string.Join("; ", errs));
-            if (ct.IsCancellationRequested) break;
+
+            if (validationErrors.Count == 0)
+            {
+                result.Add(dto);
+            }
+            else
+            {
+                _logger.LogWarning("ExtractorService => Product skipped. SKU={SKU}; Reasons={Reasons}",
+                    dto.SKU, string.Join("; ", validationErrors));
+            }
         }
-        _logger.LogInformation("Extractor: {Count} ürün geçerli", valid.Count);
-        return valid;
+
+        _logger.LogInformation("ExtractorService => {Count} products ready for transformation.", result.Count);
+        return result;
     }
 
-    public async Task<List<InvoiceDto>> ExtractInvoicesAsync(CancellationToken ct = default)
+    public async Task<List<InvoiceDto>> ExtractInvoicesAsync(DateTime? fromDate = null, CancellationToken ct = default)
     {
-        _logger.LogInformation("Extractor: invoices çekiliyor...");
-        var items = await _katana.GetInvoicesAsync(ct);
+        _logger.LogInformation("ExtractorService => Fetching invoices.");
 
-        var (okList, _) = SplitByInvoiceValidation(items);
-        _logger.LogInformation("Extractor: {Count} fatura geçerli", okList.Count);
-        return okList;
-    }
+        var start = fromDate ?? DateTime.UtcNow.AddDays(-30);
+        var end = DateTime.UtcNow;
 
-    public async Task<List<CustomerDto>> ExtractCustomersAsync(CancellationToken ct = default)
-    {
-        _logger.LogInformation("Extractor: customers çekiliyor...");
-        var items = await _katana.GetCustomersAsync(ct);
-        // Buraya istersen CustomerValidator yazıp uygulayabilirsin.
-        return items.ToList();
-    }
+        var katanaInvoices = await _katanaService.GetInvoicesAsync(start, end);
+        var invoices = new List<InvoiceDto>();
 
-    private static (List<InvoiceDto> ok, List<(InvoiceDto dto, List<string> errs)> bad) 
-        SplitByInvoiceValidation(IEnumerable<InvoiceDto> items)
-    {
-        var ok = new List<InvoiceDto>();
-        var bad = new List<(InvoiceDto, List<string>)>();
-        foreach (var inv in items)
+        foreach (var invoice in katanaInvoices)
         {
-            var (isValid, errors) = InvoiceValidator.ValidateCreate(new CreateInvoiceDto {
-                InvoiceNo = inv.InvoiceNo,
-                CustomerId = inv.CustomerId,
-                InvoiceDate = inv.InvoiceDate,
-                Currency = inv.Currency,
-                Items = inv.Items?.ToList() ?? new List<CreateInvoiceItemDto>()
+            if (ct.IsCancellationRequested)
+            {
+                _logger.LogWarning("ExtractorService => Invoice extraction cancelled.");
+                break;
+            }
+
+            var dto = new InvoiceDto
+            {
+                InvoiceNo = invoice.InvoiceNo,
+                CustomerTaxNo = invoice.CustomerTaxNo,
+                CustomerName = invoice.CustomerTitle,
+                Amount = invoice.Amount,
+                TaxAmount = invoice.TaxAmount,
+                TotalAmount = invoice.TotalAmount,
+                InvoiceDate = invoice.InvoiceDate,
+                DueDate = invoice.DueDate,
+                Currency = invoice.Currency,
+                Status = "SENT",
+                Items = invoice.Items.Select(item => new InvoiceItemDto
+                {
+                    ProductSKU = item.ProductSKU,
+                    ProductName = item.ProductName,
+                    Quantity = item.Quantity,
+                    UnitPrice = item.UnitPrice,
+                    TaxRate = item.TaxRate,
+                    TaxAmount = item.TaxAmount,
+                    TotalAmount = item.TotalAmount
+                }).ToList()
+            };
+
+            var (isValid, errors) = InvoiceValidator.ValidateCreate(new CreateInvoiceDto
+            {
+                InvoiceNo = dto.InvoiceNo,
+                CustomerId = dto.CustomerId,
+                InvoiceDate = dto.InvoiceDate,
+                DueDate = dto.DueDate,
+                Currency = dto.Currency,
+                Items = dto.Items.Select(i => new CreateInvoiceItemDto
+                {
+                    ProductId = i.ProductId,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
+                    TaxRate = i.TaxRate
+                }).ToList()
             });
-            if (isValid) ok.Add(inv); else bad.Add((inv, errors));
+
+            if (isValid)
+            {
+                invoices.Add(dto);
+            }
+            else
+            {
+                _logger.LogWarning("ExtractorService => Invoice skipped. InvoiceNo={InvoiceNo}; Reasons={Reasons}",
+                    dto.InvoiceNo, string.Join("; ", errors));
+            }
         }
-        return (ok, bad);
+
+        _logger.LogInformation("ExtractorService => {Count} invoices ready for transformation.", invoices.Count);
+        return invoices;
+    }
+
+    public async Task<List<CustomerDto>> ExtractCustomersAsync(DateTime? fromDate = null, CancellationToken ct = default)
+    {
+        _logger.LogInformation("ExtractorService => Fetching customers from integration database.");
+
+        var query = _dbContext.Customers.AsNoTracking();
+
+        if (fromDate.HasValue)
+        {
+            query = query.Where(c => c.UpdatedAt >= fromDate.Value);
+        }
+
+        var customers = await query
+            .OrderByDescending(c => c.UpdatedAt)
+            .Take(500)
+            .ToListAsync(ct);
+
+        var result = customers.Select(c => new CustomerDto
+        {
+            Id = c.Id,
+            TaxNo = c.TaxNo,
+            Title = c.Title,
+            ContactPerson = c.ContactPerson,
+            Phone = c.Phone,
+            Email = c.Email,
+            Address = c.Address,
+            City = c.City,
+            Country = c.Country,
+            IsActive = c.IsActive,
+            CreatedAt = c.CreatedAt,
+            UpdatedAt = c.UpdatedAt
+        }).ToList();
+
+        _logger.LogInformation("ExtractorService => {Count} customers ready for transformation.", result.Count);
+        return result;
     }
 }

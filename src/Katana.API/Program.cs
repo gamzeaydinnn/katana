@@ -112,18 +112,17 @@ builder.Services.AddScoped<IRepository<Category>, CategoryRepository>();
 // -----------------------------
 // Business Services
 // -----------------------------
+builder.Services.AddScoped<IExtractorService, ExtractorService>();
+builder.Services.AddScoped<ITransformerService, TransformerService>();
+builder.Services.AddScoped<ILoaderService, LoaderService>();
 builder.Services.AddScoped<ISyncService, SyncService>();
+builder.Services.AddScoped<IIntegrationService>(sp => (IIntegrationService)sp.GetRequiredService<ISyncService>());
 builder.Services.AddScoped<IStockService, StockService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IAccountingService, AccountingService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
-// ETL servisleri (şu an kullanılmıyor - eski Luca entegrasyonu için)
-// builder.Services.AddScoped<ExtractorService>();
-// builder.Services.AddScoped<TransformerService>();
-// builder.Services.AddScoped<LoaderService>();
-builder.Services.AddScoped<ISyncService, SyncService>();
 
 // Logging Service
 builder.Services.AddScoped<ILoggingService, LoggingService>();

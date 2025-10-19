@@ -1,136 +1,166 @@
-//LoaderService (LucaClient çağrıları, file exports, retry logic)
-//ILucaClient ile yükleme, retry, batch ack.
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+using Katana.Business.Interfaces;
+using Katana.Core.DTOs;
 using Katana.Core.Entities;
-using Katana.Business.Interfaces; // ILucaService
+using Katana.Core.Enums;
+using Katana.Core.Helpers;
 using Katana.Data.Context;
-using Katana.Data.Models; // FailedSyncRecord / IntegrationLog vb
-using Microsoft.Extensions.Logging;
+using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
-using Polly;
+using Microsoft.Extensions.Logging;
 
 namespace Katana.Business.Services;
 
 /// <summary>
-/// Hedef sisteme (Luca) yazma/yükleme, batch işlemleri, retry/backoff ve loglama.
+/// Dönüştürülmüş verileri Luca tarafına aktarır ve işlem sonuçlarını loglar.
 /// </summary>
-public class LoaderService
+public class LoaderService : ILoaderService
 {
-    private readonly ILucaService _luca;
-    private readonly IntegrationDbContext _db;
+    private readonly ILucaService _lucaService;
+    private readonly IntegrationDbContext _dbContext;
     private readonly ILogger<LoaderService> _logger;
 
-    public LoaderService(ILucaService luca, IntegrationDbContext db, ILogger<LoaderService> logger)
+    public LoaderService(
+        ILucaService lucaService,
+        IntegrationDbContext dbContext,
+        ILogger<LoaderService> logger)
     {
-        _luca = luca;
-        _db = db;
+        _lucaService = lucaService;
+        _dbContext = dbContext;
         _logger = logger;
     }
 
     public async Task<int> LoadProductsAsync(IEnumerable<Product> products, int batchSize = 100, CancellationToken ct = default)
     {
-        var list = products.ToList();
-        if (!list.Any()) return 0;
-
-        var policy = Policy
-            .Handle<Exception>()
-            .WaitAndRetryAsync(3, retry => TimeSpan.FromSeconds(Math.Pow(2, retry)),
-                (ex, ts, attempt, ctx) => _logger.LogWarning(ex, "Loader retry #{Attempt}", attempt));
-
-        var total = 0;
-        foreach (var chunk in list.Chunk(batchSize))
+        var productList = products.ToList();
+        if (!productList.Any())
         {
-            await policy.ExecuteAsync(async () =>
-            {
-                await _luca.UpsertProductsAsync(chunk, ct);
-                total += chunk.Length;
-            });
-            if (ct.IsCancellationRequested) break;
+            _logger.LogInformation("LoaderService => No products to load.");
+            return 0;
         }
 
-        await AddIntegrationLogAsync("PRODUCT", "SUCCESS", total, 0, null, ct);
-        return total;
+        var lucaStocks = productList.Select(product => new LucaStockDto
+        {
+            ProductCode = product.SKU,
+            ProductName = product.Name,
+            WarehouseCode = "MAIN",
+            Quantity = Math.Max(product.Stock, 0),
+            MovementType = "BALANCE",
+            MovementDate = DateTime.UtcNow,
+            Description = $"Inventory sync for {product.Name}",
+            Reference = "SYNC"
+        }).ToList();
+
+        var result = await _lucaService.SendStockMovementsAsync(lucaStocks);
+        await WriteIntegrationLogAsync("STOCK", result, ct);
+
+        _logger.LogInformation("LoaderService => Products synced. Success={Success} Failed={Failed}",
+            result.SuccessfulRecords, result.FailedRecords);
+
+        return result.SuccessfulRecords;
     }
 
     public async Task<int> LoadInvoicesAsync(IEnumerable<Invoice> invoices, int batchSize = 50, CancellationToken ct = default)
     {
-        var list = invoices.ToList();
-        if (!list.Any()) return 0;
-
-        var total = 0;
-        var failed = 0;
-
-        var policy = Policy
-            .Handle<Exception>()
-            .WaitAndRetryAsync(3, retry => TimeSpan.FromSeconds(Math.Pow(2, retry)),
-                (ex, ts, attempt, ctx) => _logger.LogWarning(ex, "Loader retry #{Attempt}", attempt));
-
-        foreach (var chunk in list.Chunk(batchSize))
+        var invoiceList = invoices.ToList();
+        if (!invoiceList.Any())
         {
-            try
-            {
-                await policy.ExecuteAsync(async () =>
-                {
-                    await _luca.UpsertInvoicesAsync(chunk, ct);
-                    total += chunk.Length;
-                });
-            }
-            catch (Exception ex)
-            {
-                failed += chunk.Length;
-                _logger.LogError(ex, "Loader: invoice batch hata aldı ({Count})", chunk.Length);
-                await AddFailedRecordsAsync("INVOICE", chunk.Select(c => c.InvoiceNo), ex, ct);
-            }
-
-            if (ct.IsCancellationRequested) break;
+            _logger.LogInformation("LoaderService => No invoices to load.");
+            return 0;
         }
 
-        var status = failed == 0 ? "SUCCESS" : (total == 0 ? "FAILED" : "PARTIAL");
-        await AddIntegrationLogAsync("INVOICE", status, total, failed, null, ct);
+        var customerIds = invoiceList.Select(i => i.CustomerId).Distinct().ToList();
+        var customers = await _dbContext.Customers
+            .Where(c => customerIds.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, ct);
 
-        return total;
-    }
+        var accountMappings = await _dbContext.MappingTables
+            .Where(m => m.MappingType == "SKU_ACCOUNT" && m.IsActive)
+            .ToDictionaryAsync(m => m.SourceValue, m => m.TargetValue, ct);
 
-    private async Task AddFailedRecordsAsync(string recordType, IEnumerable<string> ids, Exception ex, CancellationToken ct)
-    {
-        var now = DateTime.UtcNow;
-        foreach (var id in ids)
+        var lucaInvoices = new List<LucaInvoiceDto>();
+        foreach (var invoice in invoiceList)
         {
-            _db.FailedSyncRecords.Add(new FailedSyncRecord
+            if (ct.IsCancellationRequested)
             {
-                IntegrationLogId = 0, // istersen son log id ile ilişkilendir
-                RecordType = recordType,
-                RecordId = id,
-                OriginalData = string.Empty,
-                ErrorMessage = ex.Message,
-                ErrorCode = ex.GetType().Name,
-                FailedAt = now,
-                RetryCount = 0,
-                LastRetryAt = null,
-                NextRetryAt = now.AddMinutes(15),
-                Status = "FAILED"
-            });
+                _logger.LogWarning("LoaderService => Invoice load cancelled.");
+                break;
+            }
+
+            var customer = customers.GetValueOrDefault(invoice.CustomerId) ?? new Customer
+            {
+                TaxNo = invoice.Customer?.TaxNo ?? "0000000000",
+                Title = invoice.Customer?.Title ?? "Unknown Customer"
+            };
+
+            var invoiceItems = invoice.InvoiceItems?.ToList() ?? new List<InvoiceItem>();
+            lucaInvoices.Add(MappingHelper.MapToLucaInvoice(invoice, customer, invoiceItems, accountMappings));
         }
-        await _db.SaveChangesAsync(ct);
+
+        var result = await _lucaService.SendInvoicesAsync(lucaInvoices);
+        await WriteIntegrationLogAsync("INVOICE", result, ct);
+
+        _logger.LogInformation("LoaderService => Invoices synced. Success={Success} Failed={Failed}",
+            result.SuccessfulRecords, result.FailedRecords);
+
+        return result.SuccessfulRecords;
     }
 
-    private async Task AddIntegrationLogAsync(string syncType, string status, int success, int failed, string? details, CancellationToken ct)
+    public async Task<int> LoadCustomersAsync(IEnumerable<Customer> customers, int batchSize = 50, CancellationToken ct = default)
     {
-        _db.IntegrationLogs.Add(new IntegrationLog
+        var customerList = customers.ToList();
+        if (!customerList.Any())
+        {
+            _logger.LogInformation("LoaderService => No customers to load.");
+            return 0;
+        }
+
+        var lucaCustomers = customerList
+            .Select(MappingHelper.MapToLucaCustomer)
+            .ToList();
+
+        var result = await _lucaService.SendCustomersAsync(lucaCustomers);
+        await WriteIntegrationLogAsync("CUSTOMER", result, ct);
+
+        _logger.LogInformation("LoaderService => Customers synced. Success={Success} Failed={Failed}",
+            result.SuccessfulRecords, result.FailedRecords);
+
+        return result.SuccessfulRecords;
+    }
+
+    private async Task WriteIntegrationLogAsync(string syncType, SyncResultDto result, CancellationToken ct)
+    {
+        var log = new IntegrationLog
         {
             SyncType = syncType,
-            Status = status,
-            StartTime = DateTime.UtcNow,
+            Status = result.IsSuccess ? SyncStatus.Success : SyncStatus.Failed,
+            Source = DataSource.Katana,
+            StartTime = DateTime.UtcNow.Subtract(result.Duration),
             EndTime = DateTime.UtcNow,
-            FailedRecords = failed,
-            SuccessfulRecords = success,
-            ProcessedRecords = success + failed,
-            Details = details
-        });
-        await _db.SaveChangesAsync(ct);
+            ProcessedRecords = result.ProcessedRecords,
+            SuccessfulRecords = result.SuccessfulRecords,
+            FailedRecordsCount = result.FailedRecords,
+            ErrorMessage = result.IsSuccess ? null : string.Join(Environment.NewLine, result.Errors ?? new List<string>()),
+            Details = result.Message
+        };
+
+        _dbContext.IntegrationLogs.Add(log);
+
+        if (!result.IsSuccess && (result.Errors?.Any() ?? false))
+        {
+            foreach (var error in result.Errors!)
+            {
+                _dbContext.FailedSyncRecords.Add(new FailedSyncRecord
+                {
+                    IntegrationLog = log,
+                    RecordType = syncType,
+                    RecordId = Guid.NewGuid().ToString(),
+                    ErrorMessage = error,
+                    FailedAt = DateTime.UtcNow,
+                    Status = "FAILED"
+                });
+            }
+        }
+
+        await _dbContext.SaveChangesAsync(ct);
     }
 }

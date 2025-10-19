@@ -1,19 +1,15 @@
-//TransformerService (mapping, format dönüşümleri, validation)
-//DTO -> Domain (veya Application DTO) dönüşümü, mapping service çağır.
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Katana.Core.Entities;
-using Katana.Core.DTOs;
-using Microsoft.Extensions.Logging;
+using Katana.Business.Interfaces;
 using Katana.Business.Validators;
+using Katana.Core.DTOs;
+using Katana.Core.Entities;
+using Microsoft.Extensions.Logging;
 
 namespace Katana.Business.Services;
 
 /// <summary>
-/// DTO -> Domain dönüşümleri, alan map'leri, derin validasyon.
+/// DTOLARı domain varlıklarına dönüştürür ve iş kurallarına göre doğrular.
 /// </summary>
-public class TransformerService
+public class TransformerService : ITransformerService
 {
     private readonly ILogger<TransformerService> _logger;
 
@@ -24,72 +20,94 @@ public class TransformerService
 
     public Task<List<Product>> ToProductsAsync(IEnumerable<ProductDto> dtos)
     {
-        var list = new List<Product>();
+        var products = new List<Product>();
+
         foreach (var dto in dtos)
         {
-            var product = new Product
+            var entity = new Product
             {
                 SKU = dto.SKU,
                 Name = dto.Name,
                 Description = dto.Description ?? string.Empty,
                 CategoryId = dto.CategoryId,
                 Price = dto.Price,
-                IsActive = dto.IsActive
+                Stock = dto.Stock,
+                MainImageUrl = dto.MainImageUrl,
+                IsActive = dto.IsActive,
+                CreatedAt = dto.CreatedAt,
+                UpdatedAt = dto.UpdatedAt ?? DateTime.UtcNow
             };
 
-            // Derin doğrulama (ör: genel DataValidator, iş kuralları)
-            var errs = ProductValidator.ValidateUpdate(new UpdateProductDto {
-                Name = product.Name, SKU = product.SKU, Price = product.Price,
-                Stock = dto.Stock, CategoryId = product.CategoryId, Description = product.Description
-            });
-            if (errs.Count > 0)
+            var validationErrors = ProductValidator.ValidateUpdate(new UpdateProductDto
             {
-                _logger.LogWarning("Transformer: ürün map başarısız SKU={SKU} -> {Errors}", dto.SKU, string.Join("; ", errs));
-                continue;
-            }
+                SKU = entity.SKU,
+                Name = entity.Name,
+                Price = entity.Price,
+                Stock = entity.Stock,
+                CategoryId = entity.CategoryId,
+                Description = entity.Description,
+                MainImageUrl = entity.MainImageUrl,
+                IsActive = entity.IsActive
+            });
 
-            list.Add(product);
+            if (validationErrors.Count == 0)
+            {
+                products.Add(entity);
+            }
+            else
+            {
+                _logger.LogWarning("TransformerService => Product mapping skipped. SKU={SKU}; Reasons={Reasons}",
+                    dto.SKU, string.Join("; ", validationErrors));
+            }
         }
-        return Task.FromResult(list);
+
+        return Task.FromResult(products);
     }
 
     public Task<List<Invoice>> ToInvoicesAsync(IEnumerable<InvoiceDto> dtos)
     {
-        var list = new List<Invoice>();
+        var invoices = new List<Invoice>();
+
         foreach (var dto in dtos)
         {
-            var inv = new Invoice
+            var invoice = new Invoice
             {
                 InvoiceNo = dto.InvoiceNo,
                 CustomerId = dto.CustomerId,
+                Amount = dto.Amount,
+                TaxAmount = dto.TaxAmount,
+                TotalAmount = dto.TotalAmount,
+                Status = string.IsNullOrWhiteSpace(dto.Status) ? "DRAFT" : dto.Status,
                 InvoiceDate = dto.InvoiceDate,
                 DueDate = dto.DueDate,
                 Currency = string.IsNullOrWhiteSpace(dto.Currency) ? "TRY" : dto.Currency,
-                Amount = dto.Items?.Sum(i => i.UnitPrice * i.Quantity) ?? 0m,
-                TaxAmount = dto.Items?.Sum(i => (i.UnitPrice * i.Quantity) * i.TaxRate) ?? 0m,
-                TotalAmount = 0m, // aşağıda setlenecek
-                Status = dto.Status ?? "DRAFT",
-                Notes = dto.Notes
+                Notes = dto.Notes,
+                CreatedAt = dto.CreatedAt,
+                UpdatedAt = dto.UpdatedAt
             };
-            inv.TotalAmount = inv.Amount + inv.TaxAmount;
 
-            inv.InvoiceItems = dto.Items?.Select(i => new InvoiceItem
+            invoice.InvoiceItems = dto.Items.Select(item => new InvoiceItem
             {
-                ProductId = i.ProductId,
-                Quantity = i.Quantity,
-                UnitPrice = i.UnitPrice,
-                TaxRate = i.TaxRate,
-                TaxAmount = (i.UnitPrice * i.Quantity) * i.TaxRate,
-                TotalAmount = (i.UnitPrice * i.Quantity) * (1 + i.TaxRate)
-            }).ToList() ?? new List<InvoiceItem>();
+                ProductId = item.ProductId,
+                ProductName = item.ProductName,
+                ProductSKU = item.ProductSKU,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                TaxRate = item.TaxRate,
+                TaxAmount = item.TaxAmount,
+                TotalAmount = item.TotalAmount,
+                Unit = item.Unit
+            }).ToList();
 
-            // Derin validasyon (InvoiceValidator)
-            var (valid, errs) = InvoiceValidator.ValidateCreate(new CreateInvoiceDto {
-                InvoiceNo = inv.InvoiceNo,
-                CustomerId = inv.CustomerId,
-                InvoiceDate = inv.InvoiceDate,
-                Currency = inv.Currency,
-                Items = inv.InvoiceItems.Select(ii => new CreateInvoiceItemDto {
+            var (isValid, errors) = InvoiceValidator.ValidateCreate(new CreateInvoiceDto
+            {
+                InvoiceNo = invoice.InvoiceNo,
+                CustomerId = invoice.CustomerId,
+                InvoiceDate = invoice.InvoiceDate,
+                DueDate = invoice.DueDate,
+                Currency = invoice.Currency,
+                Items = invoice.InvoiceItems.Select(ii => new CreateInvoiceItemDto
+                {
                     ProductId = ii.ProductId,
                     Quantity = ii.Quantity,
                     UnitPrice = ii.UnitPrice,
@@ -97,15 +115,38 @@ public class TransformerService
                 }).ToList()
             });
 
-            if (!valid)
+            if (isValid)
             {
-                _logger.LogWarning("Transformer: invoice map başarısız No={No} -> {Errors}", inv.InvoiceNo, string.Join("; ", errs));
-                continue;
+                invoices.Add(invoice);
             }
-
-            list.Add(inv);
+            else
+            {
+                _logger.LogWarning("TransformerService => Invoice mapping skipped. InvoiceNo={InvoiceNo}; Reasons={Reasons}",
+                    dto.InvoiceNo, string.Join("; ", errors));
+            }
         }
 
-        return Task.FromResult(list);
+        return Task.FromResult(invoices);
+    }
+
+    public Task<List<Customer>> ToCustomersAsync(IEnumerable<CustomerDto> dtos)
+    {
+        var customers = dtos.Select(dto => new Customer
+        {
+            Id = dto.Id,
+            TaxNo = dto.TaxNo,
+            Title = dto.Title,
+            ContactPerson = dto.ContactPerson,
+            Phone = dto.Phone,
+            Email = dto.Email,
+            Address = dto.Address,
+            City = dto.City,
+            Country = dto.Country,
+            IsActive = dto.IsActive,
+            CreatedAt = dto.CreatedAt,
+            UpdatedAt = dto.UpdatedAt ?? DateTime.UtcNow
+        }).ToList();
+
+        return Task.FromResult(customers);
     }
 }
