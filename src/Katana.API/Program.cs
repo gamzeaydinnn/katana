@@ -18,6 +18,7 @@ using Katana.Infrastructure.APIClients;
 using Katana.Business.UseCases.Sync;
 using Katana.Infrastructure.Notifications;
 using Katana.Core.Interfaces;
+using Katana.Core.Entities;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -99,11 +100,13 @@ builder.Services.AddAuthorization();
 // HTTP Clients
 // -----------------------------
 builder.Services.AddHttpClient<IKatanaService, KatanaService>();
+builder.Services.AddHttpClient<ILucaService, LucaService>();
 
 // -----------------------------
 // Repository + UnitOfWork
 // -----------------------------
 builder.Services.AddScoped(typeof(Katana.Core.Interfaces.IRepository<>), typeof(Repository<>));
+builder.Services.AddScoped<IRepository<Category>, CategoryRepository>();
 //builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // -----------------------------

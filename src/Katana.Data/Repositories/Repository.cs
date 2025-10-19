@@ -1,19 +1,8 @@
-﻿
+﻿using Katana.Core.Interfaces;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 
 namespace Katana.Data.Repositories;
-public interface IRepository<T> where T : class
-{
-    Task<T?> GetByIdAsync(int id);
-    Task<List<T>> GetAllAsync();
-    Task<T> AddAsync(T entity);
-    Task<T> UpdateAsync(T entity);
-    Task DeleteAsync(int id);
-    Task<bool> ExistsAsync(int id);
-}
-
-
 public class Repository<T> : IRepository<T> where T : class
 {
     protected readonly IntegrationDbContext _context;
@@ -35,25 +24,19 @@ public class Repository<T> : IRepository<T> where T : class
         return await _dbSet.ToListAsync();
     }
 
-    public virtual async Task<T> AddAsync(T entity)
+    public virtual async Task AddAsync(T entity)
     {
         await _dbSet.AddAsync(entity);
-        return entity;
     }
 
-    public virtual async Task<T> UpdateAsync(T entity)
+    public virtual void Update(T entity)
     {
         _dbSet.Update(entity);
-        return entity;
     }
 
-    public virtual async Task DeleteAsync(int id)
+    public virtual void Delete(T entity)
     {
-        var entity = await GetByIdAsync(id);
-        if (entity != null)
-        {
-            _dbSet.Remove(entity);
-        }
+        _dbSet.Remove(entity);
     }
 
     public virtual async Task<bool> ExistsAsync(int id)
@@ -62,10 +45,8 @@ public class Repository<T> : IRepository<T> where T : class
         return entity != null;
     }
 
-    public async Task SaveChangesAsync()
-   {
-    await _context.SaveChangesAsync();
-   }
-
+    public virtual async Task SaveChangesAsync()
+    {
+        await _context.SaveChangesAsync();
+    }
 }
-

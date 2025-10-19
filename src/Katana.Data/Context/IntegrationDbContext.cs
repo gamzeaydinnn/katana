@@ -160,11 +160,18 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.Timestamp).IsRequired();
         });
 
+        modelBuilder.Entity<AccountingRecord>(entity =>
+        {
+            entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
+        });
+
         // Seed data
         SeedData(modelBuilder);
     }
     private static void SeedData(ModelBuilder modelBuilder)
     {
+        var seedTimestamp = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
         modelBuilder.Entity<MappingTable>().HasData(
             new MappingTable
             {
@@ -174,8 +181,8 @@ public class IntegrationDbContext : DbContext
                 TargetValue = "600.01",
                 Description = "Default account code for unmapped products",
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt = seedTimestamp,
+                UpdatedAt = seedTimestamp
             },
             new MappingTable
             {
@@ -185,8 +192,8 @@ public class IntegrationDbContext : DbContext
                 TargetValue = "MAIN",
                 Description = "Default warehouse code for unmapped locations",
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt = seedTimestamp,
+                UpdatedAt = seedTimestamp
             }
         );
     }
