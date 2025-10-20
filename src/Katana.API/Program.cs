@@ -184,19 +184,12 @@ builder.Services.AddAuthorization();
 // -----------------------------
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowSpecificOrigins", policy =>
+    options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? Array.Empty<string>())
+        policy.WithOrigins("http://localhost:3000")
               .AllowAnyHeader()
-              .AllowAnyMethod();
-    });
-
-    // Frontend için açık CORS policy (Development için)
-    options.AddPolicy("AllowAll", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -208,7 +201,7 @@ builder.Services.AddHealthChecks().AddDbContextCheck<IntegrationDbContext>();
 // -----------------------------
 // Background Services (Worker + Quartz) - Disabled (requires Luca API)
 // -----------------------------
-// builder.Services.AddHostedService<SyncWorkerService>();
+builder.Services.AddHostedService<Katana.Infrastructure.Workers.SyncWorkerService>();
 
 builder.Services.AddQuartz(q =>
 {
@@ -239,7 +232,7 @@ app.UseSwaggerUI(c =>
 });
 
 // CORS - İlk sırada olmalı
-app.UseCors(app.Environment.IsDevelopment() ? "AllowAll" : "AllowSpecificOrigins");
+app.UseCors("AllowFrontend");
 
 // Routing
 app.UseRouting();

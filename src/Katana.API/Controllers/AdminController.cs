@@ -114,7 +114,25 @@ public class AdminController : ControllerBase
     {
         try
         {
-            return Ok(new { logs = new List<object>(), total = 0 });
+            var logsQuery = _context.SyncOperationLogs
+                .OrderByDescending(l => l.StartTime);
+
+            var total = logsQuery.Count();
+
+            var logs = logsQuery
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(l => new {
+                    l.Id,
+                    l.SyncType,
+                    l.Status,
+                    l.StartTime,
+                    l.EndTime,
+                    l.Details // varsa
+                })
+                .ToList();
+
+            return Ok(new { logs, total });
         }
         catch (Exception ex)
         {

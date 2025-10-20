@@ -1,12 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ThemeProvider,
   createTheme,
   CssBaseline,
   Box,
   Toolbar,
+  Button,
 } from "@mui/material";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+import {
+  loginToLuca,
+  getBranchList,
+  selectBranch,
+} from "./services/authService";
 
 // Components
 import Header from "./components/Layout/Header";
@@ -136,6 +143,26 @@ const theme = createTheme({
 
 const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Luca KOZA oturum başlatma fonksiyonu
+  const initializeLucaSession = async () => {
+    const isLoggedIn = await loginToLuca();
+    if (isLoggedIn) {
+      const branchId = await getBranchList();
+      if (branchId) {
+        const selected = await selectBranch(branchId);
+        if (selected) {
+          console.log("Luca KOZA oturumu ve şube seçimi başarılı!");
+        } else {
+          console.error("Şube seçimi başarısız.");
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    initializeLucaSession();
+  }, []);
 
   return (
     <ErrorBoundary>
