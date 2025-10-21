@@ -8,13 +8,11 @@ public class ErrorHandlingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ErrorHandlingMiddleware> _logger;
-    private readonly ILoggingService _loggingService;
 
-    public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger, ILoggingService loggingService)
+    public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger)
     {
         _next = next;
         _logger = logger;
-        _loggingService = loggingService;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -23,12 +21,21 @@ public class ErrorHandlingMiddleware
         {
             await _next(context);
         }
-        catch (Exception ex)
+            catch (Exception ex)
         {
             var user = context.User?.Identity?.Name ?? "Anonymous";
             var path = context.Request.Path;
             _logger.LogError(ex, "Unhandled exception at {Path}", path);
-            _loggingService.LogError($"Unhandled exception at {path}", ex, user, $"Method: {context.Request.Method}");
+            try
+            {
+                // Resolve the scoped logging service from the request services to avoid capturing scoped services in middleware ctor
+                var loggingService = context.RequestServices.GetService(typeof(Katana.Business.Interfaces.ILoggingService)) as Katana.Business.Interfaces.ILoggingService;
+                loggingService?.LogError($"Unhandled exception at {path}", ex, user, $"Method: {context.Request.Method}");
+            }
+            catch
+            {
+                // ignore failures during error reporting to avoid secondary exceptions
+            }
             await HandleExceptionAsync(context, ex);
         }
     }

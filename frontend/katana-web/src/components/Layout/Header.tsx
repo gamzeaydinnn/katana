@@ -28,9 +28,16 @@ import { stockAPI } from "../../services/api";
 interface HeaderProps {
   onMenuClick: () => void;
   sidebarOpen: boolean;
+  currentBranchName?: string | null;
+  onOpenBranchSelector?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
+const Header: React.FC<HeaderProps> = ({
+  onMenuClick,
+  sidebarOpen,
+  currentBranchName,
+  onOpenBranchSelector,
+}) => {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [notificationAnchor, setNotificationAnchor] =
@@ -117,6 +124,17 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen }) => {
             size="small"
             variant="outlined"
           />
+
+          {/* Branch display + selector */}
+          {onOpenBranchSelector && (
+            <Chip
+              label={currentBranchName ? String(currentBranchName) : "Şube Seç"}
+              onClick={onOpenBranchSelector}
+              size="small"
+              variant="outlined"
+              sx={{ ml: 1, cursor: "pointer" }}
+            />
+          )}
 
           {/* Sync Status */}
           <Tooltip title="Son senkronizasyon: 10 dakika önce">

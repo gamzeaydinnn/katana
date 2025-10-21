@@ -14,8 +14,17 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("authToken");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  // Only attach Authorization if the token looks like a JWT (3 parts separated by dots)
+  if (token && typeof token === "string") {
+    const parts = token.split(".");
+    if (parts.length === 3) {
+      config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      // Malformed or non-JWT token found in storage — don't send it to backend
+      console.warn(
+        "Auth token in storage does not look like a JWT, skipping Authorization header."
+      );
+    }
   }
   return config;
 });
@@ -158,7 +167,10 @@ export const authAPI = {
   login: (username: string, password: string) =>
     api
       .post("/Auth/login", { username, password })
-      .then((res) => ({ ...res.data, token: res.data?.token ?? res.data?.Token })),
+      .then((res) => ({
+        ...res.data,
+        token: res.data?.token ?? res.data?.Token,
+      })),
 };
 
 export default api;
