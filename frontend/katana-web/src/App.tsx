@@ -14,6 +14,7 @@ import {
   getBranchList,
   selectBranch,
 } from "./services/authService";
+import BranchSelector, { Branch } from "./components/Luca/BranchSelector";
 
 // Components
 import Header from "./components/Layout/Header";
@@ -148,16 +149,84 @@ const App: React.FC = () => {
   const initializeLucaSession = async () => {
     const isLoggedIn = await loginToLuca();
     if (isLoggedIn) {
-      const branchId = await getBranchList();
-      if (branchId) {
-        const selected = await selectBranch(branchId);
-        if (selected) {
-          console.log("Luca KOZA oturumu ve şube seçimi başarılı!");
-        } else {
-          console.error("Şube seçimi başarısız.");
+      const branches = await getBranchList();
+      if (Array.isArray(branches) && branches.length > 0) {
+        // Auto-selection rules
+        const preferredId = localStorage.getItem("preferredBranchId");
+
+        // If only one branch, select it
+        if (branches.length === 1) {
+          const sel = branches[0];
+          await selectBranch(sel);
+          console.log("Otomatik: tek şube bulundu ve seçildi");
+          return;
         }
+
+        // If preferredId stored, try to match
+        if (preferredId) {
+          const found = branches.find(
+            (b) =>
+              String(
+                b.id ?? b.Id ?? b.branchId ?? b.orgSirketSubeId ?? b.companyId
+              ) === String(preferredId)
+          );
+          if (found) {
+            await selectBranch(found);
+            console.log("Otomatik: tercih edilen şube bulundu ve seçildi");
+            return;
+          }
+        }
+
+        // Name-matching rule (e.g., contains 'Merkez')
+        const byName = branches.find((b) => {
+          const name = String(
+            b.sirketSubeAdi ?? b.ack ?? b.name ?? ""
+          ).toLowerCase();
+          return name.includes("merkez");
+        });
+        if (byName) {
+          await selectBranch(byName);
+          console.log("Otomatik: isim eşleşmesine göre şube seçildi");
+          return;
+        }
+
+        // Otherwise, show UI for user to pick
+        setBranchesToSelect(branches as Branch[]);
+        setShowBranchSelector(true);
       }
     }
+  };
+
+  const [branchesToSelect, setBranchesToSelect] = React.useState<
+    Branch[] | null
+  >(null);
+  const [showBranchSelector, setShowBranchSelector] = React.useState(false);
+  const [currentBranchName, setCurrentBranchName] = React.useState<
+    string | null
+  >(null);
+
+  const handleBranchSelect = async (b: Branch) => {
+    setShowBranchSelector(false);
+    setBranchesToSelect(null);
+    // store preferred id
+    const branchId =
+      b.id ?? b.Id ?? b.branchId ?? b.orgSirketSubeId ?? b.companyId;
+    if (branchId) localStorage.setItem("preferredBranchId", String(branchId));
+    const ok = await selectBranch(b);
+    if (ok) console.log("Şube seçildi:", branchId);
+    else console.error("Şube seçimi başarısız.");
+    // store/display name
+    const name = b.sirketSubeAdi ?? b.ack ?? b.name ?? b.label ?? null;
+    if (name) setCurrentBranchName(String(name));
+  };
+
+  const openBranchSelector = async () => {
+    if (!branchesToSelect) {
+      const branches = await getBranchList();
+      if (Array.isArray(branches) && branches.length > 0)
+        setBranchesToSelect(branches as Branch[]);
+    }
+    setShowBranchSelector(true);
   };
 
   useEffect(() => {
@@ -179,6 +248,8 @@ const App: React.FC = () => {
                     <Header
                       onMenuClick={() => setSidebarOpen(!sidebarOpen)}
                       sidebarOpen={sidebarOpen}
+                      currentBranchName={currentBranchName}
+                      onOpenBranchSelector={openBranchSelector}
                     />
                     <Sidebar
                       open={sidebarOpen}
@@ -198,6 +269,8 @@ const App: React.FC = () => {
                         minHeight: "100vh",
                       }}
                     >
+                      {/* Floating control to open branch selector */}
+                      {/* removed floating button; header now contains branch control */}
                       <Toolbar />
                       <Box sx={{ mt: 2 }}>
                         <Routes>
@@ -211,6 +284,12 @@ const App: React.FC = () => {
                         </Routes>
                       </Box>
                     </Box>
+                    <BranchSelector
+                      open={showBranchSelector}
+                      onClose={() => setShowBranchSelector(false)}
+                      branches={branchesToSelect ?? []}
+                      onSelect={handleBranchSelect}
+                    />
                   </Box>
                 </ProtectedRoute>
               }

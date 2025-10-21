@@ -42,30 +42,90 @@ export const getBranchList = async () => {
     console.log("Adım 2: Şube listesi alınıyor (Backend Proxy üzerinden)...");
     // Artık 'axios' yerine 'lucaProxyClient' kullanıyoruz
     const response = await lucaProxyClient.post("/api/luca/branches", {});
-    if (response.data && response.data.length > 0) {
-      console.log("Şube listesi başarıyla alındı:", response.data);
-      return response.data[0].id;
-    } else {
-      console.error("Yetkili şirket/şube bulunamadı.");
+    // Defensive parsing: farklı shape'ler olabilir: array doğrudan, { data: [...] }, { branches: [...] }
+    let payload: any = response.data;
+    console.log("Raw branch response:", payload);
+
+    if (!payload) {
+      console.error("Yetkili şirket/şube bulunamadı: boş cevap.");
       return null;
     }
+
+    // Drill into common wrappers
+    if (payload.data && Array.isArray(payload.data)) payload = payload.data;
+    else if (payload.branches && Array.isArray(payload.branches))
+      payload = payload.branches;
+    else if (payload.list && Array.isArray(payload.list))
+      payload = payload.list; // some responses use 'list'
+
+    // If payload is an object with items array
+    if (
+      !Array.isArray(payload) &&
+      payload.items &&
+      Array.isArray(payload.items)
+    )
+      payload = payload.items;
+
+    // Return normalized array of branch objects to let caller decide (UI selection)
+    if (Array.isArray(payload) && payload.length > 0) {
+      console.log("Şube listesi başarıyla alındı (normalized):", payload);
+      return payload;
+    }
+
+    console.error(
+      "Yetkili şirket/şube bulunamadı: beklenen biçimde dizi dönülmedi."
+    );
+    return null;
   } catch (error) {
     console.error("Şube listesi alınırken hata:", error);
     return null;
   }
 };
 
-export const selectBranch = async (branchId: number) => {
+export const selectBranch = async (branchOrId: any) => {
   try {
+    // Accept either a plain id or an object returned from getBranchList
+    let branchId: any = branchOrId;
+    if (branchOrId && typeof branchOrId === "object") {
+      branchId =
+        branchOrId?.id ??
+        branchOrId?.Id ??
+        branchOrId?.branchId ??
+        branchOrId?.subeId ??
+        branchOrId?.orgSirketSubeId ??
+        branchOrId?.companyId ??
+        null;
+    }
+
+    if (branchId == null) {
+      console.error(
+        "Şube seçimi başarısız: geçerli bir şube id'si sağlanmadı."
+      );
+      return false;
+    }
+
     console.log(
       `Adım 3: ${branchId} ID'li şube seçiliyor (Backend Proxy üzerinden)...`
     );
-    // Artık 'axios' yerine 'lucaProxyClient' kullanıyoruz
     const response = await lucaProxyClient.post("/api/luca/select-branch", {
       orgSirketSubeId: branchId,
     });
-    console.log("Şube seçimi başarılı:", response.data.message);
-    return response.data && response.data.message?.includes("Başarıyla");
+
+    console.log("Raw select response:", response.data);
+
+    const data = response.data;
+    // Heuristics to determine success across different backend shapes
+    const message =
+      typeof data?.message === "string" ? data.message : data?.Message ?? null;
+    const codeOk = data?.code === 0;
+    const successFlag = data?.success === true || data?.isSuccess === true;
+    const messageOk =
+      typeof message === "string" && message.toLowerCase().includes("başar"); // başarı, başarıyla, başarılı
+
+    const ok = codeOk || successFlag || messageOk || response.status === 200;
+
+    console.log("Şube seçimi sonucu (ok):", ok, "message:", message);
+    return !!ok;
   } catch (error) {
     console.error("Şube seçimi sırasında hata:", error);
     return false;

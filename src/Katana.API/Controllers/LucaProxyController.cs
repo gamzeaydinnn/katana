@@ -5,6 +5,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Katana.Core.Interfaces;
+using System;
+using Microsoft.Extensions.Logging;
 
 namespace Katana.API.Controllers
 {
@@ -15,10 +17,12 @@ namespace Katana.API.Controllers
         private const string LucaApiBaseUrl = "https://akozas.luca.com.tr/Yetki";
         private const string SessionCookieName = "LucaProxySession";
         private readonly ILucaCookieJarStore _cookieJarStore;
+        private readonly ILogger<LucaProxyController> _logger;
 
-        public LucaProxyController(ILucaCookieJarStore cookieJarStore)
+        public LucaProxyController(ILucaCookieJarStore cookieJarStore, ILogger<LucaProxyController> logger)
         {
             _cookieJarStore = cookieJarStore;
+            _logger = logger;
         }
 
         // Luca'dan gelen Set-Cookie'leri frontend'e forward eden yardımcı
@@ -93,7 +97,41 @@ namespace Katana.API.Controllers
             var request = new HttpRequestMessage(HttpMethod.Post, $"{LucaApiBaseUrl}/YdlUserResponsibilityOrgSs.do");
             request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
             var response = await client.SendAsync(request);
-            return await ForwardResponse(response);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            // Log raw response for debugging
+            _logger.LogInformation("Luca /branches raw response: {Length} chars", responseContent?.Length ?? 0);
+
+            try
+            {
+                using var doc = JsonDocument.Parse(responseContent ?? "null");
+                var root = doc.RootElement;
+
+                JsonElement? foundArray = null;
+                if (root.ValueKind == JsonValueKind.Array) foundArray = root;
+                else if (root.TryGetProperty("list", out var list) && list.ValueKind == JsonValueKind.Array) foundArray = list;
+                else if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array) foundArray = data;
+                else if (root.TryGetProperty("branches", out var branches) && branches.ValueKind == JsonValueKind.Array) foundArray = branches;
+                else if (root.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array) foundArray = items;
+
+                if (foundArray.HasValue)
+                {
+                    // Return normalized shape
+                    return Ok(new { branches = foundArray.Value, raw = JsonSerializer.Deserialize<object>(responseContent) });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse Luca branches response");
+            }
+
+            // Fallback: return raw content as-is (preserve status code)
+            return new ContentResult
+            {
+                Content = responseContent,
+                ContentType = "application/json",
+                StatusCode = (int)response.StatusCode
+            };
         }
 
         [HttpPost("select-branch")]
