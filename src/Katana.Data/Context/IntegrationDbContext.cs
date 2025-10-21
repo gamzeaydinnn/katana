@@ -37,6 +37,7 @@ public class IntegrationDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     base.OnModelCreating(modelBuilder);
+    var isSqlite = Database.IsSqlite();
 
     // ✅ SyncLog configuration
     modelBuilder.Entity<SyncOperationLog>(entity =>
@@ -174,7 +175,15 @@ public class IntegrationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.Level);
             entity.HasIndex(e => e.Category);
-            entity.Property(e => e.StackTrace).HasColumnType("nvarchar(max)");
+            // SQLite 'nvarchar(max)' desteklemez; TEXT kullan
+            if (isSqlite)
+            {
+                entity.Property(e => e.StackTrace).HasColumnType("TEXT");
+            }
+            else
+            {
+                entity.Property(e => e.StackTrace).HasColumnType("nvarchar(max)");
+            }
             entity.Property(e => e.ContextData).HasMaxLength(1000);
         });
 
@@ -207,7 +216,11 @@ public class IntegrationDbContext : DbContext
 
         modelBuilder.Entity<AccountingRecord>(entity =>
         {
-            entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
+            if (!isSqlite)
+            {
+                entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
+            }
+            // SQLite tarafında varsayılan numeric mapping yeterlidir
         });
 
         // User configuration

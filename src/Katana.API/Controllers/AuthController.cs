@@ -73,7 +73,8 @@ public class AuthController : ControllerBase
         }
 
         _logger.LogWarning("Failed login attempt for user '{Username}'.", loginRequest.Username);
-        return Unauthorized(new { Message = "Invalid username or password." });
+        // Frontend hatayı err.response.data.message olarak okuyor
+        return Unauthorized(new { message = "Invalid username or password." });
     }
 
     private string GenerateJwtToken(string username)
@@ -106,5 +107,4 @@ public class AuthController : ControllerBase
         return tokenHandler.WriteToken(token);
     }
 }
-
 

@@ -1,15 +1,14 @@
 import axios from "axios";
 
-const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "http://localhost:5000/api";
-const API_KEY = "ed8c38d1-4015-45e5-9c28-381d3fe148b6";
+// Geliştirmede CRA proxy'sini kullanmak için varsayılanı '/api' yapıyoruz.
+// Üretimde veya farklı bir porta yönlendirmek için REACT_APP_API_URL ayarla.
+const API_BASE_URL = process.env.REACT_APP_API_URL || "/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
   headers: {
     "Content-Type": "application/json",
-    "X-API-Key": API_KEY,
   },
 });
 
@@ -157,7 +156,9 @@ export const stockAPI = {
 
 export const authAPI = {
   login: (username: string, password: string) =>
-    api.post("/Auth/login", { username, password }).then((res) => res.data),
+    api
+      .post("/Auth/login", { username, password })
+      .then((res) => ({ ...res.data, token: res.data?.token ?? res.data?.Token })),
 };
 
 export default api;

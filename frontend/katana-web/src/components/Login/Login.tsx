@@ -29,6 +29,9 @@ const Login: React.FC = () => {
 
     try {
       const response = await authAPI.login(username, password);
+      if (!response?.token) {
+        throw new Error("Token alınamadı");
+      }
       localStorage.setItem("authToken", response.token);
       navigate("/admin");
     } catch (err: any) {

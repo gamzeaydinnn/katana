@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import api from "../../services/api";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -36,7 +37,7 @@ interface Statistics {
 }
 
 interface AdminProduct {
-  id: number;
+  id: string;
   sku: string;
   name: string;
   stock: number;
@@ -66,18 +67,45 @@ const AdminPanel: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      // Backend'ten gerçek verileri çek
+      const [statsRes, productsRes, logsRes, healthRes] = await Promise.all([
+        api.get("/adminpanel/statistics"),
+        api.get(`/adminpanel/products?page=${page + 1}&pageSize=${rowsPerPage}`),
+        api.get(`/adminpanel/sync-logs?page=${page + 1}&pageSize=${rowsPerPage}`),
+        api.get("/adminpanel/katana-health"),
+      ]);
 
-      // Simplified - using dummy data for stats/logs if API doesn't exist
-      setStatistics({
-        totalProducts: 0,
-        totalStock: 0,
-        successfulSyncs: 0,
-        failedSyncs: 0,
-      });
-      setSyncLogs([]);
-      setTotalSyncLogs(0);
-      setProducts([]);
-      setKatanaHealth(false);
+      // İstatistikler
+      setStatistics(statsRes.data as Statistics);
+
+      // Ürünler
+      const productsData = (productsRes.data?.products ?? productsRes.data?.data ?? []) as any[];
+      setProducts(
+        productsData.map((p) => ({
+          id: String(p.id ?? p.sku ?? p.SKU ?? ""),
+          sku: String(p.sku ?? p.SKU ?? ""),
+          name: String(p.name ?? p.Name ?? ""),
+          stock: Number(p.stock ?? p.stockQuantity ?? 0),
+          isActive: Boolean(p.isActive ?? p.IsActive ?? true),
+        }))
+      );
+
+      // Senkronizasyon logları
+      const rawLogs = (logsRes.data?.logs ?? logsRes.data?.data ?? []) as any[];
+      setSyncLogs(
+        rawLogs.map((l) => ({
+          id: Number(l.id ?? 0),
+          integrationName: String(l.integrationName ?? l.syncType ?? ""),
+          createdAt: String(l.createdAt ?? l.endTime ?? l.startTime ?? new Date().toISOString()),
+          isSuccess: String(l.isSuccess ?? l.status ?? "")
+            .toUpperCase()
+            .includes("SUCCESS"),
+        }))
+      );
+      setTotalSyncLogs(Number(logsRes.data?.total ?? rawLogs.length ?? 0));
+
+      // Katana API health (harici Katana servisi)
+      setKatanaHealth(Boolean(healthRes.data?.isHealthy ?? false));
     } catch (err: any) {
       console.error("Failed to load admin data:", err);
       setError(

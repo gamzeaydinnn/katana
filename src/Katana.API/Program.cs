@@ -32,8 +32,15 @@ builder.Host.UseSerilogConfiguration();
 // -----------------------------
 // Services
 // -----------------------------
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Frontend ile tutarlı camelCase JSON ve case-insensitive model binding
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+    });
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddMemoryCache();
 
 // -----------------------------
 // Swagger Configuration
@@ -76,16 +83,32 @@ builder.Services.AddSwaggerGen(c =>
 // -----------------------------
 builder.Services.AddDbContext<IntegrationDbContext>(options =>
 {
+    var env = builder.Environment;
+    var sqliteConnection = builder.Configuration.GetConnectionString("DefaultConnection");
     var sqlServerConnection = builder.Configuration.GetConnectionString("SqlServerConnection");
+
+    // Geliştirmede varsayılan olarak SQLite tercih et
+    if (env.IsDevelopment() && !string.IsNullOrWhiteSpace(sqliteConnection))
+    {
+        options.UseSqlite(sqliteConnection);
+        return;
+    }
+
+    // Aksi halde SQL Server tanımlıysa onu kullan
     if (!string.IsNullOrWhiteSpace(sqlServerConnection))
     {
         options.UseSqlServer(sqlServerConnection);
         return;
     }
 
-    var sqliteConnection = builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? throw new InvalidOperationException("No database connection string configured.");
-    options.UseSqlite(sqliteConnection);
+    // Son çare SQLite
+    if (!string.IsNullOrWhiteSpace(sqliteConnection))
+    {
+        options.UseSqlite(sqliteConnection);
+        return;
+    }
+
+    throw new InvalidOperationException("No database connection string configured.");
 });
 
 // -----------------------------
@@ -119,6 +142,9 @@ builder.Services.AddHttpClient<ILucaService, LucaService>((serviceProvider, clie
         client.DefaultRequestHeaders.Add("X-API-Key", lucaSettings.ApiKey);
     }
 });
+
+// Server-side cookie jar for Luca session handling
+builder.Services.AddSingleton<ILucaCookieJarStore, LucaCookieJarStore>();
 
 // -----------------------------
 // Repository + UnitOfWork
@@ -186,7 +212,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -201,7 +227,7 @@ builder.Services.AddHealthChecks().AddDbContextCheck<IntegrationDbContext>();
 // -----------------------------
 // Background Services (Worker + Quartz) - Disabled (requires Luca API)
 // -----------------------------
-builder.Services.AddHostedService<Katana.Infrastructure.Workers.SyncWorkerService>();
+//builder.Services.AddHostedService<Katana.Infrastructure.Workers.SyncWorkerService>();
 
 builder.Services.AddQuartz(q =>
 {
@@ -231,11 +257,11 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = string.Empty; // Swagger UI ana dizinde
 });
 
-// CORS - İlk sırada olmalı
-app.UseCors("AllowFrontend");
-
-// Routing
+// Routing (CORS öncesi)
 app.UseRouting();
+
+// CORS (UseRouting ile UseAuthentication/Authorization arasında olmalı)
+app.UseCors("AllowFrontend");
 
 // Authentication & Authorization
 app.UseAuthentication();
@@ -247,4 +273,19 @@ app.UseMiddleware<ErrorHandlingMiddleware>();
 // Endpoints
 app.MapControllers();
 app.MapHealthChecks("/health");
+
+// Geliştirme ortamında veritabanını otomatik oluştur (SQLite için pratik)
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<IntegrationDbContext>();
+    try
+    {
+        db.Database.EnsureCreated();
+    }
+    catch
+    {
+        // Dev kolaylığı: oluşturma başarısız olsa bile uygulama devam etsin
+    }
+}
 app.Run();
