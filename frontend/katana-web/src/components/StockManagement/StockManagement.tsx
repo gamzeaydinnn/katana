@@ -39,8 +39,24 @@ const StockManagement: React.FC = () => {
     try {
       setLoading(true);
       setError("");
-      const response = await stockAPI.getKatanaProducts();
-      setProducts(response.products || []);
+      const res: any = await stockAPI.getKatanaProducts();
+      // Normalize possible response shapes: { products: [...] } or { data: [...] } or plain array
+      const raw = res?.products ?? res?.data ?? res ?? [];
+
+      const normalized = (Array.isArray(raw) ? raw : []) as any[];
+
+      setProducts(
+        normalized.map((p) => ({
+          id: String(p.id ?? p.sku ?? p.SKU ?? ""),
+          sku: String(p.sku ?? p.SKU ?? ""),
+          name: String(p.name ?? p.Name ?? ""),
+          stock: Number(p.stock ?? p.stockQuantity ?? p.quantity ?? 0),
+          isActive: Boolean(p.isActive ?? p.IsActive ?? true),
+          createdAt: String(
+            p.createdAt ?? p.createdAt ?? new Date().toISOString()
+          ),
+        })) as Product[]
+      );
     } catch (err: any) {
       setError(err.message || "Ürünler yüklenemedi");
     } finally {
@@ -146,10 +162,19 @@ const StockManagement: React.FC = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredProducts.map((product) => {
+                    filteredProducts.map((product, idx) => {
                       const status = getStockStatus(product.stock);
                       return (
-                        <TableRow key={product.id} hover>
+                        <TableRow
+                          key={
+                            product.id && product.id !== ""
+                              ? product.id
+                              : product.sku && product.sku !== ""
+                              ? product.sku
+                              : `product-${idx}`
+                          }
+                          hover
+                        >
                           <TableCell>{product.sku}</TableCell>
                           <TableCell>{product.name}</TableCell>
                           <TableCell align="center">

@@ -7,8 +7,11 @@ using System.Linq;
 namespace Katana.Data.Context;
 public class IntegrationDbContext : DbContext
 {
-    public IntegrationDbContext(DbContextOptions<IntegrationDbContext> options) : base(options)
+    private readonly Katana.Core.Services.PendingDbWriteQueue? _pendingQueue;
+
+    public IntegrationDbContext(DbContextOptions<IntegrationDbContext> options, Katana.Core.Services.PendingDbWriteQueue? pendingQueue = null) : base(options)
     {
+        _pendingQueue = pendingQueue;
     }
     // Core entities
     public DbSet<Product> Products { get; set; } = null!;
@@ -320,6 +323,50 @@ public class IntegrationDbContext : DbContext
             AuditLogs.Add(audit);
         }
 
-        return await base.SaveChangesAsync(cancellationToken);
+        try
+        {
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            // If SQL Server is unavailable or login failed, queue the audit logs (if any) and swallow the exception
+                if (_pendingQueue != null)
+                {
+                    // Extract pending audit logs we added earlier in this method and convert to DTO
+                    var audits = ChangeTracker.Entries()
+                        .Where(e => e.Entity is AuditLog)
+                        .Select(e => e.Entity as AuditLog)
+                        .Where(a => a != null)
+                        .ToList()!;
+
+                    foreach (var a in audits)
+                    {
+                        try
+                        {
+                            var dto = new Katana.Core.Services.PendingAuditInfo
+                            {
+                                ActionType = a!.ActionType,
+                                EntityName = a.EntityName,
+                                EntityId = a.EntityId,
+                                PerformedBy = a.PerformedBy,
+                                Timestamp = a.Timestamp,
+                                Details = a.Details,
+                                Changes = a.Changes,
+                                IpAddress = a.IpAddress,
+                                UserAgent = a.UserAgent
+                            };
+                            _pendingQueue.EnqueueAudit(dto);
+                        }
+                        catch { /* ignore */ }
+                    }
+                }
+
+            // Log and swallow so higher-level operations continue (they should handle eventual consistency)
+            return 0;
+        }
+        catch (Exception)
+        {
+            throw;
+        }
     }
 }

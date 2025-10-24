@@ -6,7 +6,8 @@ import axios from "axios";
 // ÖNEMLİ: withCredentials, tarayıcının cookie'leri backend'e göndermesini ve
 // backend'den gelen Set-Cookie başlıklarını almasını sağlar.
 const lucaProxyClient = axios.create({
-  baseURL: "http://localhost:5000", // KENDİ BACKEND'İNİN ADRESİ BU OLMALI!
+  // Use runtime env if available (CRA: REACT_APP_API_URL) otherwise fall back to localhost backend
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000", // KENDİ BACKEND'İNİN ADRESİ BU OLMALI!
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
@@ -19,18 +20,45 @@ export const loginToLuca = async () => {
   try {
     console.log("Adım 1: Giriş yapılıyor (Backend Proxy üzerinden)...");
     // Artık 'axios' yerine 'lucaProxyClient' kullanıyoruz
-    const response = await lucaProxyClient.post("/api/luca/login", {
+    const response = await lucaProxyClient.post("/luca/login", {
       orgCode: "7374953",
       userName: "Admin",
       userPassword: "2009Bfm",
     });
-    if (response.data.code === 0) {
-      console.log("Giriş Başarılı:", response.data.message);
-      return true;
-    } else {
-      console.error("Giriş Başarısız:", response.data.message);
-      return false;
+
+    const data: any = response?.data ?? null;
+    console.log("Raw login response:", data);
+
+    // Try to pull sessionId from a few common shapes
+    const sessionId =
+      data?.sessionId ??
+      data?.SessionId ??
+      data?.session ??
+      data?.data?.sessionId ??
+      null;
+    if (sessionId) {
+      try {
+        localStorage.setItem("lucaSessionId", sessionId);
+      } catch (e) {
+        // localStorage could fail in some environments; continue without blocking
+        console.warn("Could not persist lucaSessionId to localStorage:", e);
+      }
     }
+
+    // Heuristics to decide success
+    const codeOk =
+      data?.code === 0 || data?.raw?.code === 0 || data?.Raw?.code === 0;
+    const message =
+      typeof data?.message === "string" ? data.message : data?.Message ?? null;
+    const ok = Boolean(codeOk || sessionId || response.status === 200);
+
+    if (ok) {
+      console.log("Giriş Başarılı:", message, "sessionId:", sessionId);
+      return true;
+    }
+
+    console.error("Giriş Başarısız:", message, data);
+    return false;
   } catch (error) {
     console.error("Giriş işlemi sırasında hata:", error);
     return false;
@@ -41,7 +69,17 @@ export const getBranchList = async () => {
   try {
     console.log("Adım 2: Şube listesi alınıyor (Backend Proxy üzerinden)...");
     // Artık 'axios' yerine 'lucaProxyClient' kullanıyoruz
-    const response = await lucaProxyClient.post("/api/luca/branches", {});
+    const sessionId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("lucaSessionId")
+        : null;
+    const headers: any = {};
+    if (sessionId) headers["X-Luca-Session"] = sessionId;
+    const response = await lucaProxyClient.post(
+      "/luca/branches",
+      {},
+      { headers }
+    );
     // Defensive parsing: farklı shape'ler olabilir: array doğrudan, { data: [...] }, { branches: [...] }
     let payload: any = response.data;
     console.log("Raw branch response:", payload);
@@ -107,13 +145,21 @@ export const selectBranch = async (branchOrId: any) => {
     console.log(
       `Adım 3: ${branchId} ID'li şube seçiliyor (Backend Proxy üzerinden)...`
     );
-    const response = await lucaProxyClient.post("/api/luca/select-branch", {
-      orgSirketSubeId: branchId,
-    });
+    const sessionId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("lucaSessionId")
+        : null;
+    const headers: any = {};
+    if (sessionId) headers["X-Luca-Session"] = sessionId;
+    const response = await lucaProxyClient.post(
+      "/luca/select-branch",
+      { orgSirketSubeId: branchId },
+      { headers }
+    );
 
     console.log("Raw select response:", response.data);
 
-    const data = response.data;
+    const data: any = response.data;
     // Heuristics to determine success across different backend shapes
     const message =
       typeof data?.message === "string" ? data.message : data?.Message ?? null;

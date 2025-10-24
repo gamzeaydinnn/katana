@@ -38,6 +38,23 @@ namespace Katana.API.Controllers
             };
         }
 
+        private string? GetSessionIdFromRequest()
+        {
+            // Prefer explicit header (works cross-origin without relying on cookies)
+            if (Request.Headers.TryGetValue("X-Luca-Session", out var headerVals))
+            {
+                var hdr = headerVals.FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(hdr)) return hdr;
+            }
+
+            if (Request.Cookies.TryGetValue(SessionCookieName, out var cookieVal) && !string.IsNullOrWhiteSpace(cookieVal))
+            {
+                return cookieVal;
+            }
+
+            return null;
+        }
+
         private string EnsureSessionId()
         {
             if (Request.Cookies.TryGetValue(SessionCookieName, out var sessionId) && !string.IsNullOrWhiteSpace(sessionId))
@@ -74,17 +91,32 @@ namespace Katana.API.Controllers
             var request = new HttpRequestMessage(HttpMethod.Post, $"{LucaApiBaseUrl}/Giris.do");
             request.Content = new StringContent(body.ToString(), Encoding.UTF8, "application/json");
             var response = await client.SendAsync(request);
-            return await ForwardResponse(response);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            // Try to deserialize the remote response for convenience
+            object? parsed = null;
+            try
+            {
+                parsed = JsonSerializer.Deserialize<object>(responseContent);
+            }
+            catch { /* ignore */ }
+
+            // Return the remote response along with the server-side sessionId so the frontend
+            // can persist it and send it back via X-Luca-Session header on subsequent calls.
+            if (response.IsSuccessStatusCode)
+                return Ok(new { raw = parsed, sessionId });
+
+            return StatusCode((int)response.StatusCode, new { raw = parsed, sessionId });
         }
 
 
         [HttpPost("branches")]
         public async Task<IActionResult> Branches()
         {
-            var sessionId = Request.Cookies[SessionCookieName];
+            var sessionId = GetSessionIdFromRequest();
             if (string.IsNullOrWhiteSpace(sessionId))
             {
-                return Unauthorized(new { message = "Missing LucaProxySession. Please login first." });
+                return Unauthorized(new { message = "Missing LucaProxySession. Please login first (send X-Luca-Session header or login first)." });
             }
             var cookieContainer = _cookieJarStore.GetOrCreate(sessionId);
             var handler = new HttpClientHandler

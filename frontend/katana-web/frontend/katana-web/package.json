@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "katana-web": "file:../.."
+  },
+  "devDependencies": {
+    "html-webpack-plugin": "^5.6.4",
+    "react-scripts": "^5.0.1"
+  }
+}

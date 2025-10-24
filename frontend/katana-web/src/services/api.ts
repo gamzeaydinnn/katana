@@ -14,11 +14,14 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("authToken");
+  // Ensure headers object exists to avoid runtime errors
+  if (!config.headers) config.headers = {} as any;
+
   // Only attach Authorization if the token looks like a JWT (3 parts separated by dots)
   if (token && typeof token === "string") {
     const parts = token.split(".");
     if (parts.length === 3) {
-      config.headers.Authorization = `Bearer ${token}`;
+      (config.headers as any).Authorization = `Bearer ${token}`;
     } else {
       // Malformed or non-JWT token found in storage — don't send it to backend
       console.warn(
@@ -165,12 +168,13 @@ export const stockAPI = {
 
 export const authAPI = {
   login: (username: string, password: string) =>
-    api
-      .post("/Auth/login", { username, password })
-      .then((res) => ({
-        ...res.data,
-        token: res.data?.token ?? res.data?.Token,
-      })),
+    api.post("/Auth/login", { username, password }).then((res) => {
+      const data = (res && (res as any).data) || {};
+      return {
+        ...data,
+        token: (data.token ?? data.Token) || null,
+      } as any;
+    }),
 };
 
 export default api;

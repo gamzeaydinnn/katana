@@ -61,7 +61,8 @@ const AdminPanel: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalSyncLogs, setTotalSyncLogs] = useState(0);
-  const [katanaHealth, setKatanaHealth] = useState<boolean>(false);
+  // null = unknown / not loaded yet, true/false = explicit health state
+  const [katanaHealth, setKatanaHealth] = useState<boolean | null>(null);
 
   const loadData = async () => {
     try {
@@ -70,42 +71,78 @@ const AdminPanel: React.FC = () => {
       // Backend'ten gerçek verileri çek
       const [statsRes, productsRes, logsRes, healthRes] = await Promise.all([
         api.get("/adminpanel/statistics"),
-        api.get(`/adminpanel/products?page=${page + 1}&pageSize=${rowsPerPage}`),
-        api.get(`/adminpanel/sync-logs?page=${page + 1}&pageSize=${rowsPerPage}`),
+        api.get(
+          `/adminpanel/products?page=${page + 1}&pageSize=${rowsPerPage}`
+        ),
+        api.get(
+          `/adminpanel/sync-logs?page=${page + 1}&pageSize=${rowsPerPage}`
+        ),
         api.get("/adminpanel/katana-health"),
       ]);
 
       // İstatistikler
       setStatistics(statsRes.data as Statistics);
 
-      // Ürünler
-      const productsData = (productsRes.data?.products ?? productsRes.data?.data ?? []) as any[];
+      // Ürünler - normalize farklı response şekillerine toleranslı olarak
+      const productsData = ((productsRes as any).data?.data ??
+        (productsRes as any).data?.products ??
+        (productsRes as any).data ??
+        []) as any[];
       setProducts(
-        productsData.map((p) => ({
+        (Array.isArray(productsData) ? productsData : []).map((p) => ({
           id: String(p.id ?? p.sku ?? p.SKU ?? ""),
           sku: String(p.sku ?? p.SKU ?? ""),
           name: String(p.name ?? p.Name ?? ""),
-          stock: Number(p.stock ?? p.stockQuantity ?? 0),
+          stock: Number(p.stock ?? p.stockQuantity ?? p.quantity ?? 0),
           isActive: Boolean(p.isActive ?? p.IsActive ?? true),
+          // createdAt is optional for the small table; provide a fallback
+          createdAt: String(
+            p.createdAt ?? p.createdAt ?? new Date().toISOString()
+          ),
         }))
       );
 
-      // Senkronizasyon logları
-      const rawLogs = (logsRes.data?.logs ?? logsRes.data?.data ?? []) as any[];
+      // Senkronizasyon logları - normalize ve boolean/string durumlarını destekle
+      const rawLogs = ((logsRes as any).data?.data ??
+        (logsRes as any).data?.logs ??
+        (logsRes as any).data ??
+        []) as any[];
       setSyncLogs(
-        rawLogs.map((l) => ({
-          id: Number(l.id ?? 0),
-          integrationName: String(l.integrationName ?? l.syncType ?? ""),
-          createdAt: String(l.createdAt ?? l.endTime ?? l.startTime ?? new Date().toISOString()),
-          isSuccess: String(l.isSuccess ?? l.status ?? "")
-            .toUpperCase()
-            .includes("SUCCESS"),
-        }))
+        (Array.isArray(rawLogs) ? rawLogs : []).map((l) => {
+          const createdAt = String(
+            l.createdAt ?? l.endTime ?? l.startTime ?? new Date().toISOString()
+          );
+          let success = false;
+          if (typeof l.isSuccess === "boolean") success = l.isSuccess;
+          else if (typeof l.status === "boolean") success = l.status;
+          else {
+            const s = String(l.isSuccess ?? l.status ?? "").toUpperCase();
+            success = s.includes("SUCCESS") || s === "OK" || s === "TRUE";
+          }
+
+          return {
+            id: Number(l.id ?? 0),
+            integrationName: String(l.integrationName ?? l.syncType ?? ""),
+            createdAt,
+            isSuccess: Boolean(success),
+          } as AdminSyncLog;
+        })
       );
-      setTotalSyncLogs(Number(logsRes.data?.total ?? rawLogs.length ?? 0));
+      setTotalSyncLogs(
+        Number(
+          (logsRes as any).data?.total ??
+            (Array.isArray(rawLogs) ? rawLogs.length : 0) ??
+            0
+        )
+      );
 
       // Katana API health (harici Katana servisi)
-      setKatanaHealth(Boolean(healthRes.data?.isHealthy ?? false));
+      // If the endpoint returned no data, keep it as `null` so the UI can hide the chip
+      if (healthRes && typeof (healthRes as any).data !== "undefined") {
+        setKatanaHealth(Boolean((healthRes as any).data?.isHealthy ?? false));
+      } else {
+        setKatanaHealth(null);
+      }
     } catch (err: any) {
       console.error("Failed to load admin data:", err);
       setError(
@@ -263,8 +300,16 @@ const AdminPanel: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {products.map((product) => (
-                  <TableRow key={product.id}>
+                {products.map((product, idx) => (
+                  <TableRow
+                    key={
+                      product.id && product.id !== ""
+                        ? product.id
+                        : product.sku && product.sku !== ""
+                        ? product.sku
+                        : `product-${idx}`
+                    }
+                  >
                     <TableCell>{product.sku}</TableCell>
                     <TableCell>{product.name}</TableCell>
                     <TableCell align="right">{product.stock}</TableCell>
@@ -298,8 +343,12 @@ const AdminPanel: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {syncLogs.map((log) => (
-                  <TableRow key={log.id}>
+                {syncLogs.map((log, idx) => (
+                  <TableRow
+                    key={
+                      log.id && String(log.id) !== "0" ? log.id : `log-${idx}`
+                    }
+                  >
                     <TableCell>{log.integrationName}</TableCell>
                     <TableCell>
                       {new Date(log.createdAt).toLocaleString("tr-TR")}

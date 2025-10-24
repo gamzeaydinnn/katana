@@ -87,21 +87,15 @@ builder.Services.AddDbContext<IntegrationDbContext>(options =>
     var sqliteConnection = builder.Configuration.GetConnectionString("DefaultConnection");
     var sqlServerConnection = builder.Configuration.GetConnectionString("SqlServerConnection");
 
-    // Geliştirmede varsayılan olarak SQLite tercih et
-    if (env.IsDevelopment() && !string.IsNullOrWhiteSpace(sqliteConnection))
-    {
-        options.UseSqlite(sqliteConnection);
-        return;
-    }
-
-    // Aksi halde SQL Server tanımlıysa onu kullan
+    // Use SQL Server if configured (preferred), regardless of environment.
     if (!string.IsNullOrWhiteSpace(sqlServerConnection))
     {
-        options.UseSqlServer(sqlServerConnection);
+        // Enable basic transient fault handling for SQL Server connections
+        options.UseSqlServer(sqlServerConnection, sqlOptions => sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null));
         return;
     }
 
-    // Son çare SQLite
+    // Fallback to SQLite if SQL Server isn't configured
     if (!string.IsNullOrWhiteSpace(sqliteConnection))
     {
         options.UseSqlite(sqliteConnection);
@@ -243,6 +237,12 @@ builder.Services.AddQuartz(q =>
 });
 
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
+
+// Pending DB write queue + background flusher
+// Register the Core implementation so the IntegrationDbContext and the background worker
+// (which depend on Katana.Core.Services.PendingDbWriteQueue) receive the same instance.
+builder.Services.AddSingleton<Katana.Core.Services.PendingDbWriteQueue>();
+builder.Services.AddHostedService<Katana.Infrastructure.Workers.RetryPendingDbWritesService>();
 
 // -----------------------------
 // Build & Run
