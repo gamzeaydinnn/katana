@@ -12,6 +12,24 @@ const api = axios.create({
   },
 });
 
+// On module load: validate any stored auth token and remove it if malformed.
+// This ensures we don't accidentally send non-JWT strings as Bearer tokens
+// which were triggering IDX14100 logs on the backend.
+try {
+  const stored = localStorage.getItem("authToken");
+  if (stored && typeof stored === "string") {
+    const parts = stored.split(".");
+    if (parts.length !== 3) {
+      console.warn(
+        "Stored authToken is malformed; removing from localStorage."
+      );
+      localStorage.removeItem("authToken");
+    }
+  }
+} catch (e) {
+  // localStorage may be unavailable in some environments; ignore failures
+}
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("authToken");
   // Ensure headers object exists to avoid runtime errors

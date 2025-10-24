@@ -26,9 +26,13 @@ Not: Dosya yolları proje köküne göredir (ör. `src/Katana.API/...`, `fronten
 2. Veritabanı bağlantı/kimlik doğrulama hataları
 
    - Yer: Önceki oturumlarda `Login failed for user 'admin'` hatası raporlandı.
-   - Sebep: RDS/SQL Server kullanıcı veya veritabanı eksik/yanlış (ör. `katanaluca-db` nokta). Development config SQLite olarak fallback yapılıyor.
-   - Etki: Admin paneli ve log gösterimleri 500 dönüyor.
-   - Öneri: Dev ortamı için `appsettings.Development.json` içinde SQLite (`Data Source=katanaluca-dev.db`) kullanımı onaylandı; production için doğru SQL Server credentials ve DB varlığını sağla. DB user-role atama adımları dokümante edilmeli.
+   - Durum (güncellendi): Geliştirme ortamında eksik olan `katanaluca-db` veritabanı oluşturuldu ve bağlantı doğrulandı — ADO.NET ile `katanaluca-db` açılabiliyor ve uygulama Development modunda başlatıldığında health endpoint'i başarılı yanıt veriyor. Quartz ve background worker (RetryPendingDbWritesService) da başlatıldı.
+   - Sebep (muhtemel üretim riski): Uzak RDS örneğinde veritabanı yoksa veya login kullanıcısının (admin) varsayılan veritabanına erişim izni yoksa 4060 hatası oluşur. Geliştirme için DB oluşturuldu; production için credential/permission doğrulaması hâlâ zorunlu.
+   - Etki: DB erişim hataları admin paneli ve log gösteriminde 500 sonuçlarına yol açıyor; geliştirme sırasında bu sorun giderildi ancak prod ortamında kontroller yapılmalı.
+   - Öneri: Dev ortamı için `appsettings.Development.json` içinde SQLite (`Data Source=katanaluca-dev.db`) fallback seçeneği kullanılabilir. Production için ise:
+     - Veritabanı `katanaluca-db` varlığını teyit edin veya oluşturun.
+     - Uzak SQL login (ör. `admin`) için veritabanı içinde uygun kullanıcı-mapping ve `CONNECT`/`db_owner` yetkilerini verin.
+     - Credential'ları güvenli şekilde saklayın (KeyVault/SecretManager) ve connection string'lerin tam/parolalı olduğundan emin olun.
 
 3. Backend 500 hataları (özellikle Admin panel çağrıları)
    - Yer: Frontend konsolunda `/api/adminpanel/*` çağrıları 500 dönüyordu.
@@ -129,10 +133,23 @@ Not: Dosya yolları proje köküne göredir (ör. `src/Katana.API/...`, `fronten
 
 ## 7) Önceliklendirilmiş Yapılacaklar (Kısa vadede, önem sırasına göre)
 
-1. (Kritik) Frontend token temizleme + interceptor kuralı — tamamlandı. Verify: temiz token olmadan backend artık IDX14100 log üretmemeli.
-2. (Kritik) Production DB credentials & user/DB kontrolü. Adımlar:
-   - DB var mı (katanaluca-db)? Oluşturun veya connection string güncelleyin.
-   - SQL login `admin` yetkileri verin: CREATE DATABASE, CREATE USER/ALTER ROLE as needed.
+1. (Kritik) Frontend token temizleme + interceptor kuralı — tamamlandı.
+   - Verify: Başlangıçta localStorage içinde malformed (JWT olmayan) token varsa, module-load sırasında temizlenir ve request interceptor bu tür tokenları Authorization başlığına eklemez. Doğrulama: Local çalışma sırasında backend artık IDX14100 (JWT malformed) logu üretmiyor.
+
+Recent runtime verification (local)
+
+- Build: `dotnet build` başarılı şekilde tamamlandı (uyarılar mevcut). Uyarılar arasında `NU1903` paket CVE uyarısı ve birkaç nullable/warning notu bulunuyor.
+- Uygulama başlatıldı (`dotnet run --project src\Katana.API`) ve aşağıdaki durumlar doğrulandı:
+  - Quartz scheduler başlatıldı ve 2 job (StockSyncJob, InvoiceSyncJob) eklendi.
+  - `RetryPendingDbWritesService` başlatıldı (interval: 15s).
+  - Health endpoint (`/api/Health`) başarılı yanıt döndü.
+  - ADO.NET ile `katanaluca-db` veritabanına bağlantı açıldı (DB oluşturma gerekiyordu; development testi sırasında CREATE DATABASE çalıştırıldı ve bağlantı doğrulandı).
+
+Not: Bu doğrulamalar development ortamına yöneliktir; production ortamı için credential doğrulama, DB izinleri ve paket CVE uyarıları hâlâ ele alınmalıdır. 2. (Kritik) Production DB credentials & user/DB kontrolü. Adımlar:
+
+- DB var mı (katanaluca-db)? Oluşturun veya connection string güncelleyin.
+- SQL login `admin` yetkileri verin: CREATE DATABASE, CREATE USER/ALTER ROLE as needed.
+
 3. (Yüksek) EF Migrations ekle ve dev/prod DB provisioning talimatı ekle.
 4. (Orta) Backend hata günlüklerini (Serilog) review, sensitive data mask, ve ayrıntılı exception logging (Dev vs Prod) ayarla.
 5. (Orta) Frontend: Header'da seçilen şubenin gösterimi ve listelerde duplicate key kontrolleri — yapıldı/iyileştir.
