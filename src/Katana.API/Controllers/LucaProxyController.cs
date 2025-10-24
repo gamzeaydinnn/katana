@@ -131,8 +131,12 @@ namespace Katana.API.Controllers
             var response = await client.SendAsync(request);
             var responseContent = await response.Content.ReadAsStringAsync();
 
-            // Log raw response for debugging
-            _logger.LogInformation("Luca /branches raw response: {Length} chars", responseContent?.Length ?? 0);
+            // Log raw response for debugging (include a short preview when non-success)
+            _logger.LogInformation("Luca /branches raw response: {Length} chars, status: {Status}", responseContent?.Length ?? 0, response.StatusCode);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Luca /branches non-success response: {Status}. Body: {BodyPreview}", response.StatusCode, responseContent?.Length > 1000 ? responseContent?.Substring(0, 1000) + "..." : responseContent);
+            }
 
             try
             {
@@ -148,8 +152,11 @@ namespace Katana.API.Controllers
 
                 if (foundArray.HasValue)
                 {
-                    // Return normalized shape
-                    return Ok(new { branches = foundArray.Value, raw = JsonSerializer.Deserialize<object>(responseContent) });
+                    // Materialize the found array into a standalone object so we don't
+                    // return a JsonElement that references the disposed JsonDocument.
+                    var branchesObj = JsonSerializer.Deserialize<object>(foundArray.Value.GetRawText());
+                    var rawObj = JsonSerializer.Deserialize<object>(responseContent);
+                    return Ok(new { branches = branchesObj, raw = rawObj });
                 }
             }
             catch (Exception ex)
@@ -157,22 +164,17 @@ namespace Katana.API.Controllers
                 _logger.LogWarning(ex, "Failed to parse Luca branches response");
             }
 
-            // Fallback: return raw content as-is (preserve status code)
-            return new ContentResult
-            {
-                Content = responseContent,
-                ContentType = "application/json",
-                StatusCode = (int)response.StatusCode
-            };
+            // Fallback: return raw content wrapped so frontend can reliably inspect the remote body
+            return StatusCode((int)response.StatusCode, new { raw = responseContent, status = (int)response.StatusCode });
         }
 
         [HttpPost("select-branch")]
         public async Task<IActionResult> SelectBranch([FromBody] JsonElement body)
         {
-            var sessionId = Request.Cookies[SessionCookieName];
+            var sessionId = GetSessionIdFromRequest();
             if (string.IsNullOrWhiteSpace(sessionId))
             {
-                return Unauthorized(new { message = "Missing LucaProxySession. Please login first." });
+                return Unauthorized(new { message = "Missing LucaProxySession. Please login first (send X-Luca-Session header or login first)." });
             }
             var cookieContainer = _cookieJarStore.GetOrCreate(sessionId);
             var handler = new HttpClientHandler

@@ -114,8 +114,27 @@ export const getBranchList = async () => {
       "Yetkili şirket/şube bulunamadı: beklenen biçimde dizi dönülmedi."
     );
     return null;
-  } catch (error) {
-    console.error("Şube listesi alınırken hata:", error);
+  } catch (error: any) {
+    // If the backend returned a non-2xx response, axios provides response data
+    if (error.response) {
+      try {
+        console.error(
+          "Şube listesi hata cevabı (status):",
+          error.response.status
+        );
+        // Backend wraps remote body in `raw` when non-success; log it if available
+        console.error("Backend error payload:", error.response.data);
+        if (error.response.data && error.response.data.raw) {
+          console.error(
+            "Luca raw response (preview):",
+            error.response.data.raw
+          );
+        }
+      } catch (logEx) {
+        console.error("Error while logging branch error response:", logEx);
+      }
+    }
+    console.error("Şube listesi alınırken hata:", error?.message ?? error);
     return null;
   }
 };
