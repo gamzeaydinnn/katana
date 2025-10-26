@@ -36,9 +36,7 @@ const menuItems = [
   { text: "Stok Yönetimi", icon: <InventoryIcon />, path: "/stock" },
   { text: "Senkronizasyon", icon: <SyncIcon />, path: "/sync" },
   { text: "Raporlar", icon: <ReportsIcon />, path: "/reports" },
-  { text: "Ayarlar", icon: <SettingsIcon />, path: "/settings" },
   { text: "Admin Paneli", icon: <AdminIcon />, path: "/admin" },
-  { text: "System Logs", icon: <LogsIcon />, path: "/admin/logs" },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
@@ -48,6 +46,12 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
 
   const handleNavigation = (path: string) => {
     navigate(path);
+  };
+
+  const handleAdminClick = () => {
+    // Admin paneline tıklanınca, önce çıkış yapıp sonra giriş ekranına yönlendir.
+    localStorage.removeItem("authToken");
+    navigate("/login");
   };
 
   return (
@@ -92,7 +96,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
             <ListItemButton
-              onClick={() => handleNavigation(item.path)}
+              onClick={() =>
+                item.path === "/admin"
+                  ? handleAdminClick()
+                  : handleNavigation(item.path)
+              }
               selected={location.pathname === item.path}
               sx={{
                 mx: 1,

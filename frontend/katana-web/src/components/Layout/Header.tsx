@@ -110,7 +110,7 @@ const Header: React.FC<HeaderProps> = ({
           component="div"
           sx={{ flexGrow: 1, fontWeight: 600 }}
         >
-          Katana Stok Yönetim Sistemi
+          Beformet Metal ERP
         </Typography>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>

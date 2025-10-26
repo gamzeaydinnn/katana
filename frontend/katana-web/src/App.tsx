@@ -23,7 +23,6 @@ import Dashboard from "./components/Dashboard/Dashboard";
 import StockManagement from "./components/StockManagement/StockManagement";
 import SyncManagement from "./components/SyncManagement/SyncManagement";
 import Reports from "./components/Reports/Reports";
-import Settings from "./components/Settings/Settings";
 import AdminPanel from "./components/AdminPanel/AdminPanel";
 import LogsViewer from "./components/AdminPanel/LogsViewer";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -278,9 +277,7 @@ const App: React.FC = () => {
                           <Route path="/stock" element={<StockManagement />} />
                           <Route path="/sync" element={<SyncManagement />} />
                           <Route path="/reports" element={<Reports />} />
-                          <Route path="/settings" element={<Settings />} />
                           <Route path="/admin" element={<AdminPanel />} />
-                          <Route path="/admin/logs" element={<LogsViewer />} />
                         </Routes>
                       </Box>
                     </Box>

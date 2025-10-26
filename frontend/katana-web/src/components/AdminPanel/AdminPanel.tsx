@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import api from "../../services/api";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -28,6 +27,9 @@ import {
   Refresh,
   Article as LogsIcon,
 } from "@mui/icons-material";
+import LogsViewer from "./LogsViewer";
+import Settings from "../Settings/Settings";
+import api from "../../services/api";
 
 interface Statistics {
   totalProducts: number;
@@ -207,6 +209,13 @@ const AdminPanel: React.FC = () => {
           Admin Paneli
         </Typography>
         <Box display="flex" gap={2} alignItems="center">
+          <IconButton
+            onClick={() => navigate("/admin/logs")}
+            color="primary"
+            title="System Logs"
+          >
+            <LogsIcon />
+          </IconButton>
           {katanaHealth !== null && (
             <Chip
               icon={katanaHealth ? <CheckCircle /> : <ErrorIcon />}
@@ -216,13 +225,6 @@ const AdminPanel: React.FC = () => {
               color={katanaHealth ? "success" : "error"}
             />
           )}
-          <IconButton
-            onClick={() => navigate("/admin/logs")}
-            color="primary"
-            title="System Logs"
-          >
-            <LogsIcon />
-          </IconButton>
           <IconButton onClick={loadData} color="primary">
             <Refresh />
           </IconButton>
@@ -379,6 +381,17 @@ const AdminPanel: React.FC = () => {
             labelRowsPerPage="Sayfa başına:"
           />
         </Paper>
+      </Box>
+
+      {/* System Logs */}
+      <Box mt={4}>
+        <Divider sx={{ mb: 3 }} />
+        <LogsViewer />
+      </Box>
+      {/* Settings embedded inside AdminPanel */}
+      <Box mt={4}>
+        <Divider sx={{ mb: 3 }} />
+        <Settings />
       </Box>
     </Box>
   );
