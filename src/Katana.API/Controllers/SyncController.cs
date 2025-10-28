@@ -31,14 +31,14 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>
-    /// GET /api/Sync/history - Senkronizasyon ge�mi�ini getirir
+    /// GET /api/Sync/history - Senkronizasyon ge�mi�ini getirir
     /// </summary>
     [HttpGet("history")]
     public async Task<IActionResult> GetSyncHistory()
     {
         try
         {
-            // Tablo yoksa bo� liste d�nd�r
+            // Tablo yoksa bo� liste d�nd�r
             var logs = await _context.SyncOperationLogs
                 .OrderByDescending(l => l.StartTime)
                 .Take(50)
@@ -59,18 +59,18 @@ public class SyncController : ControllerBase
         }
         catch (Microsoft.Data.Sqlite.SqliteException)
         {
-            // Tablo hen�z olu�turulmam��, bo� liste d�nd�r
+            // Tablo hen�z olu�turulmam��, bo� liste d�nd�r
             return Ok(new List<object>());
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting sync history");
-            return StatusCode(500, new { message = "Sync ge�mi�i al�namad�" });
+            return StatusCode(500, new { message = "Sync ge�mi�i al�namad�" });
         }
     }
 
     /// <summary>
-    /// POST /api/Sync/start - Yeni senkronizasyon ba�lat�r
+    /// POST /api/Sync/start - Yeni senkronizasyon ba�lat�r
     /// </summary>
     [HttpPost("start")]
     public async Task<IActionResult> StartSync([FromBody] StartSyncRequest request)
@@ -78,11 +78,11 @@ public class SyncController : ControllerBase
         try
         {
             var user = User?.Identity?.Name ?? "System";
-            _logger.LogInformation("Starting sync: {SyncType}", request.SyncType);
-            _loggingService.LogInfo($"Sync started: {request.SyncType}", user, "StartSync", LogCategory.Sync);
+            _logger.LogInformation("Senkronizasyon başlatılıyor: {SyncType}", request.SyncType);
+            _loggingService.LogInfo($"Senkronizasyon başlatıldı: {request.SyncType}", user, "StartSync", LogCategory.Sync);
             
-            // Audit log: Sync ba�lat�ld�
-            _auditService.LogSync(request.SyncType ?? "UNKNOWN", user, $"Manual sync initiated");
+            // Audit log: Sync ba�lat�ld�
+            _auditService.LogSync(request.SyncType ?? "UNKNOWN", user, $"Manuel senkronizasyon başlatıldı");
             
             var result = request.SyncType?.ToUpper() switch
             {
@@ -90,18 +90,18 @@ public class SyncController : ControllerBase
                 "INVOICE" => await _syncService.SyncInvoicesAsync(null),
                 "CUSTOMER" => await _syncService.SyncCustomersAsync(null),
                 "ALL" => await ConvertBatchResult(await _syncService.SyncAllAsync(null)),
-                _ => throw new ArgumentException("Ge�ersiz sync tipi")
+                _ => throw new ArgumentException("Ge�ersiz sync tipi")
             };
 
-            _loggingService.LogInfo($"Sync completed: {request.SyncType} - Success: {result.IsSuccess}", user, 
-                $"Records: {result.SuccessfulRecords}", LogCategory.Sync);
+            _loggingService.LogInfo($"Senkronizasyon tamamlandı: {request.SyncType} - Başarılı: {result.IsSuccess}", user, 
+                $"Kayıtlar: {result.SuccessfulRecords}", LogCategory.Sync);
             return Ok(new { success = result.IsSuccess, message = result.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error starting sync");
-            _loggingService.LogError($"Sync failed: {request.SyncType}", ex, User?.Identity?.Name, null, LogCategory.Sync);
-            return StatusCode(500, new { message = "Sync ba�lat�lamad�" });
+            _logger.LogError(ex, "Senkronizasyon başlatılırken hata oluştu");
+            _loggingService.LogError($"Senkronizasyon başarısız: {request.SyncType}", ex, User?.Identity?.Name, null, LogCategory.Sync);
+            return StatusCode(500, new { message = "Sync ba�lat�lamad�" });
         }
     }
 
@@ -110,7 +110,7 @@ public class SyncController : ControllerBase
         return Task.FromResult(new SyncResultDto
         {
             IsSuccess = batch.OverallSuccess,
-            Message = $"Toplam {batch.TotalProcessedRecords} kay�t i�lendi",
+            Message = $"Toplam {batch.TotalProcessedRecords} kay�t i�lendi",
             ProcessedRecords = batch.TotalProcessedRecords,
             SuccessfulRecords = batch.TotalSuccessfulRecords,
             FailedRecords = batch.TotalFailedRecords
@@ -125,7 +125,7 @@ public class SyncController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Manual sync triggered from API");
+            _logger.LogInformation("API üzerinden manuel senkronizasyon tetiklendi");
             var result = await _syncService.SyncAllAsync(fromDate);
             
             if (result.OverallSuccess)
@@ -137,8 +137,8 @@ public class SyncController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error running complete sync");
-            return StatusCode(500, new { error = "Internal server error during sync operation" });
+            _logger.LogError(ex, "Tam senkronizasyon çalıştırılırken hata oluştu");
+            return StatusCode(500, new { error = "Sunucu hata verdi: senkronizasyon sırasında" });
         }
     }
 
@@ -150,7 +150,7 @@ public class SyncController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Manual stock sync triggered from API");
+            _logger.LogInformation("API üzerinden manuel stok senkronizasyonu tetiklendi");
             var result = await _syncService.SyncStockAsync(fromDate);
             
             if (result.IsSuccess)
@@ -162,8 +162,8 @@ public class SyncController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error running stock sync");
-            return StatusCode(500, new { error = "Internal server error during stock sync" });
+            _logger.LogError(ex, "Stok senkronizasyonu çalıştırılırken hata oluştu");
+            return StatusCode(500, new { error = "Sunucu hata verdi: stok senkronizasyonu sırasında" });
         }
     }
 
@@ -175,7 +175,7 @@ public class SyncController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Manual invoice sync triggered from API");
+            _logger.LogInformation("API üzerinden manuel fatura senkronizasyonu tetiklendi");
             var result = await _syncService.SyncInvoicesAsync(fromDate);
             
             if (result.IsSuccess)
@@ -187,8 +187,8 @@ public class SyncController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error running invoice sync");
-            return StatusCode(500, new { error = "Internal server error during invoice sync" });
+            _logger.LogError(ex, "Fatura senkronizasyonu çalıştırılırken hata oluştu");
+            return StatusCode(500, new { error = "Sunucu hata verdi: fatura senkronizasyonu sırasında" });
         }
     }
 
@@ -200,7 +200,7 @@ public class SyncController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Manual customer sync triggered from API");
+            _logger.LogInformation("API üzerinden manuel müşteri senkronizasyonu tetiklendi");
             var result = await _syncService.SyncCustomersAsync(fromDate);
             
             if (result.IsSuccess)
@@ -212,8 +212,8 @@ public class SyncController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error running customer sync");
-            return StatusCode(500, new { error = "Internal server error during customer sync" });
+            _logger.LogError(ex, "Müşteri senkronizasyonu çalıştırılırken hata oluştu");
+            return StatusCode(500, new { error = "Sunucu hata verdi: müşteri senkronizasyonu sırasında" });
         }
     }
 
@@ -230,8 +230,8 @@ public class SyncController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting sync status");
-            return StatusCode(500, new { error = "Internal server error getting sync status" });
+            _logger.LogError(ex, "Senkronizasyon durumu alınırken hata oluştu");
+            return StatusCode(500, new { error = "Sunucu hata verdi: senkronizasyon durumu alınamadı" });
         }
     }
 
@@ -248,8 +248,8 @@ public class SyncController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error checking sync status for {SyncType}", syncType);
-            return StatusCode(500, new { error = "Internal server error checking sync status" });
+            _logger.LogError(ex, "{SyncType} için senkronizasyon durumu kontrol edilirken hata oluştu", syncType);
+            return StatusCode(500, new { error = "Sunucu hata verdi: senkronizasyon durumu kontrol edilemedi" });
         }
     }
 }

@@ -87,7 +87,7 @@ builder.Services.AddDbContext<IntegrationDbContext>(options =>
     var sqliteConnection = builder.Configuration.GetConnectionString("DefaultConnection");
     var sqlServerConnection = builder.Configuration.GetConnectionString("SqlServerConnection");
 
-    // Use SQL Server if configured (preferred), regardless of environment.
+    // Enforce SQL Server usage. Do NOT fall back to SQLite — migrations and runtime must target SQL Server.
     if (!string.IsNullOrWhiteSpace(sqlServerConnection))
     {
         // Enable basic transient fault handling for SQL Server connections
@@ -95,14 +95,8 @@ builder.Services.AddDbContext<IntegrationDbContext>(options =>
         return;
     }
 
-    // Fallback to SQLite if SQL Server isn't configured
-    if (!string.IsNullOrWhiteSpace(sqliteConnection))
-    {
-        options.UseSqlite(sqliteConnection);
-        return;
-    }
-
-    throw new InvalidOperationException("No database connection string configured.");
+    // If we reach here, SQL Server connection is not configured — fail fast so developer provides the intended DB.
+    throw new InvalidOperationException("SqlServerConnection is not configured. This application requires SQL Server as the database. Set 'ConnectionStrings:SqlServerConnection' to a valid SQL Server connection string.");
 });
 
 // -----------------------------

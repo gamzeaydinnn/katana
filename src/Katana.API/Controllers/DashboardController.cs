@@ -39,7 +39,7 @@ public class DashboardController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Getting dashboard statistics");
+            _logger.LogInformation("Dashboard istatistikleri getiriliyor");
             
             var products = await _katanaService.GetProductsAsync();
             
@@ -51,12 +51,12 @@ public class DashboardController : ControllerBase
                 criticalStock = products.Count(p => !p.IsActive)
             };
             
-            _logger.LogInformation("Dashboard stats retrieved successfully");
+            _logger.LogInformation("Dashboard istatistikleri başarıyla alındı");
             return Ok(stats);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting dashboard stats");
+            _logger.LogError(ex, "Dashboard verileri alınırken hata oluştu");
             return StatusCode(500, new { message = "Dashboard verileri alınamadı" });
         }
     }
@@ -118,8 +118,8 @@ public class DashboardController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching sync stats.");
-            return StatusCode(500, new { error = "Failed to fetch sync stats", details = ex.Message });
+            _logger.LogError(ex, "Senkronizasyon istatistikleri alınırken hata oluştu.");
+            return StatusCode(500, new { error = "Senkronizasyon istatistikleri alınamadı", details = ex.Message });
         }
     }
 
@@ -171,8 +171,8 @@ public class DashboardController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching recent activities");
-            return StatusCode(500, new { error = "Failed to fetch recent activities", details = ex.Message });
+            _logger.LogError(ex, "Son aktiviteler alınırken hata oluştu");
+            return StatusCode(500, new { error = "Son aktiviteler alınamadı", details = ex.Message });
         }
     }
 }

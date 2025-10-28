@@ -29,6 +29,7 @@ public class IntegrationDbContext : DbContext
     //public DbSet<SyncLog> SyncLogs { get; set; } = null!;
     public DbSet<ErrorLog> ErrorLogs { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!; // ✅ Audit kayıtları için
+    public DbSet<PendingStockAdjustment> PendingStockAdjustments { get; set; } = null!;
     public DbSet<Category> Categories { get; set; }
     public DbSet<Order> Orders { get; set; }
      public DbSet<OrderItem> OrderItems { get; set; }
@@ -36,7 +37,7 @@ public class IntegrationDbContext : DbContext
       public DbSet<SupplierPrice> SupplierPrices { get; set; }
     public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
     public DbSet<PurchaseOrderItem> PurchaseOrderItems { get; set; }
-    public DbSet<Katana.Core.Entities.User> Users { get; set; }
+    public DbSet<Katana.Core.Entities.User> Users { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     base.OnModelCreating(modelBuilder);
@@ -172,6 +173,21 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.Timestamp).IsRequired();
         });
 
+        // PendingStockAdjustment configuration
+        modelBuilder.Entity<PendingStockAdjustment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ExternalOrderId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Sku).HasMaxLength(100);
+            entity.Property(e => e.RequestedBy).HasMaxLength(100);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.RejectionReason).HasMaxLength(500);
+            entity.Property(e => e.Notes).HasMaxLength(1000);
+            entity.HasIndex(e => e.ExternalOrderId).IsUnique();
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.RequestedAt);
+        });
+
         // ErrorLog configuration ✅
         modelBuilder.Entity<ErrorLog>(entity =>
         {
@@ -188,6 +204,17 @@ public class IntegrationDbContext : DbContext
                 entity.Property(e => e.StackTrace).HasColumnType("nvarchar(max)");
             }
             entity.Property(e => e.ContextData).HasMaxLength(1000);
+        });
+
+        // PendingStockAdjustment configuration
+        modelBuilder.Entity<PendingStockAdjustment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.ExternalOrderId).IsUnique();
+            entity.Property(e => e.ExternalOrderId).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Sku).HasMaxLength(100);
+            entity.Property(e => e.Status).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.RequestedBy).HasMaxLength(100).IsRequired();
         });
 
         // Supplier configuration
