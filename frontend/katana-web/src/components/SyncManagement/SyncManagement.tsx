@@ -57,7 +57,7 @@ const SyncManagement: React.FC = () => {
     try {
       setLoading(true);
       setError("");
-      const data = await stockAPI.getSyncHistory();
+      const data: any = await stockAPI.getSyncHistory();
       setHistory(data || []);
     } catch (err: any) {
       setError(err.message || "Geçmiş yüklenemedi");

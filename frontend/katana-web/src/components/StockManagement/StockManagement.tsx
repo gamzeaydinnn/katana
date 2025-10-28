@@ -85,12 +85,22 @@ const StockManagement: React.FC = () => {
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Inventory sx={{ fontSize: 32, color: "primary.main" }} />
-          <Typography variant="h4" fontWeight="bold">
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 800,
+              letterSpacing: "-0.02em",
+              background: (t) =>
+                `linear-gradient(90deg, ${t.palette.primary.main}, ${t.palette.secondary.main})`,
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
             Stok Yönetimi
           </Typography>
         </Box>
         <Button
-          variant="outlined"
+          variant="contained"
           startIcon={<Refresh />}
           onClick={loadProducts}
           disabled={loading}
@@ -105,7 +115,7 @@ const StockManagement: React.FC = () => {
         </Alert>
       )}
 
-      <Paper sx={{ p: 3 }}>
+      <Paper elevation={0} sx={{ p: 3 }}>
         <TextField
           fullWidth
           placeholder="Ürün ara (isim veya SKU)..."
@@ -132,24 +142,14 @@ const StockManagement: React.FC = () => {
             </Typography>
 
             <TableContainer>
-              <Table>
+              <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>
-                      <strong>SKU</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Ürün Adı</strong>
-                    </TableCell>
-                    <TableCell align="center">
-                      <strong>Stok</strong>
-                    </TableCell>
-                    <TableCell align="center">
-                      <strong>Durum</strong>
-                    </TableCell>
-                    <TableCell align="center">
-                      <strong>Aktif</strong>
-                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>SKU</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Ürün Adı</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700 }}>Stok</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700 }}>Durum</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700 }}>Aktif</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -174,6 +174,7 @@ const StockManagement: React.FC = () => {
                               : `product-${idx}`
                           }
                           hover
+                          sx={{ transition: "background-color .15s ease" }}
                         >
                           <TableCell>{product.sku}</TableCell>
                           <TableCell>{product.name}</TableCell>

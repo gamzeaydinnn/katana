@@ -30,6 +30,8 @@ interface HeaderProps {
   sidebarOpen: boolean;
   currentBranchName?: string | null;
   onOpenBranchSelector?: () => void;
+  mode?: "light" | "dark";
+  onToggleMode?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -37,6 +39,8 @@ const Header: React.FC<HeaderProps> = ({
   sidebarOpen,
   currentBranchName,
   onOpenBranchSelector,
+  mode = "light",
+  onToggleMode,
 }) => {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -88,9 +92,11 @@ const Header: React.FC<HeaderProps> = ({
       position="fixed"
       sx={{
         zIndex: (theme) => theme.zIndex.drawer + 1,
-        backgroundColor: "white",
         color: theme.palette.text.primary,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+        boxShadow: "0 10px 30px rgba(0,0,0,0.10)",
+        background: (t) =>
+          `linear-gradient(180deg, ${t.palette.background.paper} 0%, ${t.palette.background.paper} 100%)`,
+        borderBottom: (t) => `1px solid ${t.palette.divider}`,
       }}
     >
       <Toolbar>
@@ -114,6 +120,23 @@ const Header: React.FC<HeaderProps> = ({
         </Typography>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          {/* Theme toggle */}
+          <Tooltip title={mode === "dark" ? "Açık tema" : "Koyu tema"}>
+            <IconButton size="small" color="inherit" onClick={onToggleMode}>
+              {mode === "dark" ? (
+                // Light mode icon
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.8 1.42-1.42zM1 13h3v-2H1v2zm10-9h-2v3h2V4zm7.04 1.46l-1.41-1.41-1.8 1.79 1.42 1.42 1.79-1.8zM20 11v2h3v-2h-3zm-9 9h2v-3h-2v3zm6.24-1.84l1.8 1.79 1.41-1.41-1.79-1.8-1.42 1.42zM4.96 18.54l1.41 1.41 1.8-1.79-1.42-1.42-1.79 1.8zM12 8a4 4 0 100 8 4 4 0 000-8z" fill="currentColor"/>
+                </svg>
+              ) : (
+                // Dark mode icon
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M20.742 13.045A8.001 8.001 0 0110.955 3.258 9.003 9.003 0 1020.742 13.045z" fill="currentColor"/>
+                </svg>
+              )}
+            </IconButton>
+          </Tooltip>
+
           {/* Backend Status */}
           <Chip
             icon={backendStatus === "connected" ? <CheckCircle /> : <Error />}

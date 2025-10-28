@@ -72,11 +72,20 @@ const Dashboard: React.FC = () => {
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">
+        <Typography
+          variant="h4"
+          sx={{
+            fontWeight: 800,
+            letterSpacing: "-0.02em",
+            background: (t) => `linear-gradient(90deg, ${t.palette.primary.main}, ${t.palette.secondary.main})`,
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
           Dashboard
         </Typography>
         <Button
-          variant="outlined"
+          variant="contained"
           startIcon={<Refresh />}
           onClick={loadDashboard}
           disabled={loading}
@@ -125,7 +134,7 @@ const Dashboard: React.FC = () => {
         />
       </Box>
 
-      <Paper sx={{ mt: 3, p: 3 }}>
+      <Paper elevation={0} sx={{ mt: 3, p: 3 }}>
         <Typography variant="h6" gutterBottom>
           Hızlı İşlemler
         </Typography>

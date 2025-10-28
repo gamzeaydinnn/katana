@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   ThemeProvider,
-  createTheme,
   CssBaseline,
   Box,
   Toolbar,
@@ -28,121 +27,21 @@ import LogsViewer from "./components/AdminPanel/LogsViewer";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Login from "./components/Login/Login";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
-
-// Professional Theme
-const theme = createTheme({
-  palette: {
-    mode: "light",
-    primary: {
-      main: "#2563eb",
-      light: "#60a5fa",
-      dark: "#1e40af",
-    },
-    secondary: {
-      main: "#7c3aed",
-      light: "#a78bfa",
-      dark: "#5b21b6",
-    },
-    success: {
-      main: "#10b981",
-      light: "#34d399",
-      dark: "#059669",
-    },
-    warning: {
-      main: "#f59e0b",
-      light: "#fbbf24",
-      dark: "#d97706",
-    },
-    error: {
-      main: "#ef4444",
-      light: "#f87171",
-      dark: "#dc2626",
-    },
-    background: {
-      default: "#f8fafc",
-      paper: "#ffffff",
-    },
-    text: {
-      primary: "#1e293b",
-      secondary: "#64748b",
-    },
-  },
-  typography: {
-    fontFamily: '"Inter", "Segoe UI", "Roboto", sans-serif',
-    h4: {
-      fontWeight: 700,
-      letterSpacing: "-0.02em",
-    },
-    h5: {
-      fontWeight: 600,
-      letterSpacing: "-0.01em",
-    },
-    h6: {
-      fontWeight: 600,
-      letterSpacing: "-0.01em",
-    },
-    button: {
-      fontWeight: 600,
-      letterSpacing: "0.02em",
-    },
-  },
-  shape: {
-    borderRadius: 12,
-  },
-  shadows: [
-    "none",
-    "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-    "0 1px 3px 0 rgb(0 0 0 / 0.1)",
-    "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-    "0 10px 15px -3px rgb(0 0 0 / 0.1)",
-    "0 20px 25px -5px rgb(0 0 0 / 0.1)",
-    "0 25px 50px -12px rgb(0 0 0 / 0.25)",
-    ...Array(18).fill("none"),
-  ] as any,
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: "none",
-          borderRadius: 10,
-          fontWeight: 600,
-          padding: "10px 24px",
-          boxShadow: "none",
-          "&:hover": {
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-          },
-        },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: 16,
-          boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
-          border: "1px solid rgba(0,0,0,0.05)",
-        },
-      },
-    },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-        },
-      },
-    },
-    MuiChip: {
-      styleOverrides: {
-        root: {
-          fontWeight: 600,
-          borderRadius: 8,
-        },
-      },
-    },
-  },
-});
+import { createAppTheme, type ColorMode } from "./theme";
 
 const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mode, setMode] = useState<ColorMode>(() =>
+    (localStorage.getItem("ui-mode") as ColorMode) || "light"
+  );
+  const theme = useMemo(() => createAppTheme(mode), [mode]);
+  const toggleMode = () => {
+    setMode((m) => {
+      const next = m === "light" ? "dark" : "light";
+      localStorage.setItem("ui-mode", next);
+      return next;
+    });
+  };
 
   // Luca KOZA oturum başlatma fonksiyonu
   const initializeLucaSession = async () => {
@@ -236,6 +135,21 @@ const App: React.FC = () => {
     <ErrorBoundary>
       <ThemeProvider theme={theme}>
         <CssBaseline />
+        {/* Background gradients for a more digital, striking look */}
+        <Box
+          sx={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 0,
+            pointerEvents: "none",
+            background: (t) => `
+              radial-gradient(800px 400px at 10% -10%, ${t.palette.primary.main}26, transparent),
+              radial-gradient(600px 300px at 90% 0%, ${t.palette.secondary.main}22, transparent),
+              radial-gradient(600px 300px at 50% 100%, ${t.palette.success.main}1f, transparent),
+              linear-gradient(180deg, ${t.palette.background.default} 0%, ${t.palette.mode === 'dark' ? '#0b1020' : '#ecf2f7'} 100%)
+            `,
+          }}
+        />
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -243,12 +157,14 @@ const App: React.FC = () => {
               path="/*"
               element={
                 <ProtectedRoute>
-                  <Box sx={{ display: "flex", minHeight: "100vh" }}>
+                  <Box sx={{ display: "flex", minHeight: "100vh", position: "relative", zIndex: 1 }}>
                     <Header
                       onMenuClick={() => setSidebarOpen(!sidebarOpen)}
                       sidebarOpen={sidebarOpen}
                       currentBranchName={currentBranchName}
                       onOpenBranchSelector={openBranchSelector}
+                      mode={mode}
+                      onToggleMode={toggleMode}
                     />
                     <Sidebar
                       open={sidebarOpen}
@@ -258,7 +174,7 @@ const App: React.FC = () => {
                       component="main"
                       sx={{
                         flexGrow: 1,
-                        bgcolor: "background.default",
+                        bgcolor: "transparent",
                         p: 3,
                         width: {
                           sm: `calc(100% - ${sidebarOpen ? 280 : 0}px)`,

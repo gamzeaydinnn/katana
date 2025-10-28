@@ -35,7 +35,7 @@ const Reports: React.FC = () => {
     try {
       setLoading("stock");
       setError("");
-      const data = await stockAPI.getStockReport();
+      const data: any = await stockAPI.getStockReport();
       setStockReport(data || []);
     } catch (err: any) {
       setError(err.message || "Stok raporu yüklenemedi");
@@ -48,7 +48,7 @@ const Reports: React.FC = () => {
     try {
       setLoading("sync");
       setError("");
-      const data = await stockAPI.getSyncReport();
+      const data: any = await stockAPI.getSyncReport();
       setSyncReport(data || []);
     } catch (err: any) {
       setError(err.message || "Sync raporu yüklenemedi");
