@@ -171,19 +171,17 @@ const App: React.FC = () => {
                       onClose={() => setSidebarOpen(false)}
                     />
                     <Box
-                      component="main"
-                      sx={{
-                        flexGrow: 1,
-                        bgcolor: "transparent",
-                        p: 3,
-                        width: {
-                          sm: `calc(100% - ${sidebarOpen ? 280 : 0}px)`,
-                        },
-                        ml: { sm: sidebarOpen ? "280px" : 0 },
-                        transition: "all 0.3s ease-in-out",
-                        minHeight: "100vh",
-                      }}
-                    >
+  component="main"
+  sx={{
+    flexGrow: 1,
+    bgcolor: "transparent",
+    p: 3,
+    width: "100%",
+    transition: "all 0.3s ease-in-out",
+    minHeight: "100vh",
+  }}
+>
+
                       {/* Floating control to open branch selector */}
                       {/* removed floating button; header now contains branch control */}
                       <Toolbar />
