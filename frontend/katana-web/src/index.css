@@ -5,9 +5,18 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: radial-gradient(800px 400px at 10% -10%, rgba(99,102,241,0.12), transparent),
-              radial-gradient(600px 300px at 90% 0%, rgba(14,165,233,0.10), transparent),
-              linear-gradient(180deg, #f8fafc 0%, #ecf2f7 100%);
+  background:
+    radial-gradient(ellipse 800px 400px at 10% -10%, rgba(79,70,229,0.15), transparent),
+    radial-gradient(ellipse 600px 300px at 90% 0%, rgba(8,145,178,0.12), transparent),
+    radial-gradient(ellipse 400px 200px at 50% 100%, rgba(99,102,241,0.08), transparent),
+    linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 50%, #cbd5e1 100%);
+  background-attachment: fixed;
+  animation: subtleShift 20s ease-in-out infinite alternate;
+}
+
+@keyframes subtleShift {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 10% 10%; }
 }
 
 code {
@@ -15,16 +24,33 @@ code {
     monospace;
 }
 
-/* Modern, subtle scrollbar */
+/* Modern, subtle scrollbar with glassmorphism */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(100, 116, 139, 0.5) transparent;
+  scrollbar-color: rgba(79,70,229,0.3) transparent;
 }
 *::-webkit-scrollbar {
-  height: 8px;
-  width: 8px;
+  height: 10px;
+  width: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.1);
+  border-radius: 10px;
 }
 *::-webkit-scrollbar-thumb {
-  background-color: rgba(100, 116, 139, 0.45);
-  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(79,70,229,0.6), rgba(8,145,178,0.6));
+  border-radius: 10px;
+  border: 2px solid rgba(255,255,255,0.1);
+  transition: background 0.3s ease;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, rgba(79,70,229,0.8), rgba(8,145,178,0.8));
+}
+
+/* Additional glassmorphism effects */
+.glass-effect {
+  backdrop-filter: blur(20px);
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
 }
