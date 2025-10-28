@@ -1,28 +1,28 @@
-import React, { useState, useEffect } from "react";
 import {
-  AppBar,
-  Toolbar,
-  Typography,
-  IconButton,
-  Box,
-  Avatar,
-  Menu,
-  MenuItem,
-  Badge,
-  Tooltip,
-  useTheme,
-  Chip,
-} from "@mui/material";
-import {
-  Menu as MenuIcon,
-  Notifications as NotificationsIcon,
   AccountCircle,
-  Logout,
-  Settings,
-  Sync,
   CheckCircle,
   Error,
+  Logout,
+  Menu as MenuIcon,
+  Notifications as NotificationsIcon,
+  Settings,
+  Sync,
 } from "@mui/icons-material";
+import {
+  AppBar,
+  Avatar,
+  Badge,
+  Box,
+  Chip,
+  IconButton,
+  Menu,
+  MenuItem,
+  Toolbar,
+  Tooltip,
+  Typography,
+  useTheme,
+} from "@mui/material";
+import React, { useEffect, useState } from "react";
 import { stockAPI } from "../../services/api";
 
 interface HeaderProps {
@@ -92,20 +92,34 @@ const Header: React.FC<HeaderProps> = ({
       position="fixed"
       sx={{
         zIndex: (theme) => theme.zIndex.drawer + 1,
-        color: theme.palette.text.primary,
-        boxShadow: "0 10px 30px rgba(0,0,0,0.10)",
-        background: (t) =>
-          `linear-gradient(180deg, ${t.palette.background.paper} 0%, ${t.palette.background.paper} 100%)`,
-        borderBottom: (t) => `1px solid ${t.palette.divider}`,
+        backdropFilter: "blur(20px)",
+        background: theme.palette.mode === "dark"
+          ? "rgba(15,23,42,0.95)"
+          : "rgba(255,255,255,0.95)",
+        borderBottom: theme.palette.mode === "dark"
+          ? "1px solid rgba(255,255,255,0.1)"
+          : "1px solid rgba(0,0,0,0.05)",
+        boxShadow: theme.palette.mode === "dark"
+          ? "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
+          : "0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
+        transition: "all 0.3s ease",
       }}
     >
-      <Toolbar>
+      <Toolbar sx={{ minHeight: 64 }}>
         <IconButton
           color="inherit"
           aria-label="open drawer"
           onClick={onMenuClick}
           edge="start"
-          sx={{ mr: 2 }}
+          sx={{
+            mr: 2,
+            color: theme.palette.primary.main,
+            transition: "transform 0.2s ease",
+            "&:hover": {
+              transform: "scale(1.1)",
+              backgroundColor: theme.palette.action.hover,
+            },
+          }}
         >
           <MenuIcon />
         </IconButton>
@@ -114,15 +128,34 @@ const Header: React.FC<HeaderProps> = ({
           variant="h6"
           noWrap
           component="div"
-          sx={{ flexGrow: 1, fontWeight: 600 }}
+          sx={{
+            flexGrow: 1,
+            fontWeight: 900,
+            letterSpacing: "-0.02em",
+            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+            backgroundClip: "text",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
         >
           Beformet Metal ERP
         </Typography>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
           {/* Theme toggle */}
           <Tooltip title={mode === "dark" ? "Açık tema" : "Koyu tema"}>
-            <IconButton size="small" color="inherit" onClick={onToggleMode}>
+            <IconButton
+              size="small"
+              onClick={onToggleMode}
+              sx={{
+                color: theme.palette.primary.main,
+                transition: "all 0.2s ease",
+                "&:hover": {
+                  transform: "scale(1.1)",
+                  backgroundColor: theme.palette.action.hover,
+                },
+              }}
+            >
               {mode === "dark" ? (
                 // Light mode icon
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -146,6 +179,14 @@ const Header: React.FC<HeaderProps> = ({
             color={backendStatus === "connected" ? "success" : "error"}
             size="small"
             variant="outlined"
+            sx={{
+              borderRadius: 2,
+              fontWeight: 600,
+              transition: "all 0.2s ease",
+              "&:hover": {
+                transform: "scale(1.05)",
+              },
+            }}
           />
 
           {/* Branch display + selector */}
@@ -155,13 +196,33 @@ const Header: React.FC<HeaderProps> = ({
               onClick={onOpenBranchSelector}
               size="small"
               variant="outlined"
-              sx={{ ml: 1, cursor: "pointer" }}
+              sx={{
+                ml: 1,
+                cursor: "pointer",
+                borderRadius: 2,
+                fontWeight: 600,
+                transition: "all 0.2s ease",
+                "&:hover": {
+                  transform: "scale(1.05)",
+                  backgroundColor: theme.palette.action.hover,
+                },
+              }}
             />
           )}
 
           {/* Sync Status */}
           <Tooltip title="Son senkronizasyon: 10 dakika önce">
-            <IconButton size="small" color="success">
+            <IconButton
+              size="small"
+              sx={{
+                color: theme.palette.success.main,
+                transition: "all 0.2s ease",
+                "&:hover": {
+                  transform: "scale(1.1)",
+                  backgroundColor: theme.palette.action.hover,
+                },
+              }}
+            >
               <Sync />
             </IconButton>
           </Tooltip>
@@ -170,8 +231,15 @@ const Header: React.FC<HeaderProps> = ({
           <Tooltip title="Bildirimler">
             <IconButton
               size="large"
-              color="inherit"
               onClick={handleNotificationOpen}
+              sx={{
+                color: theme.palette.primary.main,
+                transition: "all 0.2s ease",
+                "&:hover": {
+                  transform: "scale(1.1)",
+                  backgroundColor: theme.palette.action.hover,
+                },
+              }}
             >
               <Badge badgeContent={3} color="error">
                 <NotificationsIcon />
@@ -185,9 +253,28 @@ const Header: React.FC<HeaderProps> = ({
               size="large"
               edge="end"
               onClick={handleProfileMenuOpen}
-              color="inherit"
+              sx={{
+                transition: "all 0.2s ease",
+                "&:hover": {
+                  transform: "scale(1.1)",
+                  backgroundColor: theme.palette.action.hover,
+                },
+              }}
             >
-              <Avatar sx={{ width: 32, height: 32 }}>A</Avatar>
+              <Avatar
+                sx={{
+                  width: 36,
+                  height: 36,
+                  border: `2px solid ${theme.palette.primary.main}`,
+                  transition: "all 0.2s ease",
+                  "&:hover": {
+                    borderColor: theme.palette.secondary.main,
+                    boxShadow: `0 0 12px ${theme.palette.primary.main}40`,
+                  },
+                }}
+              >
+                A
+              </Avatar>
             </IconButton>
           </Tooltip>
         </Box>
@@ -198,15 +285,66 @@ const Header: React.FC<HeaderProps> = ({
           open={Boolean(anchorEl)}
           onClose={handleMenuClose}
           onClick={handleMenuClose}
+          PaperProps={{
+            sx: {
+              backdropFilter: "blur(20px)",
+              background: theme.palette.mode === "dark"
+                ? "rgba(15,23,42,0.95)"
+                : "rgba(255,255,255,0.95)",
+              border: theme.palette.mode === "dark"
+                ? "1px solid rgba(255,255,255,0.1)"
+                : "1px solid rgba(0,0,0,0.05)",
+              borderRadius: 3,
+              boxShadow: theme.palette.mode === "dark"
+                ? "0 20px 40px rgba(0,0,0,0.4)"
+                : "0 20px 40px rgba(0,0,0,0.1)",
+            },
+          }}
         >
-          <MenuItem onClick={handleMenuClose}>
-            <AccountCircle sx={{ mr: 1 }} /> Profil
+          <MenuItem
+            onClick={handleMenuClose}
+            sx={{
+              borderRadius: 2,
+              mx: 1,
+              my: 0.5,
+              transition: "all 0.2s ease",
+              "&:hover": {
+                backgroundColor: theme.palette.action.hover,
+                transform: "translateX(4px)",
+              },
+            }}
+          >
+            <AccountCircle sx={{ mr: 2, color: theme.palette.primary.main }} /> Profil
           </MenuItem>
-          <MenuItem onClick={handleMenuClose}>
-            <Settings sx={{ mr: 1 }} /> Ayarlar
+          <MenuItem
+            onClick={handleMenuClose}
+            sx={{
+              borderRadius: 2,
+              mx: 1,
+              my: 0.5,
+              transition: "all 0.2s ease",
+              "&:hover": {
+                backgroundColor: theme.palette.action.hover,
+                transform: "translateX(4px)",
+              },
+            }}
+          >
+            <Settings sx={{ mr: 2, color: theme.palette.primary.main }} /> Ayarlar
           </MenuItem>
-          <MenuItem onClick={handleLogout}>
-            <Logout sx={{ mr: 1 }} /> Çıkış Yap
+          <MenuItem
+            onClick={handleLogout}
+            sx={{
+              borderRadius: 2,
+              mx: 1,
+              my: 0.5,
+              transition: "all 0.2s ease",
+              "&:hover": {
+                backgroundColor: theme.palette.action.hover,
+                transform: "translateX(4px)",
+              },
+            }}
+          >
+            <Logout sx={{ mr: 2, color: theme.palette.primary.main }} /> Çıkış Yap
           </MenuItem>
         </Menu>
 
@@ -216,8 +354,35 @@ const Header: React.FC<HeaderProps> = ({
           open={Boolean(notificationAnchor)}
           onClose={handleNotificationClose}
           onClick={handleNotificationClose}
+          PaperProps={{
+            sx: {
+              backdropFilter: "blur(20px)",
+              background: theme.palette.mode === "dark"
+                ? "rgba(15,23,42,0.95)"
+                : "rgba(255,255,255,0.95)",
+              border: theme.palette.mode === "dark"
+                ? "1px solid rgba(255,255,255,0.1)"
+                : "1px solid rgba(0,0,0,0.05)",
+              borderRadius: 3,
+              boxShadow: theme.palette.mode === "dark"
+                ? "0 20px 40px rgba(0,0,0,0.4)"
+                : "0 20px 40px rgba(0,0,0,0.1)",
+              minWidth: 280,
+            },
+          }}
         >
-          <MenuItem>
+          <MenuItem
+            sx={{
+              borderRadius: 2,
+              mx: 1,
+              my: 0.5,
+              transition: "all 0.2s ease",
+              "&:hover": {
+                backgroundColor: theme.palette.action.hover,
+                transform: "translateX(4px)",
+              },
+            }}
+          >
             <Box>
               <Typography variant="body2" fontWeight="bold">
                 Senkronizasyon Tamamlandı
@@ -227,7 +392,18 @@ const Header: React.FC<HeaderProps> = ({
               </Typography>
             </Box>
           </MenuItem>
-          <MenuItem>
+          <MenuItem
+            sx={{
+              borderRadius: 2,
+              mx: 1,
+              my: 0.5,
+              transition: "all 0.2s ease",
+              "&:hover": {
+                backgroundColor: theme.palette.action.hover,
+                transform: "translateX(4px)",
+              },
+            }}
+          >
             <Box>
               <Typography variant="body2" fontWeight="bold">
                 Stok Seviyesi Düşük
@@ -237,7 +413,18 @@ const Header: React.FC<HeaderProps> = ({
               </Typography>
             </Box>
           </MenuItem>
-          <MenuItem>
+          <MenuItem
+            sx={{
+              borderRadius: 2,
+              mx: 1,
+              my: 0.5,
+              transition: "all 0.2s ease",
+              "&:hover": {
+                backgroundColor: theme.palette.action.hover,
+                transform: "translateX(4px)",
+              },
+            }}
+          >
             <Box>
               <Typography variant="body2" fontWeight="bold">
                 Yeni Sipariş Alındı

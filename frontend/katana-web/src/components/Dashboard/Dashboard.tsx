@@ -1,25 +1,27 @@
-import React, { useState, useEffect } from "react";
-import {
-  Container,
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Paper,
-  Button,
-  Alert,
-  CircularProgress,
-} from "@mui/material";
 import {
   Inventory,
+  Refresh,
   Sync,
   TrendingUp,
   Warning,
-  Refresh,
 } from "@mui/icons-material";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CircularProgress,
+  Container,
+  Paper,
+  Typography,
+  useTheme,
+} from "@mui/material";
+import React, { useEffect, useState } from "react";
 import { stockAPI } from "../../services/api";
 
 const Dashboard: React.FC = () => {
+  const theme = useTheme();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -42,17 +44,68 @@ const Dashboard: React.FC = () => {
   }, []);
 
   const StatCard = ({ title, value, icon, color }: any) => (
-    <Card>
-      <CardContent>
+    <Card
+      sx={{
+        backdropFilter: "blur(20px)",
+        background: theme.palette.mode === "dark"
+          ? "rgba(30,41,59,0.8)"
+          : "rgba(255,255,255,0.8)",
+        border: theme.palette.mode === "dark"
+          ? "1px solid rgba(255,255,255,0.1)"
+          : "1px solid rgba(0,0,0,0.05)",
+        borderRadius: 3,
+        boxShadow: theme.palette.mode === "dark"
+          ? "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
+          : "0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
+        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        "&:hover": {
+          transform: "translateY(-4px)",
+          boxShadow: theme.palette.mode === "dark"
+            ? "0 20px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)"
+            : "0 20px 40px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.8)",
+        },
+      }}
+    >
+      <CardContent sx={{ p: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: color + "20", color }}>
+          <Box
+            sx={{
+              p: 2,
+              borderRadius: 3,
+              background: `linear-gradient(135deg, ${color}20, ${color}10)`,
+              color,
+              boxShadow: `0 4px 12px ${color}30`,
+              transition: "all 0.2s ease",
+              "&:hover": {
+                transform: "scale(1.05)",
+                boxShadow: `0 6px 16px ${color}40`,
+              },
+            }}
+          >
             {icon}
           </Box>
           <Box>
-            <Typography variant="h4" fontWeight="bold">
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 900,
+                letterSpacing: "-0.02em",
+                background: `linear-gradient(135deg, ${color}, ${color}dd)`,
+                backgroundClip: "text",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
               {value || 0}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: theme.palette.text.secondary,
+                fontWeight: 600,
+                letterSpacing: "0.01em",
+              }}
+            >
               {title}
             </Typography>
           </Box>
@@ -64,20 +117,28 @@ const Dashboard: React.FC = () => {
   if (loading) {
     return (
       <Container sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-        <CircularProgress />
+        <CircularProgress
+          sx={{
+            color: theme.palette.primary.main,
+            "& .MuiCircularProgress-circle": {
+              strokeLinecap: "round",
+            },
+          }}
+        />
       </Container>
     );
   }
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 4 }}>
         <Typography
           variant="h4"
           sx={{
-            fontWeight: 800,
+            fontWeight: 900,
             letterSpacing: "-0.02em",
-            background: (t) => `linear-gradient(90deg, ${t.palette.primary.main}, ${t.palette.secondary.main})`,
+            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+            backgroundClip: "text",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
           }}
@@ -89,13 +150,41 @@ const Dashboard: React.FC = () => {
           startIcon={<Refresh />}
           onClick={loadDashboard}
           disabled={loading}
+          sx={{
+            borderRadius: 3,
+            px: 3,
+            py: 1.5,
+            fontWeight: 700,
+            letterSpacing: "0.01em",
+            background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+            boxShadow: `0 4px 12px ${theme.palette.primary.main}40`,
+            transition: "all 0.2s ease",
+            "&:hover": {
+              transform: "translateY(-2px)",
+              boxShadow: `0 8px 20px ${theme.palette.primary.main}60`,
+            },
+            "&:disabled": {
+              opacity: 0.6,
+            },
+          }}
         >
           Yenile
         </Button>
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert
+          severity="error"
+          sx={{
+            mb: 3,
+            borderRadius: 3,
+            backdropFilter: "blur(10px)",
+            background: theme.palette.mode === "dark"
+              ? "rgba(239,68,68,0.1)"
+              : "rgba(239,68,68,0.05)",
+            border: "1px solid rgba(239,68,68,0.2)",
+          }}
+        >
           {error}
         </Alert>
       )}
@@ -103,49 +192,129 @@ const Dashboard: React.FC = () => {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
           gap: 3,
-          mb: 3,
+          mb: 4,
         }}
       >
         <StatCard
           title="Toplam Ürün"
           value={stats?.totalProducts}
-          icon={<Inventory />}
-          color="#1976d2"
+          icon={<Inventory sx={{ fontSize: 32 }} />}
+          color={theme.palette.primary.main}
         />
         <StatCard
           title="Toplam Stok"
           value={stats?.totalStock}
-          icon={<TrendingUp />}
-          color="#2e7d32"
+          icon={<TrendingUp sx={{ fontSize: 32 }} />}
+          color={theme.palette.success.main}
         />
         <StatCard
           title="Bekleyen Sync"
           value={stats?.pendingSync}
-          icon={<Sync />}
-          color="#ed6c02"
+          icon={<Sync sx={{ fontSize: 32 }} />}
+          color={theme.palette.warning.main}
         />
         <StatCard
           title="Kritik Stok"
           value={stats?.criticalStock || 0}
-          icon={<Warning />}
-          color="#d32f2f"
+          icon={<Warning sx={{ fontSize: 32 }} />}
+          color={theme.palette.error.main}
         />
       </Box>
 
-      <Paper elevation={0} sx={{ mt: 3, p: 3 }}>
-        <Typography variant="h6" gutterBottom>
+      <Paper
+        elevation={0}
+        sx={{
+          backdropFilter: "blur(20px)",
+          background: theme.palette.mode === "dark"
+            ? "rgba(30,41,59,0.8)"
+            : "rgba(255,255,255,0.8)",
+          border: theme.palette.mode === "dark"
+            ? "1px solid rgba(255,255,255,0.1)"
+            : "1px solid rgba(0,0,0,0.05)",
+          borderRadius: 3,
+          boxShadow: theme.palette.mode === "dark"
+            ? "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
+            : "0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
+          p: 4,
+          transition: "all 0.3s ease",
+        }}
+      >
+        <Typography
+          variant="h6"
+          gutterBottom
+          sx={{
+            fontWeight: 800,
+            letterSpacing: "-0.01em",
+            mb: 3,
+          }}
+        >
           Hızlı İşlemler
         </Typography>
         <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-          <Button variant="contained" startIcon={<Sync />}>
+          <Button
+            variant="contained"
+            startIcon={<Sync />}
+            sx={{
+              borderRadius: 3,
+              px: 3,
+              py: 1.5,
+              fontWeight: 700,
+              letterSpacing: "0.01em",
+              background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+              boxShadow: `0 4px 12px ${theme.palette.primary.main}40`,
+              transition: "all 0.2s ease",
+              "&:hover": {
+                transform: "translateY(-2px)",
+                boxShadow: `0 8px 20px ${theme.palette.primary.main}60`,
+              },
+            }}
+          >
             Senkronizasyon Başlat
           </Button>
-          <Button variant="outlined" startIcon={<Inventory />}>
+          <Button
+            variant="outlined"
+            startIcon={<Inventory />}
+            sx={{
+              borderRadius: 3,
+              px: 3,
+              py: 1.5,
+              fontWeight: 700,
+              letterSpacing: "0.01em",
+              border: `2px solid ${theme.palette.primary.main}`,
+              color: theme.palette.primary.main,
+              transition: "all 0.2s ease",
+              "&:hover": {
+                transform: "translateY(-2px)",
+                backgroundColor: theme.palette.primary.main,
+                color: "white",
+                boxShadow: `0 8px 20px ${theme.palette.primary.main}40`,
+              },
+            }}
+          >
             Stok Raporu
           </Button>
-          <Button variant="outlined" startIcon={<TrendingUp />}>
+          <Button
+            variant="outlined"
+            startIcon={<TrendingUp />}
+            sx={{
+              borderRadius: 3,
+              px: 3,
+              py: 1.5,
+              fontWeight: 700,
+              letterSpacing: "0.01em",
+              border: `2px solid ${theme.palette.primary.main}`,
+              color: theme.palette.primary.main,
+              transition: "all 0.2s ease",
+              "&:hover": {
+                transform: "translateY(-2px)",
+                backgroundColor: theme.palette.primary.main,
+                color: "white",
+                boxShadow: `0 8px 20px ${theme.palette.primary.main}40`,
+              },
+            }}
+          >
             Satış Analizi
           </Button>
         </Box>
