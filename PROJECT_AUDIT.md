@@ -22,6 +22,7 @@ Not: Dosya yolları proje köküne göredir (ör. `src/Katana.API/...`, `fronten
    - Sebep: Frontend `localStorage.authToken` içinde JWT formatında olmayan bir string (ör. API key veya boş değer) Authorization header olarak gönderiliyor.
    - Etki: API her istek için Bearer doğrulaması sırasında uyarı/failure çıkartıyor, bazı endpoint'lerde 401/500 davranışları tetiklenebiliyor.
    - Öneri: Frontend interceptor güncellendi (yapıldı). Ayrıca backend, Bearer middleware konfigürasyonunda toleranslı logging/handle yapılabilir.
+   codex scan --include "
 
 2. Veritabanı bağlantı/kimlik doğrulama hataları
 
@@ -33,11 +34,77 @@ Not: Dosya yolları proje köküne göredir (ör. `src/Katana.API/...`, `fronten
      - Veritabanı `katanaluca-db` varlığını teyit edin veya oluşturun.
      - Uzak SQL login (ör. `admin`) için veritabanı içinde uygun kullanıcı-mapping ve `CONNECT`/`db_owner` yetkilerini verin.
      - Credential'ları güvenli şekilde saklayın (KeyVault/SecretManager) ve connection string'lerin tam/parolalı olduğundan emin olun.
+     codex scan --include "
+Katana.API/appsettings.json,
+Katana.API/appsettings.Development.json,
+Katana.API/Program.cs,
+Katana.Data/Context/IntegrationDbContext.cs,
+Katana.Data/Context/IntegrationDbContextFactory.cs,
+Katana.Data/Migrations/**,
+Katana.Data/Configuration/KatanaApiSettings.cs,
+Katana.Data/Configuration/SyncSettings.cs,
+Katana.Data/Configuration/LucaApiSettings.cs,
+Katana.Infrastructure/Services/PendingDbWriteQueue.cs,
+Katana.Infrastructure/Workers/RetryPendingDbWritesService.cs
+" --exclude "
+**/node_modules/**,
+**/bin/**,
+**/obj/**,
+**/build/**,
+**/dist/**,
+**/.next/**,
+**/logs/**,
+**/*.map,
+**/*.d.ts
+" --focus "
+Fix SQL Server authentication and connection issues (Login failed for user 'admin').
+Verify connection strings in appsettings and Development settings.
+Ensure IntegrationDbContext properly connects to SQL Server and applies migrations automatically.
+Add fallback SQLite configuration for dev mode (Data Source=katanaluca-dev.db).
+Confirm RetryPendingDbWritesService and Quartz jobs start without DB permission errors.
+Ensure production DB users have correct login mapping and permissions.
+"
+
+
 
 3. Backend 500 hataları (özellikle Admin panel çağrıları)
    - Yer: Frontend konsolunda `/api/adminpanel/*` çağrıları 500 dönüyordu.
    - Sebep: İlk tespitler DB erişim/kimlik hatalarına bağlıydı; ayrıca bazı middleware veya servislerin eksik bağımlılık çözümlemesi olabilir.
    - Öneri: Uygulamayı Development modunda çalıştırıp (ASPNETCORE_ENVIRONMENT=Development) detaylı stacktrace topla. Critical: `ErrorHandlingMiddleware` ve logger servisleri startup sırasında hataya neden olmamalı.
+
+   💻 Codex Komutu (Hazır, Token Dostu)
+codex scan --include "
+Katana.API/Program.cs,
+Katana.API/Middleware/ErrorHandlingMiddleware.cs,
+Katana.API/Middleware/AuthMiddleware.cs,
+Katana.API/Controllers/AdminController.cs,
+Katana.Infrastructure/Logging/LoggingService.cs,
+Katana.Infrastructure/Logging/AuditService.cs,
+Katana.Infrastructure/Logging/SerilogExtensions.cs,
+Katana.Business/Services/AdminService.cs,
+Katana.Business/Interfaces/IAdminService.cs,
+Katana.Business/Services/ErrorHandlerService.cs,
+Katana.Business/Interfaces/IErrorHandler.cs,
+Katana.Business/Jobs/RetryJob.cs,
+Katana.Infrastructure/Workers/RetryPendingDbWritesService.cs
+" --exclude "
+**/node_modules/**,
+**/bin/**,
+**/obj/**,
+**/build/**,
+**/dist/**,
+**/.next/**,
+**/logs/**,
+**/*.map,
+**/*.d.ts
+" --focus "
+Fix 500 Internal Server Errors from /api/adminpanel endpoints.
+Check middleware (ErrorHandlingMiddleware, AuthMiddleware) for unhandled exceptions or missing DI services.
+Verify AdminService and its dependencies are properly registered in Program.cs and DI container.
+Ensure ErrorHandlerService and Serilog logging are initialized correctly at startup.
+Run app in Development mode (ASPNETCORE_ENVIRONMENT=Development) to capture full stacktraces and identify null dependency or configuration issues.
+"
+
 
 ---
 

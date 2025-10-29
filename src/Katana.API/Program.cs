@@ -24,6 +24,35 @@ using Katana.Core.Entities;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Prefer URLs from env/config; otherwise use a non-conflicting default port (5055)
+var envUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
+var configuredUrls = builder.Configuration["Urls"];
+if (string.IsNullOrWhiteSpace(envUrls) && string.IsNullOrWhiteSpace(configuredUrls))
+{
+    // Pick the first available port among a small set to avoid collisions
+    int[] preferred =
+    {
+        builder.Configuration.GetValue<int?>("Server:Port") ?? 5055,
+        5056, 5057, 5058, 5059
+    };
+
+    int chosen = preferred[0];
+    foreach (var p in preferred)
+    {
+        try
+        {
+            var l = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, p);
+            l.Start();
+            l.Stop();
+            chosen = p;
+            break;
+        }
+        catch { /* in use, try next */ }
+    }
+
+    builder.WebHost.ConfigureKestrel(options => { options.ListenLocalhost(chosen); });
+}
+
 // -----------------------------
 // Logging (Serilog)
 // -----------------------------
@@ -87,16 +116,32 @@ builder.Services.AddDbContext<IntegrationDbContext>(options =>
     var sqliteConnection = builder.Configuration.GetConnectionString("DefaultConnection");
     var sqlServerConnection = builder.Configuration.GetConnectionString("SqlServerConnection");
 
-    // Enforce SQL Server usage. Do NOT fall back to SQLite — migrations and runtime must target SQL Server.
+    if (env.IsDevelopment())
+    {
+        // Prefer SQL Server in dev if configured; else fall back to SQLite for local development
+        if (!string.IsNullOrWhiteSpace(sqlServerConnection))
+        {
+            options.UseSqlServer(sqlServerConnection, sqlOptions => sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null));
+        }
+        else if (!string.IsNullOrWhiteSpace(sqliteConnection))
+        {
+            options.UseSqlite(sqliteConnection);
+        }
+        else
+        {
+            throw new InvalidOperationException("No development database configured. Provide 'ConnectionStrings:SqlServerConnection' or 'ConnectionStrings:DefaultConnection'.");
+        }
+        return;
+    }
+
+    // Production/Staging: require SQL Server, do not fall back silently
     if (!string.IsNullOrWhiteSpace(sqlServerConnection))
     {
-        // Enable basic transient fault handling for SQL Server connections
         options.UseSqlServer(sqlServerConnection, sqlOptions => sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null));
         return;
     }
 
-    // If we reach here, SQL Server connection is not configured — fail fast so developer provides the intended DB.
-    throw new InvalidOperationException("SqlServerConnection is not configured. This application requires SQL Server as the database. Set 'ConnectionStrings:SqlServerConnection' to a valid SQL Server connection string.");
+    throw new InvalidOperationException("SqlServerConnection is not configured. Set 'ConnectionStrings:SqlServerConnection' for non-development environments.");
 });
 
 // -----------------------------
@@ -268,18 +313,54 @@ app.UseMiddleware<ErrorHandlingMiddleware>();
 app.MapControllers();
 app.MapHealthChecks("/health");
 
-// Geliştirme ortamında veritabanını otomatik oluştur (SQLite için pratik)
+// Geliştirme ortamında veritabanını otomatik hazırla
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<IntegrationDbContext>();
     try
     {
-        db.Database.EnsureCreated();
+        if (db.Database.IsSqlite())
+        {
+            // SQLite için hızlı başlangıç: EnsureCreated (migrasyon setleri provider'a göre değişken)
+            db.Database.EnsureCreated();
+        }
+        else
+        {
+            // SQL Server için migrasyonları uygula
+            db.Database.Migrate();
+        }
+
+        // Lightweight dev seed: ensure minimal mapping defaults exist
+        if (!db.MappingTables.Any())
+        {
+            db.MappingTables.AddRange(new Katana.Data.Models.MappingTable
+            {
+                MappingType = "SKU_ACCOUNT",
+                SourceValue = "DEFAULT",
+                TargetValue = "600.01",
+                Description = "Default account code for unmapped products",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            },
+            new Katana.Data.Models.MappingTable
+            {
+                MappingType = "LOCATION_WAREHOUSE",
+                SourceValue = "DEFAULT",
+                TargetValue = "MAIN",
+                Description = "Default warehouse code for unmapped locations",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            });
+            db.SaveChanges();
+        }
     }
-    catch
+    catch (Exception ex)
     {
-        // Dev kolaylığı: oluşturma başarısız olsa bile uygulama devam etsin
+        // Dev kolaylığı: oluşturma başarısız olsa bile uygulama devam etsin (logla)
+        Console.WriteLine($"Dev DB init failed: {ex.Message}");
     }
 }
 app.Run();

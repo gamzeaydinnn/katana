@@ -1,8 +1,8 @@
 import axios from "axios";
 
-// Geliştirmede CRA proxy'sini kullanmak için varsayılanı '/api' yapıyoruz.
-// Üretimde veya farklı bir porta yönlendirmek için REACT_APP_API_URL ayarla.
-const API_BASE_URL = process.env.REACT_APP_API_URL || "/api";
+// Geliştirmede backend varsayılan olarak 5055 portunda çalışır.
+// REACT_APP_API_URL ayarlı değilse backend'e doğrudan bağlan (http://localhost:5055/api).
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5055/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,

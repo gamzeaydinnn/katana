@@ -6,8 +6,8 @@ import axios from "axios";
 // ÖNEMLİ: withCredentials, tarayıcının cookie'leri backend'e göndermesini ve
 // backend'den gelen Set-Cookie başlıklarını almasını sağlar.
 const lucaProxyClient = axios.create({
-  // Use runtime env if available (CRA: REACT_APP_API_URL) otherwise fall back to localhost backend
-  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000", // KENDİ BACKEND'İNİN ADRESİ BU OLMALI!
+  // Use runtime env if available (CRA: REACT_APP_API_URL) otherwise fall back to localhost backend on port 5055
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5055/api",
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
