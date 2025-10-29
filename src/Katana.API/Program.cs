@@ -155,14 +155,24 @@ builder.Services.AddAuthorization();
 // -----------------------------
 // HTTP Clients
 // -----------------------------
-builder.Services.AddHttpClient<IKatanaService, KatanaService>((serviceProvider, client) =>
+// Register KatanaService as a typed HttpClient implementation and map the interface to the concrete
+// implementation via DI. This ensures the concrete `KatanaService` is created through the
+// IServiceProvider (ActivatorUtilities) so additional services like IMemoryCache are injected
+// correctly at runtime.
+builder.Services.AddHttpClient<KatanaService>((serviceProvider, client) =>
 {
     var katanaSettings = serviceProvider.GetRequiredService<IOptions<KatanaApiSettings>>().Value;
     client.BaseAddress = new Uri(katanaSettings.BaseUrl);
     client.Timeout = TimeSpan.FromSeconds(katanaSettings.TimeoutSeconds);
     client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", katanaSettings.ApiKey?.Trim());
     client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-});
+})
+// reasonable handler lifetime
+.SetHandlerLifetime(TimeSpan.FromMinutes(5));
+
+// Map the interface to the concrete typed client so consumers requesting IKatanaService
+// receive the properly configured KatanaService instance (with IMemoryCache available).
+builder.Services.AddScoped<IKatanaService>(sp => sp.GetRequiredService<KatanaService>());
 
 builder.Services.AddHttpClient<ILucaService, LucaService>((serviceProvider, client) =>
 {

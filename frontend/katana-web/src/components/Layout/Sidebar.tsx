@@ -4,7 +4,7 @@ import {
   Dashboard as DashboardIcon,
   Inventory as InventoryIcon,
   Assessment as ReportsIcon,
-  Sync as SyncIcon
+  Sync as SyncIcon,
 } from "@mui/icons-material";
 import {
   Box,
@@ -64,13 +64,19 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           width: drawerWidth,
           boxSizing: "border-box",
           backdropFilter: "blur(20px)",
-          backgroundImage: theme.palette.mode === "dark"
-            ? "linear-gradient(135deg, rgba(30,41,59,0.95) 0%, rgba(15,23,42,0.95) 100%)"
-            : "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)",
-          borderRight: `1px solid ${theme.palette.mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"}`,
-          boxShadow: theme.palette.mode === "dark"
-            ? "0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
-            : "0 20px 40px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
+          backgroundImage:
+            theme.palette.mode === "dark"
+              ? "linear-gradient(135deg, rgba(30,41,59,0.95) 0%, rgba(15,23,42,0.95) 100%)"
+              : "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)",
+          borderRight: `1px solid ${
+            theme.palette.mode === "dark"
+              ? "rgba(255,255,255,0.1)"
+              : "rgba(0,0,0,0.05)"
+          }`,
+          boxShadow:
+            theme.palette.mode === "dark"
+              ? "0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
+              : "0 20px 40px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
           transition: "all 0.3s ease",
         },
       }}
@@ -85,7 +91,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           backgroundClip: "text",
           WebkitBackgroundClip: "text",
           WebkitTextFillColor: "transparent",
-          borderBottom: `1px solid ${theme.palette.mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"}`,
+          borderBottom: `1px solid ${
+            theme.palette.mode === "dark"
+              ? "rgba(255,255,255,0.1)"
+              : "rgba(0,0,0,0.05)"
+          }`,
         }}
       >
         <Typography
@@ -158,9 +168,10 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
                 "&:hover": {
                   backgroundColor: theme.palette.action.hover,
                   transform: "translateX(4px)",
-                  boxShadow: theme.palette.mode === "dark"
-                    ? "0 8px 16px rgba(0,0,0,0.3)"
-                    : "0 8px 16px rgba(0,0,0,0.1)",
+                  boxShadow:
+                    theme.palette.mode === "dark"
+                      ? "0 8px 16px rgba(0,0,0,0.3)"
+                      : "0 8px 16px rgba(0,0,0,0.1)",
                 },
               }}
             >
@@ -195,7 +206,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           p: 3,
           textAlign: "center",
           background: `linear-gradient(135deg, ${theme.palette.primary.main}05, ${theme.palette.secondary.main}05)`,
-          borderTop: `1px solid ${theme.palette.mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"}`,
+          borderTop: `1px solid ${
+            theme.palette.mode === "dark"
+              ? "rgba(255,255,255,0.1)"
+              : "rgba(0,0,0,0.05)"
+          }`,
         }}
       >
         <Typography

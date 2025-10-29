@@ -122,6 +122,74 @@ public class ExtractorService : IExtractorService
                 }).ToList()
             };
 
+            // Attempt to resolve missing local CustomerId using heuristics (TaxNo, Title)
+            if (dto.CustomerId == 0)
+            {
+                try
+                {
+                    // Prefer TaxNo match
+                    if (!string.IsNullOrEmpty(invoice.CustomerTaxNo))
+                    {
+                        var cust = await _dbContext.Customers.AsNoTracking()
+                            .FirstOrDefaultAsync(c => c.TaxNo == invoice.CustomerTaxNo, ct);
+                        if (cust != null)
+                            dto.CustomerId = cust.Id;
+                    }
+
+                    // If still not found, try Title match
+                    if (dto.CustomerId == 0 && !string.IsNullOrEmpty(invoice.CustomerTitle))
+                    {
+                        var cust2 = await _dbContext.Customers.AsNoTracking()
+                            .FirstOrDefaultAsync(c => c.Title == invoice.CustomerTitle, ct);
+                        if (cust2 != null)
+                            dto.CustomerId = cust2.Id;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "ExtractorService => Error while resolving customer for invoice {InvoiceNo}", invoice.InvoiceNo);
+                }
+            }
+
+            // Attempt to resolve products for invoice items using SKU or name
+            foreach (var item in dto.Items)
+            {
+                if (item.ProductId == 0)
+                {
+                    try
+                    {
+                        Core.Entities.Product? prod = null;
+                        if (!string.IsNullOrEmpty(item.ProductSKU))
+                        {
+                            prod = await _dbContext.Products.AsNoTracking()
+                                .FirstOrDefaultAsync(p => p.SKU == item.ProductSKU, ct);
+                        }
+
+                        if (prod == null && !string.IsNullOrEmpty(item.ProductName))
+                        {
+                            prod = await _dbContext.Products.AsNoTracking()
+                                .FirstOrDefaultAsync(p => p.Name == item.ProductName, ct);
+                        }
+
+                        // last resort: partial name match
+                        if (prod == null && !string.IsNullOrEmpty(item.ProductName))
+                        {
+                            prod = await _dbContext.Products.AsNoTracking()
+                                .Where(p => p.Name.Contains(item.ProductName))
+                                .OrderByDescending(p => p.UpdatedAt)
+                                .FirstOrDefaultAsync(ct);
+                        }
+
+                        if (prod != null)
+                            item.ProductId = prod.Id;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "ExtractorService => Error while resolving product for invoice {InvoiceNo} item {SKU}", invoice.InvoiceNo, item.ProductSKU);
+                    }
+                }
+            }
+
             var (isValid, errors) = InvoiceValidator.ValidateCreate(new CreateInvoiceDto
             {
                 InvoiceNo = dto.InvoiceNo,

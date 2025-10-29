@@ -69,7 +69,9 @@ const App: React.FC = () => {
 
       if (match) {
         await selectBranch(match);
-        setCurrentBranchName(String(match.sirketSubeAdi ?? match.name ?? "Şube"));
+        setCurrentBranchName(
+          String(match.sirketSubeAdi ?? match.name ?? "Şube")
+        );
         return;
       }
 
@@ -113,9 +115,15 @@ const App: React.FC = () => {
             zIndex: 0,
             pointerEvents: "none",
             background: (t) => `
-              radial-gradient(800px 400px at 10% -10%, ${t.palette.primary.main}26, transparent),
-              radial-gradient(600px 300px at 90% 0%, ${t.palette.secondary.main}22, transparent),
-              radial-gradient(600px 300px at 50% 100%, ${t.palette.success.main}1f, transparent),
+              radial-gradient(800px 400px at 10% -10%, ${
+                t.palette.primary.main
+              }26, transparent),
+              radial-gradient(600px 300px at 90% 0%, ${
+                t.palette.secondary.main
+              }22, transparent),
+              radial-gradient(600px 300px at 50% 100%, ${
+                t.palette.success.main
+              }1f, transparent),
               linear-gradient(180deg, ${t.palette.background.default} 0%, ${
               t.palette.mode === "dark" ? "#0b1020" : "#ecf2f7"
             } 100%)

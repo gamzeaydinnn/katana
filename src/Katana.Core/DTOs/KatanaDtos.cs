@@ -26,6 +26,8 @@ public class KatanaProductDto
 public class KatanaInvoiceDto
 {
     public string InvoiceNo { get; set; } = string.Empty;
+    // External Katana customer id when available
+    public int? ExternalCustomerId { get; set; }
     public string CustomerTaxNo { get; set; } = string.Empty;
     public string CustomerTitle { get; set; } = string.Empty;
     public decimal Amount { get; set; }

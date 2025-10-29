@@ -1,6 +1,6 @@
+using System.Linq;
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
-using System.Linq;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,10 +20,6 @@ public class DebugKatanaController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>
-    /// Calls KatanaService.TestConnectionAsync and returns whether the configured Katana API is reachable.
-    /// GET /api/debug/katana/test-connection
-    /// </summary>
     [HttpGet("test-connection")]
     public async Task<IActionResult> TestConnection()
     {
@@ -39,10 +35,6 @@ public class DebugKatanaController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Fetch products from Katana (calls GetProductsAsync) and returns a count and a small sample.
-    /// GET /api/debug/katana/products?limit=20
-    /// </summary>
     [HttpGet("products")]
     public async Task<IActionResult> GetProducts([FromQuery] int limit = 20)
     {
@@ -58,5 +50,15 @@ public class DebugKatanaController : ControllerBase
             _logger.LogError(ex, "Error while fetching products from Katana");
             return StatusCode(500, new { count = 0, error = ex.Message });
         }
+    }
+
+    [HttpGet("katana-invoices")]
+    public async Task<IActionResult> GetKatanaInvoices([FromQuery] DateTime? from, [FromQuery] DateTime? to)
+    {
+        var start = from ?? DateTime.UtcNow.AddDays(-30);
+        var end = to ?? DateTime.UtcNow;
+        _logger.LogInformation("Debug: fetching Katana invoices from {Start} to {End}", start, end);
+        var invoices = await _katanaService.GetInvoicesAsync(start, end);
+        return Ok(new { data = invoices, count = invoices.Count });
     }
 }
