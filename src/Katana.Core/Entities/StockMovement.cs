@@ -36,7 +36,7 @@ public class StockMovement
     /// <summary>
     /// Stok değişim miktarı (+ giriş, - çıkış)
     /// </summary>
-    public decimal ChangeQuantity { get; set; }
+    public int ChangeQuantity { get; set; }
 
     /// <summary>
     /// Hareket tipi (Purchase, Sale, Return, Transfer vb.)

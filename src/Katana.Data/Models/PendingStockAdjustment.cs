@@ -6,7 +6,7 @@ namespace Katana.Data.Models
     {
         public long Id { get; set; }
         public string ExternalOrderId { get; set; } = string.Empty;
-        public long ProductId { get; set; }
+    public int ProductId { get; set; }
         public string? Sku { get; set; }
         public int Quantity { get; set; }
         public string RequestedBy { get; set; } = "system";

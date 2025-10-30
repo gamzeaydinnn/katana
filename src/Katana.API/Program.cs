@@ -20,6 +20,7 @@ using Katana.Business.UseCases.Sync;
 using Katana.Infrastructure.Notifications;
 using Katana.Core.Interfaces;
 using Katana.Core.Entities;
+using System.Text.RegularExpressions;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -322,6 +323,22 @@ if (enableBackground)
 // Build & Run
 // -----------------------------
 var app = builder.Build();
+
+// Show which DB connection string we're using (masked) to help local debugging
+try
+{
+    var sqlConn = builder.Configuration.GetConnectionString("SqlServerConnection");
+    if (!string.IsNullOrWhiteSpace(sqlConn))
+    {
+        var masked = Regex.Replace(sqlConn, "(Password=)([^;]+)", "$1*****", RegexOptions.IgnoreCase);
+        Console.WriteLine($"Using SqlServerConnection: {masked}");
+    }
+    else
+    {
+        Console.WriteLine("No SqlServerConnection configured");
+    }
+}
+catch { /* ignore during boot */ }
 
 // Swagger her zaman açık (Development ve Production)
 app.UseSwagger();

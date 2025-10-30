@@ -216,6 +216,155 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpGet("db-check")]
+    public async Task<IActionResult> GetDatabaseCheck()
+    {
+        try
+        {
+            var provider = _context.Database.ProviderName ?? "unknown";
+            var conn = _context.Database.GetDbConnection();
+            await conn.OpenAsync();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT OBJECT_ID('dbo.PendingStockAdjustments')";
+            var val = await cmd.ExecuteScalarAsync();
+            await conn.CloseAsync();
+            var exists = val != null && val != DBNull.Value;
+            return Ok(new { provider, pendingStockAdjustmentsTableExists = exists });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "DB check failed");
+            return StatusCode(500, new { error = "DB check failed", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("migrations")]
+    public async Task<IActionResult> GetAppliedMigrations()
+    {
+        try
+        {
+            var conn = _context.Database.GetDbConnection();
+            await conn.OpenAsync();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT [MigrationId], [ProductVersion] FROM [__EFMigrationsHistory] ORDER BY [MigrationId]";
+            var list = new List<object>();
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                list.Add(new { migrationId = reader.GetString(0), productVersion = reader.GetString(1) });
+            }
+            await conn.CloseAsync();
+            return Ok(new { applied = list });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to read __EFMigrationsHistory");
+            return StatusCode(500, new { error = "Failed to read migrations history", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("db-table-info")]
+    public async Task<IActionResult> GetPendingTableInfo()
+    {
+        try
+        {
+            var conn = _context.Database.GetDbConnection();
+            await conn.OpenAsync();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'PendingStockAdjustments'";
+            var list = new List<object>();
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                list.Add(new { schema = reader.GetString(0), name = reader.GetString(1) });
+            }
+            await conn.CloseAsync();
+            return Ok(new { tables = list });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to query INFORMATION_SCHEMA for PendingStockAdjustments");
+            return StatusCode(500, new { error = "Failed to query table info", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("pending-adjustments/test-create")]
+    public async Task<IActionResult> CreateTestPendingAdjustment()
+    {
+        try
+        {
+            // Create or find a test product
+            var sku = "TEST-SKU-ADMIN-001";
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.SKU == sku);
+            if (product == null)
+            {
+                // Ensure there's at least one category to satisfy FK
+                var category = await _context.Categories.FirstOrDefaultAsync();
+                if (category == null)
+                {
+                    category = new Katana.Core.Entities.Category {
+                        Name = "Uncategorized",
+                        Description = "Auto-created test category",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.Categories.Add(category);
+                    await _context.SaveChangesAsync();
+                }
+
+                product = new Katana.Core.Entities.Product
+                {
+                    Name = "Test Product (Admin)",
+                    SKU = sku,
+                    Price = 0m,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Stock = 100,
+                    CategoryId = category.Id
+                };
+                _context.Products.Add(product);
+                await _context.SaveChangesAsync();
+            }
+
+            var pending = new Katana.Data.Models.PendingStockAdjustment
+            {
+                ExternalOrderId = $"TEST-{Guid.NewGuid():N}",
+                ProductId = product.Id,
+                Sku = product.SKU,
+                Quantity = 5,
+                RequestedBy = "test",
+                RequestedAt = DateTimeOffset.UtcNow,
+                Status = "Pending"
+            };
+            _context.PendingStockAdjustments.Add(pending);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { ok = true, pendingId = pending.Id, productId = product.Id });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create test pending adjustment");
+            return StatusCode(500, new { error = "Failed to create test pending adjustment", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("product-stock/{id}")]
+    public async Task<IActionResult> GetProductStock(long id)
+    {
+        try
+        {
+            var p = await _context.Products.FindAsync(id);
+            if (p == null) return NotFound();
+            return Ok(new { id = p.Id, sku = p.SKU, stock = p.Stock });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get product stock");
+            return StatusCode(500, new { error = "Failed to get product stock", detail = ex.Message });
+        }
+    }
+
     [HttpGet("katana-health")]
     public async Task<IActionResult> CheckKatanaHealth()
     {

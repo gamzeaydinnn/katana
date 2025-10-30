@@ -99,7 +99,7 @@ export default function PendingAdjustments() {
   return (
     <Box p={2}>
       <Typography variant="h5" gutterBottom>
-        Pending Stock Adjustments
+        Stok Hareketleri
       </Typography>
 
       <Paper>
@@ -142,7 +142,7 @@ export default function PendingAdjustments() {
                         onClick={() => handleApprove(it.id)}
                         sx={{ mr: 1 }}
                       >
-                        Approve
+                        Onayla
                       </Button>
                       <Button
                         size="small"
@@ -150,7 +150,7 @@ export default function PendingAdjustments() {
                         color="secondary"
                         onClick={() => openReject(it)}
                       >
-                        Reject
+                        Reddet
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -174,10 +174,11 @@ export default function PendingAdjustments() {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>Reject Pending Adjustment</DialogTitle>
+        <DialogTitle>Bekleyen Stok Ayarlamasını Reddet</DialogTitle>
         <DialogContent>
           <Typography variant="body2" gutterBottom>
-            Provide a reason for rejecting this pending adjustment (optional).
+            Bu bekleyen stok ayarlamasını reddetme nedenini girin (isteğe
+            bağlı).
           </Typography>
           <TextField
             fullWidth
@@ -185,13 +186,13 @@ export default function PendingAdjustments() {
             rows={4}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="Reason"
+            placeholder="Sebep"
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSelected(null)}>Cancel</Button>
+          <Button onClick={() => setSelected(null)}>İptal</Button>
           <Button onClick={handleReject} disabled={rejecting} color="secondary">
-            {rejecting ? "Rejecting..." : "Reject"}
+            {rejecting ? "Reddediliyor..." : "Reddet"}
           </Button>
         </DialogActions>
       </Dialog>

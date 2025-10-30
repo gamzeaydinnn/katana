@@ -30,6 +30,7 @@ public class IntegrationDbContext : DbContext
     public DbSet<ErrorLog> ErrorLogs { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!; // ✅ Audit kayıtları için
     public DbSet<PendingStockAdjustment> PendingStockAdjustments { get; set; } = null!;
+    public DbSet<StockMovement> StockMovements { get; set; } = null!;
     public DbSet<Category> Categories { get; set; }
     public DbSet<Order> Orders { get; set; }
      public DbSet<OrderItem> OrderItems { get; set; }

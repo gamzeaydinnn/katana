@@ -47,48 +47,53 @@ namespace Katana.Business.Services
             var item = await _context.PendingStockAdjustments.FindAsync(id);
             if (item == null || item.Status != "Pending") return false;
 
-            using var tx = await _context.Database.BeginTransactionAsync();
+            var strategy = _context.Database.CreateExecutionStrategy();
             try
             {
-                var product = await _context.Products.FindAsync(item.ProductId);
-                if (product == null)
+                await strategy.ExecuteAsync(async () =>
                 {
-                    item.Status = "Failed";
-                    item.RejectionReason = "Product not found";
+                    await using var tx = await _context.Database.BeginTransactionAsync();
+
+                    var product = await _context.Products.FindAsync(item.ProductId);
+                    if (product == null)
+                    {
+                        item.Status = "Failed";
+                        item.RejectionReason = "Product not found";
+                        await _context.SaveChangesAsync();
+                        return;
+                    }
+
+                    // Apply adjustment. Quantity may be negative for sales.
+                    product.Stock += item.Quantity;
+                    product.UpdatedAt = DateTime.UtcNow;
+
+                    // Add a stock movement record for audit
+                    var movement = new Katana.Core.Entities.StockMovement
+                    {
+                        ProductId = item.ProductId,
+                        ProductSku = item.Sku ?? string.Empty,
+                        ChangeQuantity = item.Quantity,
+                        MovementType = item.Quantity < 0 ? Katana.Core.Enums.MovementType.Out : Katana.Core.Enums.MovementType.In,
+                        SourceDocument = item.ExternalOrderId ?? string.Empty,
+                        Timestamp = DateTime.UtcNow,
+                        WarehouseCode = "MAIN",
+                        IsSynced = false
+                    };
+                    _context.Add(movement);
+
+                    item.Status = "Approved";
+                    item.ApprovedBy = approvedBy;
+                    item.ApprovedAt = DateTimeOffset.UtcNow;
+
                     await _context.SaveChangesAsync();
-                    return false;
-                }
+                    await tx.CommitAsync();
+                    _logger.LogInformation("Pending stock adjustment {Id} approved by {User}", id, approvedBy);
+                });
 
-                // Apply adjustment. Quantity may be negative for sales.
-                product.Stock += item.Quantity;
-                product.UpdatedAt = DateTime.UtcNow;
-
-                // Add a stock movement record for audit
-                var movement = new Katana.Core.Entities.StockMovement
-                {
-                    ProductId = (int)item.ProductId,
-                    ProductSku = item.Sku ?? string.Empty,
-                    ChangeQuantity = item.Quantity,
-                    MovementType = item.Quantity < 0 ? Katana.Core.Enums.MovementType.Out : Katana.Core.Enums.MovementType.In,
-                    SourceDocument = item.ExternalOrderId ?? string.Empty,
-                    Timestamp = DateTime.UtcNow,
-                    WarehouseCode = "MAIN",
-                    IsSynced = false
-                };
-                _context.Add(movement);
-
-                item.Status = "Approved";
-                item.ApprovedBy = approvedBy;
-                item.ApprovedAt = DateTimeOffset.UtcNow;
-
-                await _context.SaveChangesAsync();
-                await tx.CommitAsync();
-                _logger.LogInformation("Pending stock adjustment {Id} approved by {User}", id, approvedBy);
                 return true;
             }
             catch (Exception ex)
             {
-                await tx.RollbackAsync();
                 _logger.LogError(ex, "Failed to approve pending stock adjustment {Id}", id);
                 if (item != null)
                 {

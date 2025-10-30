@@ -49,15 +49,20 @@ const Header: React.FC<HeaderProps> = ({
   const [backendStatus, setBackendStatus] = useState<
     "connected" | "disconnected" | "checking"
   >("checking");
+  const [isChecking, setIsChecking] = useState(false);
 
   // Backend health check
   useEffect(() => {
     const checkBackendHealth = async () => {
+      setIsChecking(true);
+      setBackendStatus("checking");
       try {
         await stockAPI.getHealthStatus();
         setBackendStatus("connected");
       } catch (error) {
         setBackendStatus("disconnected");
+      } finally {
+        setIsChecking(false);
       }
     };
 
@@ -65,6 +70,8 @@ const Header: React.FC<HeaderProps> = ({
     const interval = setInterval(checkBackendHealth, 60000); // Check every minute
     return () => clearInterval(interval);
   }, []);
+
+  // small pulse animation for backend status when connected (defined inline in sx below)
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -92,16 +99,18 @@ const Header: React.FC<HeaderProps> = ({
       position="fixed"
       sx={{
         zIndex: (theme) => theme.zIndex.drawer + 1,
-        backdropFilter: "blur(20px)",
-        background: theme.palette.mode === "dark"
-          ? "rgba(15,23,42,0.95)"
-          : "rgba(255,255,255,0.95)",
-        borderBottom: theme.palette.mode === "dark"
-          ? "1px solid rgba(255,255,255,0.1)"
-          : "1px solid rgba(0,0,0,0.05)",
-        boxShadow: theme.palette.mode === "dark"
-          ? "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
-          : "0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
+        backdropFilter: "blur(10px)",
+        background:
+          "linear-gradient(90deg, #2b6ef6 0%, #4f86ff 50%, #79a8ff 100%)",
+        backgroundSize: "300% 300%",
+        animation: "headerGradient 10s ease-in-out infinite",
+        "@keyframes headerGradient": {
+          "0%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+          "100%": { backgroundPosition: "0% 50%" },
+        },
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        boxShadow: "0 8px 32px rgba(16,24,40,0.14)",
         transition: "all 0.3s ease",
       }}
     >
@@ -113,11 +122,11 @@ const Header: React.FC<HeaderProps> = ({
           edge="start"
           sx={{
             mr: 2,
-            color: theme.palette.primary.main,
+            color: "#fff",
             transition: "transform 0.2s ease",
             "&:hover": {
-              transform: "scale(1.1)",
-              backgroundColor: theme.palette.action.hover,
+              transform: "scale(1.08)",
+              backgroundColor: "rgba(255,255,255,0.06)",
             },
           }}
         >
@@ -130,12 +139,10 @@ const Header: React.FC<HeaderProps> = ({
           component="div"
           sx={{
             flexGrow: 1,
-            fontWeight: 900,
+            fontWeight: 800,
             letterSpacing: "-0.02em",
-            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-            backgroundClip: "text",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
+            color: "#fff",
+            textShadow: "0 2px 10px rgba(0,0,0,0.18)",
           }}
         >
           Beformet Metal ERP
@@ -158,13 +165,31 @@ const Header: React.FC<HeaderProps> = ({
             >
               {mode === "dark" ? (
                 // Light mode icon
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.8 1.42-1.42zM1 13h3v-2H1v2zm10-9h-2v3h2V4zm7.04 1.46l-1.41-1.41-1.8 1.79 1.42 1.42 1.79-1.8zM20 11v2h3v-2h-3zm-9 9h2v-3h-2v3zm6.24-1.84l1.8 1.79 1.41-1.41-1.79-1.8-1.42 1.42zM4.96 18.54l1.41 1.41 1.8-1.79-1.42-1.42-1.79 1.8zM12 8a4 4 0 100 8 4 4 0 000-8z" fill="currentColor"/>
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.8 1.42-1.42zM1 13h3v-2H1v2zm10-9h-2v3h2V4zm7.04 1.46l-1.41-1.41-1.8 1.79 1.42 1.42 1.79-1.8zM20 11v2h3v-2h-3zm-9 9h2v-3h-2v3zm6.24-1.84l1.8 1.79 1.41-1.41-1.79-1.8-1.42 1.42zM4.96 18.54l1.41 1.41 1.8-1.79-1.42-1.42-1.79 1.8zM12 8a4 4 0 100 8 4 4 0 000-8z"
+                    fill="currentColor"
+                  />
                 </svg>
               ) : (
                 // Dark mode icon
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M20.742 13.045A8.001 8.001 0 0110.955 3.258 9.003 9.003 0 1020.742 13.045z" fill="currentColor"/>
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M20.742 13.045A8.001 8.001 0 0110.955 3.258 9.003 9.003 0 1020.742 13.045z"
+                    fill="currentColor"
+                  />
                 </svg>
               )}
             </IconButton>
@@ -182,10 +207,27 @@ const Header: React.FC<HeaderProps> = ({
             sx={{
               borderRadius: 2,
               fontWeight: 600,
-              transition: "all 0.2s ease",
-              "&:hover": {
-                transform: "scale(1.05)",
-              },
+              transition: "all 0.22s ease",
+              ...(backendStatus === "connected"
+                ? {
+                    animation: "pulse 2400ms ease-in-out infinite",
+                    "@keyframes pulse": {
+                      "0%": {
+                        transform: "scale(1)",
+                        boxShadow: "0 0 0 0 rgba(79,110,247,0.35)",
+                      },
+                      "70%": {
+                        transform: "scale(1.03)",
+                        boxShadow: "0 10px 30px 6px rgba(79,110,247,0.08)",
+                      },
+                      "100%": {
+                        transform: "scale(1)",
+                        boxShadow: "0 0 0 0 rgba(79,110,247,0)",
+                      },
+                    },
+                  }
+                : {}),
+              "&:hover": { transform: "scale(1.05)" },
             }}
           />
 
@@ -216,11 +258,20 @@ const Header: React.FC<HeaderProps> = ({
               size="small"
               sx={{
                 color: theme.palette.success.main,
-                transition: "all 0.2s ease",
+                transition: "all 0.22s ease",
                 "&:hover": {
-                  transform: "scale(1.1)",
+                  transform: "scale(1.12)",
                   backgroundColor: theme.palette.action.hover,
                 },
+                ...(isChecking
+                  ? {
+                      animation: "spin 1000ms linear infinite",
+                      "@keyframes spin": {
+                        "0%": { transform: "rotate(0deg)" },
+                        "100%": { transform: "rotate(360deg)" },
+                      },
+                    }
+                  : {}),
               }}
             >
               <Sync />
@@ -234,14 +285,33 @@ const Header: React.FC<HeaderProps> = ({
               onClick={handleNotificationOpen}
               sx={{
                 color: theme.palette.primary.main,
-                transition: "all 0.2s ease",
+                transition: "all 0.22s ease",
                 "&:hover": {
-                  transform: "scale(1.1)",
+                  transform: "scale(1.08)",
                   backgroundColor: theme.palette.action.hover,
+                },
+                "@keyframes bounce": {
+                  "0%": { transform: "translateY(0)" },
+                  "30%": { transform: "translateY(-6px)" },
+                  "60%": { transform: "translateY(0)" },
+                  "100%": { transform: "translateY(0)" },
                 },
               }}
             >
-              <Badge badgeContent={3} color="error">
+              <Badge
+                badgeContent={3}
+                color="error"
+                sx={{
+                  ...(true
+                    ? {
+                        "& .MuiBadge-badge": {
+                          transformOrigin: "center top",
+                          animation: "bounce 1600ms ease-in-out infinite",
+                        },
+                      }
+                    : {}),
+                }}
+              >
                 <NotificationsIcon />
               </Badge>
             </IconButton>
@@ -288,16 +358,19 @@ const Header: React.FC<HeaderProps> = ({
           PaperProps={{
             sx: {
               backdropFilter: "blur(20px)",
-              background: theme.palette.mode === "dark"
-                ? "rgba(15,23,42,0.95)"
-                : "rgba(255,255,255,0.95)",
-              border: theme.palette.mode === "dark"
-                ? "1px solid rgba(255,255,255,0.1)"
-                : "1px solid rgba(0,0,0,0.05)",
+              background:
+                theme.palette.mode === "dark"
+                  ? "rgba(15,23,42,0.95)"
+                  : "rgba(255,255,255,0.95)",
+              border:
+                theme.palette.mode === "dark"
+                  ? "1px solid rgba(255,255,255,0.1)"
+                  : "1px solid rgba(0,0,0,0.05)",
               borderRadius: 3,
-              boxShadow: theme.palette.mode === "dark"
-                ? "0 20px 40px rgba(0,0,0,0.4)"
-                : "0 20px 40px rgba(0,0,0,0.1)",
+              boxShadow:
+                theme.palette.mode === "dark"
+                  ? "0 20px 40px rgba(0,0,0,0.4)"
+                  : "0 20px 40px rgba(0,0,0,0.1)",
             },
           }}
         >
@@ -314,7 +387,8 @@ const Header: React.FC<HeaderProps> = ({
               },
             }}
           >
-            <AccountCircle sx={{ mr: 2, color: theme.palette.primary.main }} /> Profil
+            <AccountCircle sx={{ mr: 2, color: theme.palette.primary.main }} />{" "}
+            Profil
           </MenuItem>
           <MenuItem
             onClick={handleMenuClose}
@@ -329,7 +403,8 @@ const Header: React.FC<HeaderProps> = ({
               },
             }}
           >
-            <Settings sx={{ mr: 2, color: theme.palette.primary.main }} /> Ayarlar
+            <Settings sx={{ mr: 2, color: theme.palette.primary.main }} />{" "}
+            Ayarlar
           </MenuItem>
           <MenuItem
             onClick={handleLogout}
@@ -344,7 +419,8 @@ const Header: React.FC<HeaderProps> = ({
               },
             }}
           >
-            <Logout sx={{ mr: 2, color: theme.palette.primary.main }} /> Çıkış Yap
+            <Logout sx={{ mr: 2, color: theme.palette.primary.main }} /> Çıkış
+            Yap
           </MenuItem>
         </Menu>
 
@@ -357,16 +433,19 @@ const Header: React.FC<HeaderProps> = ({
           PaperProps={{
             sx: {
               backdropFilter: "blur(20px)",
-              background: theme.palette.mode === "dark"
-                ? "rgba(15,23,42,0.95)"
-                : "rgba(255,255,255,0.95)",
-              border: theme.palette.mode === "dark"
-                ? "1px solid rgba(255,255,255,0.1)"
-                : "1px solid rgba(0,0,0,0.05)",
+              background:
+                theme.palette.mode === "dark"
+                  ? "rgba(15,23,42,0.95)"
+                  : "rgba(255,255,255,0.95)",
+              border:
+                theme.palette.mode === "dark"
+                  ? "1px solid rgba(255,255,255,0.1)"
+                  : "1px solid rgba(0,0,0,0.05)",
               borderRadius: 3,
-              boxShadow: theme.palette.mode === "dark"
-                ? "0 20px 40px rgba(0,0,0,0.4)"
-                : "0 20px 40px rgba(0,0,0,0.1)",
+              boxShadow:
+                theme.palette.mode === "dark"
+                  ? "0 20px 40px rgba(0,0,0,0.4)"
+                  : "0 20px 40px rgba(0,0,0,0.1)",
               minWidth: 280,
             },
           }}

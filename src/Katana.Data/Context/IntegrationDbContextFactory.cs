@@ -16,19 +16,30 @@ public class IntegrationDbContextFactory : IDesignTimeDbContextFactory<Integrati
     {
         var configuration = BuildConfiguration();
 
-        var connectionString = configuration.GetConnectionString("SqlServerConnection")
-                               ?? configuration.GetConnectionString("DefaultConnection")
-                               ?? throw new InvalidOperationException("No connection string configured for IntegrationDbContext.");
+        // Follow the same logic as Program.cs: prefer explicit SqlServerConnection.
+        var sqlServerConnection = configuration.GetConnectionString("SqlServerConnection");
+        var sqliteConnection = configuration.GetConnectionString("DefaultConnection");
+        var allowSqlite = string.Equals(Environment.GetEnvironmentVariable("ALLOW_SQLITE_FALLBACK"), "true", StringComparison.OrdinalIgnoreCase);
 
         var optionsBuilder = new DbContextOptionsBuilder<IntegrationDbContext>();
 
-        if (IsSqlServerConnection(connectionString))
+        if (!string.IsNullOrWhiteSpace(sqlServerConnection))
         {
-            optionsBuilder.UseSqlServer(connectionString);
+            Console.WriteLine("DesignTimeFactory: Using SqlServerConnection.");
+            optionsBuilder.UseSqlServer(sqlServerConnection, sqlOptions => sqlOptions.CommandTimeout(60));
+        }
+        else if (allowSqlite && !string.IsNullOrWhiteSpace(sqliteConnection))
+        {
+            Console.WriteLine("DesignTimeFactory: Using SQLite fallback (DefaultConnection).");
+            optionsBuilder.UseSqlite(sqliteConnection);
         }
         else
         {
-            optionsBuilder.UseSqlite(connectionString);
+            // Provide a clear error so developers know how to proceed.
+            throw new InvalidOperationException(
+                "DesignTimeFactory requires a 'SqlServerConnection' in configuration. " +
+                "To use SQLite for migrations, set environment variable ALLOW_SQLITE_FALLBACK=true and provide 'DefaultConnection'."
+            );
         }
 
         return new IntegrationDbContext(optionsBuilder.Options);
