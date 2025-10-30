@@ -20,17 +20,92 @@ public class AdminController : ControllerBase
     private readonly IntegrationDbContext _context;
     private readonly ILogger<AdminController> _logger;
     private readonly ILoggingService _loggingService;
+    private readonly Katana.Business.Interfaces.IPendingStockAdjustmentService _pendingService;
 
     public AdminController(
         IKatanaService katanaService,
         IntegrationDbContext context,
         ILogger<AdminController> logger,
-        ILoggingService loggingService)
+        ILoggingService loggingService,
+        Katana.Business.Interfaces.IPendingStockAdjustmentService pendingService)
     {
         _katanaService = katanaService;
         _context = context;
         _logger = logger;
         _loggingService = loggingService;
+        _pendingService = pendingService;
+    }
+
+    // Pending adjustments service will be resolved from DI when needed
+    [HttpGet("pending-adjustments")]
+    public async Task<IActionResult> GetPendingAdjustments()
+    {
+        try
+        {
+            var items = await _context.PendingStockAdjustments
+                .OrderByDescending(p => p.RequestedAt)
+                .Take(200)
+                .Select(p => new {
+                    p.Id,
+                    p.ExternalOrderId,
+                    p.ProductId,
+                    p.Sku,
+                    p.Quantity,
+                    p.RequestedBy,
+                    p.RequestedAt,
+                    p.Status,
+                    p.ApprovedBy,
+                    p.ApprovedAt,
+                    p.RejectionReason,
+                    p.Notes
+                })
+                .ToListAsync();
+
+            return Ok(new { items, total = items.Count });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting pending adjustments");
+            return StatusCode(500, new { error = "Failed to get pending adjustments" });
+        }
+    }
+
+    [HttpPost("pending-adjustments/{id}/approve")]
+    public async Task<IActionResult> ApprovePendingAdjustment(long id, [FromQuery] string approvedBy = "admin")
+    {
+        try
+        {
+            var ok = await _pendingService.ApproveAsync(id, approvedBy);
+            if (!ok) return BadRequest(new { error = "Could not approve adjustment" });
+            return Ok(new { ok = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error approving pending adjustment {Id}", id);
+            return StatusCode(500, new { error = "Failed to approve pending adjustment" });
+        }
+    }
+
+    [HttpPost("pending-adjustments/{id}/reject")]
+    public async Task<IActionResult> RejectPendingAdjustment(long id, [FromBody] RejectDto dto)
+    {
+        try
+        {
+            var ok = await _pendingService.RejectAsync(id, dto.RejectedBy ?? "admin", dto.Reason);
+            if (!ok) return BadRequest(new { error = "Could not reject adjustment" });
+            return Ok(new { ok = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error rejecting pending adjustment {Id}", id);
+            return StatusCode(500, new { error = "Failed to reject pending adjustment" });
+        }
+    }
+
+    public class RejectDto
+    {
+        public string? RejectedBy { get; set; }
+        public string? Reason { get; set; }
     }
 
     [HttpGet("statistics")]

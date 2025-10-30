@@ -51,6 +51,7 @@ if (string.IsNullOrWhiteSpace(envUrls) && string.IsNullOrWhiteSpace(configuredUr
     }
 
     builder.WebHost.ConfigureKestrel(options => { options.ListenLocalhost(chosen); });
+    Console.WriteLine($"Kestrel chosen port: {chosen}");
 }
 
 // -----------------------------
@@ -118,20 +119,26 @@ builder.Services.AddDbContext<IntegrationDbContext>(options =>
 
     if (env.IsDevelopment())
     {
-        // Prefer SQL Server in dev if configured; else fall back to SQLite for local development
+        // Enforce SQL Server usage in development to match production-like behavior.
+        // Do NOT fall back to SQLite automatically — require an explicit SqlServerConnection.
         if (!string.IsNullOrWhiteSpace(sqlServerConnection))
         {
             options.UseSqlServer(sqlServerConnection, sqlOptions => sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null));
+            return;
         }
-        else if (!string.IsNullOrWhiteSpace(sqliteConnection))
+
+        // If a developer intentionally wants a lightweight local DB, they must explicitly
+        // set ConnectionStrings:DefaultConnection to a sqlite connection string and opt-in
+        // by setting the environment variable ALLOW_SQLITE_FALLBACK=true. This avoids
+        // accidental local SQLite usage when the team expects SQL Server.
+        var allowSqlite = string.Equals(Environment.GetEnvironmentVariable("ALLOW_SQLITE_FALLBACK"), "true", StringComparison.OrdinalIgnoreCase);
+        if (allowSqlite && !string.IsNullOrWhiteSpace(sqliteConnection))
         {
             options.UseSqlite(sqliteConnection);
+            return;
         }
-        else
-        {
-            throw new InvalidOperationException("No development database configured. Provide 'ConnectionStrings:SqlServerConnection' or 'ConnectionStrings:DefaultConnection'.");
-        }
-        return;
+
+        throw new InvalidOperationException("SqlServerConnection is required for development. Set 'ConnectionStrings:SqlServerConnection' or enable explicit SQLite fallback by setting environment variable ALLOW_SQLITE_FALLBACK=true and providing ConnectionStrings:DefaultConnection.");
     }
 
     // Production/Staging: require SQL Server, do not fall back silently
@@ -205,6 +212,9 @@ builder.Services.AddScoped<ILoaderService, LoaderService>();
 builder.Services.AddScoped<ISyncService, SyncService>();
 builder.Services.AddScoped<IIntegrationService>(sp => (IIntegrationService)sp.GetRequiredService<ISyncService>());
 builder.Services.AddScoped<IStockService, StockService>();
+// Register order service so controllers depending on IOrderService can be activated
+builder.Services.AddScoped<Katana.Core.Interfaces.IOrderService, Katana.Business.Services.OrderService>();
+builder.Services.AddScoped<Katana.Business.Interfaces.IPendingStockAdjustmentService, Katana.Business.Services.PendingStockAdjustmentService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IProductService, ProductService>();
@@ -255,8 +265,12 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
+        // Allow any localhost origin (different dev servers may use 3000,3001 etc.)
+        policy.SetIsOriginAllowed(origin =>
+                !string.IsNullOrEmpty(origin) && (origin.StartsWith("http://localhost") || origin.StartsWith("https://localhost")))
               .AllowAnyHeader()
+                            // Allow frontend to read Authorization and other response headers if needed
+                            .WithExposedHeaders("Authorization")
               .AllowAnyMethod()
               .AllowCredentials();
     });
@@ -272,26 +286,37 @@ builder.Services.AddHealthChecks().AddDbContextCheck<IntegrationDbContext>();
 // -----------------------------
 //builder.Services.AddHostedService<Katana.Infrastructure.Workers.SyncWorkerService>();
 
-builder.Services.AddQuartz(q =>
+// In production/staging enable scheduled sync jobs and background flusher. In local
+// development these background jobs can make the process noisy and may lead to
+// unexpected shutdowns during iteration, so disable them to keep the dev server
+// stable and fast to restart.
+// Background jobs are disabled by default to keep local development stable.
+// To enable background jobs in an environment (e.g., staging/prod), set
+// the environment variable ENABLE_BACKGROUND_SERVICES=true.
+var enableBackground = string.Equals(Environment.GetEnvironmentVariable("ENABLE_BACKGROUND_SERVICES"), "true", StringComparison.OrdinalIgnoreCase);
+if (enableBackground)
 {
-    // Stock sync job - every 6 hours
-    var stockJobKey = new JobKey("StockSyncJob");
-    q.AddJob<SyncJob>(opts => opts.WithIdentity(stockJobKey).UsingJobData("SyncType", "STOCK"));
-    q.AddTrigger(opts => opts.ForJob(stockJobKey).WithIdentity("StockSyncTrigger").WithCronSchedule("0 0 */6 * * ?"));
+    builder.Services.AddQuartz(q =>
+    {
+        // Stock sync job - every 6 hours
+        var stockJobKey = new JobKey("StockSyncJob");
+        q.AddJob<SyncJob>(opts => opts.WithIdentity(stockJobKey).UsingJobData("SyncType", "STOCK"));
+        q.AddTrigger(opts => opts.ForJob(stockJobKey).WithIdentity("StockSyncTrigger").WithCronSchedule("0 0 */6 * * ?"));
 
-    // Invoice sync job - every 4 hours
-    var invoiceJobKey = new JobKey("InvoiceSyncJob");
-    q.AddJob<SyncJob>(opts => opts.WithIdentity(invoiceJobKey).UsingJobData("SyncType", "INVOICE"));
-    q.AddTrigger(opts => opts.ForJob(invoiceJobKey).WithIdentity("InvoiceSyncTrigger").WithCronSchedule("0 0 */4 * * ?"));
-});
+        // Invoice sync job - every 4 hours
+        var invoiceJobKey = new JobKey("InvoiceSyncJob");
+        q.AddJob<SyncJob>(opts => opts.WithIdentity(invoiceJobKey).UsingJobData("SyncType", "INVOICE"));
+        q.AddTrigger(opts => opts.ForJob(invoiceJobKey).WithIdentity("InvoiceSyncTrigger").WithCronSchedule("0 0 */4 * * ?"));
+    });
 
-builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
+    builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
-// Pending DB write queue + background flusher
-// Register the Core implementation so the IntegrationDbContext and the background worker
-// (which depend on Katana.Core.Services.PendingDbWriteQueue) receive the same instance.
-builder.Services.AddSingleton<Katana.Core.Services.PendingDbWriteQueue>();
-builder.Services.AddHostedService<Katana.Infrastructure.Workers.RetryPendingDbWritesService>();
+    // Pending DB write queue + background flusher
+    // Register the Core implementation so the IntegrationDbContext and the background worker
+    // (which depend on Katana.Core.Services.PendingDbWriteQueue) receive the same instance.
+    builder.Services.AddSingleton<Katana.Core.Services.PendingDbWriteQueue>();
+    builder.Services.AddHostedService<Katana.Infrastructure.Workers.RetryPendingDbWritesService>();
+}
 
 // -----------------------------
 // Build & Run

@@ -71,15 +71,26 @@ public class OrderService : IOrderService
         order.TotalAmount = order.Items.Sum(i => i.UnitPrice * i.Quantity);
         _context.Orders.Add(order);
 
-        // Stok düşümü
+        // Instead of applying stock changes immediately, create pending adjustments
+        // so an admin can approve/reject them. Use negative quantity for sales.
         foreach (var item in order.Items)
         {
             var product = await _context.Products.FindAsync(item.ProductId);
-            if (product != null)
+            var sku = product?.SKU ?? string.Empty;
+
+            var pending = new Katana.Data.Models.PendingStockAdjustment
             {
-                product.Stock -= item.Quantity;
-                product.UpdatedAt = DateTime.UtcNow;
-            }
+                ExternalOrderId = order.Id.ToString(),
+                ProductId = item.ProductId,
+                Sku = sku,
+                Quantity = -item.Quantity, // negative = decrease stock
+                RequestedBy = "system",
+                RequestedAt = DateTimeOffset.UtcNow,
+                Status = "Pending",
+                Notes = $"Order #{order.Id} created: {item.Quantity} x ProductId {item.ProductId}"
+            };
+
+            _context.PendingStockAdjustments.Add(pending);
         }
 
         await _context.SaveChangesAsync();

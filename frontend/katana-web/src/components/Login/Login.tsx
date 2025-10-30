@@ -37,7 +37,10 @@ const Login: React.FC = () => {
       localStorage.setItem("authToken", response.token);
       navigate("/admin");
     } catch (err: any) {
-      setError(err.response?.data?.message || "Giriş başarısız");
+      // If server responded with a message, show it. Otherwise show network/error message for easier debugging.
+      const serverMessage = err?.response?.data?.message;
+      const fallback = err?.message || "Giriş başarısız";
+      setError(serverMessage || fallback);
     } finally {
       setLoading(false);
     }
@@ -51,10 +54,18 @@ const Login: React.FC = () => {
         alignItems: "center",
         justifyContent: "center",
         background: `
-          radial-gradient(800px 400px at 10% -10%, ${theme.palette.primary.main}26, transparent),
-          radial-gradient(600px 300px at 90% 0%, ${theme.palette.secondary.main}22, transparent),
-          radial-gradient(600px 300px at 50% 100%, ${theme.palette.success.main}1f, transparent),
-          linear-gradient(180deg, ${theme.palette.background.default} 0%, ${theme.palette.mode === 'dark' ? '#0b1020' : '#ecf2f7'} 100%)
+          radial-gradient(800px 400px at 10% -10%, ${
+            theme.palette.primary.main
+          }26, transparent),
+          radial-gradient(600px 300px at 90% 0%, ${
+            theme.palette.secondary.main
+          }22, transparent),
+          radial-gradient(600px 300px at 50% 100%, ${
+            theme.palette.success.main
+          }1f, transparent),
+          linear-gradient(180deg, ${theme.palette.background.default} 0%, ${
+          theme.palette.mode === "dark" ? "#0b1020" : "#ecf2f7"
+        } 100%)
         `,
         position: "relative",
         "&::before": {
@@ -64,7 +75,9 @@ const Login: React.FC = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          background: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23${theme.palette.primary.main.slice(1)}' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          background: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23${theme.palette.primary.main.slice(
+            1
+          )}' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
           opacity: 0.5,
         },
       }}
@@ -75,22 +88,26 @@ const Login: React.FC = () => {
           width: "100%",
           m: 2,
           backdropFilter: "blur(20px)",
-          background: theme.palette.mode === "dark"
-            ? "rgba(30,41,59,0.9)"
-            : "rgba(255,255,255,0.9)",
-          border: theme.palette.mode === "dark"
-            ? "1px solid rgba(255,255,255,0.1)"
-            : "1px solid rgba(0,0,0,0.05)",
+          background:
+            theme.palette.mode === "dark"
+              ? "rgba(30,41,59,0.9)"
+              : "rgba(255,255,255,0.9)",
+          border:
+            theme.palette.mode === "dark"
+              ? "1px solid rgba(255,255,255,0.1)"
+              : "1px solid rgba(0,0,0,0.05)",
           borderRadius: 4,
-          boxShadow: theme.palette.mode === "dark"
-            ? "0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
-            : "0 20px 40px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
+          boxShadow:
+            theme.palette.mode === "dark"
+              ? "0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
+              : "0 20px 40px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
           transition: "all 0.3s ease",
           "&:hover": {
             transform: "translateY(-4px)",
-            boxShadow: theme.palette.mode === "dark"
-              ? "0 32px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)"
-              : "0 32px 64px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.8)",
+            boxShadow:
+              theme.palette.mode === "dark"
+                ? "0 32px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)"
+                : "0 32px 64px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.8)",
           },
         }}
       >
@@ -145,9 +162,10 @@ const Login: React.FC = () => {
                 mb: 3,
                 borderRadius: 3,
                 backdropFilter: "blur(10px)",
-                background: theme.palette.mode === "dark"
-                  ? "rgba(239,68,68,0.1)"
-                  : "rgba(239,68,68,0.05)",
+                background:
+                  theme.palette.mode === "dark"
+                    ? "rgba(239,68,68,0.1)"
+                    : "rgba(239,68,68,0.05)",
                 border: "1px solid rgba(239,68,68,0.2)",
               }}
             >
@@ -264,13 +282,15 @@ const Login: React.FC = () => {
                 mt: 4,
                 p: 3,
                 backdropFilter: "blur(10px)",
-                background: theme.palette.mode === "dark"
-                  ? "rgba(30,41,59,0.5)"
-                  : "rgba(0,0,0,0.02)",
+                background:
+                  theme.palette.mode === "dark"
+                    ? "rgba(30,41,59,0.5)"
+                    : "rgba(0,0,0,0.02)",
                 borderRadius: 3,
-                border: theme.palette.mode === "dark"
-                  ? "1px solid rgba(255,255,255,0.1)"
-                  : "1px solid rgba(0,0,0,0.05)",
+                border:
+                  theme.palette.mode === "dark"
+                    ? "1px solid rgba(255,255,255,0.1)"
+                    : "1px solid rgba(0,0,0,0.05)",
               }}
             >
               <Typography

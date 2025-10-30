@@ -1,8 +1,8 @@
 import axios from "axios";
 
-// Geliştirmede backend varsayılan olarak 5055 portunda çalışır.
-// REACT_APP_API_URL ayarlı değilse backend'e doğrudan bağlan (http://localhost:5055/api).
-const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5055/api";
+// Development: prefer an explicit env var REACT_APP_API_URL. If not set, use a relative
+// '/api' so the CRA dev server can proxy requests to the backend (see package.json proxy).
+const API_BASE_URL = process.env.REACT_APP_API_URL || "/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -182,6 +182,26 @@ export const stockAPI = {
 
   // Health - GET /api/Health
   getHealthStatus: () => api.get("/Health").then((res) => res.data),
+};
+
+export const pendingAdjustmentsAPI = {
+  list: () =>
+    api.get("/adminpanel/pending-adjustments").then((res) => res.data),
+  approve: (id: number, approvedBy = "admin") =>
+    api
+      .post(
+        `/adminpanel/pending-adjustments/${id}/approve?approvedBy=${encodeURIComponent(
+          approvedBy
+        )}`
+      )
+      .then((res) => res.data),
+  reject: (id: number, rejectedBy = "admin", reason?: string) =>
+    api
+      .post(`/adminpanel/pending-adjustments/${id}/reject`, {
+        rejectedBy,
+        reason,
+      })
+      .then((res) => res.data),
 };
 
 export const authAPI = {

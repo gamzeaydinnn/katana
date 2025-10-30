@@ -30,6 +30,7 @@ import {
 import LogsViewer from "./LogsViewer";
 import Settings from "../Settings/Settings";
 import api from "../../services/api";
+import PendingAdjustments from "../Admin/PendingAdjustments";
 
 interface Statistics {
   totalProducts: number;
@@ -229,6 +230,11 @@ const AdminPanel: React.FC = () => {
             <Refresh />
           </IconButton>
         </Box>
+      </Box>
+
+      {/* Pending adjustments - put high so admin can approve quickly */}
+      <Box sx={{ mb: 3 }}>
+        <PendingAdjustments />
       </Box>
 
       {error && (

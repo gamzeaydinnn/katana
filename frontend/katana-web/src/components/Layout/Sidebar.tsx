@@ -31,10 +31,11 @@ interface SidebarProps {
 
 const menuItems = [
   { text: "Dashboard", icon: <DashboardIcon />, path: "/" },
+  // Admin panel promoted near the top for quick approvals
+  { text: "Admin Paneli", icon: <AdminIcon />, path: "/admin" },
   { text: "Stok Yönetimi", icon: <InventoryIcon />, path: "/stock" },
   { text: "Senkronizasyon", icon: <SyncIcon />, path: "/sync" },
   { text: "Raporlar", icon: <ReportsIcon />, path: "/reports" },
-  { text: "Admin Paneli", icon: <AdminIcon />, path: "/admin" },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
@@ -47,7 +48,8 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   };
 
   const handleAdminClick = () => {
-    // Admin paneline tıklanınca, önce çıkış yapıp sonra giriş ekranına yönlendir.
+    // Kullanıcıyı güvenli bir şekilde admin paneline yönlendirmeden önce
+    // mevcut oturumu sonlandırıp yeniden giriş yapmasını zorunlu kıl.
     localStorage.removeItem("authToken");
     navigate("/login");
   };
