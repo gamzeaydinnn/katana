@@ -13,7 +13,7 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/adminpanel")]
-[AllowAnonymous]
+[Authorize]
 public class AdminController : ControllerBase
 {
     private readonly IKatanaService _katanaService;
@@ -76,7 +76,20 @@ public class AdminController : ControllerBase
         try
         {
             var ok = await _pendingService.ApproveAsync(id, approvedBy);
-            if (!ok) return BadRequest(new { error = "Could not approve adjustment" });
+            if (!ok)
+            {
+                var item = await _pendingService.GetByIdAsync(id);
+                if (item == null)
+                {
+                    return NotFound(new { error = "Pending adjustment not found" });
+                }
+
+                var reason = string.IsNullOrWhiteSpace(item.RejectionReason)
+                    ? $"Adjustment already {item.Status}"
+                    : item.RejectionReason;
+
+                return BadRequest(new { error = reason });
+            }
             return Ok(new { ok = true });
         }
         catch (Exception ex)
@@ -92,7 +105,16 @@ public class AdminController : ControllerBase
         try
         {
             var ok = await _pendingService.RejectAsync(id, dto.RejectedBy ?? "admin", dto.Reason);
-            if (!ok) return BadRequest(new { error = "Could not reject adjustment" });
+            if (!ok)
+            {
+                var item = await _pendingService.GetByIdAsync(id);
+                if (item == null)
+                {
+                    return NotFound(new { error = "Pending adjustment not found" });
+                }
+
+                return BadRequest(new { error = $"Adjustment already {item.Status}" });
+            }
             return Ok(new { ok = true });
         }
         catch (Exception ex)
@@ -379,5 +401,3 @@ public class AdminController : ControllerBase
         }
     }
 }
-
-

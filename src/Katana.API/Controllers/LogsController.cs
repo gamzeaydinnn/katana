@@ -10,7 +10,7 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[AllowAnonymous]
+[Authorize]
 public class LogsController : ControllerBase
 {
     private readonly IntegrationDbContext _context;
@@ -218,6 +218,23 @@ public class LogsController : ControllerBase
             _logger.LogError(ex, "Failed to log frontend error");
             return StatusCode(500, new { error = "Failed to log error" });
         }
+    }
+
+    [HttpDelete("clear-old-errors")]
+    public IActionResult ClearOldErrors()
+    {
+        var oldErrors = _context.ErrorLogs
+            .Where(e => e.Message.Contains("IOrderService") || e.Message.Contains("AdminController"))
+            .ToList();
+
+        if (oldErrors.Any())
+        {
+            _context.ErrorLogs.RemoveRange(oldErrors);
+            _context.SaveChanges();
+            return Ok(new { message = $"{oldErrors.Count} eski hata silindi." });
+        }
+
+        return Ok(new { message = "Silinecek hata bulunamadı." });
     }
 }
 

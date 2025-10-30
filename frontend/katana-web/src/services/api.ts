@@ -1,4 +1,5 @@
 import axios from "axios";
+import { decodeJwtPayload, isJwtExpired } from "../utils/jwt";
 
 // Development: prefer an explicit env var REACT_APP_API_URL. If not set, use a relative
 // '/api' so the CRA dev server can proxy requests to the backend (see package.json proxy).
@@ -16,35 +17,39 @@ const api = axios.create({
 // This ensures we don't accidentally send non-JWT strings as Bearer tokens
 // which were triggering IDX14100 logs on the backend.
 try {
-  const stored = localStorage.getItem("authToken");
-  if (stored && typeof stored === "string") {
-    const parts = stored.split(".");
-    if (parts.length !== 3) {
-      console.warn(
-        "Stored authToken is malformed; removing from localStorage."
-      );
-      localStorage.removeItem("authToken");
+  if (typeof window !== "undefined") {
+    const stored = window.localStorage.getItem("authToken");
+    const payload = decodeJwtPayload(stored);
+    if (!payload) {
+      console.warn("Stored authToken is malformed; removing from localStorage.");
+      window.localStorage.removeItem("authToken");
+    } else if (isJwtExpired(payload)) {
+      console.warn("Stored authToken has expired; removing from localStorage.");
+      window.localStorage.removeItem("authToken");
     }
   }
-} catch (e) {
+} catch {
   // localStorage may be unavailable in some environments; ignore failures
 }
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("authToken");
+  const token =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("authToken")
+      : null;
   // Ensure headers object exists to avoid runtime errors
   if (!config.headers) config.headers = {} as any;
 
   // Only attach Authorization if the token looks like a JWT (3 parts separated by dots)
   if (token && typeof token === "string") {
-    const parts = token.split(".");
-    if (parts.length === 3) {
+    const payload = decodeJwtPayload(token);
+    if (payload && !isJwtExpired(payload)) {
       (config.headers as any).Authorization = `Bearer ${token}`;
-    } else {
-      // Malformed or non-JWT token found in storage — don't send it to backend
+    } else if (typeof window !== "undefined") {
       console.warn(
-        "Auth token in storage does not look like a JWT, skipping Authorization header."
+        "Auth token in storage is invalid or expired, skipping Authorization header."
       );
+      window.localStorage.removeItem("authToken");
     }
   }
   return config;

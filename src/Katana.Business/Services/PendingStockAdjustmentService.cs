@@ -50,6 +50,9 @@ namespace Katana.Business.Services
             var strategy = _context.Database.CreateExecutionStrategy();
             try
             {
+                var success = false;
+                string? failureReason = null;
+
                 await strategy.ExecuteAsync(async () =>
                 {
                     await using var tx = await _context.Database.BeginTransactionAsync();
@@ -57,9 +60,13 @@ namespace Katana.Business.Services
                     var product = await _context.Products.FindAsync(item.ProductId);
                     if (product == null)
                     {
+                        failureReason = "Associated product was not found";
                         item.Status = "Failed";
-                        item.RejectionReason = "Product not found";
+                        item.RejectionReason = failureReason;
+                        item.ApprovedBy = approvedBy;
+                        item.ApprovedAt = DateTimeOffset.UtcNow;
                         await _context.SaveChangesAsync();
+                        await tx.CommitAsync();
                         return;
                     }
 
@@ -67,30 +74,41 @@ namespace Katana.Business.Services
                     product.Stock += item.Quantity;
                     product.UpdatedAt = DateTime.UtcNow;
 
-                    // Add a stock movement record for audit
-                    var movement = new Katana.Core.Entities.StockMovement
+                    // Mirror the adjustment into the Stocks table so admin stock movement reports stay accurate
+                    var stockEntry = new Stock
                     {
                         ProductId = item.ProductId,
-                        ProductSku = item.Sku ?? string.Empty,
-                        ChangeQuantity = item.Quantity,
-                        MovementType = item.Quantity < 0 ? Katana.Core.Enums.MovementType.Out : Katana.Core.Enums.MovementType.In,
-                        SourceDocument = item.ExternalOrderId ?? string.Empty,
+                        Location = "MAIN",
+                        Quantity = Math.Abs(item.Quantity),
+                        Type = item.Quantity == 0
+                            ? "ADJUSTMENT"
+                            : item.Quantity < 0 ? "OUT" : "IN",
+                        Reason = !string.IsNullOrWhiteSpace(item.Notes)
+                            ? item.Notes
+                            : $"Pending adjustment approved by {approvedBy}",
+                        Reference = item.ExternalOrderId ?? string.Empty,
                         Timestamp = DateTime.UtcNow,
-                        WarehouseCode = "MAIN",
                         IsSynced = false
                     };
-                    _context.Add(movement);
+                    _context.Stocks.Add(stockEntry);
 
                     item.Status = "Approved";
                     item.ApprovedBy = approvedBy;
                     item.ApprovedAt = DateTimeOffset.UtcNow;
+                    item.RejectionReason = null;
 
                     await _context.SaveChangesAsync();
                     await tx.CommitAsync();
                     _logger.LogInformation("Pending stock adjustment {Id} approved by {User}", id, approvedBy);
+                    success = true;
                 });
 
-                return true;
+                if (!success && failureReason != null)
+                {
+                    _logger.LogWarning("Pending stock adjustment {Id} could not be approved: {Reason}", id, failureReason);
+                }
+
+                return success;
             }
             catch (Exception ex)
             {

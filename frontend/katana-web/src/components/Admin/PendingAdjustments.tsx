@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Box,
+  Alert,
   Button,
   CircularProgress,
   Paper,
@@ -18,6 +19,8 @@ import {
   TextField,
 } from "@mui/material";
 import { pendingAdjustmentsAPI } from "../../services/api";
+import { useFeedback } from "../../providers/FeedbackProvider";
+import { decodeJwtPayload, tryGetJwtUsername } from "../../utils/jwt";
 
 interface PendingItem {
   id: number;
@@ -40,67 +43,118 @@ export default function PendingAdjustments() {
   const [selected, setSelected] = useState<PendingItem | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejecting, setRejecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { showToast } = useFeedback();
 
-  const load = async () => {
+  const isPendingStatus = (status?: string) =>
+    (status ?? "").trim().toLowerCase() === "pending";
+
+  const resolveActor = () => {
+    if (typeof window === "undefined") return "admin";
+    try {
+      const token = window.localStorage.getItem("authToken");
+      const payload = decodeJwtPayload(token);
+      return tryGetJwtUsername(payload) ?? "admin";
+    } catch {
+      return "admin";
+    }
+  };
+
+  const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await pendingAdjustmentsAPI.list();
-      // API may return either an array or an object { items, total }
-      // Be defensive: accept both shapes.
       if (Array.isArray(res)) {
         setItems(res as any);
       } else if (res && Array.isArray((res as any).items)) {
         setItems((res as any).items);
       } else if (res && Array.isArray((res as any).data)) {
-        // some APIs nest under data
         setItems((res as any).data);
       } else {
         setItems([]);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      const message =
+        e?.response?.data?.error ||
+        e?.message ||
+        "Bekleyen ayarlamalar yüklenemedi";
+      setError(message);
+      showToast({ message, severity: "error" });
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
-  const handleApprove = async (id: number) => {
-    try {
-      await pendingAdjustmentsAPI.approve(id);
-      await load();
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  const handleApprove = useCallback(
+    async (item: PendingItem) => {
+      if (!isPendingStatus(item.status)) return;
+      try {
+        await pendingAdjustmentsAPI.approve(item.id, resolveActor());
+        showToast({
+          message: `Stok ayarlaması #${item.id} onaylandı`,
+          severity: "success",
+        });
+        await load();
+      } catch (e: any) {
+        console.error(e);
+        const message =
+          e?.response?.data?.error ||
+          e?.message ||
+          "Stok ayarlaması onaylanamadı";
+        showToast({ message, severity: "error" });
+      }
+    },
+    [load, showToast]
+  );
 
   const openReject = (item: PendingItem) => {
     setSelected(item);
     setRejectReason("");
   };
 
-  const handleReject = async () => {
-    if (!selected) return;
+  const handleReject = useCallback(async () => {
+    if (!selected || !isPendingStatus(selected.status)) return;
     setRejecting(true);
     try {
-      await pendingAdjustmentsAPI.reject(selected.id, "admin", rejectReason);
+      await pendingAdjustmentsAPI.reject(
+        selected.id,
+        resolveActor(),
+        rejectReason.trim() || undefined
+      );
+      showToast({
+        message: `Stok ayarlaması #${selected.id} reddedildi`,
+        severity: "success",
+      });
       setSelected(null);
       await load();
     } catch (e) {
       console.error(e);
-    } finally {
-      setRejecting(false);
+      const message =
+        (e as any)?.response?.data?.error ||
+        (e as any)?.message ||
+        "Stok ayarlaması reddedilemedi";
+      showToast({ message, severity: "error" });
     }
-  };
+    setRejecting(false);
+  }, [load, rejectReason, selected, showToast]);
 
   return (
     <Box p={2}>
       <Typography variant="h5" gutterBottom>
         Stok Hareketleri
       </Typography>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       <Paper>
         {loading ? (
@@ -139,7 +193,8 @@ export default function PendingAdjustments() {
                         size="small"
                         variant="contained"
                         color="primary"
-                        onClick={() => handleApprove(it.id)}
+                        disabled={!isPendingStatus(it.status)}
+                        onClick={() => handleApprove(it)}
                         sx={{ mr: 1 }}
                       >
                         Onayla
@@ -148,6 +203,7 @@ export default function PendingAdjustments() {
                         size="small"
                         variant="outlined"
                         color="secondary"
+                        disabled={!isPendingStatus(it.status)}
                         onClick={() => openReject(it)}
                       >
                         Reddet

@@ -8,7 +8,7 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[AllowAnonymous]
+[Authorize]
 public class AnalyticsController : ControllerBase
 {
     private readonly IKatanaService _katanaService;

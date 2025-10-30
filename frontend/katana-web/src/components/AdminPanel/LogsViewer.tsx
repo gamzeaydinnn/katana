@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../services/api";
 import {
   Box,
   Card,
@@ -112,7 +112,7 @@ const LogsViewer: React.FC = () => {
       params.append("page", errorFilters.page.toString());
       params.append("pageSize", errorFilters.pageSize.toString());
 
-      const { data }: any = await axios.get(`/api/Logs/errors?${params}`);
+      const { data }: any = await api.get(`/Logs/errors?${params}`);
       setErrorLogs(data.logs);
       setTotalErrors(data.total);
     } catch (err: any) {
@@ -138,7 +138,7 @@ const LogsViewer: React.FC = () => {
       params.append("page", auditFilters.page.toString());
       params.append("pageSize", auditFilters.pageSize.toString());
 
-      const { data }: any = await axios.get(`/api/Logs/audits?${params}`);
+      const { data }: any = await api.get(`/Logs/audits?${params}`);
       setAuditLogs(data.logs);
       setTotalAudits(data.total);
     } catch (err: any) {
@@ -150,7 +150,7 @@ const LogsViewer: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      const { data }: any = await axios.get("/api/Logs/stats");
+      const { data }: any = await api.get("/Logs/stats");
       setStats(data);
     } catch (err) {
       console.error("Failed to fetch stats", err);
