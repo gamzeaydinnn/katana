@@ -1,64 +1,39 @@
+# Katana — Hızlı Durum Özeti ve Eylem Listesi
+
+Kısa, madde madde: yapılanların yanına ✓ koydum; eksikleri kısa yazdım. Uzun açıklama çıkarıldı — isterseniz detaylı adımları tekrar eklerim.
+Yapıldı (done):
+
+- ✓ PendingStockAdjustment create merkezi hale getirildi (`PendingStockAdjustmentService.CreateAsync`).
+- ✓ Approve akışı uygulandı (claim + transaction) ve stok güncellemesi yapılıyor.
+- ✓ `IPendingNotificationPublisher` eklendi; API tarafında `SignalRNotificationPublisher` var ve publish loglanıyor.
+  Eksikler (kısa, öncelik sırasına göre):
+
+1. Frontend: SignalR client entegrasyonu ve admin pending list'in gerçek zamanlı güncellenmesi — (yüksek).
+2. Güvenlik: Approve/Reject endpoint'lerine açık rol-based authorization kontrolü (Admin/StockManager) — (yüksek).
+3. Dayanıklılık: Publish için durable retry/DLQ tasarımı — (orta).
+   Hemen yapılacaklar (3 kısa adım):
+
+1) (Şimdi) Dokümanı sadeleştirdim — bu dosya güncellendi.
+2) Siz onaylarsanız hemen frontend SignalR scaffold ve client testlerini ekleyebilirim.
+3) Ardından approve endpoint'lerine rol kontrolünü ve 1-2 unit testi ekleyeyim.
+   Nasıl doğrularsınız (kısa):
+
+- API çalıştırın ve e2e script'i çalıştırın: `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\admin-e2e.ps1`
+- Loglarda şu satırları göreceksiniz: "Pending stock adjustment created ...", "Publishing PendingStockAdjustmentCreated ...", "Pending stock adjustment {Id} approved ...", "Publishing PendingStockAdjustmentApproved ...".
+  Referans (kısa):
+
+- Program / DI: `src/Katana.API/Program.cs`
+- Pending service: `src/Katana.Business/Services/PendingStockAdjustmentService.cs`
+- SignalR publisher: `src/Katana.API/Notifications/SignalRNotificationPublisher.cs`
+- Admin controller: `src/Katana.API/Controllers/AdminController.cs`
+- E2E script: `scripts/admin-e2e.ps1`
+  Eğer başlamak isterseniz "frontend" veya "auth" yazın; hemen frontend SignalR scaffold veya approve rol kontrolü ile devam edeyim.
+
 # Katana-Luca Entegrasyonu — Detaylı Proje İncelemesi ve Eylem Planı
 
 Bu belge, proje kaynak kodu ve mevcut çalışma durumu temel alınarak profesyonel, hatasız bir admin paneli ve güvenli entegrasyon sağlamak için tespit ettiğim eksiklikleri, önceliklendirilmiş düzeltme/adım listesini ve uygulanabilir talimatları madde madde sunar.
 
 Not: Aşağıdaki dosya yolları ve sınıf isimleri repository içindeki gerçek dosyalara referans verir — uygulamaya başlamadan önce branch/commit üzerinde yedek ve kod incelemesi yapmanızı öneririm.
-
-## Hızlı Özet (1–2 cümle)
-
-- Mevcut backend: ASP.NET Core (.NET 8), EF Core, Katana/Luca API client'ları, bir pending write queue ve RetryPendingDbWritesService bulunuyor.
-- Yapılması gerekenler: SQL Server üretim hedefi olarak sabitlenmiş durumda (SQLite fallback kaldırıldı), admin-onaylı stok düşümü workflow'u tamamlanmalı, logging/telemetri, performans (log sorguları) ve güvenlik iyileştirmeleri uygulanmalı.
-
----
-
-## 1. Kritik (High) — hemen uygulanmalı
-
-1.1 Admin-onaylı sipariş → bekleyen stok düzeltmesi workflow'u (zorunlu)
-
-- Amaç: Dış kaynaklı bir sipariş geldiğinde stok ANINDA düşürülmemeli; önce `PendingStockAdjustments` kaydı oluşturulacak, admin paneli üzerinden onaylandıktan sonra gerçek stoğa yansıtılacak.
-- Gerekenler (backend):
-  - Entity: `Katana.Data.Models.PendingStockAdjustment` (mevcut, kontrol et: tekil tanım)
-  - DbSet ve EF konfigürasyonu: `IntegrationDbContext` (index'ler ve unique constraint oluşturulmuş).
-  - API endpoints:
-    - POST `/api/admin/pending-stock-adjustments` — yeni pending kaydı oluştur (işleme alınan siparişin external ID'si, SKU, quantity, requestedBy).
-    - GET `/api/admin/pending-stock-adjustments` — filtrelenebilir liste (status, tarih aralığı, sku, externalOrderId).
-    - POST `/api/admin/pending-stock-adjustments/{id}/approve` — approve (onaylayan kullanıcı, timestamp) → onaylanınca:
-      - transactional olarak: decrement stock (Stock table veya uygun servis), mark ApprovedAt/ApprovedBy, create AuditLog; publish domain event / notification.
-    - POST `/api/admin/pending-stock-adjustments/{id}/reject` — reddetme sebebi ile işaretle.
-  - Business logic:
-    - İzin kontrolü: yalnızca Admin/StockManager rolü approve/reject yapabilmeli.
-    - Concurrency: Approve işlemi sırasında optimistic concurrency veya DB transaction kullanarak duplicate apply önlenmeli.
-    - Error handling: Eğer stoğun düşülmesi sırasında hata oluşursa status "Failed" ve detaylı ErrorLog/Notification oluştur.
-- UI (admin panel):
-  - Pending list view: hızlı filtreler, satır içi onay/reject butonları, detay modalı.
-  - Onay workflow: onaylamadan önce basit doğrulama (stokta yeterli mi?), onay sonrası görsel geri bildirim.
-- Testler: unit test (approve happy path + reject + concurrent approve) ve e2e (admin approves flow).
-- Acceptance criteria: Yeni sipariş geldiğinde hemen stoğu değiştirmeyen, admin onayı sonrası stok değişikliğini garanti eden, tekrar uygulanamayacak bir süreç.
-
-- Admin bildirimleri (zorunlu): Katana'dan gelen inventory event'leri (ör. stok azalması, stok artışı veya diğer stok değişiklikleri) admin paneline bildirim olarak iletilecek; kalıcı stok değişikliği admin onayıyla uygulanacak.
-
-- Gereksinimler:
-  - Backend: `PendingStockAdjustments` kaydı oluşturulduğunda bir domain event publish edilecek (ör. `PendingStockAdjustmentCreated` veya genel `InventoryEventCreated`). Event payload'ında eventType (Decrease/Increase/Adjustment) belirtilecek.
-  - Bildirim yolları: anlık in-app (SignalR) öncelikli; ayrıca e-posta ve webhook opsiyonel olarak desteklenecek.
-  - Bildirim içerikleri: EventType, ExternalOrderId (varsa), SKU, Quantity, RequestedBy, RequestedAt, link to admin pending detail.
-  - UI: admin panelinde bildirim tepsisi / badge, toast/alert ve pending listesine doğrudan yönlendirme.
-  - Güvenlik/İzin: yalnızca uygun rollere bildirim gösterilecek; detay erişimi role-based kontrol ile korunacak.
-  - Dayanıklılık: bildirim gönderimi başarısız olursa retry mekanizması, DLQ ve audit log olacak.
-- Acceptance criteria (bildirimler):
-
-  - Katana'dan gelen her inventory event (azalış/artış/düzeltme vb.) için admin panelinde görünür bir bildirim oluşturuluyor.
-  - Bildirim tıklandığında ilgili pending kaydın detay sayfası açılıyor ve event tipi net görülebiliyor.
-  - Admin onaylamadan kalıcı stok değişikliği uygulanmıyor; onay mekanizması eventType'a uyumlu (ör. artışlar için hızlı onay seçeneği) olmalı.
-  - Bildirim transient olsa dahi pending kayıt admin listesinde persistent olarak görünmeye devam ediyor.
-
-    1.2 Veritabanı migration uyumu ve prod readiness
-
-- Mevcut durum: DB (katanaluca-db) zaten tablolar içeriyor ancak `__EFMigrationsHistory` boştu; manuel olarak migration id'leri eklenerek senkronize edildi.
-- Yapılacaklar:
-
-  - (Short-term) `__EFMigrationsHistory`'e eklenen kayıtların bir dokümantasyonunu tut (hangi migration id, kim ekledi, neden).
-  - (Long-term) Üretim DB'si için migration strategy belirle: migration'ları doğrudan çalıştırmadan önce yedek al ve migration'ları stage ortamında test et.
-  - Otomasyon: CI/CD pipeline'a `dotnet ef migrations script` ve `sqlpackage`/run-sql adımı ekle — rollback planı hazır olsun.
 
     1.3 Logging ve log hacmi kontrolü
 
@@ -90,117 +65,92 @@ Not: Aşağıdaki dosya yolları ve sınıf isimleri repository içindeki gerçe
   - Replace OFFSET pagination for large pages with keyset pagination (WHERE CreatedAt < @cursor ORDER BY CreatedAt DESC LIMIT @pageSize).
   - Pre-aggregate heavy stats in a scheduled job (e.g., daily counts) for dashboard.
 
-    2.2 Security hardening
+    # Katana-Luca Entegrasyonu — Durum Özeti, Yapılanlar ve Eylem Planı
 
-- Yapılacaklar:
+    Bu belge, projede yapılan son değişiklikleri, bunların doğrulanmasını ve bir sonraki eylem listesini içerir. Özellikle admin-onaylı stok düzeltmeleri, SignalR bildirimleri, DI düzeltmeleri ve geliştirme/run notlarına odaklanır.
 
-  - Secret management: appsettings.Development.json içinde gerçek API keys ve DB passwords olmamalı. Use user secrets or environment variables for dev.
-  - JWT: Ensure secret key is stored securely, rotate keys periodically.
-  - Validate all external API inputs and sanitize logging to avoid log injection.
-  - Rate limiting on public endpoints.
+    Not: Dosya yolları repository içindeki gerçek dosyalara karşılık gelir. Değişiklik yapmadan önce ilgili branch/commit üzerinde yedek almanızı öneririm.
 
-    2.3 Telemetry & health
+    ## Hızlı Özet (1–2 cümle)
 
-- Add Application Insights or another APM.
-- Health checks: extend to check external Katana/Luca endpoints and queue health.
+    - Proje: ASP.NET Core (.NET 8), EF Core, SignalR, Serilog.
+    - Recent changes: pending-stock workflow centralize edildi; create ve approve event'ları publish ediliyor (SignalR); business layer ASP.NET tiplerinden ayrıldı via `IPendingNotificationPublisher`; DI fix yapıldı (IOrderService); frontend/dev test script eklendi (`scripts/admin-e2e.ps1`).
 
-  2.4 Tests
+    ***
 
-- Expand unit tests for new admin approval flow and existing critical services.
-- Add integration tests that run against a disposable SQL Server (mssql container) in CI.
+    ## 1. Ne yapıldı (kısa, teknik özet)
 
----
+    1. Pending workflow
 
-## 3. Orta / Düşük (Low) — planlı olarak
+    - Tüm pending oluşturma işleri `Katana.Business.Services.PendingStockAdjustmentService.CreateAsync` üzerinden yapılacak şekilde merkezileştirildi.
+    - Approve işlemi `PendingStockAdjustmentService.ApproveAsync` ile gerçekleştiriliyor; işlem öncesi "claim" (conditional UPDATE) ile başka bir işlem tarafından kullanılması engelleniyor ve onay içinde DB transaction ile stok güncelleme + Stocks tablosuna kayıt eklendi.
 
-3.1 Frontend admin panel polish
+    2. Bildirim/publish
 
-- Improve UX for pending approvals: bulk approve, search, sorting, per-row actions, optimistic UI updates.
-- Show audit trail per pending record.
+    - İş katmanında `Katana.Core.Interfaces.IPendingNotificationPublisher` kullanılıyor. API, SignalR tabanlı `SignalRNotificationPublisher` ile bu arayüzü implemente ediyor.
+    - Publish noktalarında (create ve approve) yayın giriş/çıkışları logger ile kaydediliyor; başarısız publish durumunda hata loglanıyor fakat işlem rollback edilmiyor (best-effort publish).
 
-  3.2 Documentation
+    3. DI ve controller düzeltmeleri
 
-- README: dev run steps, migration commands, how to seed `__EFMigrationsHistory` if restoring from an existing DB.
-- Operational runbook: backup, restore, failover steps for RDS.
+    - `IOrderService` için DI activation hatası çözüldü: concrete `OrderService` kayıt edilip `IOrderService` buna yönlendirildi (Program.cs içinde explicit AddScoped register).
+    - `AdminController.GetProductStock` param tipi `long` → `int` olarak düzeltildi ve rota constraint eklendi (`{id:int}`) — EF Find tip eşleşmesi kaynaklı 500 hatası giderildi.
 
-  3.3 Localization
+    4. Geliştirme ve test kolaylığı
 
-- Logging messages are changed to Turkish in LoggingService; decide whether the entire app should be localized (frontend + API messages) and implement resource files.
+    - PowerShell tabanlı `scripts/admin-e2e.ps1` eklendi — login → create pending → list → approve akışını otomatikleştirir ve PSReadLine yapıştırma çöküşü problemini önler.
+    - JWT doğrulama hatalarının tespiti için Program.cs içinde token validation event'leri için diagnostic logging eklendi.
 
----
+    5. Build/run notları
 
-## 4. Mühendislik kabul kriterleri / Test checklist
+    - Geliştirme ortamında `dotnet` süreçleri DLL dosyalarını kilitleyebiliyor; build hatası alınırsa çalışan `dotnet` PID'lerini (ör. `Get-Process dotnet`) kontrol edip sonlandırmak çözüm olmuştur.
 
-- Admin-onay akışı:
-  - [ ] Yeni sipariş kaydı pending olarak oluşuyor.
-  - [ ] Admin listede görüp approve/reject yapabiliyor.
-  - [ ] Approve sonrası stock miktarı DB'de doğru şekilde azaldı.
-  - [ ] Approve işlemi idempotent: ikinci approve denemesi hata vermez ve tekrar stok düşmez.
-- Migrations & DB:
-  - [ ] Production DB yedeği alındı.
-  - [ ] `dotnet ef database update` başarıyla çalıştı (stage ortamında test edildi).
-- Logging & performance:
-  - [ ] Error/Warning only persisted when config açık.
-  - [ ] LogsController sorguları 1s altına düştü (P95 hedefi).
-- Security:
-  - [ ] Secrets not in repo.
-  - [ ] JWT validation and role-based authorization enforced on admin endpoints.
+    ## 2. Doğrulama / nasıl test edilir (dev ortam)
 
----
+    Aşağıdaki adımlar, API'yi çalıştırıp pending oluşturma ve onaylama ile publish loglarını doğrulamanız için yeterlidir.
 
-## 5. Dosya / Kod referansları (başlamanız gereken yerler)
+    1. API derleyin ve çalıştırın (PowerShell):
 
-- Backend entry / DI: `src/Katana.API/Program.cs`
-- DbContext: `src/Katana.Data/Context/IntegrationDbContext.cs`
-- Pending model: `src/Katana.Data/Models/PendingStockAdjustment.cs`
-- Logging service: `src/Katana.Infrastructure/Logging/LoggingService.cs`
-- Retry worker: `src/Katana.Infrastructure/Workers/RetryPendingDbWritesService.cs`
-- Logs endpoints: `src/Katana.API/Controllers/LogsController.cs`
-- Existing admin logic/service: `src/Katana.Business/Services/AdminService.cs` (incele, yoksa oluştur)
-- Frontend admin panel: `frontend/katana-web/src/...` (Admin components)
+    ````powershell
+    # derleme
+    dotnet build c:\Users\GAMZE\Desktop\katana\src\Katana.API
 
----
+    # çalıştırma (örnek olarak 5055 portunu kullanabilirsiniz)
+    # Katana — Özet & Kısa Eylem Listesi
 
-## 6. Örnek migration / SQL (kısa not)
+    Yapıldı (✓):
 
-- `AddPendingStockAdjustmentsAndLogIndexes` migration dosyası zaten oluşturulmuş. Deploy sırasında EF `database update` çalıştırıldığında migration'lar uygulanacak (veya `__EFMigrationsHistory` ile senkronize edilecek).
+    - ✓ PendingStockAdjustment create merkezi (PendingStockAdjustmentService.CreateAsync)
+    - ✓ Approve akışı (claim + transaction) ve stok güncellemesi
+    - ✓ SignalR publish + loglama (IPendingNotificationPublisher + SignalRNotificationPublisher)
+    - ✓ DI fix: IOrderService kayıtlandı
+    - ✓ Controller fix: GetProductStock param tipi düzeltildi
+    - ✓ `scripts/admin-e2e.ps1` eklendi (login → create → approve)
 
----
+    Eksik / Önceliklendirilmiş kısa liste:
 
-## 7. Tahmini iş yükü (rough estimates)
+    1. Frontend: SignalR client ve admin pending list canlı güncelleme — Yüksek
+    2. Güvenlik: Approve/Reject için role-based authorization — Yüksek
+    3. Dayanıklılık: Publish retry / DLQ (durable) — Orta
+    4. Testler: Unit + integration (approve, concurrent) — Yüksek
+    5. Performans: LogsController indeks ve keyset pagination — Orta
 
-- Admin approval backend (endpoints + business logic + tests): 1–2 iş günü
-- Admin frontend UI (list, approve/reject, tests): 1–2 iş günü
-- Logging/perf tuning + index verification: 0.5–1 gün
-- CI/CD + migration safe-run + runbook: 0.5–1 gün
-- Total (MVP production-ready admin flow): 3–6 iş günü (1–2 geliştiriciyle)
+    Hızlı doğrulama:
 
----
+    1) API'yi çalıştırın ve e2e script'i çalıştırın:
 
-## 8. Riskler ve dikkat edilmesi gerekenler
+    ```powershell
+    dotnet run --project src\Katana.API --urls "http://localhost:5055"
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\admin-e2e.ps1
+    ````
 
-- Production DB üzerinde migration çalıştırmadan önce tam yedek alın.
-- Manual seeding of `__EFMigrationsHistory` (yaptığınız gibi) güvenli ama dokümante edilmeli ve onay süreçleriyle eşleştirilmeli.
-- Concurrency: online satışlarda dış sistem aynı siparişi birkaç kez gönderebilir — unique constraint on `ExternalOrderId` + idempotency checks zorunlu.
+    2. Loglarda bu satırları arayın: "Pending stock adjustment created", "Publishing PendingStockAdjustmentCreated", "Pending stock adjustment {Id} approved", "Publishing PendingStockAdjustmentApproved".
 
----
+    Kısa referans:
 
-## 9. Hemen yapılacak 5 maddelik checklist (ilk 2 gün)
+    - `src/Katana.API/Program.cs`
+    - `src/Katana.Business/Services/PendingStockAdjustmentService.cs`
+    - `src/Katana.API/Notifications/SignalRNotificationPublisher.cs`
+    - `src/Katana.API/Controllers/AdminController.cs`
+    - `scripts/admin-e2e.ps1`
 
-1. Implement API endpoints ve business logic for pending adjustments (approve/reject). (High)
-2. Implement frontend admin pending list with approve/reject buttons. (High)
-3. Add unit + integration tests for approve flow and concurrency. (High)
-4. Verify / create DB indexes for logs and replace OFFSET pagination with keyset pagination in LogsController. (Medium)
-5. Add retention job for logs and configure monitoring (APM). (Medium)
-
----
-
-## 10. Sonraki adımlar (benim tarafımdan yapılabilecekler)
-
-- İsterseniz hemen backend approve/reject endpoint'larını oluşturup unit testlerini yazabilirim.
-- İsterseniz admin panel için React bileşenleri scaffoldingini oluşturup API ile entegrasyon sağlayabilirim.
-- Ayrıca LogsController sorgularını optimize etmek için örnek refactor sunabilirim.
-
----
-
-Bu dosya, projenin üretime hazırlanması için takip edilecek yol haritasıdır. Hangi maddeden başlamamı istersiniz? (Benim önerim: önce admin approval backend + tests, sonra frontend.)
+    Dosya kısaltıldı ve gereksiz tekrarlar kaldırıldı. İleri adım için "frontend" veya "auth" yazın — hemen başlıyorum.

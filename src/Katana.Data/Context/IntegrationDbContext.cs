@@ -30,6 +30,7 @@ public class IntegrationDbContext : DbContext
     public DbSet<ErrorLog> ErrorLogs { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!; // ✅ Audit kayıtları için
     public DbSet<PendingStockAdjustment> PendingStockAdjustments { get; set; } = null!;
+    public DbSet<Katana.Core.Entities.Notification> Notifications { get; set; } = null!;
     public DbSet<StockMovement> StockMovements { get; set; } = null!;
     public DbSet<Category> Categories { get; set; }
     public DbSet<Order> Orders { get; set; }
@@ -216,6 +217,18 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.Sku).HasMaxLength(100);
             entity.Property(e => e.Status).HasMaxLength(20).IsRequired();
             entity.Property(e => e.RequestedBy).HasMaxLength(100).IsRequired();
+        });
+
+        // Notification configuration
+        modelBuilder.Entity<Katana.Core.Entities.Notification>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Type).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Title).HasMaxLength(200);
+            entity.Property(e => e.Payload).HasColumnType(isSqlite ? "TEXT" : "nvarchar(max)");
+            entity.HasIndex(e => e.IsRead);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.Property(e => e.RelatedPendingId).HasColumnType(isSqlite ? "INTEGER" : "bigint");
         });
 
         // Supplier configuration

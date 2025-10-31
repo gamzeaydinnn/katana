@@ -13,13 +13,15 @@ namespace Katana.API.Notifications
     /// </summary>
     public class SignalRNotificationPublisher : IPendingNotificationPublisher
     {
-        private readonly IHubContext<NotificationHub> _hub;
-        private readonly ILogger<SignalRNotificationPublisher> _logger;
+    private readonly IHubContext<NotificationHub> _hub;
+    private readonly ILogger<SignalRNotificationPublisher> _logger;
+    private readonly Katana.Data.Context.IntegrationDbContext _db;
 
-        public SignalRNotificationPublisher(IHubContext<NotificationHub> hub, ILogger<SignalRNotificationPublisher> logger)
+        public SignalRNotificationPublisher(IHubContext<NotificationHub> hub, ILogger<SignalRNotificationPublisher> logger, Katana.Data.Context.IntegrationDbContext db)
         {
             _hub = hub;
             _logger = logger;
+            _db = db;
         }
 
         public async Task PublishPendingCreatedAsync(PendingStockAdjustmentCreatedEvent evt)
@@ -41,6 +43,25 @@ namespace Katana.API.Notifications
                 _logger?.LogInformation("Publishing PendingStockAdjustmentCreated for PendingId {PendingId}", evt.Id);
                 await _hub.Clients.All.SendAsync("PendingStockAdjustmentCreated", payload);
                 _logger?.LogInformation("Published PendingStockAdjustmentCreated for PendingId {PendingId}", evt.Id);
+                // Persist a server-side notification record
+                try
+                {
+                    var notif = new Katana.Core.Entities.Notification
+                    {
+                        Type = "PendingStockAdjustmentCreated",
+                        Title = $"Yeni bekleyen stok #{evt.Id}",
+                        Payload = System.Text.Json.JsonSerializer.Serialize(payload),
+                        Link = $"/admin?focusPending={evt.Id}",
+                        RelatedPendingId = evt.Id,
+                        CreatedAt = evt.RequestedAt.UtcDateTime
+                    };
+                    _db.Notifications.Add(notif);
+                    await _db.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Failed to persist notification for PendingId {PendingId}", evt.Id);
+                }
             }
             catch (Exception ex)
             {
@@ -67,6 +88,25 @@ namespace Katana.API.Notifications
                 _logger?.LogInformation("Publishing PendingStockAdjustmentApproved for PendingId {PendingId}", evt.Id);
                 await _hub.Clients.All.SendAsync("PendingStockAdjustmentApproved", payload);
                 _logger?.LogInformation("Published PendingStockAdjustmentApproved for PendingId {PendingId}", evt.Id);
+                // Persist approval notification
+                try
+                {
+                    var notif = new Katana.Core.Entities.Notification
+                    {
+                        Type = "PendingStockAdjustmentApproved",
+                        Title = $"Stok ayarlaması #{evt.Id} onaylandı",
+                        Payload = System.Text.Json.JsonSerializer.Serialize(payload),
+                        Link = $"/admin?focusPending={evt.Id}",
+                        RelatedPendingId = evt.Id,
+                        CreatedAt = evt.ApprovedAt.UtcDateTime
+                    };
+                    _db.Notifications.Add(notif);
+                    await _db.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Failed to persist approval notification for PendingId {PendingId}", evt.Id);
+                }
             }
             catch (Exception ex)
             {

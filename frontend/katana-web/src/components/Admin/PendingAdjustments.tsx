@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box,
   Alert,
@@ -19,6 +20,14 @@ import {
   TextField,
 } from "@mui/material";
 import { pendingAdjustmentsAPI } from "../../services/api";
+import {
+  startConnection,
+  stopConnection,
+  onPendingCreated,
+  offPendingCreated,
+  onPendingApproved,
+  offPendingApproved,
+} from "../../services/signalr";
 import { useFeedback } from "../../providers/FeedbackProvider";
 import { decodeJwtPayload, tryGetJwtUsername } from "../../utils/jwt";
 
@@ -41,6 +50,7 @@ export default function PendingAdjustments() {
   const [items, setItems] = useState<PendingItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<PendingItem | null>(null);
+  const [highlightedId, setHighlightedId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejecting, setRejecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +100,93 @@ export default function PendingAdjustments() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // read focusPending query param to highlight/scroll to a row
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const focus = params.get("focusPending");
+    if (!focus) return;
+    const id = parseInt(focus, 10);
+    if (isNaN(id)) return;
+    // wait until items loaded
+    const t = setTimeout(() => {
+      const el = document.getElementById(`pending-row-${id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightedId(id);
+        setTimeout(() => setHighlightedId(null), 6000);
+      }
+      // remove query param without reloading
+      params.delete("focusPending");
+      navigate(
+        `${location.pathname}${
+          params.toString() ? "?" + params.toString() : ""
+        }`,
+        { replace: true }
+      );
+    }, 600);
+    return () => clearTimeout(t);
+  }, [location.search, navigate]);
+
+  useEffect(() => {
+    // start SignalR and subscribe to events to keep the list live
+    let createdHandler = (payload: any) => {
+      try {
+        const item = payload?.pending || payload;
+        if (!item || !item.id) return;
+        setItems((prev) => {
+          // if already exists, replace; otherwise add to top
+          const exists = prev.find((p) => p.id === item.id);
+          if (exists) return prev.map((p) => (p.id === item.id ? item : p));
+          return [item as any, ...prev];
+        });
+        showToast({
+          message: `Yeni bekleyen stok #${item.id}`,
+          severity: "info",
+        });
+      } catch (e) {
+        console.warn("Error handling PendingStockAdjustmentCreated", e);
+      }
+    };
+
+    let approvedHandler = (payload: any) => {
+      try {
+        const id = payload?.pendingId || payload?.id || payload;
+        if (!id) return;
+        setItems((prev) =>
+          prev.map((p) =>
+            p.id === id
+              ? { ...p, status: "Approved", approvedBy: payload?.approvedBy }
+              : p
+          )
+        );
+        showToast({
+          message: `Stok ayarlaması #${id} onaylandı`,
+          severity: "success",
+        });
+      } catch (e) {
+        console.warn("Error handling PendingStockAdjustmentApproved", e);
+      }
+    };
+
+    startConnection()
+      .then(() => {
+        onPendingCreated(createdHandler);
+        onPendingApproved(approvedHandler);
+      })
+      .catch((err) => console.warn("SignalR start failed", err));
+
+    return () => {
+      try {
+        offPendingCreated(createdHandler);
+        offPendingApproved(approvedHandler);
+      } catch {}
+      stopConnection().catch(() => {});
+    };
+  }, [showToast]);
 
   const handleApprove = useCallback(
     async (item: PendingItem) => {
@@ -177,7 +274,18 @@ export default function PendingAdjustments() {
               </TableHead>
               <TableBody>
                 {items.map((it) => (
-                  <TableRow key={it.id}>
+                  <TableRow
+                    id={`pending-row-${it.id}`}
+                    key={it.id}
+                    sx={
+                      highlightedId === it.id
+                        ? {
+                            backgroundColor: (theme) =>
+                              `${theme.palette.primary.light}33`,
+                          }
+                        : {}
+                    }
+                  >
                     <TableCell>{it.id}</TableCell>
                     <TableCell>{it.sku}</TableCell>
                     <TableCell>{it.productId}</TableCell>

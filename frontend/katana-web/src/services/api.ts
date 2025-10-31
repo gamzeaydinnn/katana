@@ -21,7 +21,9 @@ try {
     const stored = window.localStorage.getItem("authToken");
     const payload = decodeJwtPayload(stored);
     if (!payload) {
-      console.warn("Stored authToken is malformed; removing from localStorage.");
+      console.warn(
+        "Stored authToken is malformed; removing from localStorage."
+      );
       window.localStorage.removeItem("authToken");
     } else if (isJwtExpired(payload)) {
       console.warn("Stored authToken has expired; removing from localStorage.");
@@ -207,6 +209,22 @@ export const pendingAdjustmentsAPI = {
         reason,
       })
       .then((res) => res.data),
+};
+
+export const notificationsAPI = {
+  list: (unread?: boolean) =>
+    api
+      .get(
+        `/notifications${
+          typeof unread === "boolean" ? `?unread=${unread}` : ""
+        }`
+      )
+      .then((res) => res.data),
+  get: (id: number) => api.get(`/notifications/${id}`).then((res) => res.data),
+  markRead: (id: number) =>
+    api.post(`/notifications/${id}/mark-read`).then((res) => res.data),
+  delete: (id: number) =>
+    api.delete(`/notifications/${id}`).then((res) => res.data),
 };
 
 export const authAPI = {
