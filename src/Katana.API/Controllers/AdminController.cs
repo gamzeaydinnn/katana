@@ -359,10 +359,11 @@ public class AdminController : ControllerBase
                 RequestedAt = DateTimeOffset.UtcNow,
                 Status = "Pending"
             };
-            _context.PendingStockAdjustments.Add(pending);
-            await _context.SaveChangesAsync();
 
-            return Ok(new { ok = true, pendingId = pending.Id, productId = product.Id });
+            // Use the centralized pending service so notifications (if configured) are published
+            var created = await _pendingService.CreateAsync(pending);
+
+            return Ok(new { ok = true, pendingId = created.Id, productId = product.Id });
         }
         catch (Exception ex)
         {
@@ -371,11 +372,12 @@ public class AdminController : ControllerBase
         }
     }
 
-    [HttpGet("product-stock/{id}")]
-    public async Task<IActionResult> GetProductStock(long id)
+    [HttpGet("product-stock/{id:int}")]
+    public async Task<IActionResult> GetProductStock(int id)
     {
         try
         {
+            // Product.Id is an int in the EF model - ensure we use the correct type here
             var p = await _context.Products.FindAsync(id);
             if (p == null) return NotFound();
             return Ok(new { id = p.Id, sku = p.SKU, stock = p.Stock });

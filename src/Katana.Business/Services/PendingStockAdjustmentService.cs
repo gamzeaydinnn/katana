@@ -15,11 +15,13 @@ namespace Katana.Business.Services
     {
         private readonly IntegrationDbContext _context;
         private readonly ILogger<PendingStockAdjustmentService> _logger;
+        private readonly Katana.Core.Interfaces.IPendingNotificationPublisher? _publisher;
 
-        public PendingStockAdjustmentService(IntegrationDbContext context, ILogger<PendingStockAdjustmentService> logger)
+        public PendingStockAdjustmentService(IntegrationDbContext context, ILogger<PendingStockAdjustmentService> logger, Katana.Core.Interfaces.IPendingNotificationPublisher? publisher = null)
         {
             _context = context;
             _logger = logger;
+            _publisher = publisher;
         }
 
         public async Task<PendingStockAdjustment> CreateAsync(PendingStockAdjustment creation)
@@ -28,7 +30,23 @@ namespace Katana.Business.Services
             creation.Status = "Pending";
             _context.PendingStockAdjustments.Add(creation);
             await _context.SaveChangesAsync();
+
             _logger.LogInformation("Pending stock adjustment created (Id: {Id}, ProductId: {ProductId}, Quantity: {Qty})", creation.Id, creation.ProductId, creation.Quantity);
+
+            // Publish lightweight pending-created notification if a publisher is available
+            try
+            {
+                if (_publisher != null)
+                {
+                    var evt = new Katana.Core.Events.PendingStockAdjustmentCreatedEvent(creation.Id, creation.ExternalOrderId, creation.Sku, creation.Quantity, creation.RequestedBy, creation.RequestedAt);
+                    await _publisher.PublishPendingCreatedAsync(evt);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to publish pending-created notification for PendingStockAdjustment {Id}", creation.Id);
+            }
+
             return creation;
         }
 
@@ -44,9 +62,6 @@ namespace Katana.Business.Services
 
         public async Task<bool> ApproveAsync(long id, string approvedBy)
         {
-            var item = await _context.PendingStockAdjustments.FindAsync(id);
-            if (item == null || item.Status != "Pending") return false;
-
             var strategy = _context.Database.CreateExecutionStrategy();
             try
             {
@@ -55,7 +70,25 @@ namespace Katana.Business.Services
 
                 await strategy.ExecuteAsync(async () =>
                 {
+                    // First, attempt an atomic state transition from Pending -> Approving
+                    var rows = await _context.Database.ExecuteSqlInterpolatedAsync($"UPDATE PendingStockAdjustments SET Status = {"Approving"} WHERE Id = {id} AND Status = {"Pending"}");
+                    if (rows == 0)
+                    {
+                        // Nothing to do (already processed or not pending)
+                        failureReason = "Adjustment not in pending state or already processed";
+                        return;
+                    }
+
                     await using var tx = await _context.Database.BeginTransactionAsync();
+
+                    // Reload the item now that we have claimed it
+                    var item = await _context.PendingStockAdjustments.FindAsync(id);
+                    if (item == null)
+                    {
+                        failureReason = "Pending adjustment not found after claiming";
+                        await tx.CommitAsync();
+                        return;
+                    }
 
                     var product = await _context.Products.FindAsync(item.ProductId);
                     if (product == null)
@@ -99,8 +132,23 @@ namespace Katana.Business.Services
 
                     await _context.SaveChangesAsync();
                     await tx.CommitAsync();
+
                     _logger.LogInformation("Pending stock adjustment {Id} approved by {User}", id, approvedBy);
                     success = true;
+
+                    // Publish approved event (best-effort)
+                    try
+                    {
+                        if (_publisher != null)
+                        {
+                            var approvedEvent = new Katana.Core.Events.PendingStockAdjustmentApprovedEvent(item.Id, item.ExternalOrderId, item.Sku, item.Quantity, item.ApprovedBy, item.ApprovedAt ?? DateTimeOffset.UtcNow);
+                            await _publisher.PublishPendingApprovedAsync(approvedEvent);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to publish pending-approved notification for PendingStockAdjustment {Id}", id);
+                    }
                 });
 
                 if (!success && failureReason != null)
@@ -113,6 +161,8 @@ namespace Katana.Business.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to approve pending stock adjustment {Id}", id);
+                // Try to mark as failed if possible
+                var item = await _context.PendingStockAdjustments.FindAsync(id);
                 if (item != null)
                 {
                     item.Status = "Failed";

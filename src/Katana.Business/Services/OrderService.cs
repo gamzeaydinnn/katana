@@ -10,10 +10,12 @@ namespace Katana.Business.Services;
 public class OrderService : IOrderService
 {
     private readonly IntegrationDbContext _context;
+    private readonly Katana.Business.Interfaces.IPendingStockAdjustmentService _pendingService;
 
-    public OrderService(IntegrationDbContext context)
+    public OrderService(IntegrationDbContext context, Katana.Business.Interfaces.IPendingStockAdjustmentService pendingService)
     {
         _context = context;
+        _pendingService = pendingService;
     }
 
     public async Task<IEnumerable<OrderDto>> GetAllAsync()
@@ -69,7 +71,11 @@ public class OrderService : IOrderService
         };
 
         order.TotalAmount = order.Items.Sum(i => i.UnitPrice * i.Quantity);
+
         _context.Orders.Add(order);
+
+        // Save order first so we have an ExternalOrderId (order.Id) to reference
+        await _context.SaveChangesAsync();
 
         // Instead of applying stock changes immediately, create pending adjustments
         // so an admin can approve/reject them. Use negative quantity for sales.
@@ -90,10 +96,9 @@ public class OrderService : IOrderService
                 Notes = $"Order #{order.Id} created: {item.Quantity} x ProductId {item.ProductId}"
             };
 
-            _context.PendingStockAdjustments.Add(pending);
+            // Use the centralized pending service so notifications and validations run consistently
+            await _pendingService.CreateAsync(pending);
         }
-
-        await _context.SaveChangesAsync();
 
         return new OrderDto
         {

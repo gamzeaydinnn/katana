@@ -21,6 +21,7 @@ using Katana.Infrastructure.Notifications;
 using Katana.Core.Interfaces;
 using Katana.Core.Entities;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -233,6 +234,10 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<INotificationService, EmailNotificationService>();
 builder.Services.AddScoped<NotificationService>(); // Business katmanı
 
+// SignalR and pending notification publisher (API provides a SignalR-backed publisher)
+builder.Services.AddSignalR();
+builder.Services.AddScoped<Katana.Core.Interfaces.IPendingNotificationPublisher, Katana.API.Notifications.SignalRNotificationPublisher>();
+
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<AdminService>();
 
@@ -254,6 +259,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtSettings["Issuer"],
             ValidAudience = jwtSettings["Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+        };
+        // Small diagnostics to log token validation success/failure for local debugging
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = ctx =>
+            {
+                var logger = ctx.HttpContext.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("JwtAuth");
+                logger?.LogError(ctx.Exception, "JWT authentication failed: {Message}", ctx.Exception?.Message);
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = ctx =>
+            {
+                var logger = ctx.HttpContext.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("JwtAuth");
+                logger?.LogInformation("JWT token validated for {User}", ctx.Principal?.Identity?.Name ?? "<unknown>");
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -364,6 +385,9 @@ app.UseMiddleware<ErrorHandlingMiddleware>();
 // Endpoints
 app.MapControllers();
 app.MapHealthChecks("/health");
+
+// SignalR hub endpoints
+app.MapHub<Katana.API.Hubs.NotificationHub>("/hubs/notifications");
 
 // Geliştirme ortamında veritabanını otomatik hazırla
 if (app.Environment.IsDevelopment())
