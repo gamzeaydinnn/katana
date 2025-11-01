@@ -13,7 +13,6 @@
 // Program.cs - satır 378
 app.MapHub<Katana.API.Hubs.NotificationHub>("/hubs/notifications");
 ```
-
 ---
 
 ### ✅ DÜZELTME 2: SignalR Service Registration Konfigüre Edildi

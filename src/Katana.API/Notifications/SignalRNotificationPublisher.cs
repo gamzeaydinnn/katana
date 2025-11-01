@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.SignalR;
 using Katana.API.Hubs;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Polly;
+using Polly.Retry;
+using System.Text.Json;
 
 namespace Katana.API.Notifications
 {
@@ -13,9 +16,27 @@ namespace Katana.API.Notifications
     /// </summary>
     public class SignalRNotificationPublisher : IPendingNotificationPublisher
     {
-    private readonly IHubContext<NotificationHub> _hub;
-    private readonly ILogger<SignalRNotificationPublisher> _logger;
-    private readonly Katana.Data.Context.IntegrationDbContext _db;
+        private static readonly AsyncRetryPolicy _publishRetryPolicy = Policy
+            .Handle<Exception>()
+            .WaitAndRetryAsync(
+                retryCount: 3,
+                sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt - 1)),
+                onRetry: (exception, delay, attempt, context) =>
+                {
+                    if (context.TryGetLogger(out var logger, out var eventName, out var entityId))
+                    {
+                        logger.LogWarning(exception,
+                            "Retrying SignalR publish for {EventName} (PendingId: {PendingId}) attempt {Attempt}/3 after {Delay}s",
+                            eventName,
+                            entityId,
+                            attempt,
+                            delay.TotalSeconds);
+                    }
+                });
+
+        private readonly IHubContext<NotificationHub> _hub;
+        private readonly ILogger<SignalRNotificationPublisher> _logger;
+        private readonly Katana.Data.Context.IntegrationDbContext _db;
 
         public SignalRNotificationPublisher(IHubContext<NotificationHub> hub, ILogger<SignalRNotificationPublisher> logger, Katana.Data.Context.IntegrationDbContext db)
         {
@@ -38,10 +59,12 @@ namespace Katana.API.Notifications
                 link = $"/admin/pending/{evt.Id}"
             };
 
-            try
+            var payloadJson = JsonSerializer.Serialize(payload);
+            var published = await TryPublishAsync("PendingStockAdjustmentCreated", payload, payloadJson, evt.Id);
+
+            if (published)
             {
                 _logger?.LogInformation("Publishing PendingStockAdjustmentCreated for PendingId {PendingId}", evt.Id);
-                await _hub.Clients.All.SendAsync("PendingStockAdjustmentCreated", payload);
                 _logger?.LogInformation("Published PendingStockAdjustmentCreated for PendingId {PendingId}", evt.Id);
                 // Persist a server-side notification record
                 try
@@ -50,7 +73,7 @@ namespace Katana.API.Notifications
                     {
                         Type = "PendingStockAdjustmentCreated",
                         Title = $"Yeni bekleyen stok #{evt.Id}",
-                        Payload = System.Text.Json.JsonSerializer.Serialize(payload),
+                        Payload = payloadJson,
                         Link = $"/admin?focusPending={evt.Id}",
                         RelatedPendingId = evt.Id,
                         CreatedAt = evt.RequestedAt.UtcDateTime
@@ -62,10 +85,6 @@ namespace Katana.API.Notifications
                 {
                     _logger?.LogWarning(ex, "Failed to persist notification for PendingId {PendingId}", evt.Id);
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Failed to publish PendingStockAdjustmentCreated for PendingId {PendingId}", evt.Id);
             }
         }
 
@@ -83,10 +102,12 @@ namespace Katana.API.Notifications
                 link = $"/admin/pending/{evt.Id}"
             };
 
-            try
+            var payloadJson = JsonSerializer.Serialize(payload);
+            var published = await TryPublishAsync("PendingStockAdjustmentApproved", payload, payloadJson, evt.Id);
+
+            if (published)
             {
                 _logger?.LogInformation("Publishing PendingStockAdjustmentApproved for PendingId {PendingId}", evt.Id);
-                await _hub.Clients.All.SendAsync("PendingStockAdjustmentApproved", payload);
                 _logger?.LogInformation("Published PendingStockAdjustmentApproved for PendingId {PendingId}", evt.Id);
                 // Persist approval notification
                 try
@@ -95,7 +116,7 @@ namespace Katana.API.Notifications
                     {
                         Type = "PendingStockAdjustmentApproved",
                         Title = $"Stok ayarlaması #{evt.Id} onaylandı",
-                        Payload = System.Text.Json.JsonSerializer.Serialize(payload),
+                        Payload = payloadJson,
                         Link = $"/admin?focusPending={evt.Id}",
                         RelatedPendingId = evt.Id,
                         CreatedAt = evt.ApprovedAt.UtcDateTime
@@ -108,10 +129,85 @@ namespace Katana.API.Notifications
                     _logger?.LogWarning(ex, "Failed to persist approval notification for PendingId {PendingId}", evt.Id);
                 }
             }
+        }
+
+        private async Task<bool> TryPublishAsync(string eventName, object payload, string payloadJson, long pendingId)
+        {
+            var attempt = 0;
+            try
+            {
+                var context = new Context()
+                    .WithLogger(_logger, eventName, pendingId);
+
+                await _publishRetryPolicy.ExecuteAsync(async (ctx, cancellationToken) =>
+                {
+                    attempt++;
+                    await _hub.Clients.All.SendAsync(eventName, payload, cancellationToken);
+                }, context, CancellationToken.None);
+
+                return true;
+            }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "Failed to publish PendingStockAdjustmentApproved for PendingId {PendingId}", evt.Id);
+                _logger?.LogError(ex,
+                    "Failed to publish {EventName} for PendingId {PendingId} after {Attempts} attempts",
+                    eventName,
+                    pendingId,
+                    attempt);
+
+                try
+                {
+                    _db.FailedNotifications.Add(new Katana.Core.Entities.FailedNotification
+                    {
+                        EventType = eventName,
+                        Payload = payloadJson,
+                        RetryCount = attempt,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                    await _db.SaveChangesAsync();
+                }
+                catch (Exception dbEx)
+                {
+                    _logger?.LogError(dbEx,
+                        "Failed to persist FailedNotification for {EventName} (PendingId {PendingId})",
+                        eventName,
+                        pendingId);
+                }
+
+                return false;
             }
         }
+    }
+}
+
+file static class SignalRNotificationPublisherPollyExtensions
+{
+    public static Context WithLogger(this Context context, ILogger logger, string eventName, long entityId)
+    {
+        context["__logger"] = logger;
+        context["__eventName"] = eventName;
+        context["__entityId"] = entityId;
+        return context;
+    }
+
+    public static bool TryGetLogger(this Context context, out ILogger logger, out string eventName, out long entityId)
+    {
+        entityId = 0;
+        logger = context.ContainsKey("__logger") && context["__logger"] is ILogger l ? l : default!;
+        eventName = context.ContainsKey("__eventName") && context["__eventName"] is string evt ? evt : string.Empty;
+        if (context.ContainsKey("__entityId"))
+        {
+            switch (context["__entityId"])
+            {
+                case long longId:
+                    entityId = longId;
+                    break;
+                case int intId:
+                    entityId = intId;
+                    break;
+            }
+        }
+
+        return logger != null;
     }
 }

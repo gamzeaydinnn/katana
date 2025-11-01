@@ -31,6 +31,8 @@ public class IntegrationDbContext : DbContext
     public DbSet<AuditLog> AuditLogs { get; set; } = null!; // ✅ Audit kayıtları için
     public DbSet<PendingStockAdjustment> PendingStockAdjustments { get; set; } = null!;
     public DbSet<Katana.Core.Entities.Notification> Notifications { get; set; } = null!;
+    public DbSet<Katana.Core.Entities.FailedNotification> FailedNotifications { get; set; } = null!;
+    public DbSet<DashboardMetric> DashboardMetrics { get; set; } = null!;
     public DbSet<StockMovement> StockMovements { get; set; } = null!;
     public DbSet<Category> Categories { get; set; }
     public DbSet<Order> Orders { get; set; }
@@ -40,7 +42,6 @@ public class IntegrationDbContext : DbContext
     public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
     public DbSet<PurchaseOrderItem> PurchaseOrderItems { get; set; }
     public DbSet<Katana.Core.Entities.User> Users { get; set; } = null!;
-    public DbSet<Katana.Core.Entities.FailedNotification> FailedNotifications { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     base.OnModelCreating(modelBuilder);
@@ -173,6 +174,7 @@ public class IntegrationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.EntityName);
             entity.HasIndex(e => e.ActionType);
+            entity.HasIndex(e => new { e.Timestamp, e.ActionType });
             entity.Property(e => e.Timestamp).IsRequired();
         });
 
@@ -196,6 +198,7 @@ public class IntegrationDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.Level);
+            entity.HasIndex(e => new { e.CreatedAt, e.Level });
             entity.HasIndex(e => e.Category);
             // SQLite 'nvarchar(max)' desteklemez; TEXT kullan
             if (isSqlite)
@@ -230,6 +233,22 @@ public class IntegrationDbContext : DbContext
             entity.HasIndex(e => e.IsRead);
             entity.HasIndex(e => e.CreatedAt);
             entity.Property(e => e.RelatedPendingId).HasColumnType(isSqlite ? "INTEGER" : "bigint");
+        });
+
+        modelBuilder.Entity<Katana.Core.Entities.FailedNotification>(entity =>
+        {
+            entity.ToTable("FailedNotifications");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EventType).IsRequired().HasMaxLength(150);
+            entity.Property(e => e.Payload).IsRequired().HasColumnType(isSqlite ? "TEXT" : "nvarchar(max)");
+            entity.Property(e => e.RetryCount).HasDefaultValue(0);
+            entity.Property(e => e.CreatedAt).IsRequired();
+        });
+
+        modelBuilder.Entity<DashboardMetric>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Hour).IsUnique();
         });
 
         // Supplier configuration

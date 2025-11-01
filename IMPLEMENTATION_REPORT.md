@@ -1095,3 +1095,5 @@ git checkout -b feature/admin-role-authorization
 ```
 
 ---
+
+✅ Reliability improvements implemented: DLQ retry, keyset pagination, and daily log retention service added. (Auto-updated by Codex)

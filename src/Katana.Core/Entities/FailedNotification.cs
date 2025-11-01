@@ -12,7 +12,15 @@ public class FailedNotification : IEntity
     public long Id { get; set; }
 
     [Required]
-    public string EventName { get; set; } = null!;
+    [MaxLength(150)]
+    public string EventType { get; set; } = null!;
+
+    [NotMapped]
+    public string EventName
+    {
+        get => EventType;
+        set => EventType = value;
+    }
 
     [Required]
     public string Payload { get; set; } = null!;

@@ -29,16 +29,17 @@ public class LogsController : ControllerBase
     /// </summary>
     [HttpGet("errors")]
     public async Task<IActionResult> GetErrorLogs(
-        [FromQuery] int page = 1, 
         [FromQuery] int pageSize = 50,
         [FromQuery] string? level = null,
         [FromQuery] string? category = null,
         [FromQuery] DateTime? fromDate = null,
-        [FromQuery] DateTime? toDate = null)
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] DateTime? cursorCreatedAt = null,
+        [FromQuery] int? cursorId = null)
     {
         try
         {
-            _loggingService.LogInfo($"Error logs requested (Page: {page})", User?.Identity?.Name, "GetErrorLogs", LogCategory.UserAction);
+            _loggingService.LogInfo("Error logs requested (keyset pagination)", User?.Identity?.Name, "GetErrorLogs", LogCategory.UserAction);
 
             var query = _context.ErrorLogs.AsQueryable();
 
@@ -54,11 +55,20 @@ public class LogsController : ControllerBase
             if (toDate.HasValue)
                 query = query.Where(e => e.CreatedAt <= toDate.Value);
 
-            var total = await query.CountAsync();
-            var logs = await query
+            if (cursorCreatedAt.HasValue && cursorId.HasValue)
+            {
+                var createdAt = cursorCreatedAt.Value;
+                var id = cursorId.Value;
+                query = query.Where(e => e.CreatedAt < createdAt || (e.CreatedAt == createdAt && e.Id < id));
+            }
+
+            pageSize = Math.Clamp(pageSize, 1, 200);
+            var orderedQuery = query
                 .OrderByDescending(e => e.CreatedAt)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
+                .ThenByDescending(e => e.Id);
+
+            var items = await orderedQuery
+                .Take(pageSize + 1)
                 .Select(e => new
                 {
                     e.Id,
@@ -71,7 +81,25 @@ public class LogsController : ControllerBase
                 })
                 .ToListAsync();
 
-            return Ok(new { logs, total, page, pageSize });
+            var hasMore = items.Count > pageSize;
+            var logs = hasMore ? items.Take(pageSize).ToList() : items;
+            var nextCursor = hasMore
+                ? new
+                {
+                    createdAt = logs.Last().CreatedAt,
+                    id = logs.Last().Id
+                }
+                : null;
+
+            var total = await _context.ErrorLogs.CountAsync();
+
+            return Ok(new
+            {
+                logs,
+                total,
+                pageSize,
+                nextCursor
+            });
         }
         catch (Exception ex)
         {
@@ -86,17 +114,18 @@ public class LogsController : ControllerBase
     /// </summary>
     [HttpGet("audits")]
     public async Task<IActionResult> GetAuditLogs(
-        [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         [FromQuery] string? actionType = null,
         [FromQuery] string? entityName = null,
         [FromQuery] string? performedBy = null,
         [FromQuery] DateTime? fromDate = null,
-        [FromQuery] DateTime? toDate = null)
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] DateTime? cursorTimestamp = null,
+        [FromQuery] int? cursorId = null)
     {
         try
         {
-            _loggingService.LogInfo($"Audit logs requested (Page: {page})", User?.Identity?.Name, "GetAuditLogs", LogCategory.UserAction);
+            _loggingService.LogInfo("Audit logs requested (keyset pagination)", User?.Identity?.Name, "GetAuditLogs", LogCategory.UserAction);
 
             var query = _context.AuditLogs.AsQueryable();
 
@@ -115,11 +144,20 @@ public class LogsController : ControllerBase
             if (toDate.HasValue)
                 query = query.Where(a => a.Timestamp <= toDate.Value);
 
-            var total = await query.CountAsync();
-            var logs = await query
+            if (cursorTimestamp.HasValue && cursorId.HasValue)
+            {
+                var timestamp = cursorTimestamp.Value;
+                var id = cursorId.Value;
+                query = query.Where(a => a.Timestamp < timestamp || (a.Timestamp == timestamp && a.Id < id));
+            }
+
+            pageSize = Math.Clamp(pageSize, 1, 200);
+            var orderedQuery = query
                 .OrderByDescending(a => a.Timestamp)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
+                .ThenByDescending(a => a.Id);
+
+            var items = await orderedQuery
+                .Take(pageSize + 1)
                 .Select(a => new
                 {
                     a.Id,
@@ -133,7 +171,25 @@ public class LogsController : ControllerBase
                 })
                 .ToListAsync();
 
-            return Ok(new { logs, total, page, pageSize });
+            var hasMore = items.Count > pageSize;
+            var logs = hasMore ? items.Take(pageSize).ToList() : items;
+            var nextCursor = hasMore
+                ? new
+                {
+                    timestamp = logs.Last().Timestamp,
+                    id = logs.Last().Id
+                }
+                : null;
+
+            var total = await _context.AuditLogs.CountAsync();
+
+            return Ok(new
+            {
+                logs,
+                total,
+                pageSize,
+                nextCursor
+            });
         }
         catch (Exception ex)
         {

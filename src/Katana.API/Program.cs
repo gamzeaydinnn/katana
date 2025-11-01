@@ -22,6 +22,7 @@ using Katana.Core.Interfaces;
 using Katana.Core.Entities;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Katana.API.Workers;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -344,6 +345,11 @@ if (enableBackground)
     builder.Services.AddSingleton<Katana.Core.Services.PendingDbWriteQueue>();
     builder.Services.AddHostedService<Katana.Infrastructure.Workers.RetryPendingDbWritesService>();
 }
+
+// Continuous background services for metrics, retention, and DLQ recovery
+builder.Services.AddHostedService<HourlyMetricsAggregator>();
+builder.Services.AddHostedService<LogRetentionService>();
+builder.Services.AddHostedService<FailedNotificationProcessor>();
 
 // -----------------------------
 // Build & Run

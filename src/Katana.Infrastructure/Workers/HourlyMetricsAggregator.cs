@@ -8,6 +8,7 @@ namespace Katana.Infrastructure.Workers;
 
 public class HourlyMetricsAggregator : BackgroundService
 {
+    private static readonly TimeSpan AggregationInterval = TimeSpan.FromMinutes(10);
     private readonly ILogger<HourlyMetricsAggregator> _logger;
     private readonly IServiceProvider _services;
 
@@ -22,24 +23,26 @@ public class HourlyMetricsAggregator : BackgroundService
         _logger.LogInformation("HourlyMetricsAggregator starting");
         try
         {
-            // Initial catch-up for previous 1 hour to ensure a datapoint exists
-            await AggregatePreviousHour(stoppingToken);
+            // Initial catch-up for previously completed slice
+            await AggregatePreviousSlice(stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)
             {
-                var now = DateTime.UtcNow;
-                var nextHour = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc).AddHours(1);
-                var delay = nextHour - now;
+                var nextRunAt = GetNextRunUtc();
+                var delay = nextRunAt - DateTime.UtcNow;
                 try
                 {
-                    await Task.Delay(delay, stoppingToken);
+                    if (delay > TimeSpan.Zero)
+                    {
+                        await Task.Delay(delay, stoppingToken);
+                    }
                 }
                 catch (OperationCanceledException)
                 {
                     break;
                 }
 
-                await AggregatePreviousHour(stoppingToken);
+                await AggregatePreviousSlice(stoppingToken);
             }
         }
         finally
@@ -48,25 +51,42 @@ public class HourlyMetricsAggregator : BackgroundService
         }
     }
 
-    private async Task AggregatePreviousHour(CancellationToken ct)
+    private static DateTime GetNextRunUtc()
+    {
+        var now = DateTime.UtcNow;
+        var aligned = AlignToInterval(now, AggregationInterval);
+        return aligned.Add(AggregationInterval);
+    }
+
+    private static DateTime AlignToInterval(DateTime input, TimeSpan interval)
+    {
+        var ticks = input.Ticks / interval.Ticks;
+        return new DateTime(ticks * interval.Ticks, DateTimeKind.Utc);
+    }
+
+    private async Task AggregatePreviousSlice(CancellationToken ct)
     {
         using var scope = _services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<IntegrationDbContext>();
         var now = DateTime.UtcNow;
-        var hourStart = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc).AddHours(-1);
-        var hourEnd = hourStart.AddHours(1);
+        var sliceEnd = AlignToInterval(now, AggregationInterval);
+        if (sliceEnd > now)
+        {
+            sliceEnd = sliceEnd - AggregationInterval;
+        }
+        var sliceStart = sliceEnd - AggregationInterval;
 
         try
         {
-            var errorCount = await db.ErrorLogs.CountAsync(e => e.CreatedAt >= hourStart && e.CreatedAt < hourEnd, ct);
-            var auditCount = await db.AuditLogs.CountAsync(a => a.Timestamp >= hourStart && a.Timestamp < hourEnd, ct);
+            var errorCount = await db.ErrorLogs.CountAsync(e => e.CreatedAt >= sliceStart && e.CreatedAt < sliceEnd, ct);
+            var auditCount = await db.AuditLogs.CountAsync(a => a.Timestamp >= sliceStart && a.Timestamp < sliceEnd, ct);
 
-            var existing = await db.Set<Katana.Data.Models.DashboardMetric>().SingleOrDefaultAsync(x => x.Hour == hourStart, ct);
+            var existing = await db.DashboardMetrics.SingleOrDefaultAsync(x => x.Hour == sliceStart, ct);
             if (existing == null)
             {
-                db.Set<Katana.Data.Models.DashboardMetric>().Add(new Katana.Data.Models.DashboardMetric
+                db.DashboardMetrics.Add(new Katana.Data.Models.DashboardMetric
                 {
-                    Hour = hourStart,
+                    Hour = sliceStart,
                     ErrorCount = errorCount,
                     AuditCount = auditCount,
                     CreatedAt = DateTime.UtcNow
@@ -78,12 +98,11 @@ public class HourlyMetricsAggregator : BackgroundService
                 existing.AuditCount = auditCount;
             }
             await db.SaveChangesAsync(ct);
-            _logger.LogInformation("Aggregated metrics for {Hour}: errors={Errors}, audits={Audits}", hourStart, errorCount, auditCount);
+            _logger.LogInformation("Aggregated metrics for slice starting {SliceStart}: errors={Errors}, audits={Audits}", sliceStart, errorCount, auditCount);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to aggregate metrics for {Hour}", hourStart);
+            _logger.LogWarning(ex, "Failed to aggregate metrics for slice starting {SliceStart}", sliceStart);
         }
     }
 }
-
