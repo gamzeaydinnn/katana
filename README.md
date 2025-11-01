@@ -2,26 +2,56 @@
 
 **Katana (MRP/ERP)** ile **Luca Koza (Muhasebe)** sistemleri arasında otomatik veri entegrasyonu sağlayan kapsamlı bir .NET Core projesidir.
 
+## 🚨 IMPORTANT: Recent Code Audit
+
+**Latest Analysis:** 2025  
+**Branch Status:** Synced with master (commit 9963dde)
+
+📊 **Quick Status:**
+
+- ✅ Backend service layer 85% complete
+- ⚠️ **CRITICAL:** Admin authorization missing (see [AUDIT_SUMMARY.md](AUDIT_SUMMARY.md))
+- ⚠️ Frontend SignalR UI update incomplete
+- 📈 Test coverage: 30% (target: 60%)
+
+📋 **Action Items:** See [TODO.md](TODO.md) for detailed sprint plan  
+📄 **Full Report:** See [IMPLEMENTATION_REPORT.md](IMPLEMENTATION_REPORT.md) for comprehensive analysis
+
 ## 📋 Proje Amacı
 
 - **Katana**: Üretim, stok ve satış verilerini yönetir
 - **Luca Koza**: Mali kayıtları ve fatura/muhasebe işlemlerini yönetir
 - **Entegrasyon**: Katana'dan gelen stok, satış, fatura ve muhasebe verilerini otomatik olarak Luca'ya aktarır
 - **Çift Yönlü**: Gerektiğinde Luca'dan Katana'ya cari hesap veya mali tablo verisi aktarımını destekler
+- **Admin Approval**: Pending stock adjustments workflow with real-time SignalR notifications
 
 **Sonuç**: Şirketler manuel veri girişi yapmadan iki sistemi entegre bir şekilde kullanabilir.
 
 ## 🏗 Proje Mimarisi
 
 ```
-Katana.Integration/
-├── Katana.Core/             # Domain modelleri, DTO'lar, yardımcılar
-├── Katana.Data/             # Veritabanı katmanı
-├── Katana.Business/         # Servisler ve iş mantığı
-├── Katana.API/              # REST API (kontroller, middleware)
-├── Katana.Infrastructure/   # Logging, jobs, background services
-├── Katana.Tests/            # Unit & Integration testleri
-└── docs/                    # Dökümantasyon, mapping tabloları
+katana/
+├── src/
+│   ├── Katana.Core/             # Domain entities, DTOs, interfaces (90+ files)
+│   ├── Katana.Data/             # EF Core, migrations, DbContext (50+ files)
+│   ├── Katana.Business/         # Services, use cases, validators (80+ files)
+│   ├── Katana.API/              # Controllers, SignalR hubs, middleware (112+ files)
+│   └── Katana.Infrastructure/   # Logging, workers, API clients (60+ files)
+├── frontend/
+│   └── katana-web/              # React + TypeScript + Material-UI (38 TSX files)
+│       ├── src/components/      # Admin, Dashboard, Layout components
+│       ├── src/services/        # SignalR client, API services
+│       └── src/theme/           # MUI theme configuration
+├── tests/
+│   └── Katana.Tests/            # Unit & integration tests (4 test files)
+├── scripts/
+│   └── admin-e2e.ps1            # PowerShell E2E test script
+└── docs/
+    ├── api.md                   # API documentation
+    ├── mapping.md               # Data mapping guide
+    ├── IMPLEMENTATION_REPORT.md # Comprehensive code audit (NEW)
+    ├── AUDIT_SUMMARY.md         # Quick audit summary (NEW)
+    └── project_audit_and_action_plan.md
 ```
 
 ## 🧩 Katman Yapısı
@@ -78,27 +108,35 @@ Katana.Integration/
 ### Gereksinimler
 
 - .NET 8.0+
-- SQL Server / PostgreSQL / SQLite
+- Node.js 18+ (Frontend için)
+- SQL Server / SQLite
 - Visual Studio 2022 / VS Code
 
 ### Kurulum Adımları
 
-```bash
+```powershell
 # 1. Projeyi klonlayın
 git clone https://github.com/gamzeaydinnn/katana.git
 cd katana
 
-# 2. NuGet paketlerini restore edin
+# 2. Backend Setup
 dotnet restore
+dotnet ef database update --project src\Katana.Data
 
-# 3. Veritabanını oluşturun
-dotnet ef database update --project src/ECommerce.Data
+# 3. Frontend Setup
+cd frontend\katana-web
+npm install
 
 # 4. Yapılandırma dosyasını düzenleyin
-cp src/ECommerce.API/appsettings.json.example src/ECommerce.API/appsettings.json
+# src/Katana.API/appsettings.json dosyasını düzenleyin (aşağıya bakın)
 
-# 5. Projeyi çalıştırın
-dotnet run --project src/ECommerce.API
+# 5. Backend'i çalıştırın
+cd ..\..
+dotnet run --project src\Katana.API --urls "http://localhost:5055"
+
+# 6. Frontend'i çalıştırın (yeni terminal)
+cd frontend\katana-web
+npm start  # http://localhost:3000
 ```
 
 ### Yapılandırma
@@ -134,6 +172,22 @@ dotnet run --project src/ECommerce.API
 POST /api/sync/run
 ```
 
+### Pending Stock Adjustments (Admin Workflow)
+
+```bash
+# List pending adjustments
+GET /api/admin/pending-adjustments
+
+# Approve adjustment
+POST /api/admin/pending-adjustments/{id}/approve
+
+# Reject adjustment
+POST /api/admin/pending-adjustments/{id}/reject
+
+# Create test pending
+POST /api/admin/test-pending
+```
+
 ### Rapor Alma
 
 ```bash
@@ -149,12 +203,35 @@ POST /api/mapping
 PUT /api/mapping/{id}
 ```
 
+### E2E Test Script
+
+```powershell
+# PowerShell E2E test (login → create → approve workflow)
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\admin-e2e.ps1
+```
+
+### SignalR Real-time Notifications
+
+Frontend automatically connects to SignalR hub at `/hubs/notifications`:
+
+- Event: `PendingCreated` - New pending adjustment created
+- Event: `PendingApproved` - Adjustment approved by admin
+- Event: `PendingRejected` - Adjustment rejected
+
 ## 🔐 Güvenlik
 
 - **TLS**: HTTPS zorunlu
-- **Authentication**: JWT token veya API key
-- **Secrets**: Environment variables kullanımı
-- **Audit**: Tüm işlemler loglanır
+- **Authentication**: JWT Bearer token (480 min expiry)
+- **Authorization**: Role-based (Admin, StockManager) - ⚠️ **[IN PROGRESS]** (see [AUDIT_SUMMARY.md](AUDIT_SUMMARY.md#1-admincontroller-authorization-gap-))
+- **Secrets**: Environment variables önerilir (production'da Azure Key Vault)
+- **Audit**: Tüm işlemler AuditLogs tablosunda loglanır
+- **CORS**: Configured origins only (localhost:3000 for dev)
+
+**Known Issues:**
+
+- ⚠️ AdminController endpoints missing role-based authorization (HIGH PRIORITY FIX)
+- ⚠️ Some controllers use `[AllowAnonymous]` unnecessarily
+- 🔑 JWT secret hardcoded in appsettings.json (use Key Vault in production)
 
 ## ⚡ Performans
 
@@ -174,21 +251,54 @@ PUT /api/mapping/{id}
 
 ```bash
 # Unit testleri çalıştır
-dotnet test tests/ECommerce.Tests
+dotnet test tests/Katana.Tests
 
-# Integration testleri çalıştır
-dotnet test tests/ECommerce.Tests --filter Category=Integration
+# Specific test file
+dotnet test tests/Katana.Tests --filter FullyQualifiedName~PendingStockAdjustmentServiceTests
 
 # Test coverage raporu
 dotnet test --collect:"XPlat Code Coverage"
+
+# Frontend tests (when implemented)
+cd frontend/katana-web
+npm test
 ```
+
+**Current Test Status:**
+
+- Backend: ~15 unit tests, 1 integration test (30% coverage)
+- Frontend: 0 tests (setupTests.ts exists but no test files)
+- E2E: 1 PowerShell script (admin-e2e.ps1)
+
+**Missing Tests (High Priority):**
+
+- Concurrent approval scenarios
+- Role-based authorization tests
+- SignalR event publishing tests
+- Frontend component tests
+
+See [IMPLEMENTATION_REPORT.md](IMPLEMENTATION_REPORT.md#-test-coverage) for detailed test analysis.
 
 ## 📚 Dokümantasyon
 
+### Kullanıcı Dokümantasyonu
+
 - [API Dokümantasyonu](docs/api.md)
 - [Veri Mapping Kılavuzu](docs/mapping.md)
-- [Deployment Kılavuzu](docs/deployment.md)
-- [Troubleshooting](docs/troubleshooting.md)
+
+### Geliştirici Dokümantasyonu
+
+- 📊 **[Kod Audit Özeti](AUDIT_SUMMARY.md)** - Hızlı durum raporu (1 dakikalık okuma)
+- 📄 **[Detaylı İmplementasyon Raporu](IMPLEMENTATION_REPORT.md)** - Kapsamlı kod analizi (30+ sayfa)
+- 📋 **[TODO ve Aksiyon Planı](TODO.md)** - Sprint breakdown ve öncelikli görevler
+- 📖 **[Proje Audit Planı](docs/project_audit_and_action_plan.md)** - Orijinal audit dokümanı
+
+### Önemli Bulgular (Latest Audit - 2025)
+
+1. **CRITICAL:** AdminController role-based authorization eksik ([Details](AUDIT_SUMMARY.md#1-admincontroller-authorization-gap-))
+2. **HIGH:** Frontend SignalR UI update incomplete ([Details](AUDIT_SUMMARY.md#2-frontend-signalr-ui-update))
+3. **MEDIUM:** Test coverage 30% (target: 60%) ([Details](IMPLEMENTATION_REPORT.md#-test-coverage))
+4. **MEDIUM:** LogsController performance issues ([Details](IMPLEMENTATION_REPORT.md#1-logscontroller-slow-queries-))
 
 ## 🤝 Katkıda Bulunma
 

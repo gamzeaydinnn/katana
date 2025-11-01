@@ -88,8 +88,8 @@ public class AuthController : ControllerBase
             new Claim(JwtRegisteredClaimNames.Sub, username),
             new Claim(ClaimTypes.Name, username),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            // Rol eklemek isterseniz:
-            // new Claim(ClaimTypes.Role, "Admin")
+            new Claim(ClaimTypes.Role, "Admin"),
+            new Claim(ClaimTypes.Role, "StockManager")
         };
 
         var tokenDescriptor = new SecurityTokenDescriptor

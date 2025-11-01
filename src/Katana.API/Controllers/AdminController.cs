@@ -38,6 +38,7 @@ public class AdminController : ControllerBase
 
     // Pending adjustments service will be resolved from DI when needed
     [HttpGet("pending-adjustments")]
+    [Authorize(Roles = "Admin,StockManager")]
     public async Task<IActionResult> GetPendingAdjustments()
     {
         try
@@ -71,6 +72,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("pending-adjustments/{id}/approve")]
+    [Authorize(Roles = "Admin,StockManager")]
     public async Task<IActionResult> ApprovePendingAdjustment(long id, [FromQuery] string approvedBy = "admin")
     {
         try
@@ -100,6 +102,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("pending-adjustments/{id}/reject")]
+    [Authorize(Roles = "Admin,StockManager")]
     public async Task<IActionResult> RejectPendingAdjustment(long id, [FromBody] RejectDto dto)
     {
         try
@@ -311,6 +314,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("pending-adjustments/test-create")]
+    [Authorize(Roles = "Admin,StockManager")]
     public async Task<IActionResult> CreateTestPendingAdjustment()
     {
         try
