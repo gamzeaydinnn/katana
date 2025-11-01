@@ -235,7 +235,12 @@ builder.Services.AddScoped<INotificationService, EmailNotificationService>();
 builder.Services.AddScoped<NotificationService>(); // Business katmanı
 
 // SignalR and pending notification publisher (API provides a SignalR-backed publisher)
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+});
 builder.Services.AddScoped<Katana.Core.Interfaces.IPendingNotificationPublisher, Katana.API.Notifications.SignalRNotificationPublisher>();
 
 builder.Services.AddScoped<DashboardService>();

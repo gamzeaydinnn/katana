@@ -24,6 +24,13 @@ import {
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { stockAPI } from "../../services/api";
+import {
+  startConnection,
+  onPendingCreated,
+  offPendingCreated,
+  onPendingApproved,
+  offPendingApproved,
+} from "../../services/signalr";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -33,6 +40,50 @@ interface HeaderProps {
   mode?: "light" | "dark";
   onToggleMode?: () => void;
 }
+
+type NotificationStatus = "pending" | "approved" | "rejected";
+
+interface NotificationItem {
+  id: string;
+  title: string;
+  description?: string;
+  status: NotificationStatus;
+  createdAt: string;
+  referenceId?: number;
+}
+
+const MAX_NOTIFICATIONS = 20;
+
+const notificationStatusMeta: Record<
+  NotificationStatus,
+  { label: string; color: "warning" | "success" | "error" }
+> = {
+  pending: { label: "Bekliyor", color: "warning" },
+  approved: { label: "Onaylandı", color: "success" },
+  rejected: { label: "Reddedildi", color: "error" },
+};
+
+const formatRelativeTime = (value?: string) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const diff = Date.now() - date.getTime();
+  if (diff < 60_000) return "Az önce";
+  if (diff < 3_600_000)
+    return `${Math.floor(diff / 60_000)} dk önce`;
+  if (diff < 86_400_000)
+    return `${Math.floor(diff / 3_600_000)} sa önce`;
+
+  return date.toLocaleString("tr-TR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
 const Header: React.FC<HeaderProps> = ({
   onMenuClick,
@@ -50,6 +101,11 @@ const Header: React.FC<HeaderProps> = ({
     "connected" | "disconnected" | "checking"
   >("checking");
   const [isChecking, setIsChecking] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [signalrStatus, setSignalrStatus] = useState<
+    "connecting" | "connected" | "error"
+  >("connecting");
+  const [signalrError, setSignalrError] = useState<string | null>(null);
 
   // Backend health check
   useEffect(() => {
@@ -69,6 +125,142 @@ const Header: React.FC<HeaderProps> = ({
     checkBackendHealth();
     const interval = setInterval(checkBackendHealth, 60000); // Check every minute
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    setSignalrStatus("connecting");
+    startConnection()
+      .then(() => {
+        if (isMounted) {
+          setSignalrStatus("connected");
+          setSignalrError(null);
+        }
+      })
+      .catch((err) => {
+        console.warn("SignalR connection failed", err);
+        if (isMounted) {
+          setSignalrStatus("error");
+          setSignalrError(
+            err?.message || "SignalR bağlantısı kurulamadı"
+          );
+        }
+      });
+
+    const createdHandler = (payload: any) => {
+      const pending = payload?.pending ?? payload;
+      if (!pending?.id) return;
+
+      const idNumber =
+        typeof pending.id === "number"
+          ? pending.id
+          : Number.parseInt(String(pending.id), 10);
+      const createdAt =
+        typeof pending.requestedAt === "string"
+          ? pending.requestedAt
+          : new Date().toISOString();
+
+      const title =
+        pending.sku && typeof pending.sku === "string"
+          ? `Yeni bekleyen: ${pending.sku}`
+          : `Yeni bekleyen: #${pending.id}`;
+
+      const descriptionParts: string[] = [];
+      if (
+        pending.quantity !== undefined &&
+        pending.quantity !== null
+      ) {
+        descriptionParts.push(`Adet: ${pending.quantity}`);
+      }
+      if (pending.requestedBy) {
+        descriptionParts.push(`Talep eden: ${pending.requestedBy}`);
+      }
+
+      setNotifications((prev) => {
+        const next: NotificationItem = {
+          id: `pending-${pending.id}`,
+          referenceId: Number.isNaN(idNumber) ? undefined : idNumber,
+          title,
+          description:
+            descriptionParts.length > 0
+              ? descriptionParts.join(" • ")
+              : undefined,
+          status: "pending" as const,
+          createdAt,
+        };
+
+        const filtered = prev.filter((item) => item.id !== next.id);
+        return [next, ...filtered].slice(0, MAX_NOTIFICATIONS);
+      });
+    };
+
+    const approvedHandler = (payload: any) => {
+      const pendingId =
+        payload?.pendingId ?? payload?.id ?? payload;
+      if (!pendingId) return;
+
+      const idNumber =
+        typeof pendingId === "number"
+          ? pendingId
+          : Number.parseInt(String(pendingId), 10);
+      if (Number.isNaN(idNumber)) return;
+
+      const approvedAt =
+        typeof payload?.approvedAt === "string"
+          ? payload.approvedAt
+          : new Date().toISOString();
+
+      const approvedBy =
+        typeof payload?.approvedBy === "string"
+          ? payload.approvedBy
+          : undefined;
+
+      setNotifications((prev) => {
+        let updatedExisting = false;
+        const updated = prev.map((item) => {
+          if (item.referenceId === idNumber) {
+            updatedExisting = true;
+            return {
+              ...item,
+              status: "approved" as const,
+              title: `Onaylandı: #${idNumber}`,
+              description: approvedBy
+                ? `Onaylayan: ${approvedBy}`
+                : item.description,
+              createdAt: approvedAt,
+            };
+          }
+          return item;
+        });
+
+        if (updatedExisting) {
+          return updated;
+        }
+
+        const next: NotificationItem = {
+          id: `approved-${idNumber}-${Date.now()}`,
+          referenceId: idNumber,
+          title: `Onaylandı: #${idNumber}`,
+          description: approvedBy
+            ? `Onaylayan: ${approvedBy}`
+            : undefined,
+          status: "approved" as const,
+          createdAt: approvedAt,
+        };
+
+        return [next, ...prev].slice(0, MAX_NOTIFICATIONS);
+      });
+    };
+
+    onPendingCreated(createdHandler);
+    onPendingApproved(approvedHandler);
+
+    return () => {
+      isMounted = false;
+      offPendingCreated(createdHandler);
+      offPendingApproved(approvedHandler);
+    };
   }, []);
 
   // small pulse animation for backend status when connected (defined inline in sx below)
@@ -93,6 +285,20 @@ const Header: React.FC<HeaderProps> = ({
     localStorage.removeItem("authToken");
     window.location.href = "/login";
   };
+
+  const pendingCount = notifications.reduce(
+    (count, item) => (item.status === "pending" ? count + 1 : count),
+    0
+  );
+
+  const notificationTooltip =
+    signalrStatus === "connected"
+      ? "Bildirimler (canlı)"
+      : signalrStatus === "error"
+      ? `Bildirimler (SignalR hatası${
+          signalrError ? `: ${signalrError}` : ""
+        })`
+      : "Bildirimler (bağlanıyor...)";
 
   return (
     <AppBar
@@ -279,12 +485,15 @@ const Header: React.FC<HeaderProps> = ({
           </Tooltip>
 
           {/* Notifications */}
-          <Tooltip title="Bildirimler">
+          <Tooltip title={notificationTooltip}>
             <IconButton
               size="large"
               onClick={handleNotificationOpen}
               sx={{
-                color: theme.palette.primary.main,
+                color:
+                  signalrStatus === "error"
+                    ? theme.palette.error.main
+                    : theme.palette.primary.main,
                 transition: "all 0.22s ease",
                 "&:hover": {
                   transform: "scale(1.08)",
@@ -299,10 +508,11 @@ const Header: React.FC<HeaderProps> = ({
               }}
             >
               <Badge
-                badgeContent={3}
-                color="error"
+                badgeContent={pendingCount}
+                color={pendingCount > 0 ? "error" : "default"}
+                showZero
                 sx={{
-                  ...(true
+                  ...(pendingCount > 0
                     ? {
                         "& .MuiBadge-badge": {
                           transformOrigin: "center top",
@@ -450,69 +660,88 @@ const Header: React.FC<HeaderProps> = ({
             },
           }}
         >
-          <MenuItem
-            sx={{
-              borderRadius: 2,
-              mx: 1,
-              my: 0.5,
-              transition: "all 0.2s ease",
-              "&:hover": {
-                backgroundColor: theme.palette.action.hover,
-                transform: "translateX(4px)",
-              },
-            }}
-          >
-            <Box>
-              <Typography variant="body2" fontWeight="bold">
-                Senkronizasyon Tamamlandı
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                5 dakika önce
-              </Typography>
-            </Box>
-          </MenuItem>
-          <MenuItem
-            sx={{
-              borderRadius: 2,
-              mx: 1,
-              my: 0.5,
-              transition: "all 0.2s ease",
-              "&:hover": {
-                backgroundColor: theme.palette.action.hover,
-                transform: "translateX(4px)",
-              },
-            }}
-          >
-            <Box>
-              <Typography variant="body2" fontWeight="bold">
-                Stok Seviyesi Düşük
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                15 dakika önce
-              </Typography>
-            </Box>
-          </MenuItem>
-          <MenuItem
-            sx={{
-              borderRadius: 2,
-              mx: 1,
-              my: 0.5,
-              transition: "all 0.2s ease",
-              "&:hover": {
-                backgroundColor: theme.palette.action.hover,
-                transform: "translateX(4px)",
-              },
-            }}
-          >
-            <Box>
-              <Typography variant="body2" fontWeight="bold">
-                Yeni Sipariş Alındı
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                1 saat önce
-              </Typography>
-            </Box>
-          </MenuItem>
+          {notifications.length === 0 ? (
+            <MenuItem
+              disabled
+              sx={{
+                borderRadius: 2,
+                mx: 1,
+                my: 0.5,
+                opacity: 0.85,
+                "&:hover": { backgroundColor: "transparent" },
+              }}
+            >
+              <Box>
+                <Typography variant="body2" fontWeight="bold">
+                  Bildirim yok
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Yeni bildirimler burada görünecek.
+                </Typography>
+              </Box>
+            </MenuItem>
+          ) : (
+            notifications.map((notification) => {
+              const statusMeta =
+                notificationStatusMeta[notification.status];
+              return (
+                <MenuItem
+                  key={notification.id}
+                  sx={{
+                    borderRadius: 2,
+                    mx: 1,
+                    my: 0.5,
+                    transition: "all 0.2s ease",
+                    backgroundColor:
+                      notification.status === "pending"
+                        ? theme.palette.action.hover
+                        : "transparent",
+                    "&:hover": {
+                      backgroundColor: theme.palette.action.hover,
+                      transform: "translateX(4px)",
+                    },
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 0.5,
+                      minWidth: 240,
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 1,
+                      }}
+                    >
+                      <Typography variant="body2" fontWeight="bold">
+                        {notification.title}
+                      </Typography>
+                      <Chip
+                        label={statusMeta.label}
+                        color={statusMeta.color}
+                        size="small"
+                        sx={{ fontWeight: 700 }}
+                      />
+                    </Box>
+                    {notification.description && (
+                      <Typography variant="body2" color="text.secondary">
+                        {notification.description}
+                      </Typography>
+                    )}
+                    <Typography variant="caption" color="text.secondary">
+                      {formatRelativeTime(notification.createdAt) ||
+                        "—"}
+                    </Typography>
+                  </Box>
+                </MenuItem>
+              );
+            })
+          )}
         </Menu>
       </Toolbar>
     </AppBar>

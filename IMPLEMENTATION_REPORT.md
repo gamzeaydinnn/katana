@@ -384,62 +384,132 @@ await retryPolicy.ExecuteAsync(async () => {
 
 **Problem:**
 
-- OFFSET/FETCH pagination kullanılıyor → 15-60 saniye query time
-- GROUP BY sorguları optimize edilmemiş
-- Index kullanımı yetersiz
+- OFFSET/FETCH pagination kullanılıyor → büyük tablolarda 15–60 sn sürebiliyor.
+- GROUP BY raporları ham tablodan hesaplanıyor; yoğun sorgularda CPU/IO artıyor.
+- Uygun indexler (CreatedAt/Level, Timestamp/ActionType) tanımlı değil.
 
 **Çözüm:**
 
 **5.1 Keyset Pagination (Cursor-based)**
 
+	- OFFSET/FETCH yerine `CreatedAt + Id` tabanlı cursor.
+	- EF tarafında `AsNoTracking()` ve projection ile gereksiz alanlar alınmıyor.
+
 ```csharp
-// Şu an: OFFSET @skip FETCH NEXT @take
-// Değişmeli:
-var logs = await _context.ErrorLogs
-    .Where(e => e.CreatedAt < cursor)  // cursor = son gelen kaydın timestamp'i
+// GET /api/logs?cursorTs=2025-11-01T12:34:56Z&cursorId=12345&pageSize=100
+var pageSize = Math.Clamp(request.PageSize ?? 100, 1, 500);
+var query = _context.ErrorLogs
+    .AsNoTracking()
     .OrderByDescending(e => e.CreatedAt)
+    .ThenByDescending(e => e.Id);
+
+if (request.CursorTs.HasValue && request.CursorId.HasValue)
+{
+    var ts = request.CursorTs.Value;
+    var id = request.CursorId.Value;
+    query = query.Where(e => e.CreatedAt < ts || (e.CreatedAt == ts && e.Id < id));
+}
+
+var items = await query
+    .Select(e => new { e.Id, e.Level, e.Category, e.Message, e.CreatedAt })
     .Take(pageSize)
     .ToListAsync();
+
+var nextCursor = items.Count > 0
+    ? new { cursorTs = items[^1].CreatedAt, cursorId = items[^1].Id }
+    : null;
+
+return Ok(new { items, nextCursor });
 ```
 
-**5.2 Index Ekleme**
+**5.2 Index Ekleme (OnModelCreating → Migration)**
 
-```sql
--- Migration'a ekle:
-CREATE INDEX IX_ErrorLogs_CreatedAt_Level
-ON ErrorLogs(CreatedAt DESC, Level);
+```csharp
+modelBuilder.Entity<ErrorLog>(entity =>
+{
+    entity.HasIndex(e => new { e.CreatedAt, e.Level });
+});
 
-CREATE INDEX IX_AuditLogs_Timestamp_ActionType
-ON AuditLogs(Timestamp DESC, ActionType);
+modelBuilder.Entity<AuditLog>(entity =>
+{
+    entity.HasIndex(a => new { a.Timestamp, a.ActionType });
+});
 ```
+
+Migration oluşturulup uygulanınca indexler DB’ye yansır (manual SQL gerekmiyor).
 
 **5.3 Dashboard Metrics Pre-Aggregation**
 
+	- `Katana.Infrastructure/Workers/HourlyMetricsAggregator` background servisi.
+	- Son saatlik Error/Audit sayılarını `DashboardMetric` tablosuna yazıyor; Dashboard son 24 saati bu özet tablodan okuyor.
+
 ```csharp
-// Background job: HourlyMetricsAggregator
-// Table: DashboardMetrics (Hour, ErrorCount, AuditCount, ...)
-// Dashboard query: Son 24 saat için pre-aggregated data kullan
+public class HourlyMetricsAggregator : BackgroundService
+{
+    // ctor: IntegrationDbContext + ILogger
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            var now = DateTime.UtcNow;
+            var from = now.AddHours(-1);
+
+            var errors = await _db.ErrorLogs.CountAsync(x => x.CreatedAt >= from && x.CreatedAt < now, stoppingToken);
+            var audits = await _db.AuditLogs.CountAsync(x => x.Timestamp >= from && x.Timestamp < now, stoppingToken);
+
+            _db.DashboardMetrics.Add(new DashboardMetric
+            {
+                Hour = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc),
+                ErrorCount = errors,
+                AuditCount = audits
+            });
+            await _db.SaveChangesAsync(stoppingToken);
+
+            await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken);
+        }
+    }
+}
 ```
+
+`Program.cs`: `builder.Services.AddHostedService<HourlyMetricsAggregator>();`
 
 ---
 
 #### 6. **Retention Policy & Log Purging**
 
-**Eksik:** Eski logları temizleyen mekanizma yok
+**Eksik:** Eski logları temizleyen mekanizma yok.
 
-**Çözüm:**
+**Çözüm:** Infrastructure katmanında günlük çalışan bir worker.
 
 ```csharp
-// Yeni worker: LogRetentionService.cs
 public class LogRetentionService : BackgroundService
 {
+    private readonly IntegrationDbContext _db;
+    private readonly ILogger<LogRetentionService> _logger;
+    private readonly int _retentionDays;
+
+    public LogRetentionService(IntegrationDbContext db, ILogger<LogRetentionService> logger, IConfiguration cfg)
+    {
+        _db = db;
+        _logger = logger;
+        _retentionDays = Math.Max(1, cfg.GetValue<int>("LogRetention:Days", 90));
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var cutoffDate = DateTime.UtcNow.AddDays(-90);
-            await _context.ErrorLogs.Where(e => e.CreatedAt < cutoffDate).ExecuteDeleteAsync();
-            await _context.AuditLogs.Where(a => a.Timestamp < cutoffDate).ExecuteDeleteAsync();
+            try
+            {
+                var cutoff = DateTime.UtcNow.AddDays(-_retentionDays);
+                await _db.ErrorLogs.Where(e => e.CreatedAt < cutoff).ExecuteDeleteAsync(stoppingToken);
+                await _db.AuditLogs.Where(a => a.Timestamp < cutoff).ExecuteDeleteAsync(stoppingToken);
+                _logger.LogInformation("Log retention executed. Cutoff: {Cutoff}", cutoff);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Log retention failed");
+            }
 
             await Task.Delay(TimeSpan.FromDays(1), stoppingToken);
         }
@@ -447,14 +517,17 @@ public class LogRetentionService : BackgroundService
 }
 ```
 
-**appsettings.json:**
+`Program.cs`: `builder.Services.AddHostedService<LogRetentionService>();`
+
+`appsettings.json` → ayrı bölüm:
 
 ```json
-"Logging": {
-  "RetentionDays": 90,
-  "PersistMinimumLevel": "Warning"  // Information yerine Warning (DB log azaltma)
+"LogRetention": {
+  "Days": 90
 }
 ```
+
+Log seviyesini (örn. Warning) production ortamında yapılandırarak DB’ye yazılan log hacmini azaltın.
 
 ---
 
