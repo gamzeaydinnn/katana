@@ -13,16 +13,20 @@ export function startConnection() {
     console.log("[SignalR Service] 🔄 Connection already exists, starting...");
     return connection.start();
   }
-  
+
   console.log("[SignalR Service] 🆕 Creating new connection...");
   connection = new HubConnectionBuilder()
     .withUrl(HUB_URL, {
       accessTokenFactory: () => {
         try {
-          const token = typeof window !== "undefined"
-            ? window.localStorage.getItem("authToken") || ""
-            : "";
-          console.log("[SignalR Service] 🔑 Token retrieved:", token ? "✅ Present" : "❌ Missing");
+          const token =
+            typeof window !== "undefined"
+              ? window.localStorage.getItem("authToken") || ""
+              : "";
+          console.log(
+            "[SignalR Service] 🔑 Token retrieved:",
+            token ? "✅ Present" : "❌ Missing"
+          );
           return token;
         } catch {
           console.error("[SignalR Service] ❌ Error getting token");
@@ -37,22 +41,28 @@ export function startConnection() {
   connection.onclose((e) => {
     console.warn("[SignalR Service] ⚠️ Connection closed:", e);
   });
-  
+
   connection.onreconnecting((e) => {
     console.log("[SignalR Service] 🔄 Reconnecting...", e);
   });
-  
+
   connection.onreconnected((connectionId) => {
-    console.log("[SignalR Service] ✅ Reconnected! ConnectionId:", connectionId);
+    console.log(
+      "[SignalR Service] ✅ Reconnected! ConnectionId:",
+      connectionId
+    );
   });
 
   console.log("[SignalR Service] 🚀 Starting connection to:", HUB_URL);
-  return connection.start().then(() => {
-    console.log("[SignalR Service] ✅ Connection started successfully");
-  }).catch((err) => {
-    console.error("[SignalR Service] ❌ Failed to start connection:", err);
-    throw err;
-  });
+  return connection
+    .start()
+    .then(() => {
+      console.log("[SignalR Service] ✅ Connection started successfully");
+    })
+    .catch((err) => {
+      console.error("[SignalR Service] ❌ Failed to start connection:", err);
+      throw err;
+    });
 }
 
 export function stopConnection() {
@@ -63,28 +73,42 @@ export function stopConnection() {
 }
 
 export function onPendingCreated(handler: (payload: any) => void) {
-  console.log("[SignalR Service] 📝 Registering PendingStockAdjustmentCreated handler");
+  console.log(
+    "[SignalR Service] 📝 Registering PendingStockAdjustmentCreated handler"
+  );
   connection?.on("PendingStockAdjustmentCreated", (payload) => {
-    console.log("[SignalR Service] 📨 PendingStockAdjustmentCreated event:", payload);
+    console.log(
+      "[SignalR Service] 📨 PendingStockAdjustmentCreated event:",
+      payload
+    );
     handler(payload);
   });
 }
 
 export function offPendingCreated(handler: (payload: any) => void) {
-  console.log("[SignalR Service] 🗑️ Removing PendingStockAdjustmentCreated handler");
+  console.log(
+    "[SignalR Service] 🗑️ Removing PendingStockAdjustmentCreated handler"
+  );
   connection?.off("PendingStockAdjustmentCreated", handler);
 }
 
 export function onPendingApproved(handler: (payload: any) => void) {
-  console.log("[SignalR Service] 📝 Registering PendingStockAdjustmentApproved handler");
+  console.log(
+    "[SignalR Service] 📝 Registering PendingStockAdjustmentApproved handler"
+  );
   connection?.on("PendingStockAdjustmentApproved", (payload) => {
-    console.log("[SignalR Service] 📨 PendingStockAdjustmentApproved event:", payload);
+    console.log(
+      "[SignalR Service] 📨 PendingStockAdjustmentApproved event:",
+      payload
+    );
     handler(payload);
   });
 }
 
 export function offPendingApproved(handler: (payload: any) => void) {
-  console.log("[SignalR Service] 🗑️ Removing PendingStockAdjustmentApproved handler");
+  console.log(
+    "[SignalR Service] 🗑️ Removing PendingStockAdjustmentApproved handler"
+  );
   connection?.off("PendingStockAdjustmentApproved", handler);
 }
 
