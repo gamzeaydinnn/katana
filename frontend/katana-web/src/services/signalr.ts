@@ -10,7 +10,12 @@ const HUB_URL = "/hubs/notifications"; // proxy will forward in dev
 
 export function startConnection() {
   if (connection) {
-    console.log("[SignalR Service] 🔄 Connection already exists, starting...");
+    // If already connected/connecting, do nothing (idempotent)
+    const state = (connection.state as unknown) as string;
+    if (state && state !== "Disconnected") {
+      return Promise.resolve();
+    }
+    // Only start when fully disconnected
     return connection.start();
   }
 
@@ -38,15 +43,15 @@ export function startConnection() {
     .configureLogging(LogLevel.Information)
     .build();
 
-  connection.onclose((e) => {
+  connection.onclose((e?: Error) => {
     console.warn("[SignalR Service] ⚠️ Connection closed:", e);
   });
 
-  connection.onreconnecting((e) => {
+  connection.onreconnecting((e?: Error) => {
     console.log("[SignalR Service] 🔄 Reconnecting...", e);
   });
 
-  connection.onreconnected((connectionId) => {
+  connection.onreconnected((connectionId?: string) => {
     console.log(
       "[SignalR Service] ✅ Reconnected! ConnectionId:",
       connectionId
@@ -72,46 +77,22 @@ export function stopConnection() {
   return c.stop();
 }
 
-export function onPendingCreated(handler: (payload: any) => void) {
-  console.log(
-    "[SignalR Service] 📝 Registering PendingStockAdjustmentCreated handler"
-  );
-  connection?.on("PendingStockAdjustmentCreated", (payload) => {
-    console.log(
-      "[SignalR Service] 📨 PendingStockAdjustmentCreated event:",
-      payload
-    );
-    handler(payload);
-  });
+export function onPendingCreated(handler: (payload: object) => void) {
+  connection?.on("PendingStockAdjustmentCreated", handler);
 }
 
-export function offPendingCreated(handler: (payload: any) => void) {
-  console.log(
-    "[SignalR Service] 🗑️ Removing PendingStockAdjustmentCreated handler"
-  );
+export function offPendingCreated(handler: (payload: object) => void) {
   connection?.off("PendingStockAdjustmentCreated", handler);
 }
 
-export function onPendingApproved(handler: (payload: any) => void) {
-  console.log(
-    "[SignalR Service] 📝 Registering PendingStockAdjustmentApproved handler"
-  );
-  connection?.on("PendingStockAdjustmentApproved", (payload) => {
-    console.log(
-      "[SignalR Service] 📨 PendingStockAdjustmentApproved event:",
-      payload
-    );
-    handler(payload);
-  });
+export function onPendingApproved(handler: (payload: object) => void) {
+  connection?.on("PendingStockAdjustmentApproved", handler);
 }
 
-export function offPendingApproved(handler: (payload: any) => void) {
-  console.log(
-    "[SignalR Service] 🗑️ Removing PendingStockAdjustmentApproved handler"
-  );
+export function offPendingApproved(handler: (payload: object) => void) {
   connection?.off("PendingStockAdjustmentApproved", handler);
 }
 
 export function isConnected() {
-  return connection !== null && connection.state === "Connected";
+  return connection !== null && ((connection!.state as unknown) as string) === "Connected";
 }

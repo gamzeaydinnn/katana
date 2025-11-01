@@ -40,6 +40,7 @@ public class IntegrationDbContext : DbContext
     public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
     public DbSet<PurchaseOrderItem> PurchaseOrderItems { get; set; }
     public DbSet<Katana.Core.Entities.User> Users { get; set; } = null!;
+    public DbSet<Katana.Core.Entities.FailedNotification> FailedNotifications { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     base.OnModelCreating(modelBuilder);

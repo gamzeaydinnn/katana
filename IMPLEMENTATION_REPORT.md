@@ -217,11 +217,19 @@ app.MapHub<NotificationHub>("/hubs/notifications");
 
 ### 🔴 YÜKSEK ÖNCELİK (Acil Yapılmalı)
 
-#### 1. **AdminController Role-Based Authorization Eksik**
+#### 1. **AdminController Role-Based Authorization Eksik — ÇÖZÜLDÜ**
 
 **Dosya:** `src/Katana.API/Controllers/AdminController.cs`
 
-**Mevcut Durum:**
+**Güncel Durum (Çözüldü):**
+
+- İlgili endpoint'ler rol tabanlı koruma altına alındı:
+  - `src/Katana.API/Controllers/AdminController.cs:75` → `[Authorize(Roles = "Admin,StockManager")]` (Approve)
+  - `src/Katana.API/Controllers/AdminController.cs:105` → `[Authorize(Roles = "Admin,StockManager")]` (Reject)
+  - `src/Katana.API/Controllers/AdminController.cs:317` → `[Authorize(Roles = "Admin,StockManager")]` (Test-Create)
+- Controller route: `api/adminpanel` (mevcut mimari ile uyumlu)
+- Token üretimi Admin/StockManager rollerini içeriyor:
+  - `src/Katana.API/Controllers/AuthController.cs:77`
 
 ```csharp
 [Authorize]  // ✅ Class level'da var
@@ -239,13 +247,7 @@ public class AdminController : ControllerBase
 
 **Problem:** Herhangi bir authenticated kullanıcı (normal user bile) approve/reject yapabilir!
 
-**Çözüm:**
-
-```csharp
-[Authorize(Roles = "Admin,StockManager")]  // EKLENMELI
-[HttpPost("pending-adjustments/{id}/approve")]
-public async Task<IActionResult> ApprovePendingAdjustment(long id) { ... }
-```
+**Not:** Sınıf seviyesinde `[Authorize]` mevcut, kritik işlemler endpoint seviyesinde rol kontrolü ile daraltıldı.
 
 **Etkilenen Endpoints:**
 
@@ -257,26 +259,20 @@ public async Task<IActionResult> ApprovePendingAdjustment(long id) { ... }
 
 ---
 
-#### 2. **Frontend SignalR UI Update Logic Missing**
+#### 2. **Frontend SignalR UI Update Logic Missing — ÇÖZÜLDÜ**
 
 **Dosya:** `src/frontend/katana-web/src/components/Admin/PendingAdjustments.tsx`
 
-**Mevcut Durum:**
+**Güncel Durum (Çözüldü):**
 
-```typescript
-// Line 135
-useEffect(() => {
-  signalr.onPendingCreated((data) => {
-    console.log("New pending created:", data);
-    // ❌ State update mantığı YOK - UI güncellenmiyor!
-  });
+`src/frontend/katana-web/src/components/Admin/PendingAdjustments.tsx` içinde SignalR event handler’ları UI durumunu güncelliyor ve toast bildirimi gösteriyor:
 
-  signalr.onPendingApproved((data) => {
-    console.log("Pending approved:", data);
-    // ❌ Liste güncellenmesi YOK
-  });
-}, []);
-```
+- Yeni kayıt: liste başına ekleniyor + info toast
+- Onay: ilgili öğenin durumu güncelleniyor + success toast
+
+Ek olarak bileşen testleri ile doğrulandı:
+
+- `frontend/katana-web/src/components/Admin/__tests__/PendingAdjustments.test.tsx:33`
 
 **Eksik:**
 
@@ -284,29 +280,19 @@ useEffect(() => {
 - Real-time list refresh
 - Toast notification (Snackbar)
 
-**Çözüm:**
-
-```typescript
-signalr.onPendingCreated((data) => {
-  setPendings((prev) => [data, ...prev]);
-  enqueueSnackbar("Yeni bekleyen işlem oluşturuldu", { variant: "info" });
-});
-
-signalr.onPendingApproved((data) => {
-  setPendings((prev) => prev.filter((p) => p.id !== data.id));
-  enqueueSnackbar("İşlem onaylandı", { variant: "success" });
-});
-```
+Örnek mantık dosyada uygulanmış durumda (state update + toast).
 
 ---
 
-#### 3. **Unit Test Coverage Yetersiz (%30)**
+#### 3. **Unit Test Coverage Yetersiz (%30) — KISMEN ÇÖZÜLDÜ**
 
 **Mevcut:** 4 test dosyası, toplam ~10-15 test case
 
 **Eksik Testler:**
 
-**3.1 Concurrent Approval Scenarios**
+**3.1 Concurrent Approval Scenarios (Beklemede)**
+
+- `tests/Katana.Tests/Services/ConcurrentApprovalTests.cs` iskeleti eklendi; SQLite FK kısıtları ve claim-update SQL kullanımından dolayı tutarlı eşzamanlılık testi için ilişkisel bir veritabanı (SQL Server/LocalDB) önerilir. CI pipeline’da gerçek DB ile çalışacak entegrasyon testi eklenmesi tavsiye edilir.
 
 ```csharp
 // EKLENMELI: tests/Katana.Tests/Services/ConcurrentApprovalTests.cs
@@ -325,7 +311,11 @@ public async Task ApproveAsync_TwoConcurrentRequests_OnlyOneShouldSucceed()
 }
 ```
 
-**3.2 SignalR Event Publishing Tests**
+**3.2 SignalR Event Publishing Tests (Kısmen)**
+
+- Servis publish yolunun çalıştığını doğrulayan test eklendi:
+  - `tests/Katana.Tests/Services/PendingNotificationPublisherTests.cs:1` → `CreateAsync_ShouldPublish_PendingCreatedEvent`
+- Doğrudan HubContext tabanlı API testi, API projesindeki derleme engelleri nedeniyle beklemede.
 
 ```csharp
 // EKLENMELI: tests/Katana.Tests/Notifications/SignalRPublisherTests.cs
@@ -338,31 +328,13 @@ public async Task PublishPendingCreated_ShouldSendToConnectedClients()
 }
 ```
 
-**3.3 Role-Based Authorization Tests**
+**3.3 Role-Based Authorization Tests (Beklemede)**
 
-```csharp
-// EKLENMELI: tests/Katana.Tests/Controllers/AdminControllerAuthTests.cs
-[Fact]
-public async Task ApproveEndpoint_WithoutAdminRole_ShouldReturn403()
-{
-    // Arrange: User token (no Admin role)
-    // Act: POST /api/admin/pending-adjustments/1/approve
-    // Assert: Status code 403 Forbidden
-}
-```
+- `AdminController` için 403 doğrulama testi, API projesindeki bağımsız derleme sorunları (ör. FailedNotificationProcessor) çözülünce eklenebilir. Şu an token tarafında roller `AuthController` üzerinden veriliyor (bkz. yukarıdaki referans) ve endpoint’lerde `[Authorize(Roles=...)]` mevcut.
 
-**3.4 Frontend Component Tests**
+**3.4 Frontend Component Tests (Çözüldü)**
 
-```typescript
-// EKLENMELI: src/frontend/katana-web/src/components/Admin/__tests__/PendingAdjustments.test.tsx
-describe("PendingAdjustments SignalR Integration", () => {
-  it("should update list when onPendingCreated fires", () => {
-    // Mock signalr.onPendingCreated
-    // Trigger event
-    // Assert: table row count increased
-  });
-});
-```
+- `frontend/katana-web/src/components/Admin/__tests__/PendingAdjustments.test.tsx` içinde SignalR tetikleyince listenin güncellendiği test case mevcut ve geçiyor.
 
 ---
 

@@ -7,7 +7,7 @@
 
 ## 🔥 ACIL (CRITICAL) - Hemen Yapılacaklar
 
-### 1. ⚠️ AdminController Security Fix (2 gün)
+### 1. ⚠️ AdminController Security Fix (2 gün) — ÇÖZÜLDÜ
 
 **Priority:** CRITICAL  
 **File:** `src/Katana.API/Controllers/AdminController.cs`
@@ -25,9 +25,9 @@ public async Task<IActionResult> RejectPendingAdjustment(long id) { ... }
 
 **Adımlar:**
 
-- [ ] AdminController.cs'ye role decorator ekle (lines 73, 97, 127)
-- [ ] AuthController.cs'de role claim oluştur (GenerateJwtToken method)
-- [ ] Integration test yaz (AdminControllerAuthTests.cs)
+- [x] AdminController.cs'ye role decorator ekle (Approve/Reject/Test-Create)
+- [x] AuthController.cs'de role claim oluştur (GenerateJwtToken -> Admin, StockManager)
+- [ ] Integration test yaz (AdminControllerAuthTests.cs) — API derleme hataları nedeniyle beklemede
 - [ ] E2E script ile doğrula (`scripts/admin-e2e.ps1`)
 
 **Test Case:**
@@ -39,7 +39,7 @@ public async Task<IActionResult> RejectPendingAdjustment(long id) { ... }
 
 ---
 
-### 2. 🔴 Frontend SignalR UI Update (3 gün)
+### 2. 🔴 Frontend SignalR UI Update (3 gün) — ÇÖZÜLDÜ
 
 **Priority:** HIGH  
 **File:** `frontend/katana-web/src/components/Admin/PendingAdjustments.tsx`
@@ -66,10 +66,10 @@ useEffect(() => {
 
 **Adımlar:**
 
-- [ ] PendingAdjustments.tsx state update logic ekle
+- [x] PendingAdjustments.tsx state update logic eklendi (real-time ekleme/silme)
 - [ ] Header.tsx notification badge güncellemesi (line 364)
-- [ ] Toast notification implement (notistack)
-- [ ] Component test yaz (`__tests__/PendingAdjustments.test.tsx`)
+- [x] Toast notification uygulandı (FeedbackProvider)
+- [x] Component test eklendi (`__tests__/PendingAdjustments.test.tsx`)
 
 **Test:**
 
@@ -82,7 +82,7 @@ useEffect(() => {
 
 ## 🟠 YÜKSEK ÖNCELİK (1-2 Hafta)
 
-### 3. 🧪 Unit Test Coverage Artırımı (5 gün)
+### 3. 🧪 Unit Test Coverage Artırımı (5 gün) — KISMEN ÇÖZÜLDÜ
 
 **Target Coverage:** Backend %60, Frontend %40
 
@@ -107,7 +107,7 @@ public async Task ApproveAsync_TwoConcurrentRequests_OnlyOneShouldSucceed()
 
 **Adımlar:**
 
-- [ ] ConcurrentApprovalTests.cs oluştur
+- [ ] ConcurrentApprovalTests.cs (SQLite FK davranışı nedeniyle beklemede)
 - [ ] 10 paralel attempt scenario ekle
 - [ ] Race condition verify et
 
@@ -132,8 +132,8 @@ public async Task PublishPendingCreated_ShouldCallHubSendAsync()
 
 **Adımlar:**
 
-- [ ] SignalRPublisherTests.cs oluştur
-- [ ] Hub event publish verify et
+- [x] PendingNotificationPublisherTests: CreateAsync sırasında publish çağrısı doğrulandı
+- [ ] Hub event publish verify et (API build blokajı nedeniyle beklemede)
 - [ ] Failed publish scenario test et
 
 #### 3.3 Frontend Component Tests
@@ -159,9 +159,9 @@ test("updates list when onPendingCreated fires", async () => {
 
 **Adımlar:**
 
-- [ ] Jest + React Testing Library setup
-- [ ] PendingAdjustments component test
-- [ ] SignalR mock service oluştur
+- [x] Jest + React Testing Library setup
+- [x] PendingAdjustments component test
+- [x] SignalR mock service oluştur
 
 ---
 
