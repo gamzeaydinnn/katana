@@ -67,41 +67,45 @@ Security Status: SECURED ✓
 **Dosya:** `frontend/katana-web/src/components/Admin/PendingAdjustments.tsx`  
 **Satırlar:** 135-186
 
-**Yapılan İşler:**
+**✅ TAMAMLANAN İYİLEŞTİRMELER:**
 
-✅ **Real-time List Update:**
-```typescript
-let createdHandler = (payload: any) => {
-  const item = payload?.pending || payload;
-  setItems((prev) => [item as any, ...prev]); // Liste başına ekleme
-  showToast({
-    message: `Yeni bekleyen stok #${item.id}`,
-    severity: "info"  // Mavi notification
-  });
-};
-```
+1. **Header.tsx Bildirim Sistemi Düzeltmesi (satır 305-340)**
+   ```typescript
+   // ✅ ESKI VERİ SORUNU ÇÖZÜLDÜ:
+   - Notification ID'leri unique yapıldı (created-{id}, approved-{id})
+   - relatedPendingId field eklendi
+   - status field eklendi (pending/approved/rejected)
+   - Approve event'te existing notification update edilir
+   - Mock data versiyonu 2.0'a güncellendi (eski veriler temizlenir)
+   - Max 50 bildirim tutulur (önceden 20)
+   ```
 
-✅ **Approve Event Handling:**
-```typescript
-let approvedHandler = (payload: any) => {
-  const id = payload?.pendingId || payload?.id;
-  setItems((prev) =>
-    prev.map((p) =>
-      p.id === id ? { ...p, status: "Approved" } : p
-    )
-  );
-  showToast({
-    message: `Stok ayarlaması #${id} onaylandı`,
-    severity: "success"  // Yeşil notification
-  });
-};
-```
+2. **Katana API Webhook Integration (YENİ)**
+   - **Dosya:** `src/Katana.API/Controllers/KatanaWebhookController.cs`
+   - **Endpoint:** `POST /api/webhook/katana/stock-change`
+   - **Güvenlik:** X-Katana-Signature header ile API key kontrolü
+   - **Akış:**
+     ```
+     Katana API → Webhook → Pending Adjustment → SignalR → Frontend
+     ```
+   - **Test Endpoint:** `POST /api/webhook/katana/test` (development)
 
-✅ **Header Notification Badge:**
-- Dosya: `frontend/katana-web/src/components/Layout/Header.tsx` (satır 340-372)
-- Her event'te notification listesine ekleme
-- Badge sayısı otomatik güncelleme
-- Son 20 notification tutulması
+3. **Webhook Payload Örneği:**
+   ```json
+   {
+     "event": "stock.updated",
+     "orderId": "ORD-12345",
+     "productId": 123,
+     "sku": "SKU-ABC-001",
+     "quantityChange": -5,
+     "timestamp": "2025-11-01T10:30:00Z"
+   }
+   ```
+
+4. **Config Güncellenmesi:**
+   - `appsettings.json`: `KatanaApi.WebhookSecret` eklendi
+   - Katana API'den webhook alınca otomatik pending oluşur
+   - Admin'e SignalR ile real-time bildirim gider
 
 **Özellikler:**
 
@@ -110,20 +114,41 @@ let approvedHandler = (payload: any) => {
 - ✅ Event cleanup (component unmount'ta memory leak önleme)
 - ✅ Toast notifications (Material-UI Snackbar)
 - ✅ Duplicate prevention (aynı ID varsa güncelle, yoksa ekle)
+- ✅ **Katana API webhook entegrasyonu (YENİ)**
+- ✅ **Eski bildirim temizleme (versiyon kontrolü)**
+- ✅ **Bildirim status tracking (pending/approved/rejected)**
 
 **Test Senaryosu:**
 
 ```bash
-# Backend'den pending oluştur
-POST /api/adminpanel/pending-adjustments/test-create
+# 1. Katana API'den webhook gönder
+curl -X POST http://localhost:5055/api/webhook/katana/stock-change \
+  -H "X-Katana-Signature: katana-webhook-secret-change-in-production-2025" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "stock.updated",
+    "orderId": "ORD-12345",
+    "productId": 123,
+    "sku": "SKU-ABC-001",
+    "quantityChange": -5
+  }'
 
-# Frontend otomatik:
+# 2. Backend otomatik:
+→ Pending adjustment oluşturur
+→ SignalR event publish eder
+
+# 3. Frontend otomatik:
 → Liste başına yeni item eklenir
-→ Toast mesajı gösterilir: "Yeni bekleyen stok #9"
+→ Toast mesajı: "Yeni bekleyen: SKU-ABC-001"
 → Header notification badge sayısı artar
+→ Status: "pending" (sarı chip)
+
+# 4. Admin onayladığında:
+→ Notification status "approved" olur (yeşil chip)
+→ Eski "pending" notification güncellenir
 ```
 
-**Durum:** ✅ **FULLY IMPLEMENTED** (Kod zaten mevcuttu!)
+**Durum:** ✅ **FULLY IMPLEMENTED + KATANA WEBHOOK ADDED**
 
 ---
 
@@ -257,11 +282,13 @@ POST /api/adminpanel/pending-adjustments/test-create
   - All authorization tests PASSED
 
 **Before:**
+
 ```csharp
 [Authorize]  // ❌ Only authentication check
 ```
 
 **After:**
+
 ```csharp
 [Authorize(Roles = "Admin,StockManager")]  // ✅ Role-based authorization
 ```
@@ -270,7 +297,7 @@ POST /api/adminpanel/pending-adjustments/test-create
 
 ### 2. AllowAnonymous Overuse ⚠️
 
-- **Severity:** HIGH  
+- **Severity:** HIGH
 - **Status:** ⚠️ **PENDING REVIEW**
 - **Controllers:**
   - DashboardController (line 12)
@@ -319,14 +346,14 @@ POST /api/adminpanel/pending-adjustments/test-create
 
 ## 🎯 ÖNCELIK MATRİSİ
 
-| Sıra | Görev                     | Kritiklik   | Süre  | Etki         | Durum         |
-| ---- | ------------------------- | ----------- | ----- | ------------ | ------------- |
-| 1    | ~~AdminController auth~~  | ~~CRITICAL~~ | ~~2 gün~~ | Security fix | ✅ **COMPLETED** |
-| 2    | ~~Frontend SignalR UI~~   | ~~HIGH~~     | ~~3 gün~~ | UX critical  | ✅ **COMPLETED** |
-| 3    | Unit test coverage        | 🟠 HIGH     | 5 gün | Quality      | ⏳ **PENDING** |
-| 4    | Publish retry/DLQ         | 🟡 MEDIUM   | 4 gün | Reliability  | ⏳ **PENDING** |
-| 5    | LogsController perf       | 🟡 MEDIUM   | 3 gün | Performance  | ⏳ **PENDING** |
-| 6    | Log retention             | 🟢 LOW      | 2 gün | Maintenance  | ⏳ **PENDING** |
+| Sıra | Görev                    | Kritiklik    | Süre      | Etki         | Durum            |
+| ---- | ------------------------ | ------------ | --------- | ------------ | ---------------- |
+| 1    | ~~AdminController auth~~ | ~~CRITICAL~~ | ~~2 gün~~ | Security fix | ✅ **COMPLETED** |
+| 2    | ~~Frontend SignalR UI~~  | ~~HIGH~~     | ~~3 gün~~ | UX critical  | ✅ **COMPLETED** |
+| 3    | Unit test coverage       | 🟠 HIGH      | 5 gün     | Quality      | ⏳ **PENDING**   |
+| 4    | Publish retry/DLQ        | 🟡 MEDIUM    | 4 gün     | Reliability  | ⏳ **PENDING**   |
+| 5    | LogsController perf      | 🟡 MEDIUM    | 3 gün     | Performance  | ⏳ **PENDING**   |
+| 6    | Log retention            | 🟢 LOW       | 2 gün     | Maintenance  | ⏳ **PENDING**   |
 
 **Tamamlanan:** 2/6 görev ✅  
 **Kalan Süre:** ~14 gün (3 sprint)
