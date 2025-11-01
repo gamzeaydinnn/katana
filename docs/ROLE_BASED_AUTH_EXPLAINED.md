@@ -22,7 +22,7 @@ var claims = new[]
     new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
     new Claim(ClaimTypes.Name, user.Username),
     new Claim(ClaimTypes.Email, user.Email),
-    
+
     // 🔑 ROL CLAIMLERİ (En önemli kısım!)
     new Claim(ClaimTypes.Role, "Admin"),
     new Claim(ClaimTypes.Role, "StockManager")
@@ -40,11 +40,13 @@ var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
 ```
 
 **Ne Yapıyor?**
+
 - Kullanıcı login olduğunda JWT token oluşturur
 - Token içine kullanıcı bilgileri ve **roller** ekler
 - Şu anda her kullanıcıya `Admin` ve `StockManager` rolleri veriliyor (production'da dinamik olmalı)
 
 **Token Örneği (Decoded):**
+
 ```json
 {
   "nameid": "1",
@@ -77,6 +79,7 @@ public async Task<IActionResult> CreatePendingAdjustment() { ... }
 ```
 
 **Ne Yapıyor?**
+
 1. İstek geldiğinde JWT token'ı kontrol eder
 2. Token içindeki `role` claim'ini okur
 3. Eğer kullanıcının rolü "Admin" VEYA "StockManager" ise → İzin verir (200 OK)
@@ -84,6 +87,7 @@ public async Task<IActionResult> CreatePendingAdjustment() { ... }
 5. Eğer token yoksa veya geçersizse → Reddeder (401 Unauthorized)
 
 **Güvenlik Akışı:**
+
 ```
 Frontend → POST /api/admin/pending-adjustments
          → Header: Authorization: Bearer <JWT_TOKEN>
@@ -130,6 +134,7 @@ builder.Services.AddAuthorization();
 ```
 
 **Ne Yapıyor?**
+
 - JWT Bearer authentication'ı aktif eder
 - Token'ın `Issuer`, `Audience`, `Expire`, `Signature` kontrollerini yapar
 - appsettings.json'dan secret key alır
@@ -158,6 +163,7 @@ connection = new HubConnectionBuilder()
 ```
 
 **Ne Yapıyor?**
+
 - LocalStorage'dan `authToken` (JWT) alır
 - Her SignalR isteğine `Authorization: Bearer <token>` header'ı ekler
 - Backend bu token'ı kontrol ederek kullanıcıyı doğrular
@@ -218,6 +224,7 @@ connection = new HubConnectionBuilder()
 ## 🚫 REDDEDILME ÖRNEKLERİ
 
 ### Örnek 1: Token yok
+
 ```
 Frontend → POST /api/admin/pending-adjustments
          → Header: (boş)
@@ -226,6 +233,7 @@ Backend  → 401 Unauthorized
 ```
 
 ### Örnek 2: Token geçersiz (expired)
+
 ```
 Frontend → POST /api/admin/pending-adjustments
          → Header: Authorization: Bearer <EXPIRED_TOKEN>
@@ -234,6 +242,7 @@ Backend  → 401 Unauthorized
 ```
 
 ### Örnek 3: Rol yetkisi yok
+
 ```
 Frontend → POST /api/admin/pending-adjustments
          → Header: Authorization: Bearer <VALID_TOKEN>
@@ -246,17 +255,18 @@ Backend  → 403 Forbidden
 
 ## 🎨 ROLLERIN ANLAMLARI
 
-| Rol           | Açıklama                                    | Yetkiler                                              |
-| ------------- | ------------------------------------------- | ----------------------------------------------------- |
-| **Admin**     | Sistem yöneticisi                           | Tüm admin endpoint'leri + pending approval            |
-| **StockManager** | Stok yöneticisi                          | Pending adjustment oluşturma ve onaylama              |
-| **User**      | Normal kullanıcı (şu an kullanılmıyor)      | Sadece kendi bilgilerini görüntüleme                  |
+| Rol              | Açıklama                               | Yetkiler                                   |
+| ---------------- | -------------------------------------- | ------------------------------------------ |
+| **Admin**        | Sistem yöneticisi                      | Tüm admin endpoint'leri + pending approval |
+| **StockManager** | Stok yöneticisi                        | Pending adjustment oluşturma ve onaylama   |
+| **User**         | Normal kullanıcı (şu an kullanılmıyor) | Sadece kendi bilgilerini görüntüleme       |
 
 ---
 
 ## 🔧 PRODUCTION İÇİN GELİŞTİRMELER
 
 ### 1. Dinamik Rol Atama
+
 **Şu an:** Her kullanıcıya hard-coded `Admin` + `StockManager` veriliyor  
 **Olmalı:** Database'den kullanıcının gerçek rolleri okunmalı
 
@@ -276,6 +286,7 @@ foreach (var role in userRoles)
 ```
 
 ### 2. User Table'a Role Ekleme
+
 ```sql
 ALTER TABLE Users ADD Role VARCHAR(50) NOT NULL DEFAULT 'User';
 
@@ -284,6 +295,7 @@ UPDATE Users SET Role = 'Admin' WHERE Username = 'admin';
 ```
 
 ### 3. Granular Permissions (Gelişmiş)
+
 ```csharp
 [Authorize(Roles = "Admin")]
 [Authorize(Policy = "CanApproveStock")]
