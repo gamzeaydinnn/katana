@@ -24,6 +24,7 @@
     <ProjectReference Include="../../src/Katana.Business/Katana.Business.csproj" />
     <ProjectReference Include="../../src/Katana.Data/Katana.Data.csproj" />
     <ProjectReference Include="../../src/Katana.Infrastructure/Katana.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/Katana.API/Katana.API.csproj" />
   </ItemGroup>
 
 </Project>
