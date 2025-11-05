@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Katana.Business.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Katana.Data.Models;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Katana.API.Controllers;
 
@@ -52,7 +54,7 @@ public class KatanaWebhookController : ControllerBase
         var expectedApiKey = _configuration["KatanaApi:WebhookSecret"];
         var receivedApiKey = Request.Headers["X-Katana-Signature"].FirstOrDefault();
 
-        if (string.IsNullOrEmpty(expectedApiKey) || receivedApiKey != expectedApiKey)
+        if (string.IsNullOrEmpty(expectedApiKey) || !KatanaWebhookSecurity.SecureEquals(receivedApiKey, expectedApiKey))
         {
             _logger.LogWarning("Unauthorized webhook attempt from IP: {IP}", HttpContext.Connection.RemoteIpAddress);
             return Unauthorized(new { error = "Invalid webhook signature" });
@@ -152,4 +154,27 @@ public class KatanaStockChangeWebhook
 
     /// <summary>Additional metadata (optional)</summary>
     public Dictionary<string, object>? Metadata { get; set; }
+}
+
+internal static class KatanaWebhookSecurity
+{
+    // Constant-time comparison to avoid timing attacks on secrets
+    public static bool SecureEquals(string? a, string? b)
+    {
+        if (a is null || b is null) return false;
+        // Normalize as UTF8 bytes
+        var ba = Encoding.UTF8.GetBytes(a);
+        var bb = Encoding.UTF8.GetBytes(b);
+        if (ba.Length != bb.Length)
+        {
+            // Compare with equal-length array to keep timing consistent
+            var pad = new byte[Math.Max(ba.Length, bb.Length)];
+            var aa = new byte[pad.Length];
+            var bb2 = new byte[pad.Length];
+            Array.Copy(ba, aa, Math.Min(ba.Length, aa.Length));
+            Array.Copy(bb, bb2, Math.Min(bb.Length, bb2.Length));
+            return CryptographicOperations.FixedTimeEquals(aa, bb2) && false; // ensure false if lengths differ
+        }
+        return CryptographicOperations.FixedTimeEquals(ba, bb);
+    }
 }

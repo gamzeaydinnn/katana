@@ -90,6 +90,7 @@ public class ProductsController : ControllerBase
     // ==========================================
 
     [HttpGet]
+    [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any, NoStore = false)]
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetAll()
     {
         _loggingService.LogInfo("Products listed", User?.Identity?.Name, null, LogCategory.UserAction);

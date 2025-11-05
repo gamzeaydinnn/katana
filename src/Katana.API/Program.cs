@@ -74,6 +74,8 @@ builder.Services.AddControllers()
     });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddMemoryCache();
+// Enable server-side HTTP response caching (used selectively via [ResponseCache])
+builder.Services.AddResponseCaching();
 
 // -----------------------------
 // Swagger Configuration
@@ -226,6 +228,8 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IErrorHandler, ErrorHandlerService>();
+// Optional simple cache abstraction for ad-hoc caching scenarios
+builder.Services.AddSingleton<Katana.Infrastructure.Services.CacheService>();
 
 // Logging Service
 builder.Services.AddScoped<ILoggingService, LoggingService>();
@@ -383,8 +387,20 @@ app.UseSwaggerUI(c =>
 // Routing (CORS öncesi)
 app.UseRouting();
 
+// Basic security headers (safe for APIs and Swagger)
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers["X-Frame-Options"] = "DENY";
+    ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
+
 // CORS (UseRouting ile UseAuthentication/Authorization arasında olmalı)
 app.UseCors("AllowFrontend");
+
+// Response Caching middleware (only caches responses that opt-in via headers)
+app.UseResponseCaching();
 
 // Authentication & Authorization
 app.UseAuthentication();
@@ -449,5 +465,11 @@ if (app.Environment.IsDevelopment())
         // Dev kolaylığı: oluşturma başarısız olsa bile uygulama devam etsin (logla)
         Console.WriteLine($"Dev DB init failed: {ex.Message}");
     }
+}
+else
+{
+    // Production hardening
+    app.UseHsts();
+    app.UseHttpsRedirection();
 }
 app.Run();

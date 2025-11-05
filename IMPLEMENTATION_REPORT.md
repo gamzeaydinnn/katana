@@ -624,7 +624,7 @@ var jwtKey = builder.Configuration["Jwt:Key"]
 
 ```markdown
 ✅ EF Core query projection (Select yerine full entity dönüyor)
-❌ Response caching eksik (GET /api/products → cache 5dk)
+✅  Response caching eksik (GET /api/products → cache 5dk)
 ❌ Redis distributed cache yok (multi-instance scenario için gerek)
 ✅ Database index'ler var (ama eksik olanlar var - yukarıda belirtildi)
 ❌ CDN kullanımı yok (static assets için)

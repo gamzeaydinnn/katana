@@ -19,16 +19,16 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore dependencies
-        run: dotnet restore ./ECommerce.Integration.sln
+        run: dotnet restore ./Katana.Integration.sln
 
       - name: Build
-        run: dotnet build ./ECommerce.Integration.sln --configuration Release --no-restore
+        run: dotnet build ./Katana.Integration.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test ./ECommerce.Integration.sln --no-build --verbosity normal --configuration Release
+        run: dotnet test ./Katana.Integration.sln --no-build --verbosity normal --configuration Release
 
       - name: Publish
-        run: dotnet publish ./src/ECommerce.API/ECommerce.API.csproj --configuration Release --output ./publish
+        run: dotnet publish ./src/Katana.API/Katana.API.csproj --configuration Release --output ./publish
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
