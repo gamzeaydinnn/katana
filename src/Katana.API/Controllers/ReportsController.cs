@@ -250,5 +250,93 @@ public class ReportsController : ControllerBase
             return StatusCode(500, new { error = "Internal server error retrieving statistics" });
         }
     }
+
+    /// <summary>
+    /// Gets stock report with product details, quantities, and values
+    /// </summary>
+    [HttpGet("stock")]
+    [Authorize(Roles = "Admin,StockManager")]
+    public async Task<ActionResult<object>> GetStockReport(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 100,
+        [FromQuery] string? search = null,
+        [FromQuery] bool lowStockOnly = false)
+    {
+        try
+        {
+            var query = _context.Products.AsQueryable();
+
+            // Search filter
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(p => 
+                    p.Name.Contains(search) || 
+                    p.SKU.Contains(search));
+            }
+
+            // Low stock filter (Stock < 10 varsayılan eşik)
+            if (lowStockOnly)
+            {
+                query = query.Where(p => p.Stock <= 10);
+            }
+
+            var totalCount = await query.CountAsync();
+            
+            var stockData = await query
+                .OrderByDescending(p => p.Stock * p.Price)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => new
+                {
+                    p.Id,
+                    p.Name,
+                    p.SKU,
+                    CategoryId = p.CategoryId,
+                    Quantity = p.Stock,
+                    Price = p.Price,
+                    StockValue = p.Stock * p.Price,
+                    IsLowStock = p.Stock <= 10,
+                    IsOutOfStock = p.Stock == 0,
+                    IsActive = p.IsActive,
+                    MainImageUrl = p.MainImageUrl,
+                    Description = p.Description,
+                    LastUpdated = p.UpdatedAt
+                })
+                .ToListAsync();
+
+            // Summary statistics
+            var totalStockValue = stockData.Sum(s => s.StockValue);
+            var lowStockCount = stockData.Count(s => s.IsLowStock);
+            var outOfStockCount = stockData.Count(s => s.IsOutOfStock);
+            var activeProductsCount = stockData.Count(s => s.IsActive);
+
+            return Ok(new
+            {
+                stockData,
+                summary = new
+                {
+                    totalProducts = totalCount,
+                    totalStockValue,
+                    averagePrice = totalCount > 0 ? stockData.Average(s => s.Price) : 0,
+                    totalStock = stockData.Sum(s => s.Quantity),
+                    lowStockCount,
+                    outOfStockCount,
+                    activeProductsCount
+                },
+                pagination = new
+                {
+                    page,
+                    pageSize,
+                    totalCount,
+                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating stock report");
+            return StatusCode(500, new { error = "Failed to generate stock report" });
+        }
+    }
 }
 

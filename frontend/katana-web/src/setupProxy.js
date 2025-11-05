@@ -4,8 +4,8 @@ module.exports = function (app) {
   // Backend port (automatically chosen if 5055 is busy)
   const backendPort = process.env.BACKEND_PORT || "5055";
   const backendUrl = `http://localhost:${backendPort}`;
-  
-  console.log(`[Proxy] Backend URL: ${backendUrl}`);  // API proxy
+
+  console.log(`[Proxy] Backend URL: ${backendUrl}`); // API proxy
   app.use(
     "/api",
     createProxyMiddleware({

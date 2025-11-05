@@ -35,8 +35,9 @@ if (string.IsNullOrWhiteSpace(envUrls) && string.IsNullOrWhiteSpace(configuredUr
     // Pick the first available port among a small set to avoid collisions
     int[] preferred =
     {
-        builder.Configuration.GetValue<int?>("Server:Port") ?? 5055,
-        5056, 5057, 5058, 5059
+        5055, // Always try 5055 first
+        builder.Configuration.GetValue<int?>("Server:Port") ?? 5056,
+        5057, 5058, 5059
     };
 
     int chosen = preferred[0];

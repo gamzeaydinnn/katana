@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Container,
   Box,
@@ -15,259 +15,344 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
+  Chip,
+  FormControlLabel,
+  Switch,
 } from "@mui/material";
 import {
   Assessment,
   Inventory,
-  Sync,
   Download,
   FileDownload,
+  TrendingUp,
+  TrendingDown,
+  CheckCircle,
 } from "@mui/icons-material";
 import { stockAPI } from "../../services/api";
 
+interface StockReportData {
+  id: number;
+  name: string;
+  sku: string;
+  categoryId: number;
+  quantity: number;
+  price: number;
+  stockValue: number;
+  isLowStock: boolean;
+  isOutOfStock: boolean;
+  isActive: boolean;
+  lastUpdated: string;
+}
+
+interface StockReportResponse {
+  stockData: StockReportData[];
+  summary: {
+    totalProducts: number;
+    totalStockValue: number;
+    averagePrice: number;
+    totalStock: number;
+    lowStockCount: number;
+    outOfStockCount: number;
+    activeProductsCount: number;
+  };
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  };
+}
+
 const Reports: React.FC = () => {
-  const [loading, setLoading] = useState<string>("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [stockReport, setStockReport] = useState<any[]>([]);
-  const [syncReport, setSyncReport] = useState<any[]>([]);
+  const [stockReport, setStockReport] = useState<StockReportResponse | null>(
+    null
+  );
+  const [search, setSearch] = useState("");
+  const [lowStockOnly, setLowStockOnly] = useState(false);
+
+  useEffect(() => {
+    handleStockReport();
+  }, []);
 
   const handleStockReport = async () => {
     try {
-      setLoading("stock");
+      setLoading(true);
       setError("");
-      const data: any = await stockAPI.getStockReport();
-      setStockReport(data || []);
+      const params = new URLSearchParams({
+        page: "1",
+        pageSize: "100",
+        ...(search && { search }),
+        ...(lowStockOnly && { lowStockOnly: "true" }),
+      });
+      const response = await stockAPI.getStockReport(params.toString());
+      setStockReport(response as StockReportResponse);
     } catch (err: any) {
-      setError(err.message || "Stok raporu yüklenemedi");
+      console.error("Stock report error:", err);
+      setError(
+        err.response?.data?.error || err.message || "Stok raporu yüklenemedi"
+      );
     } finally {
-      setLoading("");
+      setLoading(false);
     }
   };
 
-  const handleSyncReport = async () => {
-    try {
-      setLoading("sync");
-      setError("");
-      const data: any = await stockAPI.getSyncReport();
-      setSyncReport(data || []);
-    } catch (err: any) {
-      setError(err.message || "Sync raporu yüklenemedi");
-    } finally {
-      setLoading("");
-    }
-  };
-
-  const downloadCSV = (data: any[], filename: string) => {
-    if (!data.length) return;
-
-    const headers = Object.keys(data[0]).join(",");
-    const rows = data.map((row) => Object.values(row).join(","));
-    const csv = [headers, ...rows].join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
+  const downloadCSV = () => {
+    if (!stockReport?.stockData.length) return;
+    const headers = ["Ürün Adı", "SKU", "Stok", "Fiyat", "Değer", "Durum"];
+    const rows = stockReport.stockData.map((item) => [
+      item.name,
+      item.sku,
+      item.quantity,
+      `${item.price.toFixed(2)} TL`,
+      `${item.stockValue.toFixed(2)} TL`,
+      item.isOutOfStock ? "Tükendi" : item.isLowStock ? "Düşük" : "Normal",
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${filename}_${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = `stok_raporu_${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
   };
-
-  const ReportCard = ({
-    title,
-    description,
-    icon,
-    onClick,
-    reportType,
-  }: any) => (
-    <Card sx={{ height: "100%" }}>
-      <CardContent>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-          <Box
-            sx={{
-              p: 1.5,
-              borderRadius: 2,
-              bgcolor: "primary.light",
-              color: "white",
-            }}
-          >
-            {icon}
-          </Box>
-          <Box>
-            <Typography variant="h6" fontWeight="bold">
-              {title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {description}
-            </Typography>
-          </Box>
-        </Box>
-        <Button
-          fullWidth
-          variant="contained"
-          startIcon={
-            loading === reportType ? (
-              <CircularProgress size={16} />
-            ) : (
-              <Download />
-            )
-          }
-          onClick={onClick}
-          disabled={loading !== ""}
-        >
-          Rapor Oluştur
-        </Button>
-      </CardContent>
-    </Card>
-  );
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
         <Assessment sx={{ fontSize: 32, color: "primary.main" }} />
         <Typography variant="h4" fontWeight="bold">
-          Raporlar
+          Stok Raporu
         </Typography>
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError("")}>
           {error}
         </Alert>
       )}
 
-      {/* Report Cards */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-          gap: 3,
-          mb: 4,
-        }}
-      >
-        <ReportCard
-          title="Stok Raporu"
-          description="Mevcut stok durumu ve detayları"
-          icon={<Inventory />}
-          onClick={handleStockReport}
-          reportType="stock"
-        />
-        <ReportCard
-          title="Senkronizasyon Raporu"
-          description="Senkronizasyon geçmişi ve istatistikleri"
-          icon={<Sync />}
-          onClick={handleSyncReport}
-          reportType="sync"
-        />
-      </Box>
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Ürün Adı veya SKU ile Ara"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Ürün adı veya SKU girin"
+            />
+            <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={lowStockOnly}
+                    onChange={(e) => setLowStockOnly(e.target.checked)}
+                  />
+                }
+                label="Sadece Düşük Stok"
+              />
+              <Button
+                variant="contained"
+                startIcon={
+                  loading ? <CircularProgress size={16} /> : <Download />
+                }
+                onClick={handleStockReport}
+                disabled={loading}
+                sx={{ minWidth: 150 }}
+              >
+                Rapor Oluştur
+              </Button>
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
 
-      {/* Stock Report Table */}
-      {stockReport.length > 0 && (
-        <Paper sx={{ p: 3, mb: 3 }}>
+      {stockReport && (
+        <>
           <Box
             sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              mb: 2,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+              gap: 2,
+              mb: 3,
             }}
           >
-            <Typography variant="h6">Stok Raporu</Typography>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<FileDownload />}
-              onClick={() => downloadCSV(stockReport, "stok_raporu")}
-            >
-              CSV İndir
-            </Button>
+            <Card>
+              <CardContent>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    mb: 1,
+                  }}
+                >
+                  <Inventory color="primary" />
+                  <Typography variant="body2" color="text.secondary">
+                    Toplam Ürün
+                  </Typography>
+                </Box>
+                <Typography variant="h4" fontWeight="bold">
+                  {stockReport.summary.totalProducts}
+                </Typography>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    mb: 1,
+                  }}
+                >
+                  <TrendingUp color="success" />
+                  <Typography variant="body2" color="text.secondary">
+                    Toplam Stok Değeri
+                  </Typography>
+                </Box>
+                <Typography variant="h4" fontWeight="bold">
+                  {stockReport.summary.totalStockValue.toFixed(0)} ₺
+                </Typography>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    mb: 1,
+                  }}
+                >
+                  <TrendingDown color="error" />
+                  <Typography variant="body2" color="text.secondary">
+                    Düşük Stok
+                  </Typography>
+                </Box>
+                <Typography variant="h4" fontWeight="bold" color="error">
+                  {stockReport.summary.lowStockCount}
+                </Typography>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    mb: 1,
+                  }}
+                >
+                  <CheckCircle color="success" />
+                  <Typography variant="body2" color="text.secondary">
+                    Aktif Ürün
+                  </Typography>
+                </Box>
+                <Typography variant="h4" fontWeight="bold" color="success.main">
+                  {stockReport.summary.activeProductsCount}
+                </Typography>
+              </CardContent>
+            </Card>
           </Box>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  {Object.keys(stockReport[0]).map((key) => (
-                    <TableCell key={key}>
-                      <strong>{key}</strong>
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {stockReport.slice(0, 10).map((row, idx) => (
-                  <TableRow key={idx} hover>
-                    {Object.values(row).map((val: any, i) => (
-                      <TableCell key={i}>{val}</TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          {stockReport.length > 10 && (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ mt: 2, display: "block" }}
-            >
-              İlk 10 kayıt gösteriliyor. Tümünü görmek için CSV indirin.
-            </Typography>
-          )}
-        </Paper>
-      )}
 
-      {/* Sync Report Table */}
-      {syncReport.length > 0 && (
-        <Paper sx={{ p: 3 }}>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              mb: 2,
-            }}
-          >
-            <Typography variant="h6">Senkronizasyon Raporu</Typography>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<FileDownload />}
-              onClick={() => downloadCSV(syncReport, "sync_raporu")}
+          <Paper sx={{ p: 3 }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 2,
+              }}
             >
-              CSV İndir
-            </Button>
-          </Box>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  {Object.keys(syncReport[0]).map((key) => (
-                    <TableCell key={key}>
-                      <strong>{key}</strong>
+              <Typography variant="h6">
+                Stok Detayları ({stockReport.pagination.totalCount} ürün)
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<FileDownload />}
+                onClick={downloadCSV}
+              >
+                CSV İndir
+              </Button>
+            </Box>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>
+                      <strong>Ürün Adı</strong>
                     </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {syncReport.slice(0, 10).map((row, idx) => (
-                  <TableRow key={idx} hover>
-                    {Object.values(row).map((val: any, i) => (
-                      <TableCell key={i}>{val}</TableCell>
-                    ))}
+                    <TableCell>
+                      <strong>SKU</strong>
+                    </TableCell>
+                    <TableCell align="right">
+                      <strong>Stok</strong>
+                    </TableCell>
+                    <TableCell align="right">
+                      <strong>Fiyat</strong>
+                    </TableCell>
+                    <TableCell align="right">
+                      <strong>Değer</strong>
+                    </TableCell>
+                    <TableCell>
+                      <strong>Durum</strong>
+                    </TableCell>
+                    <TableCell>
+                      <strong>Güncelleme</strong>
+                    </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          {syncReport.length > 10 && (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ mt: 2, display: "block" }}
-            >
-              İlk 10 kayıt gösteriliyor. Tümünü görmek için CSV indirin.
-            </Typography>
-          )}
-        </Paper>
+                </TableHead>
+                <TableBody>
+                  {stockReport.stockData.map((item) => (
+                    <TableRow key={item.id} hover>
+                      <TableCell>{item.name}</TableCell>
+                      <TableCell>{item.sku}</TableCell>
+                      <TableCell align="right">{item.quantity}</TableCell>
+                      <TableCell align="right">
+                        {item.price.toFixed(2)} ₺
+                      </TableCell>
+                      <TableCell align="right">
+                        {item.stockValue.toFixed(2)} ₺
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={
+                            item.isOutOfStock
+                              ? "Tükendi"
+                              : item.isLowStock
+                              ? "Düşük Stok"
+                              : "Normal"
+                          }
+                          color={
+                            item.isOutOfStock
+                              ? "error"
+                              : item.isLowStock
+                              ? "warning"
+                              : "success"
+                          }
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {new Date(item.lastUpdated).toLocaleDateString("tr-TR")}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        </>
       )}
     </Container>
   );

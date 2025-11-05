@@ -182,7 +182,10 @@ export const stockAPI = {
     api.post("/Sync/start", { syncType }).then((res) => res.data),
 
   // Reports - GET /api/Reports/stock
-  getStockReport: () => api.get("/Reports/stock").then((res) => res.data),
+  getStockReport: (queryString?: string) =>
+    api
+      .get(`/Reports/stock${queryString ? `?${queryString}` : ""}`)
+      .then((res) => res.data),
 
   // Reports - GET /api/Reports/sync
   getSyncReport: () => api.get("/Reports/sync").then((res) => res.data),
