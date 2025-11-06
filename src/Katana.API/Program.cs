@@ -24,35 +24,27 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Katana.API.Workers;
 
-
 var builder = WebApplication.CreateBuilder(args);
 
-// Prefer URLs from env/config; otherwise use a non-conflicting default port (5055)
+// -----------------------------
+// Port Configuration
+// -----------------------------
 var envUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
 var configuredUrls = builder.Configuration["Urls"];
 if (string.IsNullOrWhiteSpace(envUrls) && string.IsNullOrWhiteSpace(configuredUrls))
 {
-    // Pick the first available port among a small set to avoid collisions
-    int[] preferred =
-    {
-        5055, // Always try 5055 first
-        builder.Configuration.GetValue<int?>("Server:Port") ?? 5056,
-        5057, 5058, 5059
-    };
-
-    int chosen = preferred[0];
-    foreach (var p in preferred)
+    int[] preferred = { 5055, 5056, 5057, 5058, 5059 };
+    int chosen = preferred.First(p =>
     {
         try
         {
             var l = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, p);
             l.Start();
             l.Stop();
-            chosen = p;
-            break;
+            return true;
         }
-        catch { /* in use, try next */ }
-    }
+        catch { return false; }
+    });
 
     builder.WebHost.ConfigureKestrel(options => { options.ListenLocalhost(chosen); });
     Console.WriteLine($"Kestrel chosen port: {chosen}");
@@ -69,17 +61,15 @@ builder.Host.UseSerilogConfiguration();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        // Frontend ile tutarlı camelCase JSON ve case-insensitive model binding
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
         options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
     });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddMemoryCache();
-// Enable server-side HTTP response caching (used selectively via [ResponseCache])
 builder.Services.AddResponseCaching();
 
 // -----------------------------
-// Swagger Configuration
+// Swagger
 // -----------------------------
 builder.Services.AddSwaggerGen(c =>
 {
@@ -92,7 +82,7 @@ builder.Services.AddSwaggerGen(c =>
 
     c.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
     {
-        Description = "API Key needed to access the endpoints. X-API-Key: Your_API_Key",
+        Description = "X-API-Key header required",
         In = ParameterLocation.Header,
         Name = "X-API-Key",
         Type = SecuritySchemeType.ApiKey
@@ -103,11 +93,7 @@ builder.Services.AddSwaggerGen(c =>
         {
             new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "ApiKey"
-                }
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "ApiKey" }
             },
             Array.Empty<string>()
         }
@@ -115,112 +101,67 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // -----------------------------
-// Database
+// Database (SQL Server only)
 // -----------------------------
 builder.Services.AddDbContext<IntegrationDbContext>(options =>
 {
-    var env = builder.Environment;
-    var sqliteConnection = builder.Configuration.GetConnectionString("DefaultConnection");
     var sqlServerConnection = builder.Configuration.GetConnectionString("SqlServerConnection");
 
-    if (env.IsDevelopment())
-    {
-        // Enforce SQL Server usage in development to match production-like behavior.
-        // Do NOT fall back to SQLite automatically — require an explicit SqlServerConnection.
-        if (!string.IsNullOrWhiteSpace(sqlServerConnection))
-        {
-            options.UseSqlServer(sqlServerConnection, sqlOptions => sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null));
-            return;
-        }
+    if (string.IsNullOrWhiteSpace(sqlServerConnection))
+        throw new InvalidOperationException("SqlServerConnection is required for all environments.");
 
-        // If a developer intentionally wants a lightweight local DB, they must explicitly
-        // set ConnectionStrings:DefaultConnection to a sqlite connection string and opt-in
-        // by setting the environment variable ALLOW_SQLITE_FALLBACK=true. This avoids
-        // accidental local SQLite usage when the team expects SQL Server.
-        var allowSqlite = string.Equals(Environment.GetEnvironmentVariable("ALLOW_SQLITE_FALLBACK"), "true", StringComparison.OrdinalIgnoreCase);
-        if (allowSqlite && !string.IsNullOrWhiteSpace(sqliteConnection))
-        {
-            options.UseSqlite(sqliteConnection);
-            return;
-        }
-
-        throw new InvalidOperationException("SqlServerConnection is required for development. Set 'ConnectionStrings:SqlServerConnection' or enable explicit SQLite fallback by setting environment variable ALLOW_SQLITE_FALLBACK=true and providing ConnectionStrings:DefaultConnection.");
-    }
-
-    // Production/Staging: require SQL Server, do not fall back silently
-    if (!string.IsNullOrWhiteSpace(sqlServerConnection))
-    {
-        options.UseSqlServer(sqlServerConnection, sqlOptions => sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null));
-        return;
-    }
-
-    throw new InvalidOperationException("SqlServerConnection is not configured. Set 'ConnectionStrings:SqlServerConnection' for non-development environments.");
+    options.UseSqlServer(sqlServerConnection, sqlOptions =>
+        sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null));
 });
 
 // -----------------------------
-// Configuration Bindings
+// Config Bindings
 // -----------------------------
 builder.Services.Configure<KatanaApiSettings>(builder.Configuration.GetSection("KatanaApi"));
 builder.Services.Configure<LucaApiSettings>(builder.Configuration.GetSection("LucaApi"));
-
 builder.Services.AddAuthorization();
 
 // -----------------------------
 // HTTP Clients
 // -----------------------------
-// Register KatanaService as a typed HttpClient implementation and map the interface to the concrete
-// implementation via DI. This ensures the concrete `KatanaService` is created through the
-// IServiceProvider (ActivatorUtilities) so additional services like IMemoryCache are injected
-// correctly at runtime.
-builder.Services.AddHttpClient<KatanaService>((serviceProvider, client) =>
+builder.Services.AddHttpClient<KatanaService>((sp, client) =>
 {
-    var katanaSettings = serviceProvider.GetRequiredService<IOptions<KatanaApiSettings>>().Value;
-    client.BaseAddress = new Uri(katanaSettings.BaseUrl);
-    client.Timeout = TimeSpan.FromSeconds(katanaSettings.TimeoutSeconds);
-    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", katanaSettings.ApiKey?.Trim());
-    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-})
-// reasonable handler lifetime
-.SetHandlerLifetime(TimeSpan.FromMinutes(5));
-
-// Map the interface to the concrete typed client so consumers requesting IKatanaService
-// receive the properly configured KatanaService instance (with IMemoryCache available).
+    var s = sp.GetRequiredService<IOptions<KatanaApiSettings>>().Value;
+    client.BaseAddress = new Uri(s.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(s.TimeoutSeconds);
+    client.DefaultRequestHeaders.Authorization =
+        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", s.ApiKey?.Trim());
+    client.DefaultRequestHeaders.Accept.Add(
+        new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+});
 builder.Services.AddScoped<IKatanaService>(sp => sp.GetRequiredService<KatanaService>());
 
-builder.Services.AddHttpClient<ILucaService, LucaService>((serviceProvider, client) =>
+builder.Services.AddHttpClient<ILucaService, LucaService>((sp, client) =>
 {
-    var lucaSettings = serviceProvider.GetRequiredService<IOptions<LucaApiSettings>>().Value;
-    client.BaseAddress = new Uri(lucaSettings.BaseUrl);
-    client.Timeout = TimeSpan.FromSeconds(lucaSettings.TimeoutSeconds);
-    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-    if (!string.IsNullOrEmpty(lucaSettings.ApiKey) && !lucaSettings.UseTokenAuth)
-    {
-        client.DefaultRequestHeaders.Add("X-API-Key", lucaSettings.ApiKey);
-    }
+    var s = sp.GetRequiredService<IOptions<LucaApiSettings>>().Value;
+    client.BaseAddress = new Uri(s.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(s.TimeoutSeconds);
+    client.DefaultRequestHeaders.Accept.Add(
+        new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+    if (!string.IsNullOrEmpty(s.ApiKey) && !s.UseTokenAuth)
+        client.DefaultRequestHeaders.Add("X-API-Key", s.ApiKey);
 });
 
-// Server-side cookie jar for Luca session handling
 builder.Services.AddSingleton<ILucaCookieJarStore, LucaCookieJarStore>();
 
 // -----------------------------
-// Repository + UnitOfWork
+// Repositories + Services
 // -----------------------------
-builder.Services.AddScoped(typeof(Katana.Core.Interfaces.IRepository<>), typeof(Repository<>));
+builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IRepository<Category>, CategoryRepository>();
-//builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-
-// -----------------------------
-// Business Services
-// -----------------------------
 builder.Services.AddScoped<IExtractorService, ExtractorService>();
 builder.Services.AddScoped<ITransformerService, TransformerService>();
 builder.Services.AddScoped<ILoaderService, LoaderService>();
 builder.Services.AddScoped<ISyncService, SyncService>();
 builder.Services.AddScoped<IIntegrationService>(sp => (IIntegrationService)sp.GetRequiredService<ISyncService>());
 builder.Services.AddScoped<IStockService, StockService>();
-// Register order service so controllers depending on IOrderService can be activated
-builder.Services.AddScoped<Katana.Core.Interfaces.IOrderService, Katana.Business.Services.OrderService>();
-builder.Services.AddScoped<Katana.Business.Interfaces.IPendingStockAdjustmentService, Katana.Business.Services.PendingStockAdjustmentService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IPendingStockAdjustmentService, PendingStockAdjustmentService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IProductService, ProductService>();
@@ -229,34 +170,26 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IErrorHandler, ErrorHandlerService>();
-// Optional simple cache abstraction for ad-hoc caching scenarios
 builder.Services.AddSingleton<Katana.Infrastructure.Services.CacheService>();
-
-// Logging Service
 builder.Services.AddScoped<ILoggingService, LoggingService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
-
-// Notification sistemi
 builder.Services.AddScoped<INotificationService, EmailNotificationService>();
-builder.Services.AddScoped<NotificationService>(); // Business katmanı
-
-// SignalR and pending notification publisher (API provides a SignalR-backed publisher)
+builder.Services.AddScoped<NotificationService>();
 builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();
     options.KeepAliveInterval = TimeSpan.FromSeconds(15);
     options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
 });
-builder.Services.AddScoped<Katana.Core.Interfaces.IPendingNotificationPublisher, Katana.API.Notifications.SignalRNotificationPublisher>();
-
+builder.Services.AddScoped<IPendingNotificationPublisher, SignalRNotificationPublisher>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<AdminService>();
 
 // -----------------------------
 // JWT Authentication
 // -----------------------------
-var jwtSettings = builder.Configuration.GetSection("Jwt");
-var secretKey = jwtSettings["Key"] ?? throw new InvalidOperationException("JWT Key not configured");
+var jwt = builder.Configuration.GetSection("Jwt");
+var key = jwt["Key"] ?? throw new InvalidOperationException("JWT Key not configured");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -267,46 +200,26 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtSettings["Issuer"],
-            ValidAudience = jwtSettings["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
-        };
-        // Small diagnostics to log token validation success/failure for local debugging
-        options.Events = new JwtBearerEvents
-        {
-            OnAuthenticationFailed = ctx =>
-            {
-                var logger = ctx.HttpContext.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("JwtAuth");
-                logger?.LogError(ctx.Exception, "JWT authentication failed: {Message}", ctx.Exception?.Message);
-                return Task.CompletedTask;
-            },
-            OnTokenValidated = ctx =>
-            {
-                var logger = ctx.HttpContext.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("JwtAuth");
-                logger?.LogInformation("JWT token validated for {User}", ctx.Principal?.Identity?.Name ?? "<unknown>");
-                return Task.CompletedTask;
-            }
+            ValidIssuer = jwt["Issuer"],
+            ValidAudience = jwt["Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
         };
     });
-
 builder.Services.AddAuthorization();
 
 // -----------------------------
 // CORS
 // -----------------------------
-builder.Services.AddCors(options =>
+builder.Services.AddCors(o =>
 {
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        // Allow any localhost origin (different dev servers may use 3000,3001 etc.)
-        policy.SetIsOriginAllowed(origin =>
-                !string.IsNullOrEmpty(origin) && (origin.StartsWith("http://localhost") || origin.StartsWith("https://localhost")))
-              .AllowAnyHeader()
-                            // Allow frontend to read Authorization and other response headers if needed
-                            .WithExposedHeaders("Authorization")
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
+    o.AddPolicy("AllowFrontend", p =>
+        p.SetIsOriginAllowed(origin =>
+            !string.IsNullOrEmpty(origin) &&
+            (origin.StartsWith("http://localhost") || origin.StartsWith("https://localhost")))
+         .AllowAnyHeader()
+         .WithExposedHeaders("Authorization")
+         .AllowAnyMethod()
+         .AllowCredentials());
 });
 
 // -----------------------------
@@ -315,43 +228,22 @@ builder.Services.AddCors(options =>
 builder.Services.AddHealthChecks().AddDbContextCheck<IntegrationDbContext>();
 
 // -----------------------------
-// Background Services (Worker + Quartz) - Disabled (requires Luca API)
+// Background Services
 // -----------------------------
-//builder.Services.AddHostedService<Katana.Infrastructure.Workers.SyncWorkerService>();
-
-// In production/staging enable scheduled sync jobs and background flusher. In local
-// development these background jobs can make the process noisy and may lead to
-// unexpected shutdowns during iteration, so disable them to keep the dev server
-// stable and fast to restart.
-// Background jobs are disabled by default to keep local development stable.
-// To enable background jobs in an environment (e.g., staging/prod), set
-// the environment variable ENABLE_BACKGROUND_SERVICES=true.
 var enableBackground = string.Equals(Environment.GetEnvironmentVariable("ENABLE_BACKGROUND_SERVICES"), "true", StringComparison.OrdinalIgnoreCase);
 if (enableBackground)
 {
     builder.Services.AddQuartz(q =>
     {
-        // Stock sync job - every 6 hours
         var stockJobKey = new JobKey("StockSyncJob");
-        q.AddJob<SyncJob>(opts => opts.WithIdentity(stockJobKey).UsingJobData("SyncType", "STOCK"));
-        q.AddTrigger(opts => opts.ForJob(stockJobKey).WithIdentity("StockSyncTrigger").WithCronSchedule("0 0 */6 * * ?"));
-
-        // Invoice sync job - every 4 hours
-        var invoiceJobKey = new JobKey("InvoiceSyncJob");
-        q.AddJob<SyncJob>(opts => opts.WithIdentity(invoiceJobKey).UsingJobData("SyncType", "INVOICE"));
-        q.AddTrigger(opts => opts.ForJob(invoiceJobKey).WithIdentity("InvoiceSyncTrigger").WithCronSchedule("0 0 */4 * * ?"));
+        q.AddJob<SyncJob>(o => o.WithIdentity(stockJobKey).UsingJobData("SyncType", "STOCK"));
+        q.AddTrigger(o => o.ForJob(stockJobKey).WithIdentity("StockSyncTrigger").WithCronSchedule("0 0 */6 * * ?"));
     });
-
     builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
-
-    // Pending DB write queue + background flusher
-    // Register the Core implementation so the IntegrationDbContext and the background worker
-    // (which depend on Katana.Core.Services.PendingDbWriteQueue) receive the same instance.
     builder.Services.AddSingleton<Katana.Core.Services.PendingDbWriteQueue>();
     builder.Services.AddHostedService<Katana.Infrastructure.Workers.RetryPendingDbWritesService>();
 }
 
-// Continuous background services for metrics, retention, and DLQ recovery
 builder.Services.AddHostedService<HourlyMetricsAggregator>();
 builder.Services.AddHostedService<LogRetentionService>();
 builder.Services.AddHostedService<FailedNotificationProcessor>();
@@ -361,7 +253,7 @@ builder.Services.AddHostedService<FailedNotificationProcessor>();
 // -----------------------------
 var app = builder.Build();
 
-// Show which DB connection string we're using (masked) to help local debugging
+// Connection string info
 try
 {
     var sqlConn = builder.Configuration.GetConnectionString("SqlServerConnection");
@@ -370,25 +262,17 @@ try
         var masked = Regex.Replace(sqlConn, "(Password=)([^;]+)", "$1*****", RegexOptions.IgnoreCase);
         Console.WriteLine($"Using SqlServerConnection: {masked}");
     }
-    else
-    {
-        Console.WriteLine("No SqlServerConnection configured");
-    }
 }
-catch { /* ignore during boot */ }
+catch { }
 
-// Swagger her zaman açık (Development ve Production)
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Katana-Luca Integration API v1");
-    c.RoutePrefix = string.Empty; // Swagger UI ana dizinde
+    c.RoutePrefix = string.Empty;
 });
 
-// Routing (CORS öncesi)
 app.UseRouting();
-
-// Basic security headers (safe for APIs and Swagger)
 app.Use(async (ctx, next) =>
 {
     ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
@@ -396,46 +280,25 @@ app.Use(async (ctx, next) =>
     ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     await next();
 });
-
-// CORS (UseRouting ile UseAuthentication/Authorization arasında olmalı)
 app.UseCors("AllowFrontend");
-
-// Response Caching middleware (only caches responses that opt-in via headers)
 app.UseResponseCaching();
-
-// Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();
-
-// Custom Middlewares (Authentication'dan SONRA)
 app.UseMiddleware<ErrorHandlingMiddleware>();
 
-// Endpoints
 app.MapControllers();
 app.MapHealthChecks("/health");
-
-// SignalR hub endpoints
 app.MapHub<Katana.API.Hubs.NotificationHub>("/hubs/notifications");
 
-// Geliştirme ortamında veritabanını otomatik hazırla
+// Auto-migrate DB (SQL Server only)
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<IntegrationDbContext>();
     try
     {
-        if (db.Database.IsSqlite())
-        {
-            // SQLite için hızlı başlangıç: EnsureCreated (migrasyon setleri provider'a göre değişken)
-            db.Database.EnsureCreated();
-        }
-        else
-        {
-            // SQL Server için migrasyonları uygula
-            db.Database.Migrate();
-        }
+        db.Database.Migrate();
 
-        // Lightweight dev seed: ensure minimal mapping defaults exist
         if (!db.MappingTables.Any())
         {
             db.MappingTables.AddRange(new Katana.Data.Models.MappingTable
@@ -446,7 +309,7 @@ if (app.Environment.IsDevelopment())
                 Description = "Default account code for unmapped products",
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             },
             new Katana.Data.Models.MappingTable
             {
@@ -456,21 +319,20 @@ if (app.Environment.IsDevelopment())
                 Description = "Default warehouse code for unmapped locations",
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             });
             db.SaveChanges();
         }
     }
     catch (Exception ex)
     {
-        // Dev kolaylığı: oluşturma başarısız olsa bile uygulama devam etsin (logla)
         Console.WriteLine($"Dev DB init failed: {ex.Message}");
     }
 }
 else
 {
-    // Production hardening
     app.UseHsts();
     app.UseHttpsRedirection();
 }
+
 app.Run();
