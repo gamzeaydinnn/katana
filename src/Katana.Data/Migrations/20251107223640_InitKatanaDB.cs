@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Katana.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class InitKatanaDB : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -82,6 +82,22 @@ namespace Katana.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "DashboardMetrics",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Hour = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ErrorCount = table.Column<int>(type: "int", nullable: false),
+                    AuditCount = table.Column<int>(type: "int", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DashboardMetrics", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ErrorLogs",
                 columns: table => new
                 {
@@ -89,18 +105,37 @@ namespace Katana.Data.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     IntegrationName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     Message = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: false),
-                    StackTrace = table.Column<string>(type: "nvarchar(4000)", maxLength: 4000, nullable: true),
+                    StackTrace = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Operation = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
                     ErrorType = table.Column<int>(type: "int", nullable: false),
                     Level = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
                     Category = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     User = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    ContextData = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    ContextData = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ErrorLogs", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "FailedNotifications",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    EventType = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    Payload = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    RetryCount = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    LastRetryAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    NextRetryAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastError = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_FailedNotifications", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -145,6 +180,48 @@ namespace Katana.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_MappingTables", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Notifications",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Type = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Title = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Payload = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Link = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    IsRead = table.Column<bool>(type: "bit", nullable: false),
+                    RelatedPendingId = table.Column<long>(type: "bigint", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Notifications", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PendingStockAdjustments",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ExternalOrderId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    ProductId = table.Column<int>(type: "int", nullable: false),
+                    Sku = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Quantity = table.Column<int>(type: "int", nullable: false),
+                    RequestedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    RequestedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    ApprovedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ApprovedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    RejectionReason = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Notes = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PendingStockAdjustments", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -344,6 +421,33 @@ namespace Katana.Data.Migrations
                         principalTable: "Suppliers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StockMovements",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ProductId = table.Column<int>(type: "int", nullable: false),
+                    ProductSku = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    ChangeQuantity = table.Column<int>(type: "int", nullable: false),
+                    MovementType = table.Column<int>(type: "int", nullable: false),
+                    SourceDocument = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Timestamp = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    WarehouseCode = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    IsSynced = table.Column<bool>(type: "bit", nullable: false),
+                    SyncedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StockMovements", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StockMovements_Products_ProductId",
+                        column: x => x.ProductId,
+                        principalTable: "Products",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -548,6 +652,11 @@ namespace Katana.Data.Migrations
                 column: "EntityName");
 
             migrationBuilder.CreateIndex(
+                name: "IX_AuditLogs_Timestamp_ActionType",
+                table: "AuditLogs",
+                columns: new[] { "Timestamp", "ActionType" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Categories_ParentId_Name",
                 table: "Categories",
                 columns: new[] { "ParentId", "Name" },
@@ -559,6 +668,27 @@ namespace Katana.Data.Migrations
                 table: "Customers",
                 column: "TaxNo",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DashboardMetrics_Hour",
+                table: "DashboardMetrics",
+                column: "Hour",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ErrorLogs_Category",
+                table: "ErrorLogs",
+                column: "Category");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ErrorLogs_CreatedAt_Level",
+                table: "ErrorLogs",
+                columns: new[] { "CreatedAt", "Level" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ErrorLogs_Level",
+                table: "ErrorLogs",
+                column: "Level");
 
             migrationBuilder.CreateIndex(
                 name: "IX_FailedSyncRecords_IntegrationLogId",
@@ -623,6 +753,16 @@ namespace Katana.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_Notifications_CreatedAt",
+                table: "Notifications",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Notifications_IsRead",
+                table: "Notifications",
+                column: "IsRead");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_OrderItems_OrderId",
                 table: "OrderItems",
                 column: "OrderId");
@@ -636,6 +776,22 @@ namespace Katana.Data.Migrations
                 name: "IX_Orders_CustomerId",
                 table: "Orders",
                 column: "CustomerId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PendingStockAdjustments_ExternalOrderId",
+                table: "PendingStockAdjustments",
+                column: "ExternalOrderId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PendingStockAdjustments_RequestedAt",
+                table: "PendingStockAdjustments",
+                column: "RequestedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PendingStockAdjustments_Status",
+                table: "PendingStockAdjustments",
+                column: "Status");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Products_CategoryId",
@@ -662,6 +818,11 @@ namespace Katana.Data.Migrations
                 name: "IX_PurchaseOrders_SupplierId",
                 table: "PurchaseOrders",
                 column: "SupplierId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockMovements_ProductId",
+                table: "StockMovements",
+                column: "ProductId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Stocks_IsSynced",
@@ -705,7 +866,13 @@ namespace Katana.Data.Migrations
                 name: "AuditLogs");
 
             migrationBuilder.DropTable(
+                name: "DashboardMetrics");
+
+            migrationBuilder.DropTable(
                 name: "ErrorLogs");
+
+            migrationBuilder.DropTable(
+                name: "FailedNotifications");
 
             migrationBuilder.DropTable(
                 name: "FailedSyncRecords");
@@ -717,10 +884,19 @@ namespace Katana.Data.Migrations
                 name: "MappingTables");
 
             migrationBuilder.DropTable(
+                name: "Notifications");
+
+            migrationBuilder.DropTable(
                 name: "OrderItems");
 
             migrationBuilder.DropTable(
+                name: "PendingStockAdjustments");
+
+            migrationBuilder.DropTable(
                 name: "PurchaseOrderItems");
+
+            migrationBuilder.DropTable(
+                name: "StockMovements");
 
             migrationBuilder.DropTable(
                 name: "Stocks");
