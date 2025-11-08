@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import PendingAdjustments from "../PendingAdjustments";
 import { FeedbackProvider } from "../../../providers/FeedbackProvider";
 
@@ -14,7 +14,6 @@ jest.mock("../../../services/api", () => ({
 
 // Capture handlers to simulate SignalR events
 let createdHandler: ((p: any) => void) | null = null;
-let approvedHandler: ((p: any) => void) | null = null;
 
 jest.mock("../../../services/signalr", () => ({
   startConnection: () => Promise.resolve(),
@@ -23,9 +22,7 @@ jest.mock("../../../services/signalr", () => ({
     createdHandler = h;
   },
   offPendingCreated: () => {},
-  onPendingApproved: (h: (p: any) => void) => {
-    approvedHandler = h;
-  },
+  onPendingApproved: () => {},
   offPendingApproved: () => {},
 }));
 
@@ -38,15 +35,24 @@ describe("PendingAdjustments SignalR Integration", () => {
     );
 
     // Initially shows 'No pending adjustments'
-    await waitFor(() => screen.getByText(/No pending adjustments/i));
+    await screen.findByText(/No pending adjustments/i);
 
-    // Simulate SignalR event
-    createdHandler &&
-      createdHandler({ pending: { id: 101, sku: "SKU-1", productId: 1, quantity: 2, status: "Pending" } });
+    // Simulate SignalR event inside act to avoid unwrapped state updates
+    expect(createdHandler).toBeTruthy();
+    await act(async () => {
+      createdHandler!({
+        pending: {
+          id: 101,
+          sku: "SKU-1",
+          productId: 1,
+          quantity: 2,
+          status: "Pending",
+        },
+      });
+    });
 
     // Row should appear
-    await waitFor(() => screen.getByText("101"));
+    await screen.findByText("101");
     expect(screen.getByText("SKU-1")).toBeInTheDocument();
   });
 });
-

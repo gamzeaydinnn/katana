@@ -80,10 +80,12 @@ describe("Login Component", () => {
     fireEvent.change(passwordInput, { target: { value: "Admin123!" } });
     fireEvent.click(submitButton);
 
-    await waitFor(() => {
-      expect(localStorage.getItem("authToken")).toBe("fake-jwt-token");
-      expect(mockedNavigate).toHaveBeenCalledWith("/admin");
-    });
+    await waitFor(() =>
+      expect(localStorage.getItem("authToken")).toBe("fake-jwt-token")
+    );
+    await waitFor(() =>
+      expect(mockedNavigate).toHaveBeenCalledWith("/admin")
+    );
   });
 
   test("shows error when token is missing in response", async () => {
@@ -131,17 +133,20 @@ describe("Login Component", () => {
     renderLogin();
 
     const passwordInput = screen.getByLabelText(/şifre/i) as HTMLInputElement;
-    const toggleButtons = screen.getAllByRole("button");
-    const toggleButton = toggleButtons.find((btn) => btn.querySelector("svg"));
+    // Avoid direct node access (querySelector). Prefer Testing Library queries.
+    // There are two buttons on this view: the submit button and the visibility toggle.
+    const submitButton = screen.getByRole("button", { name: /giriş yap/i });
+    const toggleButton = screen
+      .getAllByRole("button")
+      .find((btn) => btn !== submitButton) as HTMLButtonElement;
+    expect(toggleButton).toBeTruthy();
 
     expect(passwordInput.type).toBe("password");
 
-    if (toggleButton) {
-      fireEvent.click(toggleButton);
-      expect(passwordInput.type).toBe("text");
+    fireEvent.click(toggleButton);
+    expect(passwordInput.type).toBe("text");
 
-      fireEvent.click(toggleButton);
-      expect(passwordInput.type).toBe("password");
-    }
+    fireEvent.click(toggleButton);
+    expect(passwordInput.type).toBe("password");
   });
 });
