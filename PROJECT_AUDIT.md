@@ -30,7 +30,7 @@ Not: Dosya yolları proje köküne göredir (ör. `src/Katana.API/...`, `fronten
    - Durum (güncellendi): Geliştirme ortamında eksik olan `katanaluca-db` veritabanı oluşturuldu ve bağlantı doğrulandı — ADO.NET ile `katanaluca-db` açılabiliyor ve uygulama Development modunda başlatıldığında health endpoint'i başarılı yanıt veriyor. Quartz ve background worker (RetryPendingDbWritesService) da başlatıldı.
    - Sebep (muhtemel üretim riski): Uzak RDS örneğinde veritabanı yoksa veya login kullanıcısının (admin) varsayılan veritabanına erişim izni yoksa 4060 hatası oluşur. Geliştirme için DB oluşturuldu; production için credential/permission doğrulaması hâlâ zorunlu.
    - Etki: DB erişim hataları admin paneli ve log gösteriminde 500 sonuçlarına yol açıyor; geliştirme sırasında bu sorun giderildi ancak prod ortamında kontroller yapılmalı.
-   - Öneri: Dev ortamı için `appsettings.Development.json` içinde SQLite (`Data Source=katanaluca-dev.db`) fallback seçeneği kullanılabilir. Production için ise:
+   - Production için:
      - Veritabanı `katanaluca-db` varlığını teyit edin veya oluşturun.
      - Uzak SQL login (ör. `admin`) için veritabanı içinde uygun kullanıcı-mapping ve `CONNECT`/`db_owner` yetkilerini verin.
      - Credential'ları güvenli şekilde saklayın (KeyVault/SecretManager) ve connection string'lerin tam/parolalı olduğundan emin olun.
@@ -60,7 +60,7 @@ Katana.Infrastructure/Workers/RetryPendingDbWritesService.cs
 Fix SQL Server authentication and connection issues (Login failed for user 'admin').
 Verify connection strings in appsettings and Development settings.
 Ensure IntegrationDbContext properly connects to SQL Server and applies migrations automatically.
-Add fallback SQLite configuration for dev mode (Data Source=katanaluca-dev.db).
+Ensure SQL Server configuration is present for all environments.
 Confirm RetryPendingDbWritesService and Quartz jobs start without DB permission errors.
 Ensure production DB users have correct login mapping and permissions.
 "
@@ -194,7 +194,7 @@ Run app in Development mode (ASPNETCORE_ENVIRONMENT=Development) to capture full
    - Öneri: CI'da `dotnet build`, `dotnet test`, `npm ci && npm run build` adımları ekle; migration check eklensin.
 
 3. Migrations ve DB provisioning
-   - Öneri: `migrations/` klasörü ve `README` içinde DB başlatma talimatları ekle (dev/prod ayrımı). Local dev için Docker Compose (SQL Server veya using SQLite) yedeği düşün.
+   - Öneri: `migrations/` klasörü ve `README` içinde DB başlatma talimatları ekle (dev/prod ayrımı). Local dev için Docker Compose (SQL Server) yedeği düşün.
 
 ---
 
@@ -242,7 +242,7 @@ npm install
 npm start
 ```
 
-- EF Migrations (örn. local SQLite kullanıyorsanız):
+EF Migrations:
 
 ```powershell
 # backend projesi kökünde

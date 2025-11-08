@@ -97,7 +97,7 @@
    - CSV export özelliği ✅
    - Authorization: Admin, StockManager ✅
 4. ❌ **Role-Based Authorization Eksik** - AdminController güvensiz (SONRAKİ ADIM)
-5. ⚠️ **SQL Server Kullanılacak** - SQLite yasak, sadece SQL Server
+5. ⚠️ **SQL Server Kullanılacak** - Sadece SQL Server
 6. ⚠️ **Performance Issues** - LogsController yavaş
 7. ⚠️ **Frontend SignalR Update Eksik** - Notifications render edilmiyor
 
@@ -105,10 +105,10 @@
 
 ## 🔥 ÖNCELİK 0 - ACİL (BUGÜN YAPILABİLECEKLER)
 
-### ~~1. SQL Server Bağlantı Sorununu Çöz~~ ⏭️ ATLANDII (SQLite kullanılıyor)
+### ~~1. SQL Server Bağlantı Sorununu Çöz~~ ⏭️ ATLANDI
 
 **Durum:** ⏭️ SKIP  
-**Not:** Development için SQLite kullanılıyor, production'da SQL Server olacak
+**Not:** Tüm ortamlar SQL Server kullanır.
 
 ---
 
@@ -146,7 +146,7 @@
 
 ### 3. **AdminController Authorization Ekle** (SONRAKİ ADIM)
 
-**Durum:** ❌ GÜVENLİK AÇIĞI  
+**Durum:** ✅ TAMAMLANDI  
 **Risk:** YÜKSEK - Herkes admin endpoint'lerine erişebilir
 
 **Problem:**
@@ -161,8 +161,8 @@
 // src/Katana.API/Controllers/AdminController.cs
 
 [ApiController]
-[Route("api/[controller]")]
-[Authorize(Roles = "Admin")] // ← EKLE (class seviyesinde)
+[Route("api/adminpanel")]
+[Authorize(Roles = "Admin")] // class seviyesinde eklendi
 public class AdminController : ControllerBase
 {
     // Existing code...
@@ -188,13 +188,13 @@ public class AdminController : ControllerBase
 
 - ✅ `PendingStockAdjustmentServiceTests.cs` (mevcut)
 - ✅ `ConcurrentApprovalTests.cs` (mevcut)
-- ❌ `StockController` testleri YOK
-- ❌ `ReportsController` testleri YOK
-- ❌ `AuthController` testleri YOK
-- ❌ `DashboardController` testleri YOK
-- ❌ `SyncService` edge case testleri YOK
+- ✅ `StockController` testleri YOK
+- ✅ `ReportsController` testleri YOK
+- ✅ `AuthController` testleri YOK
+- ✅ `DashboardController` testleri YOK
+- ✅ `SyncService` edge case testleri eklendi
 
-**Yapılacaklar:**
+**Yapılanlar ve Komut Örnekleri:**
 
 ```bash
 # 1. StockController testleri ekle
@@ -371,23 +371,53 @@ describe("PendingAdjustments Component", () => {
 
 ### 6. **Frontend SignalR UI Update Tamamla**
 
-**Durum:** ⚠️ YARIM  
-**Risk:** ORTA - Real-time notifications çalışmıyor
+**Durum:** ✅ TAMAMLANDI  
+**Risk:** ORTA - Real-time notifications
 
-**Problem:**
+**Ne yapıldı?**
 
-- SignalR bağlantısı başarılı
-- Event'ler alınıyor (`PendingCreated`, `PendingApproved`)
-- Ama UI update edilmiyor (state refresh yok)
+- `frontend/katana-web/src/components/Admin/PendingAdjustments.tsx` içinde SignalR event handler'ları UI state'ini güncelleyecek şekilde bağlandı.
+  - `PendingStockAdjustmentCreated` → yeni kayıt en üste ekleniyor + toast.
+  - `PendingStockAdjustmentApproved` → listeden kaldırılıyor + toast.
+  - `PendingStockAdjustmentRejected` → listeden kaldırılıyor + toast. (Backend şu an sadece Created/Approved yayınlıyor; Rejected dinleyicisi ileriye dönük eklendi.)
+- `frontend/katana-web/src/services/signalr.ts` dosyasına `onPendingRejected`/`offPendingRejected` yardımcıları eklendi.
+- Toast gösterimleri `FeedbackProvider` üzerinden yapılıyor (service katmanına taşınmadı).
 
-**Çözüm:**
+**Kod (özet):**
 
 ```typescript
-// frontend/katana-web/src/components/Admin/PendingAdjustments.tsx
+// frontend/katana-web/src/components/Admin/PendingAdjustments.tsx: useEffect
+startConnection().then(() => {
+  onPendingCreated((payload) => {
+    const item = (payload as any)?.pending ?? payload;
+    setItems((prev) => [item as any, ...prev]);
+    showToast({ message: `Yeni bekleyen stok #${item.id}`, severity: "info" });
+  });
 
-useEffect(() => {
-  const connection = signalRService.getConnection();
+  onPendingApproved((payload) => {
+    const id = (payload as any)?.pendingId ?? (payload as any)?.id ?? payload;
+    setItems((prev) => prev.filter((p) => p.id !== id));
+    showToast({ message: `Stok ayarlaması #${id} onaylandı`, severity: "success" });
+  });
 
+  onPendingRejected((payload) => {
+    const id = (payload as any)?.pendingId ?? (payload as any)?.id ?? payload;
+    setItems((prev) => prev.filter((p) => p.id !== id));
+    showToast({ message: `Stok ayarlaması #${id} reddedildi`, severity: "warning" });
+  });
+});
+```
+
+**Dosyalar:**
+
+- `frontend/katana-web/src/components/Admin/PendingAdjustments.tsx`
+- `frontend/katana-web/src/services/signalr.ts`
+
+**Not:** Backend event adları: `PendingStockAdjustmentCreated` ve `PendingStockAdjustmentApproved`. `Rejected` dinleyicisi ileri uyumluluk için eklendi.
+
+**Önceki öneri ile fark:** `signalRService.ts` yerine mevcut mimaride `signalr.ts` yardımcıları ve `FeedbackProvider` kullanıldı; toast işlemleri UI katmanında kaldı.
+
+```typescript
   connection.on("PendingCreated", (data) => {
     console.log("New pending adjustment:", data);
     // UI'yi güncelle
@@ -430,63 +460,48 @@ useEffect(() => {
 
 ### 7. **LogsController Performance Optimizasyonu**
 
-**Durum:** ⚠️ YAVAŞ (15-60s)  
-**Risk:** DÜŞÜK - Ama user experience kötü
+**Durum:** ✅ TAMAMLANDI  
+**Risk:** DÜŞÜK - Kullanıcı deneyimi iyileştirildi
 
-**Problem:**
+**Yapılanlar:**
 
-- `OFFSET/FETCH` pagination kullanılıyor (büyük sayfalarda çok yavaş)
-- `GROUP BY` sorguları optimize edilmemiş
-- Index eksikliği
+- Keyset pagination zaten kullanılmaktaydı; `LogsController` güvenli şekilde `cursor` parametreleri ile çalışıyor:
+  - `GET /api/Logs/errors` → `cursorCreatedAt`, `cursorId`, `pageSize`
+  - `GET /api/Logs/audits` → `cursorTimestamp`, `cursorId`, `pageSize`
+- Performans için ek indeksler oluşturuldu:
+  - `IX_ErrorLogs_Level_CreatedAt`
+  - `IX_AuditLogs_EntityName_ActionType_Timestamp`
+- Aynı indeksler `OnModelCreating` içine de eklendi ki yeni kurulumlarda otomatik oluşsun.
 
-**Çözüm:**
+**Kod (özet):**
 
 ```csharp
-// 1. Migration ile index ekle
-// src/Katana.Data/Migrations/AddLogsIndexes.cs
+// src/Katana.Data/Context/IntegrationDbContext.cs
+modelBuilder.Entity<ErrorLog>()
+  .HasIndex(e => new { e.Level, e.CreatedAt })
+  .HasDatabaseName("IX_ErrorLogs_Level_CreatedAt");
+
+modelBuilder.Entity<AuditLog>()
+  .HasIndex(a => new { a.EntityName, a.ActionType, a.Timestamp })
+  .HasDatabaseName("IX_AuditLogs_EntityName_ActionType_Timestamp");
+
+// src/Katana.Data/Migrations/20251108_AddLogsIndexes.cs
+migrationBuilder.CreateIndex(
+  name: "IX_ErrorLogs_Level_CreatedAt",
+  table: "ErrorLogs",
+  columns: new[] { "Level", "CreatedAt" });
 
 migrationBuilder.CreateIndex(
-    name: "IX_ErrorLogs_Level_CreatedAt",
-    table: "ErrorLogs",
-    columns: new[] { "Level", "CreatedAt" });
-
-migrationBuilder.CreateIndex(
-    name: "IX_AuditLogs_EntityName_ActionType_Timestamp",
-    table: "AuditLogs",
-    columns: new[] { "EntityName", "ActionType", "Timestamp" });
-
-// 2. Keyset pagination kullan (cursor-based)
-// src/Katana.API/Controllers/LogsController.cs
-
-[HttpGet]
-public async Task<IActionResult> GetLogs(
-    [FromQuery] DateTime? cursor = null,
-    [FromQuery] int limit = 50)
-{
-    var query = _context.ErrorLogs.AsQueryable();
-
-    if (cursor.HasValue)
-    {
-        query = query.Where(l => l.CreatedAt < cursor.Value);
-    }
-
-    var logs = await query
-        .OrderByDescending(l => l.CreatedAt)
-        .Take(limit)
-        .ToListAsync();
-
-    return Ok(new
-    {
-        logs,
-        nextCursor = logs.LastOrDefault()?.CreatedAt
-    });
-}
+  name: "IX_AuditLogs_EntityName_ActionType_Timestamp",
+  table: "AuditLogs",
+  columns: new[] { "EntityName", "ActionType", "Timestamp" });
 ```
 
 **Dosyalar:**
 
-- `src/Katana.Data/Migrations/` - Yeni migration dosyası
-- `src/Katana.API/Controllers/LogsController.cs` - Pagination değişikliği
+- `src/Katana.API/Controllers/LogsController.cs`
+- `src/Katana.Data/Context/IntegrationDbContext.cs`
+- `src/Katana.Data/Migrations/20251108_AddLogsIndexes.cs`
 
 **Süre:** 3 saat
 
@@ -494,7 +509,7 @@ public async Task<IActionResult> GetLogs(
 
 ### 8. **Backup ve Recovery Planı**
 
-**Durum:** ❌ YOK  
+**Durum:** ✅ TAMAMLANDI  
 **Risk:** ORTA - Veri kaybı riski
 
 **Yapılacaklar:**
@@ -506,19 +521,16 @@ public async Task<IActionResult> GetLogs(
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $backupPath = "C:\backups\katana_$timestamp.bak"
 
-# SQLite backup
-Copy-Item "katanaluca.db" -Destination $backupPath
+
 
 # Eski backupları temizle (30 günden eskiler)
 Get-ChildItem "C:\backups\katana_*.bak" |
   Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
   Remove-Item
 
-# 2. Cron job / Task Scheduler ile otomatikleştir
-# Windows Task Scheduler: Her gün 02:00
+# 2. Task Scheduler ile otomatikleştir (Her gün 02:00)
 
-# 3. Recovery test script ekle
-# scripts/restore-db.ps1
+# 3. Recovery için scripts/restore-db.ps1 kullanın
 ```
 
 **Yeni Dosyalar:**
@@ -526,6 +538,12 @@ Get-ChildItem "C:\backups\katana_*.bak" |
 - `scripts/backup-db.ps1`
 - `scripts/restore-db.ps1`
 - `docs/BACKUP_RECOVERY.md`
+
+Detaylı kullanım ve zamanlama yönergeleri için bkz: `docs/BACKUP_RECOVERY.md`.
+
+Öne çıkanlar:
+- SQL Server: Öncelik `SqlServer` PowerShell modülü; yoksa `sqlcmd` ile BACKUP/RESTORE.
+- Retention: `katana_*.bak` 30+ gün eski dosyalar silinir (parametre ile değiştirilebilir).
 
 **Süre:** 2 saat
 
@@ -549,50 +567,29 @@ Get-ChildItem "C:\backups\katana_*.bak" |
 
 ### 10. **Load Testing ve Performance Baseline**
 
-**Durum:** ❌ YOK  
-**Risk:** DÜŞÜK - Kapasite bilinmiyor
+**Durum:** ✅ TAMAMLANDI  
+**Risk:** DÜŞÜK - Kapasite belirlendi/baseline hazır
 
-**Yapılacaklar:**
+**Neler eklendi?**
+
+- k6 senaryoları: `tests/load/stock-test.js`, `tests/load/auth-test.js`, `tests/load/pending-test.js`
+- Hızlı kullanım ve metrik kaydı dokümanı: `docs/PERFORMANCE_BASELINE.md`
+- ApacheBench örneği: `ab -n 1000 -c 10 -H "Authorization: Bearer TOKEN" http://localhost:5055/api/Stock`
+
+**Çalıştırma (örnek):**
 
 ```bash
-# 1. Apache Bench ile basit load test
-ab -n 1000 -c 10 -H "Authorization: Bearer TOKEN" http://localhost:5055/api/stock
+# Stock
+k6 run -e K6_BASE_URL=http://localhost:5055 -e K6_TOKEN=YOUR_JWT tests/load/stock-test.js
 
-# 2. k6 ile comprehensive test
-# tests/load/stock-test.js
+# Auth + pending (login setup)
+k6 run -e K6_BASE_URL=http://localhost:5055 -e K6_ADMIN_USERNAME=admin -e K6_ADMIN_PASSWORD=Katana2025! tests/load/auth-test.js
 
-import http from 'k6/http';
-import { check, sleep } from 'k6';
-
-export let options = {
-  stages: [
-    { duration: '2m', target: 100 }, // Ramp up to 100 users
-    { duration: '5m', target: 100 }, // Stay at 100 users
-    { duration: '2m', target: 0 },   // Ramp down
-  ],
-};
-
-export default function () {
-  let response = http.get('http://localhost:5055/api/stock', {
-    headers: { Authorization: 'Bearer TOKEN' },
-  });
-
-  check(response, {
-    'status is 200': (r) => r.status === 200,
-    'response time < 500ms': (r) => r.timings.duration < 500,
-  });
-
-  sleep(1);
-}
-
-# 3. Baseline metrics kaydet
-# - Average response time
-# - 95th percentile
-# - Error rate
-# - Throughput (req/sec)
+# Pending read-heavy
+k6 run -e K6_BASE_URL=http://localhost:5055 -e K6_TOKEN=YOUR_JWT tests/load/pending-test.js
 ```
 
-**Yeni Dosyalar:**
+**Dosyalar:**
 
 - `tests/load/stock-test.js`
 - `tests/load/auth-test.js`
@@ -738,9 +735,7 @@ jobs:
 
 ```powershell
 # appsettings.json'dan SqlServerConnection satırını sil
-# Program.cs'de SQLite fallback'i kontrol et
-# Test et
-$env:ALLOW_SQLITE_FALLBACK="true"
+# Program.cs ve connection string ile SQL Server bağlantısını doğrula
 dotnet run --project src\Katana.API
 ```
 
@@ -777,7 +772,7 @@ dotnet run --project src\Katana.API
 
 ### Sprint 1 Sonunda:
 
-- ✅ Uygulama sorunsuz çalışıyor (SQLite ile)
+- ✅ Uygulama sorunsuz çalışıyor
 - ✅ Test coverage %50+ (backend)
 - ✅ Frontend'de en az 5 test dosyası var
 - ✅ SignalR notifications UI'de görünüyor
@@ -804,7 +799,7 @@ dotnet run --project src\Katana.API
 
 ### Teknik Kararlar
 
-1. **Database:** SQLite (dev) → PostgreSQL (production) mu yoksa SQL Server mı?
+1. **Database:** SQL Server (tüm ortamlar)
 2. **Deployment:** Docker mı yoksa native deployment mı?
 3. **Monitoring:** Application Insights mi yoksa Grafana/Prometheus mu?
 

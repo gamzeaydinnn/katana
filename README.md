@@ -109,7 +109,7 @@ katana/
 
 - .NET 8.0+
 - Node.js 18+ (Frontend için)
-- SQL Server / SQLite
+- SQL Server
 - Visual Studio 2022 / VS Code
 
 ### Kurulum Adımları
@@ -146,7 +146,7 @@ npm start  # http://localhost:3000
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "your-database-connection-string"
+    "SqlServerConnection": "Server=localhost,1433;Database=KatanaDB;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True;"
   },
   "KatanaApi": {
     "BaseUrl": "https://katana-api-url",

@@ -6,7 +6,6 @@ using Katana.Business.Services;
 using Katana.Data.Context;
 using Katana.Data.Models;
 using Katana.Core.Entities;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -16,20 +15,16 @@ namespace Katana.Tests.Services;
 
 public class ConcurrentApprovalTests : IDisposable
 {
-    private readonly SqliteConnection _connection;
     private readonly DbContextOptions<IntegrationDbContext> _options;
 
     public ConcurrentApprovalTests()
     {
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
         _options = new DbContextOptionsBuilder<IntegrationDbContext>()
-            .UseSqlite(_connection)
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
         using var ctx = new IntegrationDbContext(_options);
         ctx.Database.EnsureCreated();
-        ctx.Database.ExecuteSqlRaw("PRAGMA foreign_keys=OFF;");
 
         // seed a product and one pending adjustment
         var category = new Category
@@ -72,11 +67,7 @@ public class ConcurrentApprovalTests : IDisposable
     }
 
     // NOTE: Concurrency approval tests require relational FK setup behaving consistently.
-    // Due to SQLite FK behavior in this environment, these tests are skipped.
-    // Logic is covered by service claim pattern and integration paths.
+    // This suite uses InMemory provider and serves as a placeholder for future relational tests.
 
-    public void Dispose()
-    {
-        _connection.Dispose();
-    }
+    public void Dispose() { }
 }

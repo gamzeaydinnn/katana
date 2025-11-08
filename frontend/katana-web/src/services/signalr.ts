@@ -93,6 +93,15 @@ export function offPendingApproved(handler: (payload: object) => void) {
   connection?.off("PendingStockAdjustmentApproved", handler);
 }
 
+// Reserved for future use: backend may emit a rejected event
+export function onPendingRejected(handler: (payload: object) => void) {
+  connection?.on("PendingStockAdjustmentRejected", handler);
+}
+
+export function offPendingRejected(handler: (payload: object) => void) {
+  connection?.off("PendingStockAdjustmentRejected", handler);
+}
+
 export function isConnected() {
   return connection !== null && ((connection!.state as unknown) as string) === "Connected";
 }

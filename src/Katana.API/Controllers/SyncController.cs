@@ -57,11 +57,6 @@ public class SyncController : ControllerBase
 
             return Ok(logs);
         }
-        catch (Microsoft.Data.Sqlite.SqliteException)
-        {
-            // Tablo hen�z olu�turulmam��, bo� liste d�nd�r
-            return Ok(new List<object>());
-        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting sync history");
@@ -258,4 +253,3 @@ public class StartSyncRequest
 {
     public string SyncType { get; set; } = string.Empty;
 }
-

@@ -82,42 +82,13 @@ public class LogRetentionService : BackgroundService
 
         try
         {
-            int errorRemoved;
-            int auditRemoved;
+            var errorRemoved = await db.ErrorLogs
+                .Where(e => e.CreatedAt < cutoff)
+                .ExecuteDeleteAsync(ct);
 
-            if (db.Database.IsSqlite())
-            {
-                var oldErrors = await db.ErrorLogs.Where(e => e.CreatedAt < cutoff).ToListAsync(ct);
-                var oldAudits = await db.AuditLogs.Where(a => a.Timestamp < cutoff).ToListAsync(ct);
-
-                errorRemoved = oldErrors.Count;
-                auditRemoved = oldAudits.Count;
-
-                if (oldErrors.Count > 0)
-                {
-                    db.ErrorLogs.RemoveRange(oldErrors);
-                }
-
-                if (oldAudits.Count > 0)
-                {
-                    db.AuditLogs.RemoveRange(oldAudits);
-                }
-
-                if (oldErrors.Count > 0 || oldAudits.Count > 0)
-                {
-                    await db.SaveChangesAsync(ct);
-                }
-            }
-            else
-            {
-                errorRemoved = await db.ErrorLogs
-                    .Where(e => e.CreatedAt < cutoff)
-                    .ExecuteDeleteAsync(ct);
-
-                auditRemoved = await db.AuditLogs
-                    .Where(a => a.Timestamp < cutoff)
-                    .ExecuteDeleteAsync(ct);
-            }
+            var auditRemoved = await db.AuditLogs
+                .Where(a => a.Timestamp < cutoff)
+                .ExecuteDeleteAsync(ct);
 
             _logger.LogInformation(
                 "Log retention cleanup completed. Removed {ErrorCount} error logs and {AuditCount} audit logs older than {Cutoff}.",

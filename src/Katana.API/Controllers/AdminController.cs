@@ -13,7 +13,7 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/adminpanel")]
-[Authorize]
+[Authorize(Roles = "Admin")]
 public class AdminController : ControllerBase
 {
     private readonly IKatanaService _katanaService;

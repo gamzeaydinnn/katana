@@ -219,7 +219,7 @@ app.MapHub<NotificationHub>("/hubs/notifications");
 1. **PendingStockAdjustmentServiceTests.cs**
 
 ```csharp
-✅ In-memory SQLite ile integration test
+✅ In-memory provider ile integration test
 ✅ ApproveAsync_ShouldApplyStockChangeAndPersistMovement test case:
    - Başlangıç stok: 10
    - Pending quantity: -4 (decrease)
@@ -341,7 +341,7 @@ Ek olarak bileşen testleri ile doğrulandı:
 
 **3.1 Concurrent Approval Scenarios (Beklemede)**
 
-- `tests/Katana.Tests/Services/ConcurrentApprovalTests.cs` iskeleti eklendi; SQLite FK kısıtları ve claim-update SQL kullanımından dolayı tutarlı eşzamanlılık testi için ilişkisel bir veritabanı (SQL Server/LocalDB) önerilir. CI pipeline’da gerçek DB ile çalışacak entegrasyon testi eklenmesi tavsiye edilir.
+- `tests/Katana.Tests/Services/ConcurrentApprovalTests.cs` iskeleti eklendi; tutarlı eşzamanlılık testi için ilişkisel bir veritabanı (SQL Server/LocalDB) önerilir. CI pipeline’da gerçek DB ile çalışacak entegrasyon testi eklenmesi tavsiye edilir.
 
 ```csharp
 // EKLENMELI: tests/Katana.Tests/Services/ConcurrentApprovalTests.cs
@@ -458,7 +458,7 @@ public class HourlyMetricsAggregator : BackgroundService
 
 #### 6. **Retention Policy & Log Purging**
 
-Günlük çalışan `LogRetentionService`, `LogRetention:Days` ayarını (varsayılan 90) okuyarak cutoff belirliyor ve hem SQL Server (`ExecuteDeleteAsync`) hem SQLite (manual RemoveRange) için destek sağlıyor.
+Günlük çalışan `LogRetentionService`, `LogRetention:Days` ayarını (varsayılan 90) okuyarak cutoff belirliyor ve SQL Server için `ExecuteDeleteAsync` kullanıyor.
 
 ```csharp
 var retentionDays = _configuration.GetValue<int?>("LogRetention:Days") ?? DefaultRetentionDays;
@@ -498,7 +498,7 @@ Log seviyesini (örn. Warning) production ortamında yapılandırarak DB’ye ya
 **Çözüm:**
 
 - Azure Storage Queue / RabbitMQ integration
-- Veya küçük SQLite backstore (`pending_writes.db`)
+ 
 
 ---
 
@@ -639,7 +639,7 @@ var jwtKey = builder.Configuration["Jwt:Key"]
 | Kategori              | Mevcut                             | Hedef                        | Coverage |
 | --------------------- | ---------------------------------- | ---------------------------- | -------- |
 | **Unit Tests**        | 4 dosya (~15 test)                 | 50+ test                     | ~30%     |
-| **Integration Tests** | 1 (SQLite in-memory)               | 20+ test                     | ~10%     |
+| **Integration Tests** | 1 (InMemory provider)              | 20+ test                     | ~10%     |
 | **E2E Tests**         | 1 PowerShell script                | Selenium/Playwright suite    | ~5%      |
 | **Frontend Tests**    | 0 (setupTests.ts var ama test yok) | Jest + React Testing Library | 0%       |
 
@@ -891,7 +891,7 @@ test("admin can approve pending adjustment", async ({ page }) => {
 #### 4.3 Log Retention Service ✅
 
 - `LogRetention:Days` (varsayılan 90) ile günlük purge job devrede.
-- SQL Server için `ExecuteDeleteAsync`, SQLite için RemoveRange fallback’i uygulanıyor.
+- SQL Server için `ExecuteDeleteAsync` uygulanıyor.
 
 **Gerçekleşen Sonuçlar:**
 

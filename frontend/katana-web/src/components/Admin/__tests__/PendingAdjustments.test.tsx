@@ -24,6 +24,8 @@ jest.mock("../../../services/signalr", () => ({
   offPendingCreated: () => {},
   onPendingApproved: () => {},
   offPendingApproved: () => {},
+  onPendingRejected: () => {},
+  offPendingRejected: () => {},
 }));
 
 describe("PendingAdjustments SignalR Integration", () => {

@@ -45,7 +45,6 @@ public class IntegrationDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     base.OnModelCreating(modelBuilder);
-    var isSqlite = Database.IsSqlite();
 
     // ✅ SyncLog configuration
     modelBuilder.Entity<SyncOperationLog>(entity =>
@@ -55,7 +54,7 @@ public class IntegrationDbContext : DbContext
         entity.Property(e => e.SyncType).IsRequired().HasMaxLength(50);
         entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
         entity.Property(e => e.StartTime).IsRequired();
-        entity.Property(e => e.Details).HasColumnType("TEXT");
+        entity.Property(e => e.Details).HasColumnType("nvarchar(max)");
     });
 
     // Product configuration
@@ -200,15 +199,7 @@ public class IntegrationDbContext : DbContext
             entity.HasIndex(e => e.Level);
             entity.HasIndex(e => new { e.CreatedAt, e.Level });
             entity.HasIndex(e => e.Category);
-            // SQLite 'nvarchar(max)' desteklemez; TEXT kullan
-            if (isSqlite)
-            {
-                entity.Property(e => e.StackTrace).HasColumnType("TEXT");
-            }
-            else
-            {
-                entity.Property(e => e.StackTrace).HasColumnType("nvarchar(max)");
-            }
+            entity.Property(e => e.StackTrace).HasColumnType("nvarchar(max)");
             entity.Property(e => e.ContextData).HasMaxLength(1000);
         });
 
@@ -229,10 +220,10 @@ public class IntegrationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Type).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Title).HasMaxLength(200);
-            entity.Property(e => e.Payload).HasColumnType(isSqlite ? "TEXT" : "nvarchar(max)");
+            entity.Property(e => e.Payload).HasColumnType("nvarchar(max)");
             entity.HasIndex(e => e.IsRead);
             entity.HasIndex(e => e.CreatedAt);
-            entity.Property(e => e.RelatedPendingId).HasColumnType(isSqlite ? "INTEGER" : "bigint");
+            entity.Property(e => e.RelatedPendingId).HasColumnType("bigint");
         });
 
         modelBuilder.Entity<Katana.Core.Entities.FailedNotification>(entity =>
@@ -240,7 +231,7 @@ public class IntegrationDbContext : DbContext
             entity.ToTable("FailedNotifications");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.EventType).IsRequired().HasMaxLength(150);
-            entity.Property(e => e.Payload).IsRequired().HasColumnType(isSqlite ? "TEXT" : "nvarchar(max)");
+            entity.Property(e => e.Payload).IsRequired().HasColumnType("nvarchar(max)");
             entity.Property(e => e.RetryCount).HasDefaultValue(0);
             entity.Property(e => e.CreatedAt).IsRequired();
         });
@@ -280,11 +271,7 @@ public class IntegrationDbContext : DbContext
 
         modelBuilder.Entity<AccountingRecord>(entity =>
         {
-            if (!isSqlite)
-            {
-                entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
-            }
-            // SQLite tarafında varsayılan numeric mapping yeterlidir
+            entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
         });
 
         // User configuration
@@ -297,6 +284,21 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.Role).IsRequired();
             entity.Property(e => e.Email).HasMaxLength(200);
             entity.HasIndex(e => e.Email).IsUnique(false);
+        });
+
+        // Logs performance indexes
+        modelBuilder.Entity<ErrorLog>(entity =>
+        {
+            // Supports filtering by Level and range scans on CreatedAt
+            entity.HasIndex(e => new { e.Level, e.CreatedAt })
+                .HasDatabaseName("IX_ErrorLogs_Level_CreatedAt");
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            // Supports filtering by EntityName/ActionType with ordering by Timestamp
+            entity.HasIndex(a => new { a.EntityName, a.ActionType, a.Timestamp })
+                .HasDatabaseName("IX_AuditLogs_EntityName_ActionType_Timestamp");
         });
 
         // Seed data

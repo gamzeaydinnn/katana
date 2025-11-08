@@ -76,11 +76,6 @@ public class AnalyticsController : ControllerBase
 
             return Ok(logs);
         }
-        catch (Microsoft.Data.Sqlite.SqliteException)
-        {
-            // Tablo henüz oluşturulmamış, boş liste döndür
-            return Ok(new List<object>());
-        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating sync report");
@@ -99,17 +94,10 @@ public class AnalyticsController : ControllerBase
             var products = await _katanaService.GetProductsAsync();
             
             List<Katana.Core.Entities.SyncOperationLog> recentSyncs;
-            try
-            {
-                recentSyncs = await _context.SyncOperationLogs
-                    .OrderByDescending(l => l.StartTime)
-                    .Take(10)
-                    .ToListAsync();
-            }
-            catch (Microsoft.Data.Sqlite.SqliteException)
-            {
-                recentSyncs = new List<Katana.Core.Entities.SyncOperationLog>();
-            }
+            recentSyncs = await _context.SyncOperationLogs
+                .OrderByDescending(l => l.StartTime)
+                .Take(10)
+                .ToListAsync();
 
             var summary = new
             {

@@ -9,7 +9,7 @@ services:
       - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Server=db;Database=KatanaLucaIntegration;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=true;
+      - ConnectionStrings__SqlServerConnection=Server=db;Database=KatanaLucaIntegration;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=true;
     depends_on:
       - db
     networks:

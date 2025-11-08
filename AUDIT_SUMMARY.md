@@ -213,7 +213,7 @@ curl -X POST http://localhost:5055/api/webhook/katana/stock-change \
 1. **PendingStockAdjustmentServiceTests.cs** (✅ Mevcut)
 
    - ApproveAsync integration test
-   - In-memory SQLite kullanılıyor
+   - InMemory provider kullanılıyor
    - ⚠️ Concurrent scenario eksik
 
 2. **E2E Script** (✅ Çalışıyor)

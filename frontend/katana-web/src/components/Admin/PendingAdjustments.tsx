@@ -27,6 +27,8 @@ import {
   offPendingCreated,
   onPendingApproved,
   offPendingApproved,
+  onPendingRejected,
+  offPendingRejected,
 } from "../../services/signalr";
 import { useFeedback } from "../../providers/FeedbackProvider";
 import { decodeJwtPayload, tryGetJwtUsername } from "../../utils/jwt";
@@ -156,13 +158,8 @@ export default function PendingAdjustments() {
       try {
         const id = payload?.pendingId || payload?.id || payload;
         if (!id) return;
-        setItems((prev) =>
-          prev.map((p) =>
-            p.id === id
-              ? { ...p, status: "Approved", approvedBy: payload?.approvedBy }
-              : p
-          )
-        );
+        // Remove from the list when approved (matches real-time UX)
+        setItems((prev) => prev.filter((p) => p.id !== id));
         showToast({
           message: `Stok ayarlaması #${id} onaylandı`,
           severity: "success",
@@ -172,10 +169,26 @@ export default function PendingAdjustments() {
       }
     };
 
+    let rejectedHandler = (payload: any) => {
+      try {
+        const id = payload?.pendingId || payload?.id || payload;
+        if (!id) return;
+        // Remove from the list when rejected
+        setItems((prev) => prev.filter((p) => p.id !== id));
+        showToast({
+          message: `Stok ayarlaması #${id} reddedildi`,
+          severity: "warning",
+        });
+      } catch (e) {
+        console.warn("Error handling PendingStockAdjustmentRejected", e);
+      }
+    };
+
     startConnection()
       .then(() => {
         onPendingCreated(createdHandler);
         onPendingApproved(approvedHandler);
+        onPendingRejected(rejectedHandler);
       })
       .catch((err) => console.warn("SignalR start failed", err));
 
@@ -183,6 +196,7 @@ export default function PendingAdjustments() {
       try {
         offPendingCreated(createdHandler);
         offPendingApproved(approvedHandler);
+        offPendingRejected(rejectedHandler);
       } catch {}
       stopConnection().catch(() => {});
     };

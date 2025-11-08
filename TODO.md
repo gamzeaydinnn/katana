@@ -107,7 +107,7 @@ public async Task ApproveAsync_TwoConcurrentRequests_OnlyOneShouldSucceed()
 
 **Adımlar:**
 
-- [ ] ConcurrentApprovalTests.cs (SQLite FK davranışı nedeniyle beklemede)
+- [ ] ConcurrentApprovalTests.cs (eşzamanlı onay senaryosu)
 - [ ] 10 paralel attempt scenario ekle
 - [ ] Race condition verify et
 
