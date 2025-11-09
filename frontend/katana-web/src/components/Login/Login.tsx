@@ -101,9 +101,10 @@ const Login: React.FC = () => {
             theme.palette.mode === "dark"
               ? "0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
               : "0 20px 40px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
-          transition: "all 0.3s ease",
+          transition: "box-shadow 0.3s ease",
+          // Sabit yerleşim: hover'da kartın yer değiştirmesini engelle
           "&:hover": {
-            transform: "translateY(-4px)",
+            transform: "none",
             boxShadow:
               theme.palette.mode === "dark"
                 ? "0 32px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)"
@@ -201,6 +202,7 @@ const Login: React.FC = () => {
                   </InputAdornment>
                 ),
               }}
+              InputLabelProps={{ shrink: true }}
             />
 
             <TextField
@@ -237,9 +239,9 @@ const Login: React.FC = () => {
                       edge="end"
                       sx={{
                         color: theme.palette.primary.main,
-                        transition: "all 0.2s ease",
+                        transition: "color 0.2s ease",
                         "&:hover": {
-                          transform: "scale(1.1)",
+                          transform: "none",
                         },
                       }}
                     >
@@ -248,6 +250,7 @@ const Login: React.FC = () => {
                   </InputAdornment>
                 ),
               }}
+              InputLabelProps={{ shrink: true }}
             />
 
             <Button
@@ -263,9 +266,8 @@ const Login: React.FC = () => {
                 letterSpacing: "0.01em",
                 background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                 boxShadow: `0 4px 12px ${theme.palette.primary.main}40`,
-                transition: "all 0.2s ease",
+                transition: "box-shadow 0.2s ease, opacity 0.2s ease",
                 "&:hover": {
-                  transform: "translateY(-2px)",
                   boxShadow: `0 8px 20px ${theme.palette.primary.main}60`,
                 },
                 "&:disabled": {
