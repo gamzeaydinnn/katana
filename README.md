@@ -7,15 +7,14 @@
 **Latest Analysis:** 2025  
 **Branch Status:** Synced with master (commit 9963dde)
 
-📊 **Quick Status:**
+📊 **Open Items:**
 
-- ✅ Backend service layer 85% complete
-- ⚠️ **CRITICAL:** Admin authorization missing (see [AUDIT_SUMMARY.md](AUDIT_SUMMARY.md))
-- ⚠️ Frontend SignalR UI update incomplete
-- 📈 Test coverage: 30% (target: 60%)
+- 🔐 JWT secret management for production (use env/Key Vault)
+- 🔎 Review remaining `[AllowAnonymous]` usage (Health/Auth expected; Webhook via API key)
+- 🧪 CI/CD pipeline + optional E2E job (Playwright)
 
-📋 **Action Items:** See [TODO.md](TODO.md) for detailed sprint plan  
-📄 **Full Report:** See [IMPLEMENTATION_REPORT.md](IMPLEMENTATION_REPORT.md) for comprehensive analysis
+📋 **Action Items:** See [TODO.md](TODO.md) for the current open tasks  
+📄 **Open Report:** See [IMPLEMENTATION_REPORT.md](IMPLEMENTATION_REPORT.md) for open issues only
 
 ## 📋 Proje Amacı
 
@@ -49,8 +48,6 @@ katana/
 └── docs/
     ├── api.md                   # API documentation
     ├── mapping.md               # Data mapping guide
-    ├── IMPLEMENTATION_REPORT.md # Comprehensive code audit (NEW)
-    ├── AUDIT_SUMMARY.md         # Quick audit summary (NEW)
     └── project_audit_and_action_plan.md
 ```
 
@@ -176,16 +173,16 @@ POST /api/sync/run
 
 ```bash
 # List pending adjustments
-GET /api/admin/pending-adjustments
+GET /api/adminpanel/pending-adjustments
 
 # Approve adjustment
-POST /api/admin/pending-adjustments/{id}/approve
+POST /api/adminpanel/pending-adjustments/{id}/approve
 
 # Reject adjustment
-POST /api/admin/pending-adjustments/{id}/reject
+POST /api/adminpanel/pending-adjustments/{id}/reject
 
 # Create test pending
-POST /api/admin/test-pending
+POST /api/adminpanel/pending-adjustments/test-create
 ```
 
 ### Rapor Alma
@@ -222,16 +219,15 @@ Frontend automatically connects to SignalR hub at `/hubs/notifications`:
 
 - **TLS**: HTTPS zorunlu
 - **Authentication**: JWT Bearer token (480 min expiry)
-- **Authorization**: Role-based (Admin, StockManager) - ⚠️ **[IN PROGRESS]** (see [AUDIT_SUMMARY.md](AUDIT_SUMMARY.md#1-admincontroller-authorization-gap-))
+- **Authorization**: Role-based (Admin, StockManager)
 - **Secrets**: Environment variables önerilir (production'da Azure Key Vault)
 - **Audit**: Tüm işlemler AuditLogs tablosunda loglanır
 - **CORS**: Configured origins only (localhost:3000 for dev)
 
-**Known Issues:**
+**Known Open Items:**
 
-- ⚠️ AdminController endpoints missing role-based authorization (HIGH PRIORITY FIX)
-- ⚠️ Some controllers use `[AllowAnonymous]` unnecessarily
-- 🔑 JWT secret hardcoded in appsettings.json (use Key Vault in production)
+- ⚠️ Review `[AllowAnonymous]` usage (Health/Auth expected; Webhook via API key)
+- 🔑 JWT secret hardcoded in appsettings.json (use env/Key Vault in production)
 
 ## ⚡ Performans
 
