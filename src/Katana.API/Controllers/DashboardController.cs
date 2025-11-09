@@ -10,7 +10,7 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[AllowAnonymous]
+[Authorize]
 public class DashboardController : ControllerBase
 {
     private readonly IKatanaService _katanaService;

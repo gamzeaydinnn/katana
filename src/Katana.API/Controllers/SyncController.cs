@@ -11,7 +11,7 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[AllowAnonymous]
+[Authorize(Roles = "Admin")]
 public class SyncController : ControllerBase
 {
     private readonly ISyncService _syncService;

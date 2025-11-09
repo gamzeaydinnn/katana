@@ -8,7 +8,7 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[AllowAnonymous]
+[Authorize(Roles = "Admin")]
 public class TestController : ControllerBase
 {
     private readonly IKatanaService _katanaService;

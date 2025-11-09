@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Katana.API.Controllers;
 
-[AllowAnonymous]
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class CustomersController : ControllerBase
@@ -69,6 +69,7 @@ public class CustomersController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<CustomerDto>> Create([FromBody] CreateCustomerDto dto)
     {
         var validationErrors = Katana.Business.Validators.CustomerValidator.ValidateCreate(dto);
@@ -91,6 +92,7 @@ public class CustomersController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<CustomerDto>> Update(int id, [FromBody] UpdateCustomerDto dto)
     {
         var validationErrors = Katana.Business.Validators.CustomerValidator.ValidateUpdate(dto);
@@ -117,6 +119,7 @@ public class CustomersController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult> Delete(int id)
     {
         try
@@ -137,6 +140,7 @@ public class CustomersController : ControllerBase
     }
 
     [HttpPut("{id}/activate")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult> Activate(int id)
     {
         var result = await _customerService.ActivateCustomerAsync(id);
@@ -147,6 +151,7 @@ public class CustomersController : ControllerBase
     }
 
     [HttpPut("{id}/deactivate")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult> Deactivate(int id)
     {
         var result = await _customerService.DeactivateCustomerAsync(id);

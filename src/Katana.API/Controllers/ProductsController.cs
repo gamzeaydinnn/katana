@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Katana.API.Controllers;
 
-[AllowAnonymous]
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class ProductsController : ControllerBase
@@ -157,6 +157,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin,StockManager")]
     public async Task<ActionResult<ProductDto>> Create([FromBody] CreateProductDto dto)
     {
         var validationErrors = Katana.Business.Validators.ProductValidator.ValidateCreate(dto);
@@ -179,6 +180,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin,StockManager")]
     public async Task<ActionResult<ProductDto>> Update(int id, [FromBody] UpdateProductDto dto)
     {
         var validationErrors = Katana.Business.Validators.ProductValidator.ValidateUpdate(dto);
@@ -205,6 +207,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPatch("{id}/stock")]
+    [Authorize(Roles = "Admin,StockManager")]
     public async Task<ActionResult> UpdateStock(int id, [FromBody] int quantity)
     {
         var validationErrors = Katana.Business.Validators.ProductValidator.ValidateStock(quantity);
@@ -219,6 +222,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin,StockManager")]
     public async Task<ActionResult> Delete(int id)
     {
         try
