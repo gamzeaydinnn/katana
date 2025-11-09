@@ -161,8 +161,12 @@ export const stockAPI = {
   getKatanaProducts: () =>
     api.get("/adminpanel/products?page=1&pageSize=100").then((res) => res.data),
 
-  // Stock Status - GET /api/Stock
-  getStockStatus: () => api.get("/Stock").then((res) => res.data),
+  // Stock Status - GET /api/Stock/status
+  getStockStatus: () => api.get("/Stock/status").then((res) => res.data),
+
+  // Local Stock Summary - GET /api/Stock/local/summary
+  getLocalStockSummary: () =>
+    api.get("/Stock/local/summary").then((res) => res.data),
 
   // Stock Movements - GET /api/Stock/movements
   getStockMovements: (fromDate?: string, toDate?: string) => {
