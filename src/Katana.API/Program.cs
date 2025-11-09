@@ -203,6 +203,8 @@ builder.Services.AddScoped<ILoggingService, LoggingService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<INotificationService, EmailNotificationService>();
 builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<IMappingService, MappingService>();
+builder.Services.AddScoped<IIntegrationTestService, IntegrationTestService>();
 builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();
