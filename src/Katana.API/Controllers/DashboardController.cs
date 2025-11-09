@@ -8,6 +8,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Katana.API.Controllers;
 
+/// <summary>
+/// High level dashboard and statistics endpoints for the admin UI.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]

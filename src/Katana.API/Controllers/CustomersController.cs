@@ -7,6 +7,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Katana.API.Controllers;
 
+/// <summary>
+/// Customer management endpoints. Read operations are available to authorized users,
+/// while create/update/delete/activate/deactivate require Admin role.
+/// </summary>
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]

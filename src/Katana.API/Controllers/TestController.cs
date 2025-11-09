@@ -6,6 +6,9 @@ using Katana.Data.Configuration;
 
 namespace Katana.API.Controllers;
 
+/// <summary>
+/// Diagnostic endpoints to verify configuration and Katana API connectivity. Admin-only.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "Admin")]

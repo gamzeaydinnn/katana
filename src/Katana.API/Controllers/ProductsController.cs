@@ -7,6 +7,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Katana.API.Controllers;
 
+/// <summary>
+/// Product management endpoints. Requires authorization for write operations.
+/// Read endpoints return product data from local DB or Katana API.
+/// </summary>
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]

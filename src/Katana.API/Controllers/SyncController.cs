@@ -9,6 +9,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Katana.API.Controllers;
 
+/// <summary>
+/// Manual and status endpoints for synchronization operations. Admin-only.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "Admin")]

@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Reflection;
 using Microsoft.Extensions.Options;
 using Quartz;
 using Serilog;
@@ -80,12 +81,29 @@ builder.Services.AddSwaggerGen(c =>
         Description = "API for managing integration between Katana MRP/ERP and Luca Accounting systems"
     });
 
+    // XML comments (Controllers + DTOs)
+    var xmlApi = Path.Combine(AppContext.BaseDirectory, $"{Assembly.GetExecutingAssembly().GetName().Name}.xml");
+    if (File.Exists(xmlApi)) c.IncludeXmlComments(xmlApi, includeControllerXmlComments: true);
+    var xmlCore = Path.Combine(AppContext.BaseDirectory, "Katana.Core.xml");
+    if (File.Exists(xmlCore)) c.IncludeXmlComments(xmlCore);
+
     c.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
     {
         Description = "X-API-Key header required",
         In = ParameterLocation.Header,
         Name = "X-API-Key",
         Type = SecuritySchemeType.ApiKey
+    });
+
+    // JWT Bearer security for Swagger UI
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -96,8 +114,18 @@ builder.Services.AddSwaggerGen(c =>
                 Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "ApiKey" }
             },
             Array.Empty<string>()
+        },
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
         }
     });
+
+    // Operation filter: add 401/403/500 responses for [Authorize] endpoints
+    c.OperationFilter<Katana.API.Swagger.OperationFilters.AddAuthResponsesOperationFilter>();
 });
 
 // -----------------------------
