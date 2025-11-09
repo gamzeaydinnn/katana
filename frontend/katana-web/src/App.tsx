@@ -17,6 +17,8 @@ import StockManagement from "./components/StockManagement/StockManagement";
 import SyncManagement from "./components/SyncManagement/SyncManagement";
 import Reports from "./components/Reports/Reports";
 import AdminPanel from "./components/AdminPanel/AdminPanel";
+import Profile from "./components/Profile/Profile";
+import Settings from "./components/Settings/Settings";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Login from "./components/Login/Login";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
@@ -179,10 +181,15 @@ const App: React.FC = () => {
                         <Box sx={{ width: "100%", maxWidth: "1440px", mx: 0 }}>
                           <Routes>
                             <Route path="/" element={<Dashboard />} />
-                            <Route path="/stock" element={<StockManagement />} />
+                            <Route
+                              path="/stock"
+                              element={<StockManagement />}
+                            />
                             <Route path="/sync" element={<SyncManagement />} />
                             <Route path="/reports" element={<Reports />} />
                             <Route path="/admin" element={<AdminPanel />} />
+                            <Route path="/profile" element={<Profile />} />
+                            <Route path="/settings" element={<Settings />} />
                           </Routes>
                         </Box>
                       </Box>

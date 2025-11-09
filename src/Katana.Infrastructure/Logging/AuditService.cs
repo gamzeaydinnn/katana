@@ -50,6 +50,12 @@ public class AuditService : IAuditService
         TryLogToDatabase("LOGIN", "User", null, username, $"IP: {ipAddress}", null, ipAddress, userAgent);
     }
 
+    public void LogPasswordChange(string username, string? ipAddress = null, string? userAgent = null)
+    {
+        _logger.LogInformation("[AUDIT] PASSWORD_CHANGE {User} from {IP}", username, ipAddress ?? "Unknown");
+        TryLogToDatabase("PASSWORD_CHANGE", "User", null, username, $"IP: {ipAddress}", null, ipAddress, userAgent);
+    }
+
     public void LogAction(string actionType, string entityName, string? entityId, string performedBy, string? details = null)
     {
         _logger.LogInformation("[AUDIT] {Action} {Entity} #{Id} by {User}", actionType, entityName, entityId ?? "N/A", performedBy);

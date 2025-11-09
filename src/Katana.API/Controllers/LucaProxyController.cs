@@ -131,11 +131,18 @@ namespace Katana.API.Controllers
             var response = await client.SendAsync(request);
             var responseContent = await response.Content.ReadAsStringAsync();
 
-            // Log raw response for debugging (include a short preview when non-success)
             _logger.LogInformation("Luca /branches raw response: {Length} chars, status: {Status}", responseContent?.Length ?? 0, response.StatusCode);
+            
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("Luca /branches non-success response: {Status}. Body: {BodyPreview}", response.StatusCode, responseContent?.Length > 1000 ? responseContent?.Substring(0, 1000) + "..." : responseContent);
+                _logger.LogWarning("Luca /branches non-success response: {Status}. Body: {Body}", response.StatusCode, responseContent);
+                return StatusCode((int)response.StatusCode, new { raw = responseContent, status = (int)response.StatusCode, message = "Luca API error" });
+            }
+
+            // Log full response for debugging when it's short (likely an error)
+            if ((responseContent?.Length ?? 0) < 200)
+            {
+                _logger.LogWarning("Luca /branches suspiciously short response ({Length} chars): {Body}", responseContent?.Length ?? 0, responseContent);
             }
 
             try

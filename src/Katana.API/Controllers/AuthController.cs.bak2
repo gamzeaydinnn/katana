@@ -1,4 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+/*Admin paneli için kullanıcı girişi ve yetkilendirme işlemlerini yapacak.
+
+Amacı: Arayüze güvenli erişimi sağlamak.
+
+Sorumlulukları:
+
+Kullanıcı adı/şifre ile giriş yapıp JWT token üreten bir endpoint (POST /api/auth/login).*/
+
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -14,9 +22,12 @@ using Katana.Core.Entities;
 
 namespace Katana.API.Controllers;
 
+/// <summary>
+/// Admin paneli için kullanıcı girişi ve yetkilendirme işlemlerini yönetir.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
-[AllowAnonymous]
+[AllowAnonymous] // Bu controller'a token olmadan erişilebilmelidir.
 public class AuthController : ControllerBase
 {
     private readonly IConfiguration _configuration;
@@ -32,6 +43,9 @@ public class AuthController : ControllerBase
         _context = context;
     }
 
+    /// <summary>
+    /// Kullanıcı adı ve şifre ile giriş yaparak JWT token alır.
+    /// </summary>
     [HttpPost("login")]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -62,8 +76,14 @@ public class AuthController : ControllerBase
         
         var token = GenerateJwtToken(loginRequest.Username, user.Role);
         return Ok(new LoginResponse(token));
+    }   _logger.LogWarning("Failed login attempt for user '{Username}'.", loginRequest.Username);
+        return Unauthorized(new { message = "Invalid username or password." });
     }
 
+    /// <summary>
+    /// <summary>
+    /// Kullanıcının şifresini değiştirir.
+    /// </summary>
     [HttpPost("change-password")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -101,17 +121,6 @@ public class AuthController : ControllerBase
         user.PasswordHash = newHash;
         user.UpdatedAt = DateTime.UtcNow;
         
-        await _context.SaveChangesAsync();
-        
-        _logger.LogInformation("Password changed successfully for user '{Username}'.", username);
-        
-        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-        var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
-        _auditService.LogPasswordChange(username, ipAddress, userAgent);
-
-        return Ok(new { message = "Şifre başarıyla değiştirildi." });
-    }
-
     private string GenerateJwtToken(string username, string role)
     {
         var jwtSettings = _configuration.GetSection("Jwt");
@@ -124,12 +133,22 @@ public class AuthController : ControllerBase
             new Claim(ClaimTypes.Name, username),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim(ClaimTypes.Role, role)
+        };r key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"] 
+            ?? throw new InvalidOperationException("JWT Key not configured.")));
+
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, username),
+            new Claim(ClaimTypes.Name, username),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new Claim(ClaimTypes.Role, "Admin"),
+            new Claim(ClaimTypes.Role, "StockManager")
         };
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddHours(8),
+            Expires = DateTime.UtcNow.AddHours(8), // Token geçerlilik süresi
             Issuer = jwtSettings["Issuer"],
             Audience = jwtSettings["Audience"],
             SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature)
@@ -141,3 +160,4 @@ public class AuthController : ControllerBase
         return tokenHandler.WriteToken(token);
     }
 }
+

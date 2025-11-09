@@ -116,19 +116,23 @@ const Login: React.FC = () => {
           <Box sx={{ textAlign: "center", mb: 4 }}>
             <Box
               sx={{
-                width: 80,
-                height: 80,
-                borderRadius: 4,
-                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
                 mx: "auto",
                 mb: 3,
-                boxShadow: `0 8px 24px ${theme.palette.primary.main}40`,
+                display: "flex",
+                justifyContent: "center",
               }}
             >
-              <Lock sx={{ fontSize: 40, color: "white" }} />
+              <Box
+                component="img"
+                src="/logoo.png"
+                alt="Beformet Metal Logo"
+                sx={{
+                  height: 100,
+                  width: "auto",
+                  objectFit: "contain",
+                  filter: "drop-shadow(0 8px 24px rgba(43,110,246,0.25))",
+                }}
+              />
             </Box>
             <Typography
               variant="h5"
@@ -142,7 +146,7 @@ const Login: React.FC = () => {
                 mb: 1,
               }}
             >
-              Katana Yönetim Paneli
+              Beformet Metal
             </Typography>
             <Typography
               variant="body2"
@@ -175,83 +179,112 @@ const Login: React.FC = () => {
           )}
 
           <form onSubmit={handleLogin}>
-            <TextField
-              fullWidth
-              label="Kullanıcı Adı"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              margin="normal"
-              required
-              sx={{
-                mb: 2,
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: 3,
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    boxShadow: `0 0 0 2px ${theme.palette.primary.main}20`,
+            <Box sx={{ mb: 2 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  mb: 1,
+                  fontWeight: 600,
+                  color: theme.palette.primary.main,
+                }}
+              >
+                Kullanıcı Adı *
+              </Typography>
+              <TextField
+                fullWidth
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                placeholder="admin"
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 3,
+                    "& fieldset": {
+                      borderColor: theme.palette.primary.main,
+                      borderWidth: "2px",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: theme.palette.primary.main,
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: theme.palette.primary.main,
+                    },
                   },
-                  "&.Mui-focused": {
-                    boxShadow: `0 0 0 3px ${theme.palette.primary.main}30`,
+                  "& .MuiInputBase-input": {
+                    paddingLeft: "8px",
                   },
-                },
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Person sx={{ color: theme.palette.primary.main }} />
-                  </InputAdornment>
-                ),
-              }}
-              InputLabelProps={{ shrink: true }}
-            />
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Person sx={{ color: theme.palette.primary.main }} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Box>
 
-            <TextField
-              fullWidth
-              label="Şifre"
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              margin="normal"
-              required
-              sx={{
-                mb: 3,
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: 3,
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    boxShadow: `0 0 0 2px ${theme.palette.primary.main}20`,
+            <Box sx={{ mb: 3 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  mb: 1,
+                  fontWeight: 600,
+                  color: theme.palette.primary.main,
+                }}
+              >
+                Şifre *
+              </Typography>
+              <TextField
+                fullWidth
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="••••••••"
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 3,
+                    "& fieldset": {
+                      borderColor: theme.palette.primary.main,
+                      borderWidth: "2px",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: theme.palette.primary.main,
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: theme.palette.primary.main,
+                    },
                   },
-                  "&.Mui-focused": {
-                    boxShadow: `0 0 0 3px ${theme.palette.primary.main}30`,
+                  "& .MuiInputBase-input": {
+                    paddingLeft: "8px",
                   },
-                },
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Lock sx={{ color: theme.palette.primary.main }} />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                      sx={{
-                        color: theme.palette.primary.main,
-                        transition: "color 0.2s ease",
-                        "&:hover": {
-                          transform: "none",
-                        },
-                      }}
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-              InputLabelProps={{ shrink: true }}
-            />
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Lock sx={{ color: theme.palette.primary.main }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                        sx={{
+                          color: theme.palette.primary.main,
+                          "&:hover": {
+                            backgroundColor: "transparent",
+                          },
+                        }}
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Box>
 
             <Button
               fullWidth

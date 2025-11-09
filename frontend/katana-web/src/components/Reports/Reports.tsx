@@ -101,22 +101,39 @@ const Reports: React.FC = () => {
 
   const downloadCSV = () => {
     if (!stockReport?.stockData.length) return;
-    const headers = ["Ürün Adı", "SKU", "Stok", "Fiyat", "Değer", "Durum"];
+    const headers = [
+      "Ürün Adı",
+      "SKU",
+      "Stok",
+      "Fiyat",
+      "Değer",
+      "Durum",
+      "Güncelleme",
+    ];
     const rows = stockReport.stockData.map((item) => [
       item.name,
       item.sku,
       item.quantity,
-      `${item.price.toFixed(2)} TL`,
-      `${item.stockValue.toFixed(2)} TL`,
-      item.isOutOfStock ? "Tükendi" : item.isLowStock ? "Düşük" : "Normal",
+      item.price.toFixed(2),
+      item.stockValue.toFixed(2),
+      item.isOutOfStock ? "Tükendi" : item.isLowStock ? "Düşük Stok" : "Normal",
+      new Date(item.lastUpdated).toLocaleDateString("tr-TR"),
     ]);
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((r) => r.join(",")),
+    ].join("\n");
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `stok_raporu_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 

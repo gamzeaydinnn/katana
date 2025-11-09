@@ -50,10 +50,11 @@ public class SyncController : ControllerBase
                     id = l.Id,
                     syncType = l.SyncType,
                     status = l.Status,
-                    startTime = l.StartTime,
-                    endTime = l.EndTime,
-                    successCount = l.SuccessfulRecords,
-                    failCount = l.FailedRecords,
+                    startTime = l.StartTime.ToLocalTime(),
+                    endTime = l.EndTime.HasValue ? l.EndTime.Value.ToLocalTime() : (DateTime?)null,
+                    processedRecords = l.ProcessedRecords,
+                    successfulRecords = l.SuccessfulRecords,
+                    failedRecords = l.FailedRecords,
                     errorMessage = l.ErrorMessage
                 })
                 .ToListAsync();

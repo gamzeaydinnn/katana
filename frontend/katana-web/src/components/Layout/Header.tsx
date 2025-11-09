@@ -23,6 +23,7 @@ import {
   useTheme,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { stockAPI } from "../../services/api";
 import {
   startConnection,
@@ -72,10 +73,8 @@ const formatRelativeTime = (value?: string) => {
 
   const diff = Date.now() - date.getTime();
   if (diff < 60_000) return "Az önce";
-  if (diff < 3_600_000)
-    return `${Math.floor(diff / 60_000)} dk önce`;
-  if (diff < 86_400_000)
-    return `${Math.floor(diff / 3_600_000)} sa önce`;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} dk önce`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} sa önce`;
 
   return date.toLocaleString("tr-TR", {
     day: "2-digit",
@@ -142,9 +141,7 @@ const Header: React.FC<HeaderProps> = ({
         console.warn("SignalR connection failed", err);
         if (isMounted) {
           setSignalrStatus("error");
-          setSignalrError(
-            err?.message || "SignalR bağlantısı kurulamadı"
-          );
+          setSignalrError(err?.message || "SignalR bağlantısı kurulamadı");
         }
       });
 
@@ -167,10 +164,7 @@ const Header: React.FC<HeaderProps> = ({
           : `Yeni bekleyen: #${pending.id}`;
 
       const descriptionParts: string[] = [];
-      if (
-        pending.quantity !== undefined &&
-        pending.quantity !== null
-      ) {
+      if (pending.quantity !== undefined && pending.quantity !== null) {
         descriptionParts.push(`Adet: ${pending.quantity}`);
       }
       if (pending.requestedBy) {
@@ -196,8 +190,7 @@ const Header: React.FC<HeaderProps> = ({
     };
 
     const approvedHandler = (payload: any) => {
-      const pendingId =
-        payload?.pendingId ?? payload?.id ?? payload;
+      const pendingId = payload?.pendingId ?? payload?.id ?? payload;
       if (!pendingId) return;
 
       const idNumber =
@@ -242,9 +235,7 @@ const Header: React.FC<HeaderProps> = ({
           id: `approved-${idNumber}-${Date.now()}`,
           referenceId: idNumber,
           title: `Onaylandı: #${idNumber}`,
-          description: approvedBy
-            ? `Onaylayan: ${approvedBy}`
-            : undefined,
+          description: approvedBy ? `Onaylayan: ${approvedBy}` : undefined,
           status: "approved" as const,
           createdAt: approvedAt,
         };
@@ -263,7 +254,7 @@ const Header: React.FC<HeaderProps> = ({
     };
   }, []);
 
-  // small pulse animation for backend status when connected (defined inline in sx below)
+  const navigate = useNavigate();
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -281,7 +272,18 @@ const Header: React.FC<HeaderProps> = ({
     setNotificationAnchor(null);
   };
 
+  const handleProfileClick = () => {
+    handleMenuClose();
+    navigate("/profile");
+  };
+
+  const handleSettingsClick = () => {
+    handleMenuClose();
+    navigate("/settings");
+  };
+
   const handleLogout = () => {
+    handleMenuClose();
     localStorage.removeItem("authToken");
     window.location.href = "/login";
   };
@@ -295,9 +297,7 @@ const Header: React.FC<HeaderProps> = ({
     signalrStatus === "connected"
       ? "Bildirimler (canlı)"
       : signalrStatus === "error"
-      ? `Bildirimler (SignalR hatası${
-          signalrError ? `: ${signalrError}` : ""
-        })`
+      ? `Bildirimler (SignalR hatası${signalrError ? `: ${signalrError}` : ""})`
       : "Bildirimler (bağlanıyor...)";
 
   return (
@@ -339,20 +339,39 @@ const Header: React.FC<HeaderProps> = ({
           <MenuIcon />
         </IconButton>
 
-        <Typography
-          variant="h6"
-          noWrap
-          component="div"
+        <Box
           sx={{
             flexGrow: 1,
-            fontWeight: 800,
-            letterSpacing: "-0.02em",
-            color: "#fff",
-            textShadow: "0 2px 10px rgba(0,0,0,0.18)",
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
           }}
         >
-          Beformet Metal ERP
-        </Typography>
+          <Box
+            component="img"
+            src="/logoo.png"
+            alt="Beformat Metal Logo"
+            sx={{
+              height: 40,
+              width: "auto",
+              objectFit: "contain",
+              filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.15))",
+            }}
+          />
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{
+              fontWeight: 800,
+              letterSpacing: "-0.02em",
+              color: "#fff",
+              textShadow: "0 2px 10px rgba(0,0,0,0.18)",
+            }}
+          >
+            Beformet Metal
+          </Typography>
+        </Box>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
           {/* Theme toggle */}
@@ -585,7 +604,7 @@ const Header: React.FC<HeaderProps> = ({
           }}
         >
           <MenuItem
-            onClick={handleMenuClose}
+            onClick={handleProfileClick}
             sx={{
               borderRadius: 2,
               mx: 1,
@@ -601,7 +620,7 @@ const Header: React.FC<HeaderProps> = ({
             Profil
           </MenuItem>
           <MenuItem
-            onClick={handleMenuClose}
+            onClick={handleSettingsClick}
             sx={{
               borderRadius: 2,
               mx: 1,
@@ -682,8 +701,7 @@ const Header: React.FC<HeaderProps> = ({
             </MenuItem>
           ) : (
             notifications.map((notification) => {
-              const statusMeta =
-                notificationStatusMeta[notification.status];
+              const statusMeta = notificationStatusMeta[notification.status];
               return (
                 <MenuItem
                   key={notification.id}
@@ -734,8 +752,7 @@ const Header: React.FC<HeaderProps> = ({
                       </Typography>
                     )}
                     <Typography variant="caption" color="text.secondary">
-                      {formatRelativeTime(notification.createdAt) ||
-                        "—"}
+                      {formatRelativeTime(notification.createdAt) || "—"}
                     </Typography>
                   </Box>
                 </MenuItem>

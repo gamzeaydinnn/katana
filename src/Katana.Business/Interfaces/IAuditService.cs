@@ -31,6 +31,11 @@ public interface IAuditService
     void LogLogin(string username, string? ipAddress = null, string? userAgent = null);
     
     /// <summary>
+    /// PASSWORD CHANGE işlemini logla
+    /// </summary>
+    void LogPasswordChange(string username, string? ipAddress = null, string? userAgent = null);
+    
+    /// <summary>
     /// Özel aksiyon logla
     /// </summary>
     void LogAction(string actionType, string entityName, string? entityId, string performedBy, string? details = null);

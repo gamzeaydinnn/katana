@@ -6,13 +6,25 @@ import axios from "axios";
 // ÖNEMLİ: withCredentials, tarayıcının cookie'leri backend'e göndermesini ve
 // backend'den gelen Set-Cookie başlıklarını almasını sağlar.
 const lucaProxyClient = axios.create({
-  // Use runtime env if available (CRA: REACT_APP_API_URL) otherwise fall back to localhost backend on port 5055
-  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5055/api",
+  baseURL: process.env.REACT_APP_API_URL || "/api",
   withCredentials: true,
+  timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
 });
+
+lucaProxyClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.code === "ERR_BLOCKED_BY_CLIENT") {
+      console.error(
+        "🚫 Browser AdBlock/Extension engelledi. Lütfen devre dışı bırakın."
+      );
+    }
+    return Promise.reject(error);
+  }
+);
 
 // --- Yeni Eklenecek Kısım Sonu ---
 

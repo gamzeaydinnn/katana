@@ -13,4 +13,9 @@ namespace Katana.Business.DTOs
     /// JWT (JSON Web Token) bilgisini içerir.
     /// </summary>
     public record LoginResponse(string Token);
+
+    /// <summary>
+    /// Şifre değiştirme isteği için gerekli bilgileri temsil eder.
+    /// </summary>
+    public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 }

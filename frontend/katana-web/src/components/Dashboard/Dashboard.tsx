@@ -25,6 +25,7 @@ const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const loadDashboard = async () => {
     try {
@@ -39,6 +40,29 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleStartSync = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      setSuccess("");
+      await stockAPI.startSync("ALL");
+      setSuccess("Senkronizasyon başarıyla başlatıldı");
+      setTimeout(() => loadDashboard(), 2000);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Senkronizasyon başlatılamadı");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStockReport = () => {
+    window.location.href = "/reports";
+  };
+
+  const handleSalesAnalysis = () => {
+    window.location.href = "/reports";
+  };
+
   useEffect(() => {
     loadDashboard();
   }, []);
@@ -47,22 +71,26 @@ const Dashboard: React.FC = () => {
     <Card
       sx={{
         backdropFilter: "blur(20px)",
-        background: theme.palette.mode === "dark"
-          ? "rgba(30,41,59,0.8)"
-          : "rgba(255,255,255,0.8)",
-        border: theme.palette.mode === "dark"
-          ? "1px solid rgba(255,255,255,0.1)"
-          : "1px solid rgba(0,0,0,0.05)",
+        background:
+          theme.palette.mode === "dark"
+            ? "rgba(30,41,59,0.8)"
+            : "rgba(255,255,255,0.8)",
+        border:
+          theme.palette.mode === "dark"
+            ? "1px solid rgba(255,255,255,0.1)"
+            : "1px solid rgba(0,0,0,0.05)",
         borderRadius: 3,
-        boxShadow: theme.palette.mode === "dark"
-          ? "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
-          : "0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
+        boxShadow:
+          theme.palette.mode === "dark"
+            ? "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
+            : "0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
         transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         "&:hover": {
           transform: "translateY(-4px)",
-          boxShadow: theme.palette.mode === "dark"
-            ? "0 20px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)"
-            : "0 20px 40px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.8)",
+          boxShadow:
+            theme.palette.mode === "dark"
+              ? "0 20px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)"
+              : "0 20px 40px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.8)",
         },
       }}
     >
@@ -179,13 +207,32 @@ const Dashboard: React.FC = () => {
             mb: 3,
             borderRadius: 3,
             backdropFilter: "blur(10px)",
-            background: theme.palette.mode === "dark"
-              ? "rgba(239,68,68,0.1)"
-              : "rgba(239,68,68,0.05)",
+            background:
+              theme.palette.mode === "dark"
+                ? "rgba(239,68,68,0.1)"
+                : "rgba(239,68,68,0.05)",
             border: "1px solid rgba(239,68,68,0.2)",
           }}
         >
           {error}
+        </Alert>
+      )}
+
+      {success && (
+        <Alert
+          severity="success"
+          sx={{
+            mb: 3,
+            borderRadius: 3,
+            backdropFilter: "blur(10px)",
+            background:
+              theme.palette.mode === "dark"
+                ? "rgba(34,197,94,0.1)"
+                : "rgba(34,197,94,0.05)",
+            border: "1px solid rgba(34,197,94,0.2)",
+          }}
+        >
+          {success}
         </Alert>
       )}
 
@@ -227,16 +274,19 @@ const Dashboard: React.FC = () => {
         elevation={0}
         sx={{
           backdropFilter: "blur(20px)",
-          background: theme.palette.mode === "dark"
-            ? "rgba(30,41,59,0.8)"
-            : "rgba(255,255,255,0.8)",
-          border: theme.palette.mode === "dark"
-            ? "1px solid rgba(255,255,255,0.1)"
-            : "1px solid rgba(0,0,0,0.05)",
+          background:
+            theme.palette.mode === "dark"
+              ? "rgba(30,41,59,0.8)"
+              : "rgba(255,255,255,0.8)",
+          border:
+            theme.palette.mode === "dark"
+              ? "1px solid rgba(255,255,255,0.1)"
+              : "1px solid rgba(0,0,0,0.05)",
           borderRadius: 3,
-          boxShadow: theme.palette.mode === "dark"
-            ? "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
-            : "0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
+          boxShadow:
+            theme.palette.mode === "dark"
+              ? "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
+              : "0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
           p: 4,
           transition: "all 0.3s ease",
         }}
@@ -256,6 +306,8 @@ const Dashboard: React.FC = () => {
           <Button
             variant="contained"
             startIcon={<Sync />}
+            onClick={handleStartSync}
+            disabled={loading}
             sx={{
               borderRadius: 3,
               px: 3,
@@ -269,6 +321,9 @@ const Dashboard: React.FC = () => {
                 transform: "translateY(-2px)",
                 boxShadow: `0 8px 20px ${theme.palette.primary.main}60`,
               },
+              "&:disabled": {
+                opacity: 0.6,
+              },
             }}
           >
             Senkronizasyon Başlat
@@ -276,6 +331,7 @@ const Dashboard: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={<Inventory />}
+            onClick={handleStockReport}
             sx={{
               borderRadius: 3,
               px: 3,
@@ -298,6 +354,7 @@ const Dashboard: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={<TrendingUp />}
+            onClick={handleSalesAnalysis}
             sx={{
               borderRadius: 3,
               px: 3,
