@@ -260,7 +260,8 @@ builder.Services.AddCors(o =>
          .AllowAnyHeader()
          .WithExposedHeaders("Authorization")
          .AllowAnyMethod()
-         .AllowCredentials());
+         .AllowCredentials()
+         .WithOrigins("http://localhost:3000", "http://localhost:5055"));
 });
 
 // -----------------------------
@@ -313,8 +314,9 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = string.Empty;
 });
 
-app.UseWebSockets();
 app.UseRouting();
+app.UseCors("AllowFrontend");
+app.UseWebSockets();
 app.Use(async (ctx, next) =>
 {
     ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
@@ -322,7 +324,6 @@ app.Use(async (ctx, next) =>
     ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     await next();
 });
-app.UseCors("AllowFrontend");
 app.UseResponseCaching();
 app.UseAuthentication();
 app.UseAuthorization();
