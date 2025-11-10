@@ -159,18 +159,25 @@ public class KatanaService : IKatanaService
     {
         var dto = new KatanaProductDto();
 
+        // ID
+        if (prodEl.TryGetProperty("id", out var idEl))
+            dto.Id = idEl.ToString();
+
         dto.Name = prodEl.TryGetProperty("name", out var nameEl) ? nameEl.GetString() ?? string.Empty : string.Empty;
         dto.Description = prodEl.TryGetProperty("additional_info", out var ai) ? ai.GetString() : null;
 
-        // CategoryId not provided by external API in numeric form; try category_id or fallback to 0
+        // Category
         if (prodEl.TryGetProperty("category_id", out var catIdEl) && catIdEl.ValueKind == JsonValueKind.Number)
         {
             try { dto.CategoryId = catIdEl.GetInt32(); } catch { dto.CategoryId = 0; }
         }
         else
         {
-            dto.CategoryId = 0; // caller may map category_name separately if needed
+            dto.CategoryId = 0;
         }
+        
+        if (prodEl.TryGetProperty("category_name", out var catNameEl))
+            dto.Category = catNameEl.GetString();
 
         // Default values
         dto.SKU = string.Empty;
@@ -189,7 +196,7 @@ public class KatanaService : IKatanaService
         else if (prodEl.TryGetProperty("main_image_url", out var mainImg) && mainImg.ValueKind == JsonValueKind.String)
             dto.ImageUrl = mainImg.GetString();
 
-        // Variants: get first variant's sku and sales_price when available
+        // Variants: get first variant's sku, prices and stock levels
         if (prodEl.TryGetProperty("variants", out var variantsEl) && variantsEl.ValueKind == JsonValueKind.Array)
         {
             var firstVar = variantsEl.EnumerateArray().FirstOrDefault();
@@ -198,8 +205,27 @@ public class KatanaService : IKatanaService
                 if (firstVar.TryGetProperty("sku", out var skuEl) && skuEl.ValueKind == JsonValueKind.String)
                     dto.SKU = skuEl.GetString() ?? string.Empty;
 
-                // sales_price may be number or string
+                // Prices
                 dto.Price = ReadDecimalProperty(firstVar, "sales_price");
+                dto.SalesPrice = ReadDecimalProperty(firstVar, "sales_price");
+                dto.CostPrice = ReadDecimalProperty(firstVar, "cost");
+
+                // Unit
+                if (firstVar.TryGetProperty("unit", out var unitEl))
+                    dto.Unit = unitEl.GetString();
+
+                // Stock levels - Katana API provides: in_stock, committed, available, on_hand
+                if (firstVar.TryGetProperty("in_stock", out var inStockEl) && inStockEl.ValueKind == JsonValueKind.Number)
+                    dto.InStock = inStockEl.GetInt32();
+                
+                if (firstVar.TryGetProperty("on_hand", out var onHandEl) && onHandEl.ValueKind == JsonValueKind.Number)
+                    dto.OnHand = onHandEl.GetInt32();
+                
+                if (firstVar.TryGetProperty("available", out var availEl) && availEl.ValueKind == JsonValueKind.Number)
+                    dto.Available = availEl.GetInt32();
+                
+                if (firstVar.TryGetProperty("committed", out var commitEl) && commitEl.ValueKind == JsonValueKind.Number)
+                    dto.Committed = commitEl.GetInt32();
             }
         }
 

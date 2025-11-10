@@ -18,6 +18,8 @@ import {
   Alert,
   CircularProgress,
   Divider,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   Inventory,
@@ -26,11 +28,19 @@ import {
   Error as ErrorIcon,
   Refresh,
   Article as LogsIcon,
+  Settings as SettingsIcon,
+  CompareArrows as CompareArrowsIcon,
+  ShoppingCart,
+  Warehouse,
 } from "@mui/icons-material";
 import LogsViewer from "./LogsViewer";
 import Settings from "../Settings/Settings";
 import api from "../../services/api";
 import PendingAdjustments from "../Admin/PendingAdjustments";
+import KatanaProducts from "../Admin/KatanaProducts";
+import LucaProducts from "../Admin/LucaProducts";
+import StockManagement from "../Admin/StockManagement";
+import DataCorrectionPanel from "../Admin/DataCorrectionPanel";
 
 interface Statistics {
   totalProducts: number;
@@ -56,6 +66,7 @@ interface AdminSyncLog {
 
 const AdminPanel: React.FC = () => {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState(0);
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [syncLogs, setSyncLogs] = useState<AdminSyncLog[]>([]);
   const [products, setProducts] = useState<AdminProduct[]>([]);
@@ -232,10 +243,27 @@ const AdminPanel: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Pending adjustments - put high so admin can approve quickly */}
-      <Box sx={{ mb: 3 }}>
-        <PendingAdjustments />
-      </Box>
+      {/* Tabs */}
+      <Paper sx={{ mb: 3 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(_, v) => setActiveTab(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+        >
+          <Tab icon={<TrendingUp />} label="Genel Bakış" />
+          <Tab icon={<ShoppingCart />} label="Katana Ürünleri" />
+          <Tab icon={<Inventory />} label="Luca Ürünleri" />
+          <Tab
+            icon={<Warehouse />}
+            label="Stok Yönetimi"
+            iconPosition="start"
+          />
+          <Tab icon={<CompareArrowsIcon />} label="Veri Düzeltme" />
+          <Tab icon={<LogsIcon />} label="Loglar" />
+          <Tab icon={<SettingsIcon />} label="Ayarlar" />
+        </Tabs>
+      </Paper>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -243,162 +271,181 @@ const AdminPanel: React.FC = () => {
         </Alert>
       )}
 
-      {/* Statistics Cards */}
-      {statistics && (
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: {
-              xs: "1fr",
-              sm: "1fr 1fr",
-              md: "1fr 1fr 1fr 1fr",
-            },
-            gap: 3,
-            mb: 3,
-          }}
-        >
-          <StatCard
-            title="Toplam Ürün"
-            value={statistics.totalProducts}
-            icon={<Inventory />}
-            color="#1976d2"
-          />
-          <StatCard
-            title="Toplam Stok"
-            value={statistics.totalStock.toLocaleString("tr-TR")}
-            icon={<TrendingUp />}
-            color="#2e7d32"
-          />
-          <StatCard
-            title="Başarılı Sync"
-            value={statistics.successfulSyncs}
-            icon={<CheckCircle />}
-            color="#388e3c"
-          />
-          <StatCard
-            title="Başarısız Sync"
-            value={statistics.failedSyncs}
-            icon={<ErrorIcon />}
-            color="#d32f2f"
-          />
+      {/* Tab 0: Genel Bakış */}
+      {activeTab === 0 && (
+        <Box>
+          {/* Pending adjustments - put high so admin can approve quickly */}
+          <Box sx={{ mb: 3 }}>
+            <PendingAdjustments />
+          </Box>
+
+          {/* Statistics Cards */}
+          {statistics && (
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: {
+                  xs: "1fr",
+                  sm: "1fr 1fr",
+                  md: "1fr 1fr 1fr 1fr",
+                },
+                gap: 3,
+                mb: 3,
+              }}
+            >
+              <StatCard
+                title="Toplam Ürün"
+                value={statistics.totalProducts}
+                icon={<Inventory />}
+                color="#1976d2"
+              />
+              <StatCard
+                title="Toplam Stok"
+                value={statistics.totalStock.toLocaleString("tr-TR")}
+                icon={<TrendingUp />}
+                color="#2e7d32"
+              />
+              <StatCard
+                title="Başarılı Sync"
+                value={statistics.successfulSyncs}
+                icon={<CheckCircle />}
+                color="#388e3c"
+              />
+              <StatCard
+                title="Başarısız Sync"
+                value={statistics.failedSyncs}
+                icon={<ErrorIcon />}
+                color="#d32f2f"
+              />
+            </Box>
+          )}
+
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+              gap: 3,
+            }}
+          >
+            {/* Recent Products */}
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Son Eklenen Ürünler
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>SKU</TableCell>
+                      <TableCell>Ürün Adı</TableCell>
+                      <TableCell align="right">Stok</TableCell>
+                      <TableCell>Durum</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {products.map((product, idx) => (
+                      <TableRow
+                        key={
+                          product.id && product.id !== ""
+                            ? product.id
+                            : product.sku && product.sku !== ""
+                            ? product.sku
+                            : `product-${idx}`
+                        }
+                      >
+                        <TableCell>{product.sku}</TableCell>
+                        <TableCell>{product.name}</TableCell>
+                        <TableCell align="right">{product.stock}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={product.isActive ? "Aktif" : "Pasif"}
+                            color={product.isActive ? "success" : "default"}
+                            size="small"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+
+            {/* Sync Logs */}
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Senkronizasyon Logları
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Entegrasyon</TableCell>
+                      <TableCell>Tarih</TableCell>
+                      <TableCell>Durum</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {syncLogs.map((log, idx) => (
+                      <TableRow
+                        key={
+                          log.id && String(log.id) !== "0"
+                            ? log.id
+                            : `log-${idx}`
+                        }
+                      >
+                        <TableCell>{log.integrationName}</TableCell>
+                        <TableCell>
+                          {new Date(log.createdAt).toLocaleString("tr-TR")}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={log.isSuccess ? "Başarılı" : "Başarısız"}
+                            color={log.isSuccess ? "success" : "error"}
+                            size="small"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <TablePagination
+                component="div"
+                count={totalSyncLogs}
+                page={page}
+                onPageChange={(_, newPage) => setPage(newPage)}
+                rowsPerPage={rowsPerPage}
+                onRowsPerPageChange={(e) => {
+                  setRowsPerPage(parseInt(e.target.value, 10));
+                  setPage(0);
+                }}
+                rowsPerPageOptions={[5, 10, 25]}
+                labelRowsPerPage="Sayfa başına:"
+              />
+            </Paper>
+          </Box>
         </Box>
       )}
 
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-          gap: 3,
-        }}
-      >
-        {/* Recent Products */}
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Son Eklenen Ürünler
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>SKU</TableCell>
-                  <TableCell>Ürün Adı</TableCell>
-                  <TableCell align="right">Stok</TableCell>
-                  <TableCell>Durum</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {products.map((product, idx) => (
-                  <TableRow
-                    key={
-                      product.id && product.id !== ""
-                        ? product.id
-                        : product.sku && product.sku !== ""
-                        ? product.sku
-                        : `product-${idx}`
-                    }
-                  >
-                    <TableCell>{product.sku}</TableCell>
-                    <TableCell>{product.name}</TableCell>
-                    <TableCell align="right">{product.stock}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={product.isActive ? "Aktif" : "Pasif"}
-                        color={product.isActive ? "success" : "default"}
-                        size="small"
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+      {/* Tab 1: Katana Ürünleri */}
+      {activeTab === 1 && <KatanaProducts />}
 
-        {/* Sync Logs */}
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Senkronizasyon Logları
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Entegrasyon</TableCell>
-                  <TableCell>Tarih</TableCell>
-                  <TableCell>Durum</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {syncLogs.map((log, idx) => (
-                  <TableRow
-                    key={
-                      log.id && String(log.id) !== "0" ? log.id : `log-${idx}`
-                    }
-                  >
-                    <TableCell>{log.integrationName}</TableCell>
-                    <TableCell>
-                      {new Date(log.createdAt).toLocaleString("tr-TR")}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={log.isSuccess ? "Başarılı" : "Başarısız"}
-                        color={log.isSuccess ? "success" : "error"}
-                        size="small"
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            component="div"
-            count={totalSyncLogs}
-            page={page}
-            onPageChange={(_, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(e) => {
-              setRowsPerPage(parseInt(e.target.value, 10));
-              setPage(0);
-            }}
-            rowsPerPageOptions={[5, 10, 25]}
-            labelRowsPerPage="Sayfa başına:"
-          />
-        </Paper>
-      </Box>
+      {/* Tab 2: Luca Ürünleri */}
+      {activeTab === 2 && <LucaProducts />}
 
-      {/* System Logs */}
-      <Box mt={4}>
-        <Divider sx={{ mb: 3 }} />
-        <LogsViewer />
-      </Box>
-      {/* Settings embedded inside AdminPanel */}
-      <Box mt={4}>
-        <Divider sx={{ mb: 3 }} />
-        <Settings />
-      </Box>
+      {/* Tab 3: Stok Yönetimi */}
+      {activeTab === 3 && <StockManagement />}
+
+      {/* Tab 4: Veri Düzeltme */}
+      {activeTab === 4 && <DataCorrectionPanel />}
+
+      {/* Tab 5: Loglar */}
+      {activeTab === 5 && <LogsViewer />}
+
+      {/* Tab 6: Ayarlar */}
+      {activeTab === 6 && <Settings />}
     </Box>
   );
 };

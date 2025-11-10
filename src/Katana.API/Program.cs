@@ -205,6 +205,7 @@ builder.Services.AddScoped<INotificationService, EmailNotificationService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<IMappingService, MappingService>();
 builder.Services.AddScoped<IIntegrationTestService, IntegrationTestService>();
+builder.Services.AddScoped<IDataCorrectionService, DataCorrectionService>();
 builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();

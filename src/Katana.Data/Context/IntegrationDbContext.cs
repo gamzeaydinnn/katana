@@ -34,6 +34,7 @@ public class IntegrationDbContext : DbContext
     public DbSet<Katana.Core.Entities.FailedNotification> FailedNotifications { get; set; } = null!;
     public DbSet<DashboardMetric> DashboardMetrics { get; set; } = null!;
     public DbSet<StockMovement> StockMovements { get; set; } = null!;
+    public DbSet<DataCorrectionLog> DataCorrectionLogs { get; set; } = null!;
     public DbSet<Category> Categories { get; set; }
     public DbSet<Order> Orders { get; set; }
      public DbSet<OrderItem> OrderItems { get; set; }
@@ -284,6 +285,20 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.Role).IsRequired();
             entity.Property(e => e.Email).HasMaxLength(200);
             entity.HasIndex(e => e.Email).IsUnique(false);
+        });
+
+        // DataCorrectionLog configuration
+        modelBuilder.Entity<DataCorrectionLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.SourceSystem).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.EntityType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.EntityId).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.FieldName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.ValidationError).HasMaxLength(500);
+            entity.Property(e => e.CorrectionReason).HasMaxLength(500);
+            entity.HasIndex(e => new { e.SourceSystem, e.EntityType, e.IsApproved });
+            entity.HasIndex(e => e.IsSynced);
         });
 
         // Logs performance indexes

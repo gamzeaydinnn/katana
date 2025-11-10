@@ -14,13 +14,24 @@ public class KatanaStockDto
 
 public class KatanaProductDto
 {
+    public string Id { get; set; } = string.Empty;
     public string SKU { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public decimal Price { get; set; }
+    public decimal? SalesPrice { get; set; }
+    public decimal? CostPrice { get; set; }
     public int CategoryId { get; set; }
+    public string? Category { get; set; }
     public string? ImageUrl { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; }
+    public string? Unit { get; set; }
+    
+    // Stock levels
+    public int? OnHand { get; set; }
+    public int? Available { get; set; }
+    public int? Committed { get; set; }
+    public int? InStock { get; set; }
 }
 
 public class KatanaInvoiceDto

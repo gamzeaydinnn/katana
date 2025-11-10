@@ -19,6 +19,7 @@ import Reports from "./components/Reports/Reports";
 import AdminPanel from "./components/AdminPanel/AdminPanel";
 import Profile from "./components/Profile/Profile";
 import Settings from "./components/Settings/Settings";
+import StockView from "./pages/StockView";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Login from "./components/Login/Login";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
@@ -185,6 +186,7 @@ const App: React.FC = () => {
                               path="/stock"
                               element={<StockManagement />}
                             />
+                            <Route path="/stock-view" element={<StockView />} />
                             <Route path="/sync" element={<SyncManagement />} />
                             <Route path="/reports" element={<Reports />} />
                             <Route path="/admin" element={<AdminPanel />} />
