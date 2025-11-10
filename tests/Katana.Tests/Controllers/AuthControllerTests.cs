@@ -46,7 +46,7 @@ public class AuthControllerTests : IDisposable
 
         // Seed test user
         using var sha = SHA256.Create();
-        var passwordHash = Convert.ToBase64String(sha.ComputeHash(Encoding.UTF8.GetBytes("Admin123!")));
+        var passwordHash = Convert.ToBase64String(sha.ComputeHash(Encoding.UTF8.GetBytes("Katana2025!")));
         _context.Users.Add(new User
         {
             Id = 1,
@@ -79,7 +79,7 @@ public class AuthControllerTests : IDisposable
     public async Task Login_ReturnsOkWithToken_WhenValidCredentials()
     {
         // Arrange
-        var loginRequest = new LoginRequest("admin", "Admin123!");
+        var loginRequest = new LoginRequest("admin", "Katana2025!");
 
         // Act
         var result = await _controller.Login(loginRequest);
@@ -95,7 +95,7 @@ public class AuthControllerTests : IDisposable
     public async Task Login_ReturnsUnauthorized_WhenInvalidUsername()
     {
         // Arrange
-        var loginRequest = new LoginRequest("wronguser", "Admin123!");
+        var loginRequest = new LoginRequest("wronguser", "Katana2025!");
 
         // Act
         var result = await _controller.Login(loginRequest);
@@ -148,7 +148,7 @@ public class AuthControllerTests : IDisposable
     public async Task Login_ReturnsTokenWithCorrectFormat_WhenValid()
     {
         // Arrange
-        var loginRequest = new LoginRequest("admin", "Admin123!");
+        var loginRequest = new LoginRequest("admin", "Katana2025!");
 
         // Act
         var result = await _controller.Login(loginRequest);
