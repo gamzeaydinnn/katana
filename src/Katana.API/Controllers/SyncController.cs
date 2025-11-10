@@ -45,21 +45,22 @@ public class SyncController : ControllerBase
             var logs = await _context.SyncOperationLogs
                 .OrderByDescending(l => l.StartTime)
                 .Take(50)
-                .Select(l => new
-                {
-                    id = l.Id,
-                    syncType = l.SyncType,
-                    status = l.Status,
-                    startTime = l.StartTime.ToLocalTime(),
-                    endTime = l.EndTime.HasValue ? l.EndTime.Value.ToLocalTime() : (DateTime?)null,
-                    processedRecords = l.ProcessedRecords,
-                    successfulRecords = l.SuccessfulRecords,
-                    failedRecords = l.FailedRecords,
-                    errorMessage = l.ErrorMessage
-                })
                 .ToListAsync();
 
-            return Ok(logs);
+            var result = logs.Select(l => new
+            {
+                id = l.Id,
+                syncType = l.SyncType,
+                status = l.Status,
+                startTime = TimeZoneInfo.ConvertTimeFromUtc(l.StartTime, TimeZoneInfo.FindSystemTimeZoneById("Turkey Standard Time")),
+                endTime = l.EndTime.HasValue ? TimeZoneInfo.ConvertTimeFromUtc(l.EndTime.Value, TimeZoneInfo.FindSystemTimeZoneById("Turkey Standard Time")) : (DateTime?)null,
+                processedRecords = l.ProcessedRecords,
+                successfulRecords = l.SuccessfulRecords,
+                failedRecords = l.FailedRecords,
+                errorMessage = l.ErrorMessage
+            }).ToList();
+
+            return Ok(result);
         }
         catch (Exception ex)
         {
