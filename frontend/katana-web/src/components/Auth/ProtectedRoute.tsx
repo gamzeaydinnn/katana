@@ -1,12 +1,14 @@
 import React from "react";
-import { Navigate } from "react-router-dom";
-import { decodeJwtPayload, isJwtExpired } from "../../utils/jwt";
+import { Navigate, useLocation } from "react-router-dom";
+import { decodeJwtPayload, isJwtExpired, getJwtRoles } from "../../utils/jwt";
 
 interface ProtectedRouteProps {
   children: React.ReactElement;
+  requiredRole?: string;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
+  const location = useLocation();
   const token =
     typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null;
 
@@ -21,7 +23,17 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     } catch {
       // ignore storage errors
     }
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  // Role-based access control
+  const roles = getJwtRoles(payload).map((r) => r.toLowerCase());
+  // If a requiredRole prop is not provided, automatically require 'admin' for /admin routes
+  const roleNeeded = (requiredRole || (location.pathname.startsWith("/admin") ? "admin" : undefined))?.toLowerCase();
+
+  if (roleNeeded && !roles.includes(roleNeeded)) {
+    // Do not clear token; just redirect to unauthorized page
+    return <Navigate to="/unauthorized" replace state={{ from: location }} />;
   }
 
   return children;
