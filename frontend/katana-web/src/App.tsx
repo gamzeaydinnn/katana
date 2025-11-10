@@ -23,6 +23,7 @@ import StockView from "./pages/StockView";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Login from "./components/Login/Login";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
+import Unauthorized from "./pages/Unauthorized";
 import { FeedbackProvider } from "./providers/FeedbackProvider";
 import { createAppTheme, type ColorMode } from "./theme";
 
@@ -189,11 +190,12 @@ const App: React.FC = () => {
                           <Route
                             path="/admin"
                             element={
-                              <ProtectedRoute>
+                              <ProtectedRoute requiredRole="admin">
                                 <AdminPanel />
                               </ProtectedRoute>
                             }
                           />
+                          <Route path="/unauthorized" element={<Unauthorized />} />
                           <Route path="/profile" element={<Profile />} />
                           <Route path="/settings" element={<Settings />} />
                         </Routes>
