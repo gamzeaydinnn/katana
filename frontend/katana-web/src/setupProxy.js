@@ -28,10 +28,17 @@ module.exports = function (app) {
       target: backendUrl,
       changeOrigin: true,
       secure: false,
-      logLevel: "warn",
+      logLevel: "debug",
       ws: true,
+      followRedirects: true,
       onError: (err, req, res) => {
         console.error("[SignalR Proxy Error]", err.message);
+      },
+      onProxyReqWs: (proxyReq, req, socket) => {
+        console.log("[SignalR WS] Proxying WebSocket:", req.url);
+      },
+      onProxyResWs: (proxyRes, req, socket) => {
+        console.log("[SignalR WS] Response received");
       },
     })
   );

@@ -24,7 +24,7 @@ import {
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { stockAPI } from "../../services/api";
+import api, { stockAPI } from "../../services/api";
 import {
   startConnection,
   onPendingCreated,
@@ -128,6 +128,45 @@ const Header: React.FC<HeaderProps> = ({
 
   useEffect(() => {
     let isMounted = true;
+
+    // Load initial pending adjustments on mount
+    const loadInitialNotifications = async () => {
+      try {
+        const response = await api.get<{ pendingAdjustments: any[] }>(
+          "/adminpanel/pending-adjustments"
+        );
+        if (isMounted && response.data?.pendingAdjustments) {
+          const pending = response.data.pendingAdjustments.slice(
+            0,
+            MAX_NOTIFICATIONS
+          );
+          const notifications: NotificationItem[] = pending.map(
+            (item: any) => ({
+              id: `pending-${item.id}`,
+              referenceId: item.id,
+              title: item.sku
+                ? `Bekleyen: ${item.sku}`
+                : `Bekleyen: #${item.id}`,
+              description: item.quantity ? `Adet: ${item.quantity}` : undefined,
+              status: "pending" as const,
+              createdAt: item.requestedAt || new Date().toISOString(),
+            })
+          );
+          setNotifications(notifications);
+          console.log(
+            `[Header] ✅ Loaded ${notifications.length} initial notifications`
+          );
+        }
+      } catch (err: any) {
+        console.error("[Header] ❌ Failed to load initial notifications:", {
+          message: err?.message,
+          status: err?.response?.status,
+          data: err?.response?.data,
+        });
+      }
+    };
+
+    loadInitialNotifications();
 
     setSignalrStatus("connecting");
     startConnection()

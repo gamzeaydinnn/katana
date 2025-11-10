@@ -6,12 +6,16 @@ import {
 
 let connection: HubConnection | null = null;
 
-const HUB_URL = "/hubs/notifications"; // proxy will forward in dev
+// Use direct backend URL in development to avoid proxy issues
+const HUB_URL =
+  process.env.NODE_ENV === "production"
+    ? "/hubs/notifications"
+    : "http://localhost:5055/hubs/notifications";
 
 export function startConnection() {
   if (connection) {
     // If already connected/connecting, do nothing (idempotent)
-    const state = (connection.state as unknown) as string;
+    const state = connection.state as unknown as string;
     if (state && state !== "Disconnected") {
       return Promise.resolve();
     }
@@ -103,5 +107,8 @@ export function offPendingRejected(handler: (payload: object) => void) {
 }
 
 export function isConnected() {
-  return connection !== null && ((connection!.state as unknown) as string) === "Connected";
+  return (
+    connection !== null &&
+    (connection!.state as unknown as string) === "Connected"
+  );
 }
