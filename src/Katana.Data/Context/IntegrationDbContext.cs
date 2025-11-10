@@ -2,16 +2,22 @@
 using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using Katana.Core.Interfaces;
 
 
 namespace Katana.Data.Context;
 public class IntegrationDbContext : DbContext
 {
     private readonly Katana.Core.Services.PendingDbWriteQueue? _pendingQueue;
+    private readonly ICurrentUserService? _currentUser;
 
-    public IntegrationDbContext(DbContextOptions<IntegrationDbContext> options, Katana.Core.Services.PendingDbWriteQueue? pendingQueue = null) : base(options)
+    public IntegrationDbContext(
+        DbContextOptions<IntegrationDbContext> options,
+        Katana.Core.Services.PendingDbWriteQueue? pendingQueue = null,
+        ICurrentUserService? currentUser = null) : base(options)
     {
         _pendingQueue = pendingQueue;
+        _currentUser = currentUser;
     }
     // Core entities
     public DbSet<Product> Products { get; set; } = null!;
@@ -352,8 +358,10 @@ public class IntegrationDbContext : DbContext
     {
         var now = DateTime.UtcNow;
 
+        // Snapshot entries and ignore log tables to prevent self-logging
         var entries = ChangeTracker.Entries()
             .Where(e => e.State is EntityState.Modified or EntityState.Added or EntityState.Deleted)
+            .Where(e => e.Entity is not AuditLog && e.Entity is not ErrorLog)
             .ToList();
 
         foreach (var entry in entries)
@@ -386,31 +394,40 @@ public class IntegrationDbContext : DbContext
                     break;
             }
 
-            // ✅ Audit log kaydı oluştur
-            var audit = new AuditLog
+            var (entityId, display) = GetEntityIdAndDisplay(entry);
+            var action = MapStateToAction(entry.State);
+            var changes = BuildChanges(entry);
+            var performedBy = _currentUser?.Username ?? "System";
+            var ip = _currentUser?.IpAddress;
+            var ua = _currentUser?.UserAgent;
+
+            var details = BuildDetails(entry.Entity.GetType().Name, entityId, display, action, changes);
+
+            AuditLogs.Add(new AuditLog
             {
                 EntityName = entry.Entity.GetType().Name,
-                ActionType = entry.State.ToString(),
+                EntityId = entityId,
+                ActionType = action,
+                PerformedBy = performedBy,
                 Timestamp = now,
-                Changes = string.Join(", ", entry.Properties
-                    .Where(p => p.IsModified)
-                    .Select(p => $"{p.Metadata.Name}: {p.OriginalValue} -> {p.CurrentValue}")
-                )
-            };
-
-            AuditLogs.Add(audit);
+                Details = details,
+                Changes = changes,
+                IpAddress = ip,
+                UserAgent = ua
+            });
         }
 
         try
         {
             return await base.SaveChangesAsync(cancellationToken);
         }
-        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        catch (Microsoft.Data.SqlClient.SqlException)
         {
             // If SQL Server is unavailable or login failed, queue the audit logs (if any) and swallow the exception
-                if (_pendingQueue != null)
+            if (_pendingQueue != null)
+            {
+                try
                 {
-                    // Extract pending audit logs we added earlier in this method and convert to DTO
                     var audits = ChangeTracker.Entries()
                         .Where(e => e.Entity is AuditLog)
                         .Select(e => e.Entity as AuditLog)
@@ -419,32 +436,125 @@ public class IntegrationDbContext : DbContext
 
                     foreach (var a in audits)
                     {
-                        try
+                        var dto = new Katana.Core.Services.PendingAuditInfo
                         {
-                            var dto = new Katana.Core.Services.PendingAuditInfo
-                            {
-                                ActionType = a!.ActionType,
-                                EntityName = a.EntityName,
-                                EntityId = a.EntityId,
-                                PerformedBy = a.PerformedBy,
-                                Timestamp = a.Timestamp,
-                                Details = a.Details,
-                                Changes = a.Changes,
-                                IpAddress = a.IpAddress,
-                                UserAgent = a.UserAgent
-                            };
-                            _pendingQueue.EnqueueAudit(dto);
-                        }
-                        catch { /* ignore */ }
+                            ActionType = a!.ActionType,
+                            EntityName = a.EntityName,
+                            EntityId = a.EntityId,
+                            PerformedBy = a.PerformedBy,
+                            Timestamp = a.Timestamp,
+                            Details = a.Details,
+                            Changes = a.Changes,
+                            IpAddress = a.IpAddress,
+                            UserAgent = a.UserAgent
+                        };
+                        _pendingQueue.EnqueueAudit(dto);
                     }
                 }
+                catch { /* ignore */ }
+            }
+            return 0; // swallow so upstream can continue; eventual writer will persist
+        }
+    }
 
-            // Log and swallow so higher-level operations continue (they should handle eventual consistency)
-            return 0;
-        }
-        catch (Exception)
+    public override int SaveChanges()
+    {
+        // Delegate to async override for consistent audit logic
+        return SaveChangesAsync().GetAwaiter().GetResult();
+    }
+
+    private static string MapStateToAction(EntityState state)
+        => state switch
         {
-            throw;
+            EntityState.Added => "CREATE",
+            EntityState.Modified => "UPDATE",
+            EntityState.Deleted => "DELETE",
+            _ => state.ToString().ToUpperInvariant()
+        };
+
+    private static string? BuildChanges(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+    {
+        if (entry.State == EntityState.Modified)
+        {
+            var pairs = entry.Properties
+                .Where(p => p.IsModified)
+                .Select(p => $"{p.Metadata.Name}: {FormatVal(p.OriginalValue)} -> {FormatVal(p.CurrentValue)}")
+                .ToList();
+            return pairs.Count > 0 ? string.Join(", ", pairs) : null;
         }
+        if (entry.State == EntityState.Added)
+        {
+            // Keep it compact; don't dump full object
+            var keys = entry.Metadata.FindPrimaryKey()?.Properties.Select(p => p.Name).ToHashSet() ?? new HashSet<string>();
+            var samples = entry.Properties
+                .Where(p => !keys.Contains(p.Metadata.Name))
+                .Where(p => p.Metadata.Name is "Name" or "SKU" or "InvoiceNo" or "ExternalOrderId" or "Price" or "Stock")
+                .Select(p => $"{p.Metadata.Name}: {FormatVal(p.CurrentValue)}")
+                .ToList();
+            return samples.Count > 0 ? string.Join(", ", samples) : null;
+        }
+        if (entry.State == EntityState.Deleted)
+        {
+            var keys = entry.Metadata.FindPrimaryKey()?.Properties.Select(p => p.Name) ?? Enumerable.Empty<string>();
+            var keyPairs = keys
+                .Select(k => $"{k}: {FormatVal(entry.Property(k).OriginalValue)}");
+            return string.Join(", ", keyPairs);
+        }
+        return null;
+    }
+
+    private static string BuildDetails(string entityName, string? entityId, string? display, string action, string? changes)
+    {
+        var header = display != null
+            ? $"{entityName} '{display}' ({entityId ?? "-"}) {ToTr(action)}"
+            : $"{entityName}#{entityId ?? "-"} {ToTr(action)}";
+        if (!string.IsNullOrWhiteSpace(changes))
+        {
+            return $"{header}. Değişiklikler: {changes}";
+        }
+        return header;
+    }
+
+    private static (string? id, string? display) GetEntityIdAndDisplay(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+    {
+        string? id = null;
+        var key = entry.Metadata.FindPrimaryKey();
+        if (key != null)
+        {
+            var parts = key.Properties
+                .Select(p => entry.Property(p.Name))
+                .Select(p => p.CurrentValue ?? p.OriginalValue)
+                .Where(v => v != null)
+                .Select(v => v!.ToString());
+            id = string.Join("-", parts);
+        }
+
+        // Try common display fields
+        string? display = null;
+        foreach (var name in new[] { "Name", "SKU", "InvoiceNo", "ExternalOrderId", "Title" })
+        {
+            var prop = entry.Properties.FirstOrDefault(p => p.Metadata.Name == name);
+            if (prop != null)
+            {
+                display = (prop.CurrentValue ?? prop.OriginalValue)?.ToString();
+                if (!string.IsNullOrWhiteSpace(display)) break;
+            }
+        }
+        return (string.IsNullOrWhiteSpace(id) ? null : id, display);
+    }
+
+    private static string ToTr(string action)
+        => action switch
+        {
+            "CREATE" => "oluşturuldu",
+            "UPDATE" => "güncellendi",
+            "DELETE" => "silindi",
+            _ => action.ToLowerInvariant()
+        };
+
+    private static string FormatVal(object? v)
+    {
+        if (v == null) return "null";
+        return v is DateTime dt ? dt.ToString("s") : v.ToString() ?? string.Empty;
     }
 }
