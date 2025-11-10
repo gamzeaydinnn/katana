@@ -20,15 +20,20 @@ function Read-ResponseBodyFromException($ex) {
 Write-Host "Logging in..."
 $loginBody = @{ Username = 'admin'; Password = 'Katana2025!' } | ConvertTo-Json
 try {
-    $loginResp = Invoke-RestMethod -Uri "$base/api/auth/login" -Method Post -ContentType 'application/json' -Body $loginBody
+    $loginResp = Invoke-RestMethod -Uri "$base/api/Auth/login" -Method Post -ContentType 'application/json' -Body $loginBody
 }
 catch {
     Write-Host "Login failed: $($_.Exception.Message)"
     exit 1
 }
 
-$token = $loginResp.Token
-if (-not $token) { Write-Host 'No token returned'; exit 1 }
+# Response is camelCase: { "token": "..." }
+$token = $loginResp.token
+if (-not $token) { 
+    Write-Host 'No token returned'
+    Write-Host "Response: $($loginResp | ConvertTo-Json)"
+    exit 1 
+}
 Write-Host "Got token (short): $($token.Substring(0,60))..."
 $headers = @{ Authorization = "Bearer $token" }
 
