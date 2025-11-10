@@ -138,72 +138,75 @@ const App: React.FC = () => {
         <FeedbackProvider>
           <BrowserRouter>
             <Routes>
+              {/* Public login route used only for Admin access */}
               <Route path="/login" element={<Login />} />
+
+              {/* Public app layout; only /admin below will be protected */}
               <Route
                 path="/*"
                 element={
-                  <ProtectedRoute>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      minHeight: "100vh",
+                      position: "relative",
+                      zIndex: 1,
+                    }}
+                  >
+                    <Header
+                      onMenuClick={() => setSidebarOpen(!sidebarOpen)}
+                      sidebarOpen={sidebarOpen}
+                      currentBranchName={currentBranchName}
+                      onOpenBranchSelector={openBranchSelector}
+                      mode={mode}
+                      onToggleMode={toggleMode}
+                    />
+                    <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+                    {/* 🎯 Main Content: Soldan Hizalı */}
                     <Box
+                      component="main"
                       sx={{
-                        display: "flex",
+                        flexGrow: 1,
+                        bgcolor: "transparent",
+                        p: { xs: 2, sm: 3, md: 4 },
+                        transition: "all 0.3s ease",
                         minHeight: "100vh",
-                        position: "relative",
-                        zIndex: 1,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-start",
                       }}
                     >
-                      <Header
-                        onMenuClick={() => setSidebarOpen(!sidebarOpen)}
-                        sidebarOpen={sidebarOpen}
-                        currentBranchName={currentBranchName}
-                        onOpenBranchSelector={openBranchSelector}
-                        mode={mode}
-                        onToggleMode={toggleMode}
-                      />
-                      <Sidebar
-                        open={sidebarOpen}
-                        onClose={() => setSidebarOpen(false)}
-                      />
-
-                      {/* 🎯 Main Content: Soldan Hizalı */}
-                      <Box
-                        component="main"
-                        sx={{
-                          flexGrow: 1,
-                          bgcolor: "transparent",
-                          p: { xs: 2, sm: 3, md: 4 },
-                          transition: "all 0.3s ease",
-                          minHeight: "100vh",
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "flex-start",
-                        }}
-                      >
-                        <Toolbar />
-                        <Box sx={{ width: "100%", maxWidth: "1440px", mx: 0 }}>
-                          <Routes>
-                            <Route path="/" element={<Dashboard />} />
-                            <Route
-                              path="/stock"
-                              element={<StockManagement />}
-                            />
-                            <Route path="/stock-view" element={<StockView />} />
-                            <Route path="/sync" element={<SyncManagement />} />
-                            <Route path="/reports" element={<Reports />} />
-                            <Route path="/admin" element={<AdminPanel />} />
-                            <Route path="/profile" element={<Profile />} />
-                            <Route path="/settings" element={<Settings />} />
-                          </Routes>
-                        </Box>
+                      <Toolbar />
+                      <Box sx={{ width: "100%", maxWidth: "1440px", mx: 0 }}>
+                        <Routes>
+                          <Route path="/" element={<Dashboard />} />
+                          <Route path="/stock" element={<StockManagement />} />
+                          <Route path="/stock-view" element={<StockView />} />
+                          <Route path="/sync" element={<SyncManagement />} />
+                          <Route path="/reports" element={<Reports />} />
+                          {/* Protect only the Admin Panel route */}
+                          <Route
+                            path="/admin"
+                            element={
+                              <ProtectedRoute>
+                                <AdminPanel />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route path="/profile" element={<Profile />} />
+                          <Route path="/settings" element={<Settings />} />
+                        </Routes>
                       </Box>
-
-                      <BranchSelector
-                        open={showBranchSelector}
-                        onClose={() => setShowBranchSelector(false)}
-                        branches={branchesToSelect ?? []}
-                        onSelect={handleBranchSelect}
-                      />
                     </Box>
-                  </ProtectedRoute>
+
+                    <BranchSelector
+                      open={showBranchSelector}
+                      onClose={() => setShowBranchSelector(false)}
+                      branches={branchesToSelect ?? []}
+                      onSelect={handleBranchSelect}
+                    />
+                  </Box>
                 }
               />
             </Routes>
