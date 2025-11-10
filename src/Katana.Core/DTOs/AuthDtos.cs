@@ -1,5 +1,6 @@
 
 using System;
+using System.Text.Json.Serialization;
 
 namespace Katana.Business.DTOs
 {
@@ -12,7 +13,9 @@ namespace Katana.Business.DTOs
     /// Başarılı bir oturum açma işlemi sonrasında dönen yanıtı temsil eder.
     /// JWT (JSON Web Token) bilgisini içerir.
     /// </summary>
-    public record LoginResponse(string Token);
+    public record LoginResponse(
+        [property: JsonPropertyName("token")] string Token
+    );
 
     /// <summary>
     /// Şifre değiştirme isteği için gerekli bilgileri temsil eder.

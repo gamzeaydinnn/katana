@@ -31,13 +31,19 @@ const Login: React.FC = () => {
 
     try {
       const response = await authAPI.login(username, password);
-      if (!response?.token) {
-        throw new Error("Token alınamadı");
+      const token = response?.token || response?.Token;
+
+      if (
+        !token ||
+        typeof token !== "string" ||
+        token.split(".").length !== 3
+      ) {
+        throw new Error("Geçersiz token formatı");
       }
-      localStorage.setItem("authToken", response.token);
+
+      localStorage.setItem("authToken", token);
       navigate("/admin");
     } catch (err: any) {
-      // If server responded with a message, show it. Otherwise show network/error message for easier debugging.
       const serverMessage = err?.response?.data?.message;
       const fallback = err?.message || "Giriş başarısız";
       setError(serverMessage || fallback);
