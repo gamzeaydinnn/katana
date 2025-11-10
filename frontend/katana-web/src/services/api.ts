@@ -61,18 +61,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      try {
-        if (typeof window !== "undefined") {
-          window.localStorage.removeItem("authToken");
-          const path = window.location?.pathname || "";
-          // Only force login redirect for admin area; keep public routes visible
-          if (path.startsWith("/admin")) {
-            window.location.href = "/login";
-          }
-        }
-      } catch {
-        // ignore storage/redirect errors
-      }
+      localStorage.removeItem("authToken");
+      window.location.href = "/login";
     }
     return Promise.reject(error);
   }

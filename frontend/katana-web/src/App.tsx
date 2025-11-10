@@ -138,7 +138,10 @@ const App: React.FC = () => {
         <FeedbackProvider>
           <BrowserRouter>
             <Routes>
+              {/* Public login route used only for Admin access */}
               <Route path="/login" element={<Login />} />
+
+              {/* Public app layout; only /admin below will be protected */}
               <Route
                 path="/*"
                 element={
@@ -158,10 +161,7 @@ const App: React.FC = () => {
                       mode={mode}
                       onToggleMode={toggleMode}
                     />
-                    <Sidebar
-                      open={sidebarOpen}
-                      onClose={() => setSidebarOpen(false)}
-                    />
+                    <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
                     {/* 🎯 Main Content: Soldan Hizalı */}
                     <Box
@@ -185,6 +185,7 @@ const App: React.FC = () => {
                           <Route path="/stock-view" element={<StockView />} />
                           <Route path="/sync" element={<SyncManagement />} />
                           <Route path="/reports" element={<Reports />} />
+                          {/* Protect only the Admin Panel route */}
                           <Route
                             path="/admin"
                             element={
