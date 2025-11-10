@@ -63,6 +63,42 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
+    /// Get products in a Luca-like shape (from local DB)
+    /// Used by the Admin → Luca Ürünleri page. Returns realistic demo data
+    /// mapped from local products to avoid 404s until direct Luca listing is wired.
+    /// </summary>
+    [HttpGet("luca")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetLucaStyleProducts()
+    {
+        try
+        {
+            var local = await _productService.GetAllProductsAsync();
+            var mapped = local.Select(p => new
+            {
+                // Common id for React row keys
+                id = p.Id,
+                // Luca-like fields (component supports both camelCase and PascalCase)
+                productCode = p.SKU,
+                productName = p.Name,
+                unit = "Adet",
+                quantity = p.Stock,
+                unitPrice = p.Price,
+                vatRate = 20,
+                isActive = p.IsActive
+            }).ToList();
+
+            return Ok(new { data = mapped, count = mapped.Count });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating Luca-style product list from local DB");
+            return StatusCode(500, new { error = "Failed to build Luca-style product list", details = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Get a specific product by SKU from Katana API
     /// </summary>
     [HttpGet("katana/{sku}")]
