@@ -1,36 +1,36 @@
-import React, { useState, useEffect } from "react";
+import CloseIcon from "@mui/icons-material/Close";
+import EditIcon from "@mui/icons-material/Edit";
+import InventoryIcon from "@mui/icons-material/Inventory";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import SaveIcon from "@mui/icons-material/Save";
+import SearchIcon from "@mui/icons-material/Search";
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  Typography,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  InputAdornment,
+  Paper,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
-  Chip,
-  CircularProgress,
-  Alert,
   TextField,
-  InputAdornment,
-  IconButton,
   Tooltip,
-  Stack,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
+  Typography,
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import InventoryIcon from "@mui/icons-material/Inventory";
-import EditIcon from "@mui/icons-material/Edit";
-import SaveIcon from "@mui/icons-material/Save";
-import CloseIcon from "@mui/icons-material/Close";
+import React, { useEffect, useState } from "react";
 import api from "../../services/api";
 
 interface KatanaProduct {
@@ -78,7 +78,7 @@ const KatanaProducts: React.FC = () => {
     setError(null);
     try {
       console.log("Fetching Katana products...");
-      const response = await api.get("/Products/katana?sync=true");
+      const response = await api.get("/Products/katana");
       console.log("Response:", response.data);
       const responseData: any = response.data;
       const productData = responseData?.data || responseData || [];
