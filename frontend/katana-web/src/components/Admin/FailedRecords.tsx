@@ -484,7 +484,21 @@ const FailedRecords: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDetailDialogOpen(false)}>Kapat</Button>
+          <Button
+            onClick={() => setDetailDialogOpen(false)}
+            variant="outlined"
+            sx={{
+              fontWeight: 600,
+              borderColor: "#64748b",
+              color: "#64748b",
+              "&:hover": {
+                borderColor: "#475569",
+                backgroundColor: "rgba(100, 116, 139, 0.04)",
+              },
+            }}
+          >
+            Kapat
+          </Button>
           {selectedRecord?.status === "FAILED" && (
             <>
               <Button
@@ -496,12 +510,15 @@ const FailedRecords: React.FC = () => {
                     handleIgnore(selectedRecord.id);
                   }
                 }}
+                variant="contained"
                 color="warning"
+                sx={{ fontWeight: 600, color: "white" }}
               >
                 Göz Ardı Et
               </Button>
               <Button
                 startIcon={<CheckCircle />}
+                sx={{ fontWeight: 600, color: "white" }}
                 onClick={async () => {
                   if (!parsedData) {
                     alert("Düzenlenecek veri bulunamadı!");
@@ -551,8 +568,27 @@ const FailedRecords: React.FC = () => {
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setResolveDialogOpen(false)}>İptal</Button>
-          <Button onClick={handleResolve} variant="contained" color="primary">
+          <Button
+            onClick={() => setResolveDialogOpen(false)}
+            variant="outlined"
+            sx={{
+              fontWeight: 600,
+              borderColor: "#64748b",
+              color: "#64748b",
+              "&:hover": {
+                borderColor: "#475569",
+                backgroundColor: "rgba(100, 116, 139, 0.04)",
+              },
+            }}
+          >
+            İptal
+          </Button>
+          <Button
+            onClick={handleResolve}
+            variant="contained"
+            color="primary"
+            sx={{ fontWeight: 600, color: "white" }}
+          >
             Çöz
           </Button>
         </DialogActions>

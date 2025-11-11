@@ -668,12 +668,34 @@ const DataCorrectionPanel: React.FC = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setKatanaEditOpen(false)}>İptal</Button>
+          <Button
+            onClick={() => setKatanaEditOpen(false)}
+            variant="outlined"
+            sx={{
+              fontWeight: 600,
+              borderColor: "#64748b",
+              color: "#64748b",
+              "&:hover": {
+                borderColor: "#475569",
+                backgroundColor: "rgba(100, 116, 139, 0.04)",
+              },
+            }}
+          >
+            İptal
+          </Button>
           <Button
             onClick={handleKatanaSave}
             variant="contained"
             disabled={saving}
             startIcon={<SaveIcon />}
+            sx={{
+              fontWeight: 600,
+              color: "white",
+              backgroundColor: "#3b82f6",
+              "&:hover": {
+                backgroundColor: "#2563eb",
+              },
+            }}
           >
             Kaydet
           </Button>
@@ -736,12 +758,34 @@ const DataCorrectionPanel: React.FC = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setLucaEditOpen(false)}>İptal</Button>
+          <Button
+            onClick={() => setLucaEditOpen(false)}
+            variant="outlined"
+            sx={{
+              fontWeight: 600,
+              borderColor: "#64748b",
+              color: "#64748b",
+              "&:hover": {
+                borderColor: "#475569",
+                backgroundColor: "rgba(100, 116, 139, 0.04)",
+              },
+            }}
+          >
+            İptal
+          </Button>
           <Button
             onClick={handleLucaSave}
             variant="contained"
             disabled={saving}
             startIcon={<SaveIcon />}
+            sx={{
+              fontWeight: 600,
+              color: "white",
+              backgroundColor: "#3b82f6",
+              "&:hover": {
+                backgroundColor: "#2563eb",
+              },
+            }}
           >
             Kaydet
           </Button>

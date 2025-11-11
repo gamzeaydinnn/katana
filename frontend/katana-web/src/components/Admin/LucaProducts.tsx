@@ -389,11 +389,33 @@ const LucaProducts: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseModal}>İptal</Button>
+          <Button
+            onClick={handleCloseModal}
+            variant="outlined"
+            sx={{
+              fontWeight: 600,
+              borderColor: "#64748b",
+              color: "#64748b",
+              "&:hover": {
+                borderColor: "#475569",
+                backgroundColor: "rgba(100, 116, 139, 0.04)",
+              },
+            }}
+          >
+            İptal
+          </Button>
           <Button
             onClick={handleSaveProduct}
             variant="contained"
             disabled={saving}
+            sx={{
+              fontWeight: 600,
+              color: "white",
+              backgroundColor: "#3b82f6",
+              "&:hover": {
+                backgroundColor: "#2563eb",
+              },
+            }}
           >
             {saving ? "Kaydediliyor..." : "Kaydet"}
           </Button>

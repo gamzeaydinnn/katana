@@ -314,19 +314,20 @@ export default function PendingAdjustments() {
                       <Button
                         size="small"
                         variant="contained"
-                        color="primary"
+                        color="success"
                         disabled={!isPendingStatus(it.status)}
                         onClick={() => handleApprove(it)}
-                        sx={{ mr: 1 }}
+                        sx={{ mr: 1, color: "white", fontWeight: 600 }}
                       >
                         Onayla
                       </Button>
                       <Button
                         size="small"
-                        variant="outlined"
-                        color="secondary"
+                        variant="contained"
+                        color="error"
                         disabled={!isPendingStatus(it.status)}
                         onClick={() => openReject(it)}
+                        sx={{ color: "white", fontWeight: 600 }}
                       >
                         Reddet
                       </Button>
@@ -368,8 +369,27 @@ export default function PendingAdjustments() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSelected(null)}>İptal</Button>
-          <Button onClick={handleReject} disabled={rejecting} color="secondary">
+          <Button
+            onClick={() => setSelected(null)}
+            variant="outlined"
+            sx={{
+              borderColor: "#64748b",
+              color: "#64748b",
+              "&:hover": {
+                borderColor: "#475569",
+                backgroundColor: "rgba(100, 116, 139, 0.04)",
+              },
+            }}
+          >
+            İptal
+          </Button>
+          <Button
+            onClick={handleReject}
+            disabled={rejecting}
+            variant="contained"
+            color="error"
+            sx={{ color: "white", fontWeight: 600 }}
+          >
             {rejecting ? "Reddediliyor..." : "Reddet"}
           </Button>
         </DialogActions>

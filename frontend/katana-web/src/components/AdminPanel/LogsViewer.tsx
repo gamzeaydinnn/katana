@@ -355,7 +355,19 @@ const LogsViewer: React.FC = () => {
                   }
                   InputLabelProps={{ shrink: true }}
                 />
-                <Button fullWidth variant="contained" onClick={fetchErrorLogs}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  onClick={fetchErrorLogs}
+                  sx={{
+                    fontWeight: 600,
+                    color: "white",
+                    backgroundColor: "#3b82f6",
+                    "&:hover": {
+                      backgroundColor: "#2563eb",
+                    },
+                  }}
+                >
                   Filter
                 </Button>
               </Box>
@@ -520,7 +532,19 @@ const LogsViewer: React.FC = () => {
                   }
                   InputLabelProps={{ shrink: true }}
                 />
-                <Button fullWidth variant="contained" onClick={fetchAuditLogs}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  onClick={fetchAuditLogs}
+                  sx={{
+                    fontWeight: 600,
+                    color: "white",
+                    backgroundColor: "#3b82f6",
+                    "&:hover": {
+                      backgroundColor: "#2563eb",
+                    },
+                  }}
+                >
                   Filter
                 </Button>
               </Box>

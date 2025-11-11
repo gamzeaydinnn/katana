@@ -80,7 +80,20 @@ const BranchSelector: React.FC<Props> = ({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Kapat</Button>
+        <Button
+          onClick={onClose}
+          variant="contained"
+          sx={{
+            fontWeight: 600,
+            color: "white",
+            backgroundColor: "#3b82f6",
+            "&:hover": {
+              backgroundColor: "#2563eb",
+            },
+          }}
+        >
+          Kapat
+        </Button>
       </DialogActions>
     </Dialog>
   );

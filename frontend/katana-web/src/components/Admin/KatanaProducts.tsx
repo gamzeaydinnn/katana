@@ -607,12 +607,20 @@ const KatanaProducts: React.FC = () => {
         <DialogActions sx={{ px: 3, pb: 3, pt: 2 }}>
           <Button
             onClick={handleCloseModal}
+            variant="outlined"
             startIcon={<CloseIcon />}
             disabled={saving}
             sx={{
               borderRadius: 2,
               textTransform: "none",
               px: 3,
+              fontWeight: 600,
+              borderColor: "#64748b",
+              color: "#64748b",
+              "&:hover": {
+                borderColor: "#475569",
+                backgroundColor: "rgba(100, 116, 139, 0.04)",
+              },
             }}
           >
             İptal
@@ -626,6 +634,8 @@ const KatanaProducts: React.FC = () => {
               borderRadius: 2,
               textTransform: "none",
               px: 3,
+              fontWeight: 600,
+              color: "white",
               background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
               boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)",
               "&:hover": {
