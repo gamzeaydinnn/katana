@@ -71,6 +71,30 @@ public class ProductsController : ControllerBase
                         });
                     }
                 }
+                
+                // Map local DB IDs and values to Katana products for frontend operations
+                var enrichedProducts = new List<object>();
+                foreach (var katanaProduct in products)
+                {
+                    var localProduct = await _productService.GetProductBySkuAsync(katanaProduct.SKU);
+                    enrichedProducts.Add(new
+                    {
+                        id = localProduct?.Id.ToString() ?? katanaProduct.Id,
+                        katanaId = katanaProduct.Id,
+                        sku = localProduct?.SKU ?? katanaProduct.SKU,
+                        name = localProduct?.Name ?? katanaProduct.Name,
+                        category = katanaProduct.Category,
+                        unit = katanaProduct.Unit,
+                        inStock = katanaProduct.InStock,
+                        committed = katanaProduct.Committed,
+                        available = katanaProduct.Available,
+                        onHand = localProduct?.Stock ?? katanaProduct.OnHand,
+                        salesPrice = localProduct?.Price ?? katanaProduct.SalesPrice,
+                        costPrice = katanaProduct.CostPrice,
+                        isActive = localProduct?.IsActive ?? katanaProduct.IsActive
+                    });
+                }
+                return Ok(new { data = enrichedProducts, count = enrichedProducts.Count });
             }
             
             return Ok(new { data = products, count = products.Count });

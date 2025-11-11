@@ -78,7 +78,7 @@ const KatanaProducts: React.FC = () => {
     setError(null);
     try {
       console.log("Fetching Katana products...");
-      const response = await api.get("/Products/katana");
+      const response = await api.get("/Products/katana?sync=true");
       console.log("Response:", response.data);
       const responseData: any = response.data;
       const productData = responseData?.data || responseData || [];

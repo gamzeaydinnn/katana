@@ -254,20 +254,47 @@ const AdminPanel: React.FC = () => {
           onChange={(_, v) => setActiveTab(v)}
           variant="scrollable"
           scrollButtons="auto"
+          sx={{
+            "& .MuiTab-root": {
+              alignItems: "center",
+              flexDirection: "row",
+              textTransform: "none",
+              fontSize: "0.95rem",
+            },
+            "& .MuiTab-iconWrapper": {
+              marginRight: "8px",
+            },
+          }}
         >
-          <Tab icon={<TrendingUp />} label="Genel Bakış" />
-          <Tab icon={<Receipt />} label="Siparişler" />
-          <Tab icon={<ShoppingCart />} label="Katana Ürünleri" />
-          <Tab icon={<Inventory />} label="Luca Ürünleri" />
+          <Tab icon={<TrendingUp />} label="Genel Bakış" iconPosition="start" />
+          <Tab icon={<Receipt />} label="Siparişler" iconPosition="start" />
+          <Tab
+            icon={<ShoppingCart />}
+            label="Katana Ürünleri"
+            iconPosition="start"
+          />
+          <Tab
+            icon={<Inventory />}
+            label="Luca Ürünleri"
+            iconPosition="start"
+          />
           <Tab
             icon={<Warehouse />}
             label="Stok Yönetimi"
             iconPosition="start"
           />
-          <Tab icon={<ReportProblem />} label="Hatalı Kayıtlar" />
-          <Tab icon={<CompareArrowsIcon />} label="Veri Düzeltme" />
-          <Tab icon={<LogsIcon />} label="Loglar" />
-          <Tab icon={<SettingsIcon />} label="Ayarlar" />
+          <Tab
+            icon={<ReportProblem />}
+            label="Hatalı Kayıtlar"
+            iconPosition="start"
+          />
+          <Tab
+            icon={<CompareArrowsIcon />}
+            label="Veri Düzeltme"
+            iconPosition="start"
+          />
+          <Tab icon={<LogsIcon />} label="Loglar" iconPosition="start" />
+          <Tab icon={<SettingsIcon />} label="Ayarlar" iconPosition="start" />
         </Tabs>
       </Paper>
 

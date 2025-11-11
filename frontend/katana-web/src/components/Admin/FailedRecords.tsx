@@ -85,6 +85,7 @@ const FailedRecords: React.FC = () => {
 
   const [resolution, setResolution] = useState("");
   const [correctedData, setCorrectedData] = useState("");
+  const [parsedData, setParsedData] = useState<any>(null);
   const [resend, setResend] = useState(false);
   const [ignoreReason, setIgnoreReason] = useState("");
 
@@ -125,6 +126,14 @@ const FailedRecords: React.FC = () => {
       setSelectedRecord(response.data);
       setDetailDialogOpen(true);
       setCorrectedData(response.data.originalData);
+
+      // Parse JSON for form editing
+      try {
+        const parsed = JSON.parse(response.data.originalData);
+        setParsedData(parsed);
+      } catch {
+        setParsedData(null);
+      }
     } catch (error) {
       console.error("Failed to fetch record details:", error);
     }
@@ -134,10 +143,11 @@ const FailedRecords: React.FC = () => {
     if (!selectedRecord) return;
 
     try {
+      const finalData = parsedData ? JSON.stringify(parsedData) : correctedData;
       await api.put(`/adminpanel/failed-records/${selectedRecord.id}/resolve`, {
         resolution,
         correctedData:
-          correctedData !== selectedRecord.originalData ? correctedData : null,
+          finalData !== selectedRecord.originalData ? finalData : null,
         resend,
       });
       setResolveDialogOpen(false);
@@ -145,6 +155,7 @@ const FailedRecords: React.FC = () => {
       fetchRecords();
       setResolution("");
       setCorrectedData("");
+      setParsedData(null);
       setResend(false);
     } catch (error) {
       console.error("Failed to resolve record:", error);
@@ -159,6 +170,8 @@ const FailedRecords: React.FC = () => {
       setDetailDialogOpen(false);
       fetchRecords();
       setIgnoreReason("");
+      setParsedData(null);
+      setCorrectedData("");
     } catch (error) {
       console.error("Failed to ignore record:", error);
     }
@@ -371,18 +384,71 @@ const FailedRecords: React.FC = () => {
                   ` (Kod: ${selectedRecord.errorCode})`}
               </Alert>
 
-              <Typography variant="subtitle2" gutterBottom>
-                Orijinal Veri:
-              </Typography>
-              <TextField
-                fullWidth
-                multiline
-                rows={8}
-                value={correctedData}
-                onChange={(e) => setCorrectedData(e.target.value)}
-                variant="outlined"
-                sx={{ mb: 2, fontFamily: "monospace" }}
-              />
+              {parsedData ? (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Veri Düzenleme:
+                  </Typography>
+                  <Box display="grid" gap={2}>
+                    {Object.keys(parsedData).map((key) => {
+                      const originalType = typeof parsedData[key];
+                      const isNumber = originalType === "number";
+                      return (
+                        <TextField
+                          key={key}
+                          fullWidth
+                          label={key}
+                          value={parsedData[key]}
+                          onChange={(e) => {
+                            const rawValue = e.target.value;
+                            let finalValue: any = rawValue;
+
+                            if (isNumber) {
+                              // Allow empty string during editing
+                              if (rawValue === "" || rawValue === "-") {
+                                finalValue = rawValue;
+                              } else {
+                                const parsed = parseFloat(rawValue);
+                                finalValue = isNaN(parsed) ? 0 : parsed;
+                              }
+                            }
+
+                            setParsedData({ ...parsedData, [key]: finalValue });
+                          }}
+                          onBlur={() => {
+                            // Convert to number on blur if it's a number field
+                            if (
+                              isNumber &&
+                              (parsedData[key] === "" ||
+                                parsedData[key] === "-")
+                            ) {
+                              setParsedData({ ...parsedData, [key]: 0 });
+                            }
+                          }}
+                          type={isNumber ? "number" : "text"}
+                          size="small"
+                          inputProps={isNumber ? { step: "any" } : {}}
+                        />
+                      );
+                    })}
+                  </Box>
+                </Box>
+              ) : (
+                <>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Orijinal Veri (JSON):
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={6}
+                    value={correctedData}
+                    onChange={(e) => setCorrectedData(e.target.value)}
+                    variant="outlined"
+                    sx={{ mb: 2, fontFamily: "monospace", fontSize: "0.85rem" }}
+                  />
+                </>
+              )}
 
               <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2}>
                 <Box>
@@ -436,7 +502,15 @@ const FailedRecords: React.FC = () => {
               </Button>
               <Button
                 startIcon={<CheckCircle />}
-                onClick={() => setResolveDialogOpen(true)}
+                onClick={async () => {
+                  if (!parsedData) {
+                    alert("Düzenlenecek veri bulunamadı!");
+                    return;
+                  }
+                  setResend(true);
+                  setResolution("Veri düzeltildi ve yeniden gönderildi");
+                  await handleResolve();
+                }}
                 variant="contained"
                 color="success"
               >

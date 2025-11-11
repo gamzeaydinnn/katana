@@ -11,7 +11,6 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Chip,
   Button,
   Dialog,
   DialogTitle,
@@ -25,185 +24,328 @@ import {
   IconButton,
   Tooltip,
   Stack,
+  Chip,
 } from "@mui/material";
 import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import ErrorIcon from "@mui/icons-material/Error";
-import WarningIcon from "@mui/icons-material/Warning";
 import EditIcon from "@mui/icons-material/Edit";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import SaveIcon from "@mui/icons-material/Save";
 import api from "../../services/api";
 
-interface DataIssue {
-  field: string;
-  issue: string;
-  katanaValue?: string;
-  lucaValue?: string;
-  severity: "Critical" | "Warning" | "Info";
-}
-
-interface ComparisonProduct {
+interface KatanaProduct {
+  id: string;
   sku: string;
   name: string;
-  katanaData?: {
-    sku: string;
-    name: string;
-    salesPrice?: number;
-    costPrice?: number;
-    onHand?: number;
-    available?: number;
-    isActive: boolean;
-  };
-  lucaData?: {
-    id: number;
-    sku: string;
-    name: string;
-    price: number;
-    stock: number;
-    isActive: boolean;
-  };
-  issues: DataIssue[];
+  salesPrice?: number;
+  onHand?: number;
 }
 
-interface DataCorrection {
+interface LucaProduct {
   id: number;
-  sourceSystem: string;
-  entityType: string;
-  entityId: string;
-  fieldName: string;
-  originalValue?: string;
-  correctedValue?: string;
-  correctionReason: string;
-  isApproved: boolean;
-  createdAt: string;
+  productCode: string;
+  productName: string;
+  unitPrice: number;
+  quantity: number;
+}
+
+interface ComparisonResult {
+  sku: string;
+  katanaProduct?: KatanaProduct;
+  lucaProduct?: LucaProduct;
+  issues: {
+    field: string;
+    katanaValue: any;
+    lucaValue: any;
+    issue: string;
+  }[];
 }
 
 const DataCorrectionPanel: React.FC = () => {
-  const [activeTab, setActiveTab] = useState(0);
-  const [comparisons, setComparisons] = useState<ComparisonProduct[]>([]);
-  const [corrections, setCorrections] = useState<DataCorrection[]>([]);
+  const [sourceTab, setSourceTab] = useState<"comparison" | "katana" | "luca">(
+    "comparison"
+  );
+
+  // Karşılaştırma
+  const [comparisons, setComparisons] = useState<ComparisonResult[]>([]);
+
+  // Katana
+  const [katanaProducts, setKatanaProducts] = useState<KatanaProduct[]>([]);
+  const [katanaIssueProducts, setKatanaIssueProducts] = useState<
+    KatanaProduct[]
+  >([]);
+  const [selectedKatana, setSelectedKatana] = useState<KatanaProduct | null>(
+    null
+  );
+  const [katanaEditOpen, setKatanaEditOpen] = useState(false);
+  const [katanaEditData, setKatanaEditData] = useState({
+    name: "",
+    salesPrice: 0,
+    onHand: 0,
+  });
+
+  // Luca
+  const [lucaProducts, setLucaProducts] = useState<LucaProduct[]>([]);
+  const [lucaIssueProducts, setLucaIssueProducts] = useState<LucaProduct[]>([]);
+  const [selectedLuca, setSelectedLuca] = useState<LucaProduct | null>(null);
+  const [lucaEditOpen, setLucaEditOpen] = useState(false);
+  const [lucaEditData, setLucaEditData] = useState({
+    productName: "",
+    unitPrice: 0,
+    quantity: 0,
+  });
+
+  // Common
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  // Correction dialog
-  const [openDialog, setOpenDialog] = useState(false);
-  const [selectedProduct, setSelectedProduct] =
-    useState<ComparisonProduct | null>(null);
-  const [correctionForm, setCorrectionForm] = useState({
-    field: "",
-    correctedValue: "",
-    reason: "",
-  });
-
-  const fetchComparisons = async () => {
+  // Compare Katana vs Luca data
+  const performComparison = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get("/DataCorrection/compare/products");
-      const responseData: any = response.data;
-      setComparisons(responseData?.data || responseData || []);
+      // Fetch both data sets
+      const [katanaResponse, lucaResponse] = await Promise.all([
+        api.get<any>("/Products/katana?sync=true"),
+        api.get<any>("/Products/luca"),
+      ]);
+
+      const katanaData = katanaResponse.data?.data || [];
+      const lucaData = lucaResponse.data?.data || [];
+
+      setKatanaProducts(katanaData);
+      setLucaProducts(lucaData);
+
+      // Compare data
+      const comparisonResults: ComparisonResult[] = [];
+      const katanaIssues: KatanaProduct[] = [];
+      const lucaIssues: LucaProduct[] = [];
+
+      katanaData.forEach((katanaProduct: KatanaProduct) => {
+        const lucaProduct = lucaData.find(
+          (lp: LucaProduct) => lp.productCode === katanaProduct.sku
+        );
+
+        const issues: any[] = [];
+        let hasKatanaIssue = false;
+        let hasLucaIssue = false;
+
+        if (lucaProduct) {
+          // Compare price
+          if (
+            Math.abs((katanaProduct.salesPrice || 0) - lucaProduct.unitPrice) >
+            0.01
+          ) {
+            issues.push({
+              field: "Fiyat",
+              katanaValue: katanaProduct.salesPrice?.toFixed(2) || "0.00",
+              lucaValue: lucaProduct.unitPrice.toFixed(2),
+              issue: "Fiyat uyuşmazlığı",
+            });
+            hasKatanaIssue = true;
+            hasLucaIssue = true;
+          }
+
+          // Compare stock
+          if ((katanaProduct.onHand || 0) !== lucaProduct.quantity) {
+            issues.push({
+              field: "Stok",
+              katanaValue: katanaProduct.onHand || 0,
+              lucaValue: lucaProduct.quantity,
+              issue: "Stok uyuşmazlığı",
+            });
+            hasKatanaIssue = true;
+            hasLucaIssue = true;
+          }
+
+          // Compare name
+          if (katanaProduct.name !== lucaProduct.productName) {
+            issues.push({
+              field: "İsim",
+              katanaValue: katanaProduct.name,
+              lucaValue: lucaProduct.productName,
+              issue: "Ürün adı uyuşmazlığı",
+            });
+            hasKatanaIssue = true;
+            hasLucaIssue = true;
+          }
+        } else {
+          // Product only exists in Katana
+          issues.push({
+            field: "Varlık",
+            katanaValue: "Mevcut",
+            lucaValue: "Yok",
+            issue: "Ürün sadece Katana'da var",
+          });
+          hasLucaIssue = true;
+        }
+
+        if (issues.length > 0) {
+          comparisonResults.push({
+            sku: katanaProduct.sku,
+            katanaProduct,
+            lucaProduct,
+            issues,
+          });
+
+          if (hasKatanaIssue) {
+            katanaIssues.push(katanaProduct);
+          }
+          if (hasLucaIssue && lucaProduct) {
+            lucaIssues.push(lucaProduct);
+          }
+        }
+      });
+
+      // Check for Luca-only products
+      lucaData.forEach((lucaProduct: LucaProduct) => {
+        const katanaExists = katanaData.find(
+          (kp: KatanaProduct) => kp.sku === lucaProduct.productCode
+        );
+
+        if (!katanaExists) {
+          comparisonResults.push({
+            sku: lucaProduct.productCode,
+            lucaProduct,
+            issues: [
+              {
+                field: "Varlık",
+                katanaValue: "Yok",
+                lucaValue: "Mevcut",
+                issue: "Ürün sadece Luca'da var",
+              },
+            ],
+          });
+          lucaIssues.push(lucaProduct);
+        }
+      });
+
+      setComparisons(comparisonResults);
+      setKatanaIssueProducts(katanaIssues);
+      setLucaIssueProducts(lucaIssues);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Karşılaştırma yüklenemedi");
+      setError(err.response?.data?.error || "Karşılaştırma başarısız");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchCorrections = async () => {
+  // Fetch Katana products
+  const fetchKatanaProducts = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get("/DataCorrection/pending");
-      const responseData: any = response.data;
-      setCorrections(responseData?.data || responseData || []);
+      const response = await api.get<any>("/Products/katana?sync=true");
+      const data = response.data?.data || [];
+      setKatanaProducts(data);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Düzeltmeler yüklenemedi");
+      setError(err.response?.data?.error || "Katana ürünleri yüklenemedi");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch Luca products
+  const fetchLucaProducts = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.get<any>("/Products/luca");
+      const data = response.data?.data || [];
+      setLucaProducts(data);
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Luca ürünleri yüklenemedi");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (activeTab === 0) fetchComparisons();
-    else if (activeTab === 1) fetchCorrections();
-  }, [activeTab]);
+    if (sourceTab === "comparison") {
+      performComparison();
+    } else if (sourceTab === "katana") {
+      fetchKatanaProducts();
+    } else {
+      fetchLucaProducts();
+    }
+  }, [sourceTab]);
 
-  const handleOpenDialog = (product: ComparisonProduct, field: string) => {
-    setSelectedProduct(product);
-    setCorrectionForm({
-      field,
-      correctedValue: "",
-      reason: "",
+  // Katana edit handlers
+  const handleKatanaEdit = (product: KatanaProduct) => {
+    setSelectedKatana(product);
+    setKatanaEditData({
+      name: product.name,
+      salesPrice: product.salesPrice || 0,
+      onHand: product.onHand || 0,
     });
-    setOpenDialog(true);
+    setKatanaEditOpen(true);
   };
 
-  const handleCreateCorrection = async () => {
-    if (!selectedProduct) return;
-
+  const handleKatanaSave = async () => {
+    if (!selectedKatana) return;
+    setSaving(true);
+    setError(null);
     try {
-      await api.post("/DataCorrection", {
-        sourceSystem: selectedProduct.katanaData ? "Katana" : "Luca",
-        entityType: "Product",
-        entityId: selectedProduct.sku,
-        fieldName: correctionForm.field,
-        originalValue:
-          correctionForm.field === "Price"
-            ? selectedProduct.katanaData?.salesPrice?.toString()
-            : selectedProduct.katanaData?.name,
-        correctedValue: correctionForm.correctedValue,
-        correctionReason: correctionForm.reason,
+      await api.put(`/Products/${selectedKatana.id}`, {
+        Name: katanaEditData.name,
+        SKU: selectedKatana.sku,
+        Price: katanaEditData.salesPrice,
+        Stock: katanaEditData.onHand,
+        CategoryId: 1001,
+        IsActive: true,
       });
-
-      setSuccess("Düzeltme kaydı oluşturuldu");
-      setOpenDialog(false);
-      fetchCorrections();
+      setSuccess("Katana ürünü başarıyla güncellendi!");
+      setKatanaEditOpen(false);
+      // Refresh comparison after edit
+      if (sourceTab === "comparison") {
+        performComparison();
+      } else {
+        fetchKatanaProducts();
+      }
     } catch (err: any) {
-      setError(err.response?.data?.error || "Düzeltme oluşturulamadı");
+      setError(err.response?.data?.error || "Güncelleme başarısız");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleApproveCorrection = async (id: number) => {
+  // Luca edit handlers
+  const handleLucaEdit = (product: LucaProduct) => {
+    setSelectedLuca(product);
+    setLucaEditData({
+      productName: product.productName,
+      unitPrice: product.unitPrice,
+      quantity: product.quantity,
+    });
+    setLucaEditOpen(true);
+  };
+
+  const handleLucaSave = async () => {
+    if (!selectedLuca) return;
+    setSaving(true);
+    setError(null);
     try {
-      await api.post(`/DataCorrection/${id}/approve`);
-      setSuccess("Düzeltme onaylandı");
-      fetchCorrections();
+      await api.put(`/Products/luca/${selectedLuca.id}`, {
+        productCode: selectedLuca.productCode,
+        productName: lucaEditData.productName,
+        unit: "Adet",
+        quantity: lucaEditData.quantity,
+        unitPrice: lucaEditData.unitPrice,
+        vatRate: 20,
+      });
+      setSuccess("Luca ürünü başarıyla güncellendi!");
+      setLucaEditOpen(false);
+      // Refresh comparison after edit
+      if (sourceTab === "comparison") {
+        performComparison();
+      } else {
+        fetchLucaProducts();
+      }
     } catch (err: any) {
-      setError(err.response?.data?.error || "Onaylama başarısız");
-    }
-  };
-
-  const handleApplyToLuca = async (id: number) => {
-    try {
-      await api.post(`/DataCorrection/${id}/apply-to-luca`);
-      setSuccess("Düzeltme Luca'ya uygulandı");
-      fetchCorrections();
-      fetchComparisons();
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Uygulama başarısız");
-    }
-  };
-
-  const getSeverityIcon = (severity: string) => {
-    switch (severity) {
-      case "Critical":
-        return <ErrorIcon color="error" />;
-      case "Warning":
-        return <WarningIcon color="warning" />;
-      default:
-        return <CheckCircleIcon color="info" />;
-    }
-  };
-
-  const getSeverityColor = (severity: string): "error" | "warning" | "info" => {
-    switch (severity) {
-      case "Critical":
-        return "error";
-      case "Warning":
-        return "warning";
-      default:
-        return "info";
+      setError(err.response?.data?.error || "Güncelleme başarısız");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -225,9 +367,15 @@ const DataCorrectionPanel: React.FC = () => {
             </Stack>
             <Tooltip title="Yenile">
               <IconButton
-                onClick={() =>
-                  activeTab === 0 ? fetchComparisons() : fetchCorrections()
-                }
+                onClick={() => {
+                  if (sourceTab === "comparison") {
+                    performComparison();
+                  } else if (sourceTab === "katana") {
+                    fetchKatanaProducts();
+                  } else {
+                    fetchLucaProducts();
+                  }
+                }}
                 disabled={loading}
               >
                 <RefreshIcon />
@@ -235,10 +383,13 @@ const DataCorrectionPanel: React.FC = () => {
             </Tooltip>
           </Stack>
 
-          <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
-            <Tab label="Katana ↔ Luca Karşılaştırma" />
-            <Tab label="Bekleyen Düzeltmeler" />
-          </Tabs>
+          <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+            <Tabs value={sourceTab} onChange={(_, v) => setSourceTab(v)}>
+              <Tab label="Karşılaştırma" value="comparison" />
+              <Tab label="Katana Sorunları" value="katana" />
+              <Tab label="Luca Sorunları" value="luca" />
+            </Tabs>
+          </Box>
         </CardContent>
       </Card>
 
@@ -263,12 +414,12 @@ const DataCorrectionPanel: React.FC = () => {
         </Box>
       ) : (
         <>
-          {/* Tab 0: Karşılaştırma */}
-          {activeTab === 0 && (
+          {/* Comparison Tab */}
+          {sourceTab === "comparison" && (
             <TableContainer component={Paper}>
               <Table>
                 <TableHead>
-                  <TableRow>
+                  <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
                     <TableCell>
                       <strong>SKU</strong>
                     </TableCell>
@@ -284,7 +435,7 @@ const DataCorrectionPanel: React.FC = () => {
                     <TableCell>
                       <strong>Sorunlar</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell align="center">
                       <strong>İşlemler</strong>
                     </TableCell>
                   </TableRow>
@@ -294,7 +445,7 @@ const DataCorrectionPanel: React.FC = () => {
                     <TableRow>
                       <TableCell colSpan={6} align="center">
                         <Typography color="textSecondary">
-                          Uyuşmazlık bulunamadı
+                          Uyuşmazlık bulunamadı - Tüm veriler senkronize!
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -302,21 +453,24 @@ const DataCorrectionPanel: React.FC = () => {
                     comparisons.map((comp) => (
                       <TableRow key={comp.sku} hover>
                         <TableCell>
-                          <Typography variant="body2" fontWeight="bold">
-                            {comp.sku}
-                          </Typography>
+                          <strong>{comp.sku}</strong>
                         </TableCell>
-                        <TableCell>{comp.name}</TableCell>
                         <TableCell>
-                          {comp.katanaData ? (
+                          {comp.katanaProduct?.name ||
+                            comp.lucaProduct?.productName}
+                        </TableCell>
+                        <TableCell>
+                          {comp.katanaProduct ? (
                             <Box>
                               <Typography variant="caption">
-                                Fiyat: {comp.katanaData.salesPrice?.toFixed(2)}{" "}
+                                Fiyat:{" "}
+                                {comp.katanaProduct.salesPrice?.toFixed(2) ||
+                                  "0.00"}{" "}
                                 ₺
                               </Typography>
                               <br />
                               <Typography variant="caption">
-                                Stok: {comp.katanaData.onHand}
+                                Stok: {comp.katanaProduct.onHand || 0}
                               </Typography>
                             </Box>
                           ) : (
@@ -324,14 +478,14 @@ const DataCorrectionPanel: React.FC = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          {comp.lucaData ? (
+                          {comp.lucaProduct ? (
                             <Box>
                               <Typography variant="caption">
-                                Fiyat: {comp.lucaData.price.toFixed(2)} ₺
+                                Fiyat: {comp.lucaProduct.unitPrice.toFixed(2)} ₺
                               </Typography>
                               <br />
                               <Typography variant="caption">
-                                Stok: {comp.lucaData.stock}
+                                Stok: {comp.lucaProduct.quantity}
                               </Typography>
                             </Box>
                           ) : (
@@ -343,23 +497,45 @@ const DataCorrectionPanel: React.FC = () => {
                             {comp.issues.map((issue, idx) => (
                               <Chip
                                 key={idx}
-                                label={`${issue.field}: ${issue.issue}`}
+                                label={issue.issue}
                                 size="small"
-                                color={getSeverityColor(issue.severity)}
-                                icon={getSeverityIcon(issue.severity)}
+                                color="warning"
+                                variant="outlined"
                               />
                             ))}
                           </Stack>
                         </TableCell>
-                        <TableCell>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<EditIcon />}
-                            onClick={() => handleOpenDialog(comp, "Price")}
+                        <TableCell align="center">
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            justifyContent="center"
                           >
-                            Düzelt
-                          </Button>
+                            {comp.katanaProduct && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="primary"
+                                onClick={() =>
+                                  handleKatanaEdit(comp.katanaProduct!)
+                                }
+                              >
+                                Katana Düzelt
+                              </Button>
+                            )}
+                            {comp.lucaProduct && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="secondary"
+                                onClick={() =>
+                                  handleLucaEdit(comp.lucaProduct!)
+                                }
+                              >
+                                Luca Düzelt
+                              </Button>
+                            )}
+                          </Stack>
                         </TableCell>
                       </TableRow>
                     ))
@@ -369,94 +545,119 @@ const DataCorrectionPanel: React.FC = () => {
             </TableContainer>
           )}
 
-          {/* Tab 1: Bekleyen Düzeltmeler */}
-          {activeTab === 1 && (
+          {/* Katana Issues Tab */}
+          {sourceTab === "katana" && (
             <TableContainer component={Paper}>
               <Table>
                 <TableHead>
-                  <TableRow>
+                  <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
                     <TableCell>
-                      <strong>Kaynak</strong>
+                      <strong>SKU</strong>
                     </TableCell>
                     <TableCell>
-                      <strong>Varlık</strong>
+                      <strong>Ürün Adı</strong>
                     </TableCell>
-                    <TableCell>
-                      <strong>Alan</strong>
+                    <TableCell align="right">
+                      <strong>Fiyat (₺)</strong>
                     </TableCell>
-                    <TableCell>
-                      <strong>Orijinal</strong>
+                    <TableCell align="right">
+                      <strong>Stok</strong>
                     </TableCell>
-                    <TableCell>
-                      <strong>Düzeltilmiş</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Sebep</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Tarih</strong>
-                    </TableCell>
-                    <TableCell>
+                    <TableCell align="center">
                       <strong>İşlemler</strong>
                     </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {corrections.length === 0 ? (
+                  {katanaIssueProducts.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} align="center">
+                      <TableCell colSpan={5} align="center">
                         <Typography color="textSecondary">
-                          Bekleyen düzeltme yok
+                          Katana sorun yaşayan ürün bulunamadı
                         </Typography>
                       </TableCell>
                     </TableRow>
                   ) : (
-                    corrections.map((corr) => (
-                      <TableRow key={corr.id}>
+                    katanaIssueProducts.map((product) => (
+                      <TableRow key={product.id} hover>
                         <TableCell>
-                          <Chip label={corr.sourceSystem} size="small" />
+                          <strong>{product.sku}</strong>
                         </TableCell>
-                        <TableCell>{corr.entityId}</TableCell>
-                        <TableCell>{corr.fieldName}</TableCell>
-                        <TableCell>
-                          <Typography variant="caption">
-                            {corr.originalValue}
-                          </Typography>
+                        <TableCell>{product.name}</TableCell>
+                        <TableCell align="right">
+                          {product.salesPrice?.toFixed(2) || "0.00"}
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="caption" fontWeight="bold">
-                            {corr.correctedValue}
-                          </Typography>
+                        <TableCell align="right">
+                          {product.onHand || 0}
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="caption">
-                            {corr.correctionReason}
-                          </Typography>
+                        <TableCell align="center">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleKatanaEdit(product)}
+                            color="primary"
+                          >
+                            <EditIcon />
+                          </IconButton>
                         </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+
+          {/* Luca Issues Tab */}
+          {sourceTab === "luca" && (
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                    <TableCell>
+                      <strong>Ürün Kodu</strong>
+                    </TableCell>
+                    <TableCell>
+                      <strong>Ürün Adı</strong>
+                    </TableCell>
+                    <TableCell align="right">
+                      <strong>Birim Fiyat (₺)</strong>
+                    </TableCell>
+                    <TableCell align="right">
+                      <strong>Miktar</strong>
+                    </TableCell>
+                    <TableCell align="center">
+                      <strong>İşlemler</strong>
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {lucaIssueProducts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center">
+                        <Typography color="textSecondary">
+                          Luca sorun yaşayan ürün bulunamadı
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    lucaIssueProducts.map((product) => (
+                      <TableRow key={product.id} hover>
                         <TableCell>
-                          <Typography variant="caption">
-                            {new Date(corr.createdAt).toLocaleString("tr-TR")}
-                          </Typography>
+                          <strong>{product.productCode}</strong>
                         </TableCell>
-                        <TableCell>
-                          {!corr.isApproved ? (
-                            <Button
-                              size="small"
-                              variant="contained"
-                              color="success"
-                              onClick={() => handleApproveCorrection(corr.id)}
-                            >
-                              Onayla
-                            </Button>
-                          ) : (
-                            <Button
-                              size="small"
-                              variant="contained"
-                              onClick={() => handleApplyToLuca(corr.id)}
-                            >
-                              Luca'ya Uygula
-                            </Button>
-                          )}
+                        <TableCell>{product.productName}</TableCell>
+                        <TableCell align="right">
+                          {product.unitPrice.toFixed(2)}
+                        </TableCell>
+                        <TableCell align="right">{product.quantity}</TableCell>
+                        <TableCell align="center">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleLucaEdit(product)}
+                            color="primary"
+                          >
+                            <EditIcon />
+                          </IconButton>
                         </TableCell>
                       </TableRow>
                     ))
@@ -468,51 +669,127 @@ const DataCorrectionPanel: React.FC = () => {
         </>
       )}
 
-      {/* Correction Dialog */}
+      {/* Katana Edit Dialog */}
       <Dialog
-        open={openDialog}
-        onClose={() => setOpenDialog(false)}
+        open={katanaEditOpen}
+        onClose={() => setKatanaEditOpen(false)}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Veri Düzeltmesi Oluştur</DialogTitle>
+        <DialogTitle>Katana Ürünü Düzelt</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 2 }}>
             <TextField
-              label="Alan"
-              value={correctionForm.field}
-              onChange={(e) =>
-                setCorrectionForm({ ...correctionForm, field: e.target.value })
-              }
               fullWidth
+              label="Ürün Adı"
+              value={katanaEditData.name}
+              onChange={(e) =>
+                setKatanaEditData({ ...katanaEditData, name: e.target.value })
+              }
+              size="small"
             />
             <TextField
-              label="Düzeltilmiş Değer"
-              value={correctionForm.correctedValue}
+              fullWidth
+              label="Fiyat (₺)"
+              type="number"
+              inputProps={{ step: "0.01" }}
+              value={katanaEditData.salesPrice}
               onChange={(e) =>
-                setCorrectionForm({
-                  ...correctionForm,
-                  correctedValue: e.target.value,
+                setKatanaEditData({
+                  ...katanaEditData,
+                  salesPrice: parseFloat(e.target.value) || 0,
                 })
               }
-              fullWidth
+              size="small"
             />
             <TextField
-              label="Düzeltme Sebebi"
-              value={correctionForm.reason}
-              onChange={(e) =>
-                setCorrectionForm({ ...correctionForm, reason: e.target.value })
-              }
-              multiline
-              rows={3}
               fullWidth
+              label="Stok"
+              type="number"
+              value={katanaEditData.onHand}
+              onChange={(e) =>
+                setKatanaEditData({
+                  ...katanaEditData,
+                  onHand: parseInt(e.target.value) || 0,
+                })
+              }
+              size="small"
             />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>İptal</Button>
-          <Button onClick={handleCreateCorrection} variant="contained">
-            Oluştur
+          <Button onClick={() => setKatanaEditOpen(false)}>İptal</Button>
+          <Button
+            onClick={handleKatanaSave}
+            variant="contained"
+            disabled={saving}
+            startIcon={<SaveIcon />}
+          >
+            Kaydet
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Luca Edit Dialog */}
+      <Dialog
+        open={lucaEditOpen}
+        onClose={() => setLucaEditOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Luca Ürünü Düzelt</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="Ürün Adı"
+              value={lucaEditData.productName}
+              onChange={(e) =>
+                setLucaEditData({
+                  ...lucaEditData,
+                  productName: e.target.value,
+                })
+              }
+              size="small"
+            />
+            <TextField
+              fullWidth
+              label="Birim Fiyat (₺)"
+              type="number"
+              inputProps={{ step: "0.01" }}
+              value={lucaEditData.unitPrice}
+              onChange={(e) =>
+                setLucaEditData({
+                  ...lucaEditData,
+                  unitPrice: parseFloat(e.target.value) || 0,
+                })
+              }
+              size="small"
+            />
+            <TextField
+              fullWidth
+              label="Miktar"
+              type="number"
+              value={lucaEditData.quantity}
+              onChange={(e) =>
+                setLucaEditData({
+                  ...lucaEditData,
+                  quantity: parseInt(e.target.value) || 0,
+                })
+              }
+              size="small"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLucaEditOpen(false)}>İptal</Button>
+          <Button
+            onClick={handleLucaSave}
+            variant="contained"
+            disabled={saving}
+            startIcon={<SaveIcon />}
+          >
+            Kaydet
           </Button>
         </DialogActions>
       </Dialog>
