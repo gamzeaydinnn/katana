@@ -1,10 +1,10 @@
 import axios from "axios";
-import {
-  decodeJwtPayload,
-  isJwtExpired,
-  isJwtTokenExpired,
-} from "../utils/jwt";
 import { showGlobalToast } from "../providers/FeedbackProvider";
+import {
+    decodeJwtPayload,
+    isJwtExpired,
+    isJwtTokenExpired,
+} from "../utils/jwt";
 
 // Development: prefer an explicit env var REACT_APP_API_URL. If not set, choose a smart default.
 // In production when the static site is served on :3000 and backend runs on :5055, we want
