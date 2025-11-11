@@ -67,17 +67,40 @@ const LucaProducts: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get("/Products/luca");
+      const url = "/Products/luca"; // Primary endpoint (alias: /Luca/products)
+      const response = await api.get(url);
       const responseData: any = response.data;
       const productData = responseData?.data || responseData || [];
       setProducts(productData);
       setFilteredProducts(productData);
+      if (!Array.isArray(productData) && !responseData?.data) {
+        console.warn(
+          "Beklenen format 'data: []' değil. Ham yanıt:", responseData
+        );
+      }
     } catch (err: any) {
-      setError(
-        err.response?.data?.error ||
-          "Luca ürünleri yüklenemedi. Endpoint henüz aktif olmayabilir."
+      const status = err?.response?.status;
+      const backendMsg = err?.response?.data?.error || err?.message;
+      const finalMessage =
+        backendMsg ||
+        "Luca ürünleri yüklenemedi. Endpoint veya reverse proxy yapılandırması eksik olabilir.";
+      setError(finalMessage);
+      console.error(
+        "[LucaProducts] İstek başarısız",
+        {
+          requestedUrl: "/api/Products/luca",
+          aliasTried: "/api/Luca/products (alias mevcut)",
+          status,
+          message: backendMsg,
+          fullError: err,
+        }
       );
-      console.error("Luca ürünleri yükleme hatası:", err);
+      // Ek tanı: 404 ise reverse proxy veya route mismatch olasılığını vurgula
+      if (status === 404) {
+        console.warn(
+          "404 alındı. Nginx 'location /api/' proxy_pass 5055'e yönlendiriyor mu kontrol edin."
+        );
+      }
       setProducts([]);
       setFilteredProducts([]);
     } finally {

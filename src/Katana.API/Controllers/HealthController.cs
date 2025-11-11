@@ -16,7 +16,7 @@ public class HealthController : ControllerBase
         _logger = logger;
     }
 
-    [HttpGet("Health")] // API adresi: /api/Health
+    [HttpGet("health")] // API adresi: /api/health (case-insensitive eşleşir)
     public IActionResult GetHealth()
     {
         // Basitçe API'nizin çalıştığını gösterir. DB veya harici bağlantı kontrolü burada yapılmaz.
