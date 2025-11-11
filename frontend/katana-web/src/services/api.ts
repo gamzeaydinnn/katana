@@ -1,5 +1,9 @@
 import axios from "axios";
-import { decodeJwtPayload, isJwtExpired, isJwtTokenExpired } from "../utils/jwt";
+import {
+  decodeJwtPayload,
+  isJwtExpired,
+  isJwtTokenExpired,
+} from "../utils/jwt";
 import { showGlobalToast } from "../providers/FeedbackProvider";
 
 // Development: prefer an explicit env var REACT_APP_API_URL. If not set, use a relative
@@ -63,7 +67,8 @@ api.interceptors.response.use(
   (error) => {
     const status = error?.response?.status;
     if (status === 401 || status === 403) {
-      const path = typeof window !== "undefined" ? window.location.pathname : "";
+      const path =
+        typeof window !== "undefined" ? window.location.pathname : "";
       const token =
         typeof window !== "undefined"
           ? window.localStorage.getItem("authToken")
@@ -71,30 +76,32 @@ api.interceptors.response.use(
 
       const tokenExpiredOrInvalid = isJwtTokenExpired(token);
 
+      // Only handle 401/403 if user is on /admin routes
       if (path.startsWith("/admin")) {
-        // Show a user-friendly message for admin-only pages
         try {
           showGlobalToast({
-            message: "Yetkisiz erişim veya oturum süresi doldu.",
+            message:
+              "Yetkisiz erişim veya oturum süresi doldu. Lütfen giriş yapın.",
             severity: "warning",
             durationMs: 3500,
           });
         } catch {
           // ignore toast errors
         }
-      }
 
-      // Only clear the token and redirect if it's missing or expired/invalid
-      if (!token || tokenExpiredOrInvalid) {
-        try {
-          if (typeof window !== "undefined") {
-            window.localStorage.removeItem("authToken");
-            window.location.href = "/login";
+        // Clear token and redirect to login only for admin routes
+        if (!token || tokenExpiredOrInvalid) {
+          try {
+            if (typeof window !== "undefined") {
+              window.localStorage.removeItem("authToken");
+              window.location.href = "/login";
+            }
+          } catch {
+            // ignore storage/navigation errors
           }
-        } catch {
-          // ignore storage/navigation errors
         }
       }
+      // For non-admin routes, just ignore 401/403 - don't redirect
     }
     return Promise.reject(error);
   }

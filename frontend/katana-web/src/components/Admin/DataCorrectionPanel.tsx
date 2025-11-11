@@ -69,7 +69,6 @@ const DataCorrectionPanel: React.FC = () => {
   const [comparisons, setComparisons] = useState<ComparisonResult[]>([]);
 
   // Katana
-  const [katanaProducts, setKatanaProducts] = useState<KatanaProduct[]>([]);
   const [katanaIssueProducts, setKatanaIssueProducts] = useState<
     KatanaProduct[]
   >([]);
@@ -84,7 +83,6 @@ const DataCorrectionPanel: React.FC = () => {
   });
 
   // Luca
-  const [lucaProducts, setLucaProducts] = useState<LucaProduct[]>([]);
   const [lucaIssueProducts, setLucaIssueProducts] = useState<LucaProduct[]>([]);
   const [selectedLuca, setSelectedLuca] = useState<LucaProduct | null>(null);
   const [lucaEditOpen, setLucaEditOpen] = useState(false);
@@ -113,9 +111,6 @@ const DataCorrectionPanel: React.FC = () => {
 
       const katanaData = katanaResponse.data?.data || [];
       const lucaData = lucaResponse.data?.data || [];
-
-      setKatanaProducts(katanaData);
-      setLucaProducts(lucaData);
 
       // Compare data
       const comparisonResults: ComparisonResult[] = [];
@@ -231,45 +226,10 @@ const DataCorrectionPanel: React.FC = () => {
     }
   };
 
-  // Fetch Katana products
-  const fetchKatanaProducts = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await api.get<any>("/Products/katana?sync=true");
-      const data = response.data?.data || [];
-      setKatanaProducts(data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Katana ürünleri yüklenemedi");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch Luca products
-  const fetchLucaProducts = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await api.get<any>("/Products/luca");
-      const data = response.data?.data || [];
-      setLucaProducts(data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Luca ürünleri yüklenemedi");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (sourceTab === "comparison") {
-      performComparison();
-    } else if (sourceTab === "katana") {
-      fetchKatanaProducts();
-    } else {
-      fetchLucaProducts();
-    }
-  }, [sourceTab]);
+    performComparison();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Katana edit handlers
   const handleKatanaEdit = (product: KatanaProduct) => {
@@ -298,11 +258,7 @@ const DataCorrectionPanel: React.FC = () => {
       setSuccess("Katana ürünü başarıyla güncellendi!");
       setKatanaEditOpen(false);
       // Refresh comparison after edit
-      if (sourceTab === "comparison") {
-        performComparison();
-      } else {
-        fetchKatanaProducts();
-      }
+      performComparison();
     } catch (err: any) {
       setError(err.response?.data?.error || "Güncelleme başarısız");
     } finally {
@@ -337,11 +293,7 @@ const DataCorrectionPanel: React.FC = () => {
       setSuccess("Luca ürünü başarıyla güncellendi!");
       setLucaEditOpen(false);
       // Refresh comparison after edit
-      if (sourceTab === "comparison") {
-        performComparison();
-      } else {
-        fetchLucaProducts();
-      }
+      performComparison();
     } catch (err: any) {
       setError(err.response?.data?.error || "Güncelleme başarısız");
     } finally {
@@ -367,15 +319,7 @@ const DataCorrectionPanel: React.FC = () => {
             </Stack>
             <Tooltip title="Yenile">
               <IconButton
-                onClick={() => {
-                  if (sourceTab === "comparison") {
-                    performComparison();
-                  } else if (sourceTab === "katana") {
-                    fetchKatanaProducts();
-                  } else {
-                    fetchLucaProducts();
-                  }
-                }}
+                onClick={() => performComparison()}
                 disabled={loading}
               >
                 <RefreshIcon />
@@ -693,26 +637,32 @@ const DataCorrectionPanel: React.FC = () => {
               label="Fiyat (₺)"
               type="number"
               inputProps={{ step: "0.01" }}
-              value={katanaEditData.salesPrice}
-              onChange={(e) =>
+              value={
+                katanaEditData.salesPrice === 0 ? "" : katanaEditData.salesPrice
+              }
+              onChange={(e) => {
+                const value = e.target.value.trim();
+                const parsed = value === "" ? 0 : parseFloat(value);
                 setKatanaEditData({
                   ...katanaEditData,
-                  salesPrice: parseFloat(e.target.value) || 0,
-                })
-              }
+                  salesPrice: isNaN(parsed) ? 0 : parsed,
+                });
+              }}
               size="small"
             />
             <TextField
               fullWidth
               label="Stok"
               type="number"
-              value={katanaEditData.onHand}
-              onChange={(e) =>
+              value={katanaEditData.onHand === 0 ? "" : katanaEditData.onHand}
+              onChange={(e) => {
+                const value = e.target.value.trim();
+                const parsed = value === "" ? 0 : parseInt(value);
                 setKatanaEditData({
                   ...katanaEditData,
-                  onHand: parseInt(e.target.value) || 0,
-                })
-              }
+                  onHand: isNaN(parsed) ? 0 : parsed,
+                });
+              }}
               size="small"
             />
           </Stack>
@@ -757,26 +707,30 @@ const DataCorrectionPanel: React.FC = () => {
               label="Birim Fiyat (₺)"
               type="number"
               inputProps={{ step: "0.01" }}
-              value={lucaEditData.unitPrice}
-              onChange={(e) =>
+              value={lucaEditData.unitPrice === 0 ? "" : lucaEditData.unitPrice}
+              onChange={(e) => {
+                const value = e.target.value.trim();
+                const parsed = value === "" ? 0 : parseFloat(value);
                 setLucaEditData({
                   ...lucaEditData,
-                  unitPrice: parseFloat(e.target.value) || 0,
-                })
-              }
+                  unitPrice: isNaN(parsed) ? 0 : parsed,
+                });
+              }}
               size="small"
             />
             <TextField
               fullWidth
               label="Miktar"
               type="number"
-              value={lucaEditData.quantity}
-              onChange={(e) =>
+              value={lucaEditData.quantity === 0 ? "" : lucaEditData.quantity}
+              onChange={(e) => {
+                const value = e.target.value.trim();
+                const parsed = value === "" ? 0 : parseInt(value);
                 setLucaEditData({
                   ...lucaEditData,
-                  quantity: parseInt(e.target.value) || 0,
-                })
-              }
+                  quantity: isNaN(parsed) ? 0 : parsed,
+                });
+              }}
               size="small"
             />
           </Stack>
