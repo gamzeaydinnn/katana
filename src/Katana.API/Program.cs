@@ -259,12 +259,15 @@ builder.Services.AddCors(o =>
     o.AddPolicy("AllowFrontend", p =>
         p.SetIsOriginAllowed(origin =>
             !string.IsNullOrEmpty(origin) &&
-            (origin.StartsWith("http://localhost") || origin.StartsWith("https://localhost")))
+            (origin.StartsWith("http://localhost") || 
+             origin.StartsWith("https://localhost") ||
+             origin.StartsWith("http://bfmmrp.com") ||
+             origin.StartsWith("https://bfmmrp.com")))
          .AllowAnyHeader()
          .WithExposedHeaders("Authorization")
          .AllowAnyMethod()
          .AllowCredentials()
-         .WithOrigins("http://localhost:3000", "http://localhost:5055"));
+         .WithOrigins("http://localhost:3000", "http://localhost:5055", "http://bfmmrp.com:3000", "http://bfmmrp.com"));
 });
 
 // -----------------------------
