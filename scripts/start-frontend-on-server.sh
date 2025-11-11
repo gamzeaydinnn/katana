@@ -137,31 +137,18 @@ else
     echo -e "${YELLOW}Serve yeniden başlatılmadı (--no-restart).${NC}"
 fi
 
-echo -e "${YELLOW}[6/6]${NC} Sağlık & endpoint doğrulaması (lokal + opsiyonel domain)"
+echo -e "${YELLOW}[6/6]${NC} Sağlık & endpoint doğrulaması"
 ssh -o StrictHostKeyChecking=no ${SERVER_HOST} "bash -s" <<'ENDCHECK'
 set -e
-echo "→ Backend /api/health (lowercase alias)"
-curl -fsS http://127.0.0.1:5055/api/health || echo "Health endpoint erişilemedi"
-echo "→ Backend /api/Products/luca (ilk 200 byte)"
-curl -fsS http://127.0.0.1:5055/api/Products/luca | head -c 200 || echo "Products/luca erişilemedi"
-echo "→ Backend /api/Luca/products (alias) (ilk 200 byte)"
-curl -fsS http://127.0.0.1:5055/api/Luca/products | head -c 200 || echo "Luca/products erişilemedi"
-echo "→ Backend /api/adminpanel/failed-records (ilk satır)"
-curl -fsS "http://127.0.0.1:5055/api/adminpanel/failed-records?page=1&pageSize=1" | head -n 1 || echo "adminpanel/failed-records erişilemedi"
+echo "→ Backend /api/Health"
+curl -fsS http://127.0.0.1:5055/api/Health || echo "Health endpoint erişilemedi"
+echo "→ Backend /api/Products/luca (ilk 300 byte)"
+curl -fsS http://127.0.0.1:5055/api/Products/luca | head -c 300 || echo "Products/luca erişilemedi"
+echo "→ Backend /api/Luca/products (alias) (ilk 300 byte)"
+curl -fsS http://127.0.0.1:5055/api/Luca/products | head -c 300 || echo "Luca/products erişilemedi"
 echo "→ Frontend ana sayfa (ilk satır)"
 curl -fsS http://127.0.0.1:3000 | head -n 1 || echo "Frontend açılmıyor"
 ENDCHECK
-
-# Opsiyonel domain doğrulaması (Nginx reverse proxy). API_URL bir https domain ise test et.
-if [[ "${API_URL}" == https://* ]]; then
-    DOMAIN_BASE="${API_URL%%/api*}" # https://bfmmrp.com gibi
-    echo -e "${YELLOW}→ Domain üzerinden Nginx proxy doğrulanıyor: ${DOMAIN_BASE}/api/...${NC}"
-    {
-        curl -Is "${DOMAIN_BASE}/api/health" | head -n1; \
-        curl -Is "${DOMAIN_BASE}/api/Products/luca" | head -n1; \
-        curl -Is "${DOMAIN_BASE}/api/adminpanel/failed-records" | head -n1
-    } || echo -e "${RED}Domain üzerinden /api istekleri başarısız. Nginx location /api/ konfigürasyonunu kontrol edin.${NC}"
-fi
 
 echo ""
 echo -e "${GREEN}Tamamlandı. Tarayıcıdan erişim: http://31.186.24.44:3000${NC}"
