@@ -18,6 +18,7 @@ public class ProductsController : ControllerBase
 {
     private readonly IKatanaService _katanaService;
     private readonly IProductService _productService;
+    private readonly ICategoryService _categoryService;
     private readonly ILogger<ProductsController> _logger;
     private readonly ILoggingService _loggingService;
     private readonly IAuditService _auditService;
@@ -25,12 +26,14 @@ public class ProductsController : ControllerBase
     public ProductsController(
         IKatanaService katanaService,
         IProductService productService,
+        ICategoryService categoryService,
         ILogger<ProductsController> logger,
         ILoggingService loggingService,
         IAuditService auditService)
     {
         _katanaService = katanaService;
         _productService = productService;
+        _categoryService = categoryService;
         _logger = logger;
         _loggingService = loggingService;
         _auditService = auditService;
@@ -67,6 +70,25 @@ public class ProductsController : ControllerBase
             // Sync to local DB if requested
             if (sync)
             {
+                // Get or create default category first
+                var categories = await _categoryService.GetAllAsync();
+                int defaultCategoryId;
+                
+                if (categories == null || !categories.Any())
+                {
+                    // Create default category if none exists
+                    var newCategory = await _categoryService.CreateAsync(new CreateCategoryDto
+                    {
+                        Name = "Genel",
+                        Description = "Varsayılan kategori"
+                    });
+                    defaultCategoryId = newCategory.Id;
+                }
+                else
+                {
+                    defaultCategoryId = categories.First().Id;
+                }
+                
                 foreach (var katanaProduct in products)
                 {
                     var existingProduct = await _productService.GetProductBySkuAsync(katanaProduct.SKU);
@@ -78,7 +100,7 @@ public class ProductsController : ControllerBase
                             SKU = katanaProduct.SKU,
                             Price = katanaProduct.SalesPrice ?? 0,
                             Stock = katanaProduct.OnHand ?? 0,
-                            CategoryId = 1001 // Use existing category ID
+                            CategoryId = defaultCategoryId
                         });
                     }
                 }
