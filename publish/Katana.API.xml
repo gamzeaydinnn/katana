@@ -1,0 +1,509 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Katana.API</name>
+    </assembly>
+    <members>
+        <member name="M:Katana.API.Controllers.AnalyticsController.GetStockReport">
+            <summary>
+            GET /api/Analytics/stock - Stok raporu
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.AnalyticsController.GetSyncReport">
+            <summary>
+            GET /api/Analytics/sync - Senkronizasyon raporu
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.AnalyticsController.GetSummaryReport">
+            <summary>
+            GET /api/Analytics/summary - Özet istatistikler
+            </summary>
+        </member>
+        <member name="T:Katana.API.Controllers.CustomersController">
+            <summary>
+            Customer management endpoints. Read operations are available to authorized users,
+            while create/update/delete/activate/deactivate require Admin role.
+            </summary>
+        </member>
+        <member name="T:Katana.API.Controllers.DashboardController">
+            <summary>
+            High level dashboard and statistics endpoints for the admin UI.
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.DashboardController.Get">
+            <summary>
+            Dashboard ana istatistikleri - GET /api/Dashboard
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.DashboardController.GetSyncStats">
+            <summary>
+            Katana API bağlantısı ve senkronizasyon istatistikleri
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.DashboardController.GetDashboardStats">
+            <summary>
+            Dashboard istatistikleri
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.DashboardController.GetRecentActivities">
+            <summary>
+            En son sistem aktiviteleri
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.DataCorrectionController.CompareProducts">
+            <summary>
+            Compare Katana and Luca products - show differences
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.DataCorrectionController.GetPendingCorrections">
+            <summary>
+            Get pending corrections waiting for approval
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.DataCorrectionController.CreateCorrection(Katana.Core.DTOs.CreateCorrectionDto)">
+            <summary>
+            Create a new data correction
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.DataCorrectionController.ApproveCorrection(System.Int32)">
+            <summary>
+            Approve a correction (Admin only)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.DataCorrectionController.RejectCorrection(System.Int32)">
+            <summary>
+            Reject and delete a correction
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.DataCorrectionController.ApplyToLuca(System.Int32)">
+            <summary>
+            Apply approved correction to Luca
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.DataCorrectionController.ApplyToKatana(System.Int32)">
+            <summary>
+            Apply approved correction to Katana (if supported)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.InvoicesController.GetAll">
+            <summary>
+            Tüm faturaları getirir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.InvoicesController.GetById(System.Int32)">
+            <summary>
+            ID'ye göre fatura getirir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.InvoicesController.GetByNumber(System.String)">
+            <summary>
+            Fatura numarasına göre fatura getirir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.InvoicesController.GetByCustomer(System.Int32)">
+            <summary>
+            Müşteriye göre faturaları getirir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.InvoicesController.GetByStatus(System.String)">
+            <summary>
+            Duruma göre faturaları getirir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.InvoicesController.GetByDateRange(System.DateTime,System.DateTime)">
+            <summary>
+            Tarih aralığına göre faturaları getirir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.InvoicesController.GetOverdue">
+            <summary>
+            Vadesi geçmiş faturaları getirir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.InvoicesController.GetUnsynced">
+            <summary>
+            Senkronize edilmemiş faturaları getirir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.InvoicesController.Create(Katana.Core.DTOs.CreateInvoiceDto)">
+            <summary>
+            Yeni fatura oluşturur
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.InvoicesController.Update(System.Int32,Katana.Core.DTOs.UpdateInvoiceDto)">
+            <summary>
+            Fatura günceller
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.InvoicesController.UpdateStatus(System.Int32,Katana.Core.DTOs.UpdateInvoiceStatusDto)">
+            <summary>
+            Fatura durumunu günceller
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.InvoicesController.Delete(System.Int32)">
+            <summary>
+            Fatura siler
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.InvoicesController.MarkAsSynced(System.Int32)">
+            <summary>
+            Faturayı senkronize edildi olarak işaretler
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.InvoicesController.GetStatistics">
+            <summary>
+            Fatura istatistiklerini getirir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.InvoicesController.GetStatisticsByDateRange(System.DateTime,System.DateTime)">
+            <summary>
+            Tarih aralığına göre fatura istatistiklerini getirir
+            </summary>
+        </member>
+        <member name="T:Katana.API.Controllers.KatanaWebhookController">
+            <summary>
+            Katana API'den gelen webhook isteklerini yakalar.
+            Stok değişiklikleri otomatik olarak pending adjustment'a dönüştürülür.
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.KatanaWebhookController.ReceiveStockChange(Katana.API.Controllers.KatanaStockChangeWebhook)">
+            <summary>
+            Katana API'den stok değişikliği webhook'u alır ve pending adjustment oluşturur.
+            </summary>
+            <remarks>
+            Webhook Payload Örneği:
+            {
+              "event": "stock.updated",
+              "orderId": "ORD-12345",
+              "productId": 123,
+              "sku": "SKU-ABC-001",
+              "quantityChange": -5,
+              "timestamp": "2025-11-01T10:30:00Z"
+            }
+            </remarks>
+        </member>
+        <member name="M:Katana.API.Controllers.KatanaWebhookController.TestWebhook">
+            <summary>
+            Webhook test endpoint - development için
+            </summary>
+        </member>
+        <member name="T:Katana.API.Controllers.KatanaStockChangeWebhook">
+            <summary>
+            Katana API webhook payload model
+            </summary>
+        </member>
+        <member name="P:Katana.API.Controllers.KatanaStockChangeWebhook.Event">
+            <summary>Event type: stock.updated, stock.created, order.completed</summary>
+        </member>
+        <member name="P:Katana.API.Controllers.KatanaStockChangeWebhook.OrderId">
+            <summary>Katana order ID (external reference)</summary>
+        </member>
+        <member name="P:Katana.API.Controllers.KatanaStockChangeWebhook.ProductId">
+            <summary>Product ID in Katana system</summary>
+        </member>
+        <member name="P:Katana.API.Controllers.KatanaStockChangeWebhook.Sku">
+            <summary>Product SKU</summary>
+        </member>
+        <member name="P:Katana.API.Controllers.KatanaStockChangeWebhook.QuantityChange">
+            <summary>Quantity change (negative = decrease, positive = increase)</summary>
+        </member>
+        <member name="P:Katana.API.Controllers.KatanaStockChangeWebhook.Timestamp">
+            <summary>Webhook timestamp from Katana</summary>
+        </member>
+        <member name="P:Katana.API.Controllers.KatanaStockChangeWebhook.Metadata">
+            <summary>Additional metadata (optional)</summary>
+        </member>
+        <member name="M:Katana.API.Controllers.LogsController.GetErrorLogs(System.Int32,System.String,System.String,System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.Nullable{System.Int32})">
+            <summary>
+            GET /api/Logs/errors - Error loglarını getirir (sayfalama + filtreleme)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.LogsController.GetAuditLogs(System.Int32,System.String,System.String,System.String,System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.Nullable{System.Int32})">
+            <summary>
+            GET /api/Logs/audits - Audit loglarını getirir (sayfalama + filtreleme)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.LogsController.GetLogStats(System.Nullable{System.DateTime})">
+            <summary>
+            GET /api/Logs/stats - Log istatistikleri
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.LogsController.LogFrontendError(Katana.API.Controllers.FrontendErrorDto)">
+            <summary>
+            POST /api/Logs/frontend-error - Frontend hatalarını loglar
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.MappingController.GetMappings(System.String,System.Int32,System.Int32)">
+            <summary>
+            Gets all mapping entries
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.MappingController.GetSkuAccountMappings">
+            <summary>
+            Gets SKU to account code mappings
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.MappingController.GetLocationMappings">
+            <summary>
+            Gets location to warehouse mappings
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.MappingController.CreateMapping(Katana.API.Controllers.CreateMappingRequest)">
+            <summary>
+            Creates a new mapping entry
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.MappingController.UpdateMapping(System.Int32,Katana.API.Controllers.UpdateMappingRequest)">
+            <summary>
+            Updates an existing mapping entry
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.MappingController.GetMappingById(System.Int32)">
+            <summary>
+            Gets a specific mapping by ID
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.MappingController.DeleteMapping(System.Int32)">
+            <summary>
+            Deletes a mapping entry
+            </summary>
+        </member>
+        <member name="T:Katana.API.Controllers.ProductsController">
+            <summary>
+            Product management endpoints. Requires authorization for write operations.
+            Read endpoints return product data from local DB or Katana API.
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.ProductsController.GetKatanaProducts(System.Nullable{System.Int32},System.Nullable{System.Int32},System.Boolean)">
+            <summary>
+            Get all products from Katana API and sync to local DB
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.ProductsController.GetLucaStyleProducts">
+            <summary>
+            Get products in a Luca-like shape (from local DB)
+            Used by the Admin → Luca Ürünleri page. Returns realistic demo data
+            mapped from local products to avoid 404s until direct Luca listing is wired.
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.ProductsController.GetKatanaProduct(System.String)">
+            <summary>
+            Get a specific product by SKU from Katana API
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.ProductsController.UpdateLucaProduct(System.Int32,Katana.Core.DTOs.LucaProductUpdateDto)">
+            <summary>
+            Update a Luca-style product (maps to local DB product)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.ReportsController.GetIntegrationLogs(System.Int32,System.Int32,System.String,System.String)">
+            <summary>
+            Gets the latest integration logs
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.ReportsController.GetLastSyncReports">
+            <summary>
+            Gets the last sync report for each sync type
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.ReportsController.GetFailedRecords(System.Int32,System.Int32,System.String)">
+            <summary>
+            Gets failed sync records that need attention
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.ReportsController.GetSyncStatistics(System.Int32)">
+            <summary>
+            Gets sync statistics for dashboard
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.ReportsController.GetStockReport(System.Int32,System.Int32,System.String,System.Boolean)">
+            <summary>
+            Gets stock report with product details, quantities, and values
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.StockController.GetStockMovements(System.Nullable{System.DateTime},System.Nullable{System.Int32})">
+            <summary>
+            Get stock movements from Katana API
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.StockController.GetStockStatus(System.Nullable{System.Int32},System.Nullable{System.Int32})">
+            <summary>
+            Get stock status for all products
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.StockController.GetLocalStockMovements">
+            <summary>
+            Get all stock movements from local database
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.StockController.GetStockMovementsByProduct(System.Int32)">
+            <summary>
+            Get stock movements by product ID
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.StockController.GetStockMovementsByLocation(System.String)">
+            <summary>
+            Get stock movements by location
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.StockController.GetStockMovementsByDateRange(System.DateTime,System.DateTime)">
+            <summary>
+            Get stock movements by date range
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.StockController.CreateStockMovement(Katana.Core.DTOs.CreateStockMovementDto)">
+            <summary>
+            Create a new stock movement
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.StockController.DeleteStockMovement(System.Int32)">
+            <summary>
+            Delete a stock movement
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.StockController.GetStockSummary">
+            <summary>
+            Get stock summary for all products
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.StockController.GetStockSummaryByProduct(System.Int32)">
+            <summary>
+            Get stock summary for a specific product
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.StockController.GetUnsyncedStockMovements">
+            <summary>
+            Get unsynced stock movements
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.StockController.MarkAsSynced(System.Int32)">
+            <summary>
+            Mark stock movement as synced
+            </summary>
+        </member>
+        <member name="T:Katana.API.Controllers.SyncController">
+            <summary>
+            Manual and status endpoints for synchronization operations. Admin-only.
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.GetSyncHistory">
+            <summary>
+            GET /api/Sync/history - Senkronizasyon ge�mi�ini getirir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.StartSync(Katana.API.Controllers.StartSyncRequest)">
+            <summary>
+            POST /api/Sync/start - Yeni senkronizasyon ba�lat�r
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.RunCompleteSync(System.Nullable{System.DateTime})">
+            <summary>
+            Runs complete synchronization for all data types
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.RunStockSync(System.Nullable{System.DateTime})">
+            <summary>
+            Runs stock synchronization only
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.RunInvoiceSync(System.Nullable{System.DateTime})">
+            <summary>
+            Runs invoice synchronization only
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.RunCustomerSync(System.Nullable{System.DateTime})">
+            <summary>
+            Runs customer synchronization only
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.GetSyncStatus">
+            <summary>
+            Gets the status of all sync operations
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.GetSyncTypeStatus(System.String)">
+            <summary>
+            Checks if a specific sync type is currently running
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SyncStockFromLuca(System.Nullable{System.DateTime})">
+            <summary>
+            POST /api/Sync/from-luca/stock - Luca'dan stok hareketlerini çeker
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SyncInvoicesFromLuca(System.Nullable{System.DateTime})">
+            <summary>
+            POST /api/Sync/from-luca/invoices - Luca'dan faturaları çeker
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SyncCustomersFromLuca(System.Nullable{System.DateTime})">
+            <summary>
+            POST /api/Sync/from-luca/customers - Luca'dan müşterileri çeker
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SyncAllFromLuca(System.Nullable{System.DateTime})">
+            <summary>
+            POST /api/Sync/from-luca/all - Luca'dan tüm verileri çeker
+            </summary>
+        </member>
+        <member name="T:Katana.API.Controllers.TestController">
+            <summary>
+            Diagnostic endpoints to verify configuration and Katana API connectivity. Admin-only.
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.UsersController.GetAll">
+            <summary>
+            Tüm kullanıcıları getirir.
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.UsersController.GetById(System.Int32)">
+            <summary>
+            Belirli bir kullanıcıyı ID’ye göre getirir.
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.UsersController.Create(Katana.Core.DTOs.CreateUserDto)">
+            <summary>
+            Yeni bir kullanıcı oluşturur.
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.UsersController.Delete(System.Int32)">
+            <summary>
+            Kullanıcıyı siler.
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.UsersController.UpdateRole(System.Int32,System.String)">
+            <summary>
+            Kullanıcının rolünü günceller.
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.UsersController.Update(System.Int32,Katana.Core.DTOs.UpdateUserDto)">
+            <summary>
+            Kullanıcı bilgilerini günceller.
+            </summary>
+        </member>
+        <member name="T:Katana.API.Hubs.NotificationHub">
+            <summary>
+            Simple SignalR hub used to broadcast admin notifications (pending adjustments, alerts, etc.).
+            Clients should connect to /hubs/notifications and listen for events such as
+            "PendingStockAdjustmentCreated".
+            </summary>
+        </member>
+        <member name="T:Katana.API.Middleware.AuthMiddleware">
+            <summary>
+            Admin paneli API'larına gelen isteklerde JWT token'ını doğrulayacak olan middleware.
+            </summary>
+        </member>
+        <member name="T:Katana.API.Notifications.SignalRNotificationPublisher">
+            <summary>
+            Publishes pending-created notifications to connected clients via SignalR.
+            Implemented inside the API project so SignalR types are available.
+            </summary>
+        </member>
+        <member name="T:Katana.API.Swagger.OperationFilters.AddAuthResponsesOperationFilter">
+            <summary>
+            Adds 401/403 (and a basic 500) response documentation to endpoints protected by [Authorize].
+            Also wires a simple JSON example for unauthorized/forbidden responses.
+            </summary>
+        </member>
+    </members>
+</doc>

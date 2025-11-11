@@ -1,0 +1,682 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Katana.Core</name>
+    </assembly>
+    <members>
+        <member name="T:Katana.Core.DTOs.InvoiceDto">
+            <summary>
+            Fatura detay DTO - Tam bilgi
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.InvoiceItemDto">
+            <summary>
+            Fatura kalemi DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.CreateInvoiceDto">
+            <summary>
+            Fatura oluşturma DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.CreateInvoiceItemDto">
+            <summary>
+            Fatura kalemi oluşturma DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.UpdateInvoiceDto">
+            <summary>
+            Fatura güncelleme DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.UpdateInvoiceStatusDto">
+            <summary>
+            Fatura durum değiştirme DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.InvoiceSummaryDto">
+            <summary>
+            Fatura özet DTO - Liste görünümü için
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.InvoiceStatisticsDto">
+            <summary>
+            Fatura istatistik DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.SkuAccountMappingDto">
+            <summary>
+            DTO for SKU to Account mapping
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.LocationWarehouseMappingDto">
+            <summary>
+            DTO for Location to Warehouse mapping
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.MappingDto">
+            <summary>
+            Generic mapping DTO, if needed for multiple mapping types
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.StockDto">
+            <summary>
+            Stok bilgisi için DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.CreateStockMovementDto">
+            <summary>
+            Stok hareketi oluşturma/güncelleme için DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.StockSummaryDto">
+            <summary>
+            Stok özet bilgisi için DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.StockMovementDto">
+            <summary>
+            Katana'dan veya Luca'dan alınan stok hareketi verisini temsil eder.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.StockMovementDto.SKU">
+            <summary>
+            Ürünün benzersiz SKU (stok kodu)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.StockMovementDto.ProductName">
+            <summary>
+            Ürünün adı
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.StockMovementDto.MovementType">
+            <summary>
+            Hareket tipi (IN, OUT, TRANSFER, RETURN)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.StockMovementDto.Quantity">
+            <summary>
+            Miktar (pozitif ya da negatif olabilir)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.StockMovementDto.UnitPrice">
+            <summary>
+            Birim fiyat
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.StockMovementDto.TotalAmount">
+            <summary>
+            Toplam tutar (UnitPrice * Quantity)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.StockMovementDto.MovementDate">
+            <summary>
+            İşlem tarihi
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.StockMovementDto.SourceType">
+            <summary>
+            Kaynağın adı (örneğin: "PurchaseOrder", "SalesOrder")
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.StockMovementDto.SourceReference">
+            <summary>
+            Kaynağın kimliği (örneğin: fatura no, sipariş no)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.StockMovementDto.WarehouseCode">
+            <summary>
+            Depo veya lokasyon kodu
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.StockMovementDto.Notes">
+            <summary>
+            Açıklama veya not
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.LucaStockMovementDto">
+            <summary>
+            Luca sistemine gönderilecek stok hareket DTO’su
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.StockMovementSyncResultDto">
+            <summary>
+            Stok senkronizasyon sonucu DTO’su
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.SyncRequestDto">
+            <summary>
+            Genel senkronizasyon talebi DTO'su.
+            Manuel veya planlı senkronizasyon işlemleri için parametreleri taşır.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.SyncRequestDto.SyncType">
+            <summary>
+            Senkronize edilecek veri türü (örnek: STOCK, INVOICE, CUSTOMER, ALL)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.SyncRequestDto.FromDate">
+            <summary>
+            Belirli bir tarihten itibaren senkronizasyon yapmak için kullanılır.
+            Örneğin sadece son 7 günün verisini senkronize etmek için.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.SyncRequestDto.TriggeredBy">
+            <summary>
+            Manuel tetikleme işlemini başlatan kullanıcı.
+            Log’lama amacıyla kullanılabilir.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.SyncRequestDto.OnlyActiveRecords">
+            <summary>
+            Yalnızca aktif kayıtların senkronize edilip edilmeyeceği.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.SyncRequestDto.RunInParallel">
+            <summary>
+            Paralel senkronizasyon işlemi (örneğin stok ve müşteri aynı anda) çalıştırılsın mı?
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Entities.AuditRecord">
+            <summary>
+            Domain katmanında yapılan işlemlerin izlenmesi ve geçmişin tutulması için kullanılan kayıt.
+            Veritabanındaki AuditLog tablosunun business karşılığıdır.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.AuditRecord.Id">
+            <summary>
+            Log kaydının benzersiz kimliği.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.AuditRecord.ActionType">
+            <summary>
+            İşlemin türü (örnek: CREATE, UPDATE, DELETE).
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.AuditRecord.EntityName">
+            <summary>
+            İşlemin yapıldığı varlık (örnek: Product, Invoice, Mapping).
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.AuditRecord.EntityId">
+            <summary>
+            Etkilenen varlığın benzersiz kimliği (örnek: ProductId, InvoiceId).
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.AuditRecord.OldValues">
+            <summary>
+            Değişiklik öncesi değerler (JSON formatında).
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.AuditRecord.NewValues">
+            <summary>
+            Değişiklik sonrası değerler (JSON formatında).
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.AuditRecord.PerformedBy">
+            <summary>
+            İşlemi başlatan kullanıcı veya sistem (örnek: "System", "API", "AdminUser").
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.AuditRecord.Description">
+            <summary>
+            İşleme ait açıklama veya özel not.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.AuditRecord.CreatedAt">
+            <summary>
+            İşlemin gerçekleştirildiği tarih ve saat.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.AuditRecord.CorrelationId">
+            <summary>
+            İşleme ait benzersiz işlem kimliği (örneğin toplu işlemler için TransactionId).
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Entities.DataCorrectionLog">
+            <summary>
+            Data correction/override tracking for Katana ↔ Luca integration
+            Admin can manually fix incorrect data before sync
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Entities.StockMovement">
+            <summary>
+            Stok hareketi (giriş, çıkış, iade, transfer vb.) bilgisini temsil eder.
+            Bu tablo, Katana'dan gelen hareketlerin izlenmesi ve Luca'ya aktarımı için kullanılır.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.StockMovement.ProductId">
+            <summary>
+            İlgili ürünün veritabanı kimliği
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.StockMovement.ProductSku">
+            <summary>
+            Ürünün stok kodu (SKU)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.StockMovement.ChangeQuantity">
+            <summary>
+            Stok değişim miktarı (+ giriş, - çıkış)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.StockMovement.MovementType">
+            <summary>
+            Hareket tipi (Purchase, Sale, Return, Transfer vb.)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.StockMovement.SourceDocument">
+            <summary>
+            Kaynak belge numarası (örnek: Fatura No, Sipariş No, Transfer No)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.StockMovement.Timestamp">
+            <summary>
+            Hareketin oluştuğu tarih/zaman
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.StockMovement.WarehouseCode">
+            <summary>
+            Hareketin hangi lokasyonda/depo’da gerçekleştiği
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.StockMovement.IsSynced">
+            <summary>
+            Luca’ya aktarım durumu
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.StockMovement.SyncedAt">
+            <summary>
+            Senkronizasyon tarihi
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.StockMovement.Product">
+            <summary>
+            İlişkili ürün nesnesi (EF Core navigation)
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Entities.SyncOperationLog">
+            <summary>
+            Her senkronizasyon işleminin kaydını tutar.
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Enums.AuditActionType">
+            <summary>
+            Audit işlemleri için eylem türleri.
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Enums.DataSource">
+            <summary>
+            Verinin hangi kaynaktan geldiğini belirtir.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.DataSource.Unknown">
+            <summary>
+            Kaynak belirtilmemiş veya bilinmiyor.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.DataSource.Katana">
+            <summary>
+            Katana MRP/ERP sisteminden gelen veriler.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.DataSource.Luca">
+            <summary>
+            Luca muhasebe/finans sisteminden gelen veriler.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.DataSource.Internal">
+            <summary>
+            Sistemin kendisi tarafından üretilen (ör. manuel giriş, admin işlemi) veriler.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.DataSource.External">
+            <summary>
+            Dış API veya üçüncü parti bir kaynaktan gelen veriler (ör. e-fatura, e-ticaret entegrasyonu).
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Enums.ErrorType">
+            <summary>
+            Hata türlerini sınıflandırmak için kullanılır.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.ErrorType.Unknown">
+            <summary>
+            Bilinmeyen veya sınıflandırılamayan hata.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.ErrorType.Validation">
+            <summary>
+            Doğrulama hatası (örnek: eksik alan, geçersiz format)
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.ErrorType.Api">
+            <summary>
+            API çağrılarında (Katana, Luca vb.) oluşan hata.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.ErrorType.Database">
+            <summary>
+            Veritabanı kaynaklı hatalar.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.ErrorType.Sync">
+            <summary>
+            Senkronizasyon veya ETL işlemlerindeki hata.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.ErrorType.Security">
+            <summary>
+            Yetkilendirme, erişim veya güvenlik hatası.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.ErrorType.System">
+            <summary>
+            Sistem veya yapılandırma hatası.
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Enums.InvoiceStatus">
+            <summary>
+            Fatura durumu
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.InvoiceStatus.Draft">
+            <summary>
+            Taslak - Henüz gönderilmemiş
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.InvoiceStatus.Sent">
+            <summary>
+            Gönderildi - Müşteriye gönderildi
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.InvoiceStatus.Paid">
+            <summary>
+            Ödendi - Ödeme tamamlandı
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.InvoiceStatus.PartiallyPaid">
+            <summary>
+            Kısmen Ödendi - Kısmi ödeme alındı
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.InvoiceStatus.Overdue">
+            <summary>
+            Vadesi Geçti - Ödeme vadesi geçti
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.InvoiceStatus.Cancelled">
+            <summary>
+            İptal Edildi
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Enums.LogCategory">
+            <summary>
+            Log kategorileri - Logların hangi modülden geldiğini belirtir
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.LogCategory.Authentication">
+            <summary>Kimlik doğrulama ve yetkilendirme işlemleri</summary>
+        </member>
+        <member name="F:Katana.Core.Enums.LogCategory.Sync">
+            <summary>Senkronizasyon işlemleri (Katana/Luca)</summary>
+        </member>
+        <member name="F:Katana.Core.Enums.LogCategory.ExternalAPI">
+            <summary>Dış API çağrıları (Katana/Luca API)</summary>
+        </member>
+        <member name="F:Katana.Core.Enums.LogCategory.UserAction">
+            <summary>Kullanıcı aksiyonları (CRUD işlemleri)</summary>
+        </member>
+        <member name="F:Katana.Core.Enums.LogCategory.System">
+            <summary>Sistem hataları ve kritik durumlar</summary>
+        </member>
+        <member name="F:Katana.Core.Enums.LogCategory.Database">
+            <summary>Veritabanı işlemleri</summary>
+        </member>
+        <member name="F:Katana.Core.Enums.LogCategory.Business">
+            <summary>İş mantığı ve validasyon</summary>
+        </member>
+        <member name="T:Katana.Core.Enums.MovementType">
+            <summary>
+            Stok hareket tipi
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.MovementType.In">
+            <summary>
+            Giriş (Alış, İade, Transfer In)
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.MovementType.Out">
+            <summary>
+            Çıkış (Satış, Fire, Transfer Out)
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.MovementType.Adjustment">
+            <summary>
+            Düzeltme (Sayım, Düzeltme)
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Enums.SyncStatus">
+            <summary>
+            Senkronizasyon işlemlerinin durumunu temsil eder.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.SyncStatus.Pending">
+            <summary>
+            Senkronizasyon henüz başlatılmadı.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.SyncStatus.Running">
+            <summary>
+            Senkronizasyon şu anda devam ediyor.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.SyncStatus.Success">
+            <summary>
+            Senkronizasyon başarıyla tamamlandı.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.SyncStatus.Failed">
+            <summary>
+            Senkronizasyon sırasında hata oluştu.
+            </summary>
+        </member>
+        <member name="F:Katana.Core.Enums.SyncStatus.Cancelled">
+            <summary>
+            Senkronizasyon iptal edildi veya yarıda kesildi.
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Events.InvoiceSyncedEvent">
+            <summary>
+            Bir fatura Luca'ya başarıyla senkronize edildiğinde yayınlanacak event.
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Events.PendingStockAdjustmentCreatedEvent">
+            <summary>
+            Lightweight event payload for a newly created pending stock adjustment.
+            Business layer will publish this to infrastructure implementations (e.g. SignalR, email, webhook).
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Events.StockSyncedEvent">
+            <summary>
+            Bir stok hareketi Luca'ya başarıyla aktarıldığında yayınlanacak event.
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Interfaces.ICurrentUserService">
+            <summary>
+            Provides information about the current request user and client.
+            This abstraction avoids coupling data layer to ASP.NET HttpContext.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Interfaces.ICurrentUserService.Username">
+            <summary>
+            Authenticated username (JWT name claim) or null when unauthenticated.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Interfaces.ICurrentUserService.IpAddress">
+            <summary>
+            Client IP address if available.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Interfaces.ICurrentUserService.UserAgent">
+            <summary>
+            Client user-agent header if available.
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Interfaces.IInvoiceService">
+            <summary>
+            Fatura yönetimi servisi arayüzü
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Interfaces.INotificationService">
+            <summary>
+            Sistem genelinde e-posta veya diğer kanallarla bildirim göndermek için kullanılır.
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.INotificationService.CheckLowStockAsync(System.Collections.Generic.IEnumerable{Katana.Core.Entities.Product})">
+            <summary>
+            Düşük stoklu ürünleri kontrol eder ve uyarı gönderir.
+            </summary>
+            <param name="products">Ürün listesi</param>
+        </member>
+        <member name="M:Katana.Core.Interfaces.INotificationService.CheckInvoiceDueAsync(System.Collections.Generic.IEnumerable{Katana.Core.Entities.Invoice})">
+            <summary>
+            Vadesi yaklaşan faturalar için bildirim gönderir.
+            </summary>
+            <param name="invoices">Fatura listesi</param>
+        </member>
+        <member name="M:Katana.Core.Interfaces.INotificationService.SendSystemAlertAsync(System.String)">
+            <summary>
+            Sistemsel hatalar için e-posta uyarısı gönderir.
+            </summary>
+            <param name="message">Hata mesajı</param>
+        </member>
+        <member name="T:Katana.Core.Interfaces.IPendingNotificationPublisher">
+            <summary>
+            Abstraction for publishing lightweight pending-stock notifications to infrastructure
+            implementations (SignalR, webhook, email enqueues, etc.).
+            Implemented in API/Infrastructure so business layer stays independent.
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Interfaces.IStockService">
+            <summary>
+            Stok yönetimi için servis arayüzü
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IStockService.GetAllStockMovementsAsync">
+            <summary>
+            Tüm stok hareketlerini getirir
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IStockService.GetStockMovementsByProductIdAsync(System.Int32)">
+            <summary>
+            Belirli bir ürünün stok hareketlerini getirir
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IStockService.GetStockMovementsByLocationAsync(System.String)">
+            <summary>
+            Belirli bir lokasyondaki stok hareketlerini getirir
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IStockService.GetStockMovementsByDateRangeAsync(System.DateTime,System.DateTime)">
+            <summary>
+            Tarih aralığına göre stok hareketlerini getirir
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IStockService.CreateStockMovementAsync(Katana.Core.DTOs.CreateStockMovementDto)">
+            <summary>
+            Yeni stok hareketi oluşturur
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IStockService.DeleteStockMovementAsync(System.Int32)">
+            <summary>
+            Stok hareketi siler
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IStockService.GetStockSummaryAsync">
+            <summary>
+            Ürün bazlı stok özetini getirir
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IStockService.GetStockSummaryByProductIdAsync(System.Int32)">
+            <summary>
+            Belirli bir ürünün stok özetini getirir
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IStockService.GetUnsyncedStockMovementsAsync">
+            <summary>
+            Senkronize edilmemiş stok hareketlerini getirir
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IStockService.MarkAsSyncedAsync(System.Int32)">
+            <summary>
+            Stok hareketini senkronize edildi olarak işaretler
+            </summary>
+        </member>
+        <member name="T:Katana.Core.ValueObjects.AccountCode">
+            <summary>
+            Represents an immutable accounting code used while mapping products to ledger accounts.
+            Enforces a simple format (alphanumeric with separators) to keep data consistent.
+            </summary>
+        </member>
+        <member name="T:Katana.Core.ValueObjects.Money">
+            <summary>
+            Immutable money representation that couples value with its ISO currency code.
+            Provides basic arithmetic helpers that prevent accidental currency mixing.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.ValueObjects.Money.Amount">
+            <summary>
+            Monetary amount represented with two decimal places.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.ValueObjects.Money.Currency">
+            <summary>
+            ISO 4217 currency code (e.g. TRY, USD).
+            </summary>
+        </member>
+        <member name="T:Katana.Core.ValueObjects.TaxRate">
+            <summary>
+            Immutable representation of a tax rate normalised between 0 and 1.
+            Provides helpers to work with percentages while guarding against invalid states.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.ValueObjects.TaxRate.Value">
+            <summary>
+            Normalised tax value (0.18 == %18 KDV).
+            </summary>
+        </member>
+        <member name="T:Katana.Business.DTOs.LoginRequest">
+            <summary>
+            Kullanıcı giriş isteği (login request) için gerekli bilgileri temsil eder.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.DTOs.LoginRequest.#ctor(System.String,System.String)">
+            <summary>
+            Kullanıcı giriş isteği (login request) için gerekli bilgileri temsil eder.
+            </summary>
+        </member>
+        <member name="T:Katana.Business.DTOs.LoginResponse">
+            <summary>
+            Başarılı bir oturum açma işlemi sonrasında dönen yanıtı temsil eder.
+            JWT (JSON Web Token) bilgisini içerir.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.DTOs.LoginResponse.#ctor(System.String)">
+            <summary>
+            Başarılı bir oturum açma işlemi sonrasında dönen yanıtı temsil eder.
+            JWT (JSON Web Token) bilgisini içerir.
+            </summary>
+        </member>
+        <member name="T:Katana.Business.DTOs.ChangePasswordRequest">
+            <summary>
+            Şifre değiştirme isteği için gerekli bilgileri temsil eder.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.DTOs.ChangePasswordRequest.#ctor(System.String,System.String)">
+            <summary>
+            Şifre değiştirme isteği için gerekli bilgileri temsil eder.
+            </summary>
+        </member>
+    </members>
+</doc>

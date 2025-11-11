@@ -267,7 +267,7 @@ builder.Services.AddCors(o =>
          .WithExposedHeaders("Authorization")
          .AllowAnyMethod()
          .AllowCredentials()
-         .WithOrigins("http://localhost:3000", "http://localhost:5055", "http://bfmmrp.com:3000", "http://bfmmrp.com"));
+         .WithOrigins("http://localhost:3000", "http://localhost:5055", "http://bfmmrp.com:3000", "http://bfmmrp.com", "https://bfmmrp.com"));
 });
 
 // -----------------------------
