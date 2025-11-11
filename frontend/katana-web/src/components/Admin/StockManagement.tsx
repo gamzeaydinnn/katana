@@ -444,6 +444,58 @@ const StockManagement: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Out of Stock Products Table */}
+      {criticalProducts.length > 0 && (
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+              <NotificationsActiveIcon color="error" />
+              <Typography variant="h5" fontWeight="600" color="error.main">
+                Stokta Olmayan Ürünler ({criticalProducts.length})
+              </Typography>
+            </Stack>
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell><strong>SKU</strong></TableCell>
+                    <TableCell><strong>Ürün Adı</strong></TableCell>
+                    <TableCell align="right"><strong>Fiyat</strong></TableCell>
+                    <TableCell align="center"><strong>İşlem</strong></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {criticalProducts.map((product) => (
+                    <TableRow key={product.id} hover sx={{ bgcolor: 'error.lighter' }}>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="bold">
+                          {product.sku}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{product.name}</TableCell>
+                      <TableCell align="right">
+                        ₺{(product.price || 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Tooltip title="Satın Al">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handlePurchaseClick(product)}
+                          >
+                            <AddShoppingCartIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Purchase Modal */}
       <Dialog
         open={purchaseModalOpen}
