@@ -49,6 +49,37 @@ public class LoggingService : ILoggingService
         TryLogToDatabase("Error", message, ex, user, contextData, category);
     }
 
+    public async Task LogAuditAsync(string user, string action, string entityType, string entityId, string? oldValue = null, string? newValue = null)
+    {
+        _logger.LogInformation("[Audit] User: {User}, Action: {Action}, Entity: {EntityType}/{EntityId}", 
+            user, action, entityType, entityId);
+
+        if (_context != null && _persistToDb)
+        {
+            try
+            {
+                var changes = oldValue != null || newValue != null 
+                    ? System.Text.Json.JsonSerializer.Serialize(new { oldValue, newValue })
+                    : null;
+
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    PerformedBy = user,
+                    ActionType = action,
+                    EntityName = entityType,
+                    EntityId = entityId,
+                    Changes = changes,
+                    Timestamp = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to persist audit log");
+            }
+        }
+    }
+
     private void TryLogToDatabase(string level, string message, Exception? ex, string? user, string? contextData, LogCategory? category)
     {
         if (!_persistToDb) return; // toggle disabled

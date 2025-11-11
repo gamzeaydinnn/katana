@@ -1,0 +1,49 @@
+Changed database context to 'KatanaDB'.
+Msg 547, Level 16, State 1, Server b703975c91a0, Line 5
+The INSERT statement conflicted with the FOREIGN KEY constraint "FK_Products_Categories_CategoryId". The conflict occurred in database "KatanaDB", table "dbo.Categories", column 'Id'.
+The statement has been terminated.
+
+(1 rows affected)
+Msg 515, Level 16, State 2, Server b703975c91a0, Line 15
+Cannot insert the value NULL into column 'ProductId', table 'KatanaDB.dbo.OrderItems'; column does not allow nulls. INSERT fails.
+The statement has been terminated.
+
+(1 rows affected)
+Msg 515, Level 16, State 2, Server b703975c91a0, Line 11
+Cannot insert the value NULL into column 'ProductId', table 'KatanaDB.dbo.OrderItems'; column does not allow nulls. INSERT fails.
+The statement has been terminated.
+
+(1 rows affected)
+Msg 515, Level 16, State 2, Server b703975c91a0, Line 12
+Cannot insert the value NULL into column 'ProductId', table 'KatanaDB.dbo.OrderItems'; column does not allow nulls. INSERT fails.
+The statement has been terminated.
+Msg 207, Level 16, State 1, Server b703975c91a0, Line 10
+Invalid column name 'RawData'.
+Msg 207, Level 16, State 1, Server b703975c91a0, Line 10
+Invalid column name 'RawData'.
+
+(3 rows affected)
+Msg 207, Level 16, State 1, Server b703975c91a0, Line 11
+Invalid column name 'Duration'.
+Msg 207, Level 16, State 1, Server b703975c91a0, Line 11
+Invalid column name 'Duration'.
+Result                            
+----------------------------------
+Test verileri başarıyla eklendi!
+
+(1 rows affected)
+OrderCount 
+-----------
+          6
+
+(1 rows affected)
+FailedRecordCount
+-----------------
+               11
+
+(1 rows affected)
+PendingCorrectionCount
+----------------------
+                     6
+
+(1 rows affected)

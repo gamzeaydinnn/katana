@@ -382,3 +382,6 @@ else
 }
 
 app.Run();
+
+// Make Program class accessible to WebApplicationFactory in integration tests
+public partial class Program { }

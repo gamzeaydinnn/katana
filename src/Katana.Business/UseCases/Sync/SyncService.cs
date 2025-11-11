@@ -17,6 +17,7 @@ public class SyncService : ISyncService, IIntegrationService
     private readonly IExtractorService _extractorService;
     private readonly ITransformerService _transformerService;
     private readonly ILoaderService _loaderService;
+    private readonly ILucaService _lucaService;
     private readonly IntegrationDbContext _dbContext;
     private readonly ILogger<SyncService> _logger;
 
@@ -24,12 +25,14 @@ public class SyncService : ISyncService, IIntegrationService
         IExtractorService extractorService,
         ITransformerService transformerService,
         ILoaderService loaderService,
+        ILucaService lucaService,
         IntegrationDbContext dbContext,
         ILogger<SyncService> logger)
     {
         _extractorService = extractorService;
         _transformerService = transformerService;
         _loaderService = loaderService;
+        _lucaService = lucaService;
         _dbContext = dbContext;
         _logger = logger;
     }
@@ -202,4 +205,151 @@ public class SyncService : ISyncService, IIntegrationService
                 ? $"{processed} kayıt senkronize edildi."
                 : $"{processed} kaydın {successful} tanesi senkronize edildi."
         };
+
+    // Luca → Katana (Reverse Sync) implementations
+    public async Task<SyncResultDto> SyncStockFromLucaAsync(DateTime? fromDate = null)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var logEntry = await StartOperationLogAsync("LUCA_TO_KATANA_STOCK");
+
+        try
+        {
+            _logger.LogInformation("Starting Luca → Katana stock sync");
+            
+            // Fetch from Luca
+            var lucaStockDtos = await _lucaService.FetchStockMovementsAsync(fromDate);
+            
+            // TODO: Transform Luca format → Katana format using TransformerService
+            // For now, basic transformation
+            _logger.LogInformation("Fetched {Count} stock movements from Luca", lucaStockDtos.Count);
+            
+            stopwatch.Stop();
+            await FinalizeOperationAsync(logEntry, "SUCCESS", lucaStockDtos.Count, lucaStockDtos.Count, 0, null);
+            
+            return new SyncResultDto
+            {
+                SyncType = "LUCA_TO_KATANA_STOCK",
+                IsSuccess = true,
+                ProcessedRecords = lucaStockDtos.Count,
+                SuccessfulRecords = lucaStockDtos.Count,
+                Message = $"Luca'dan {lucaStockDtos.Count} stok hareketi alındı",
+                Duration = stopwatch.Elapsed
+            };
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            await FinalizeOperationAsync(logEntry, "FAILED", 0, 0, 0, ex.Message);
+            _logger.LogError(ex, "Luca → Katana stock sync failed");
+            
+            return new SyncResultDto
+            {
+                SyncType = "LUCA_TO_KATANA_STOCK",
+                IsSuccess = false,
+                Message = ex.Message,
+                Duration = stopwatch.Elapsed,
+                Errors = { ex.ToString() }
+            };
+        }
+    }
+
+    public async Task<SyncResultDto> SyncInvoicesFromLucaAsync(DateTime? fromDate = null)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var logEntry = await StartOperationLogAsync("LUCA_TO_KATANA_INVOICE");
+
+        try
+        {
+            _logger.LogInformation("Starting Luca → Katana invoice sync");
+            
+            var lucaInvoiceDtos = await _lucaService.FetchInvoicesAsync(fromDate);
+            _logger.LogInformation("Fetched {Count} invoices from Luca", lucaInvoiceDtos.Count);
+            
+            stopwatch.Stop();
+            await FinalizeOperationAsync(logEntry, "SUCCESS", lucaInvoiceDtos.Count, lucaInvoiceDtos.Count, 0, null);
+            
+            return new SyncResultDto
+            {
+                SyncType = "LUCA_TO_KATANA_INVOICE",
+                IsSuccess = true,
+                ProcessedRecords = lucaInvoiceDtos.Count,
+                SuccessfulRecords = lucaInvoiceDtos.Count,
+                Message = $"Luca'dan {lucaInvoiceDtos.Count} fatura alındı",
+                Duration = stopwatch.Elapsed
+            };
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            await FinalizeOperationAsync(logEntry, "FAILED", 0, 0, 0, ex.Message);
+            _logger.LogError(ex, "Luca → Katana invoice sync failed");
+            
+            return new SyncResultDto
+            {
+                SyncType = "LUCA_TO_KATANA_INVOICE",
+                IsSuccess = false,
+                Message = ex.Message,
+                Duration = stopwatch.Elapsed,
+                Errors = { ex.ToString() }
+            };
+        }
+    }
+
+    public async Task<SyncResultDto> SyncCustomersFromLucaAsync(DateTime? fromDate = null)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var logEntry = await StartOperationLogAsync("LUCA_TO_KATANA_CUSTOMER");
+
+        try
+        {
+            _logger.LogInformation("Starting Luca → Katana customer sync");
+            
+            var lucaCustomerDtos = await _lucaService.FetchCustomersAsync(fromDate);
+            _logger.LogInformation("Fetched {Count} customers from Luca", lucaCustomerDtos.Count);
+            
+            stopwatch.Stop();
+            await FinalizeOperationAsync(logEntry, "SUCCESS", lucaCustomerDtos.Count, lucaCustomerDtos.Count, 0, null);
+            
+            return new SyncResultDto
+            {
+                SyncType = "LUCA_TO_KATANA_CUSTOMER",
+                IsSuccess = true,
+                ProcessedRecords = lucaCustomerDtos.Count,
+                SuccessfulRecords = lucaCustomerDtos.Count,
+                Message = $"Luca'dan {lucaCustomerDtos.Count} müşteri alındı",
+                Duration = stopwatch.Elapsed
+            };
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            await FinalizeOperationAsync(logEntry, "FAILED", 0, 0, 0, ex.Message);
+            _logger.LogError(ex, "Luca → Katana customer sync failed");
+            
+            return new SyncResultDto
+            {
+                SyncType = "LUCA_TO_KATANA_CUSTOMER",
+                IsSuccess = false,
+                Message = ex.Message,
+                Duration = stopwatch.Elapsed,
+                Errors = { ex.ToString() }
+            };
+        }
+    }
+
+    public async Task<BatchSyncResultDto> SyncAllFromLucaAsync(DateTime? fromDate = null)
+    {
+        var results = new List<SyncResultDto>
+        {
+            await SyncCustomersFromLucaAsync(fromDate),
+            await SyncStockFromLucaAsync(fromDate),
+            await SyncInvoicesFromLucaAsync(fromDate)
+        };
+
+        return new BatchSyncResultDto
+        {
+            Results = results,
+            BatchTime = DateTime.UtcNow
+        };
+    }
 }

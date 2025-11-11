@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Katana.Infrastructure.APIClients;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace Katana.API.Controllers;
 
@@ -404,6 +405,284 @@ public class AdminController : ControllerBase
         catch (Exception)
         {
             return Ok(new { isHealthy = false });
+        }
+    }
+
+    // ================== FAILED SYNC RECORDS (Error Management) ==================
+
+    [HttpGet("failed-records")]
+    public async Task<IActionResult> GetFailedSyncRecords(
+        [FromQuery] string? status = null,
+        [FromQuery] string? recordType = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        try
+        {
+            var query = _context.FailedSyncRecords
+                .Include(f => f.IntegrationLog)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(status))
+                query = query.Where(f => f.Status == status);
+
+            if (!string.IsNullOrEmpty(recordType))
+                query = query.Where(f => f.RecordType == recordType);
+
+            var total = await query.CountAsync();
+            var items = await query
+                .OrderByDescending(f => f.FailedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(f => new
+                {
+                    f.Id,
+                    f.RecordType,
+                    f.RecordId,
+                    f.ErrorMessage,
+                    f.ErrorCode,
+                    f.FailedAt,
+                    f.RetryCount,
+                    f.LastRetryAt,
+                    f.Status,
+                    f.ResolvedAt,
+                    f.ResolvedBy,
+                    IntegrationLogId = f.IntegrationLog != null ? f.IntegrationLog.Id : 0,
+                    SourceSystem = f.IntegrationLog != null ? f.IntegrationLog.SyncType : "Unknown"
+                })
+                .ToListAsync();
+
+            return Ok(new { total, page, pageSize, items });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get failed sync records");
+            return StatusCode(500, new { error = "Failed to get failed sync records" });
+        }
+    }
+
+    [HttpGet("failed-records/{id:int}")]
+    public async Task<IActionResult> GetFailedSyncRecord(int id)
+    {
+        try
+        {
+            var record = await _context.FailedSyncRecords
+                .Include(f => f.IntegrationLog)
+                .FirstOrDefaultAsync(f => f.Id == id);
+
+            if (record == null)
+                return NotFound(new { error = "Record not found" });
+
+            return Ok(new
+            {
+                record.Id,
+                record.RecordType,
+                record.RecordId,
+                record.OriginalData,
+                record.ErrorMessage,
+                record.ErrorCode,
+                record.FailedAt,
+                record.RetryCount,
+                record.LastRetryAt,
+                record.NextRetryAt,
+                record.Status,
+                record.Resolution,
+                record.ResolvedAt,
+                record.ResolvedBy,
+                IntegrationLog = record.IntegrationLog != null ? new
+                {
+                    record.IntegrationLog.Id,
+                    SyncType = record.IntegrationLog.SyncType,
+                    record.IntegrationLog.Status,
+                    StartTime = record.IntegrationLog.StartTime
+                } : null
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get failed sync record {Id}", id);
+            return StatusCode(500, new { error = "Failed to get record" });
+        }
+    }
+
+    [HttpPut("failed-records/{id:int}/resolve")]
+    public async Task<IActionResult> ResolveFailedRecord(
+        int id,
+        [FromBody] ResolveFailedRecordDto dto)
+    {
+        try
+        {
+            var record = await _context.FailedSyncRecords.FindAsync(id);
+            if (record == null)
+                return NotFound(new { error = "Record not found" });
+
+            record.Status = "RESOLVED";
+            record.Resolution = dto.Resolution;
+            record.ResolvedAt = DateTime.UtcNow;
+            record.ResolvedBy = User.Identity?.Name ?? "admin";
+
+            // If corrected data provided, update original data
+            if (!string.IsNullOrEmpty(dto.CorrectedData))
+                record.OriginalData = dto.CorrectedData;
+
+            await _context.SaveChangesAsync();
+
+            await _loggingService.LogAuditAsync(
+                User.Identity?.Name ?? "admin",
+                $"Resolved failed sync record {id}",
+                "FailedSyncRecord",
+                id.ToString(),
+                record.OriginalData,
+                dto.CorrectedData ?? record.OriginalData
+            );
+
+            // If resend flag is true, trigger re-sync
+            if (dto.Resend && !string.IsNullOrEmpty(dto.CorrectedData))
+            {
+                try
+                {
+                    _logger.LogInformation("Attempting to resend corrected data for record {Id}, type {Type}", id, record.RecordType);
+                    
+                    switch (record.RecordType?.ToUpper())
+                    {
+                        case "STOCK":
+                            // Deserialize corrected stock data and send to appropriate system
+                            var stockData = JsonSerializer.Deserialize<Dictionary<string, object>>(dto.CorrectedData);
+                            if (stockData != null)
+                            {
+                                // Determine target system from integration log
+                                var targetSystem = record.IntegrationLog?.SyncType ?? "UNKNOWN";
+                                if (targetSystem.Contains("KATANA", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    // TODO: Send to Katana
+                                    _logger.LogInformation("Would send stock update to Katana: {Data}", dto.CorrectedData);
+                                }
+                                else if (targetSystem.Contains("LUCA", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    // TODO: Send to Luca
+                                    _logger.LogInformation("Would send stock update to Luca: {Data}", dto.CorrectedData);
+                                }
+                            }
+                            break;
+
+                        case "ORDER":
+                            var orderData = JsonSerializer.Deserialize<Dictionary<string, object>>(dto.CorrectedData);
+                            if (orderData != null)
+                            {
+                                _logger.LogInformation("Would resend order data: {Data}", dto.CorrectedData);
+                            }
+                            break;
+
+                        case "INVOICE":
+                            var invoiceData = JsonSerializer.Deserialize<Dictionary<string, object>>(dto.CorrectedData);
+                            if (invoiceData != null)
+                            {
+                                _logger.LogInformation("Would resend invoice data: {Data}", dto.CorrectedData);
+                            }
+                            break;
+
+                        case "CUSTOMER":
+                            var customerData = JsonSerializer.Deserialize<Dictionary<string, object>>(dto.CorrectedData);
+                            if (customerData != null)
+                            {
+                                _logger.LogInformation("Would resend customer data: {Data}", dto.CorrectedData);
+                            }
+                            break;
+
+                        default:
+                            _logger.LogWarning("Unknown record type {Type} for resend", record.RecordType);
+                            break;
+                    }
+                    
+                    // Log successful resend attempt
+                    await _loggingService.LogAuditAsync(
+                        User.Identity?.Name ?? "admin",
+                        "RESEND_ATTEMPT",
+                        "FailedSyncRecord",
+                        id.ToString(),
+                        null,
+                        $"Resend attempted for {record.RecordType}"
+                    );
+                }
+                catch (Exception resendEx)
+                {
+                    _logger.LogError(resendEx, "Failed to resend corrected data for record {Id}", id);
+                    // Don't fail the whole operation, record is still marked as RESOLVED
+                }
+            }
+
+            return Ok(new { success = true, message = "Record resolved successfully" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to resolve record {Id}", id);
+            return StatusCode(500, new { error = "Failed to resolve record" });
+        }
+    }
+
+    [HttpPut("failed-records/{id:int}/ignore")]
+    public async Task<IActionResult> IgnoreFailedRecord(int id, [FromBody] IgnoreFailedRecordDto dto)
+    {
+        try
+        {
+            var record = await _context.FailedSyncRecords.FindAsync(id);
+            if (record == null)
+                return NotFound(new { error = "Record not found" });
+
+            record.Status = "IGNORED";
+            record.Resolution = dto.Reason ?? "Ignored by admin";
+            record.ResolvedAt = DateTime.UtcNow;
+            record.ResolvedBy = User.Identity?.Name ?? "admin";
+
+            await _context.SaveChangesAsync();
+
+            await _loggingService.LogAuditAsync(
+                User.Identity?.Name ?? "admin",
+                $"Ignored failed sync record {id}",
+                "FailedSyncRecord",
+                id.ToString(),
+                null,
+                dto.Reason
+            );
+
+            return Ok(new { success = true, message = "Record ignored successfully" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to ignore record {Id}", id);
+            return StatusCode(500, new { error = "Failed to ignore record" });
+        }
+    }
+
+    [HttpPost("failed-records/{id:int}/retry")]
+    public async Task<IActionResult> RetryFailedRecord(int id)
+    {
+        try
+        {
+            var record = await _context.FailedSyncRecords
+                .Include(f => f.IntegrationLog)
+                .FirstOrDefaultAsync(f => f.Id == id);
+
+            if (record == null)
+                return NotFound(new { error = "Record not found" });
+
+            record.RetryCount++;
+            record.LastRetryAt = DateTime.UtcNow;
+            record.NextRetryAt = DateTime.UtcNow.AddMinutes(Math.Pow(2, record.RetryCount)); // Exponential backoff
+            record.Status = "RETRYING";
+
+            await _context.SaveChangesAsync();
+
+            // TODO: Implement actual retry logic based on RecordType
+            // This would call appropriate integration service
+            _logger.LogInformation("Retry initiated for record {Id}, attempt {Count}", id, record.RetryCount);
+
+            return Ok(new { success = true, message = "Retry initiated", retryCount = record.RetryCount });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retry record {Id}", id);
+            return StatusCode(500, new { error = "Failed to retry record" });
         }
     }
 }

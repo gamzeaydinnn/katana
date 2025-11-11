@@ -32,6 +32,8 @@ import {
   CompareArrows as CompareArrowsIcon,
   ShoppingCart,
   Warehouse,
+  ReportProblem,
+  Receipt,
 } from "@mui/icons-material";
 import LogsViewer from "./LogsViewer";
 import Settings from "../Settings/Settings";
@@ -41,6 +43,8 @@ import KatanaProducts from "../Admin/KatanaProducts";
 import LucaProducts from "../Admin/LucaProducts";
 import StockManagement from "../Admin/StockManagement";
 import DataCorrectionPanel from "../Admin/DataCorrectionPanel";
+import FailedRecords from "../Admin/FailedRecords";
+import Orders from "../Admin/Orders";
 
 interface Statistics {
   totalProducts: number;
@@ -252,6 +256,7 @@ const AdminPanel: React.FC = () => {
           scrollButtons="auto"
         >
           <Tab icon={<TrendingUp />} label="Genel Bakış" />
+          <Tab icon={<Receipt />} label="Siparişler" />
           <Tab icon={<ShoppingCart />} label="Katana Ürünleri" />
           <Tab icon={<Inventory />} label="Luca Ürünleri" />
           <Tab
@@ -259,6 +264,7 @@ const AdminPanel: React.FC = () => {
             label="Stok Yönetimi"
             iconPosition="start"
           />
+          <Tab icon={<ReportProblem />} label="Hatalı Kayıtlar" />
           <Tab icon={<CompareArrowsIcon />} label="Veri Düzeltme" />
           <Tab icon={<LogsIcon />} label="Loglar" />
           <Tab icon={<SettingsIcon />} label="Ayarlar" />
@@ -429,23 +435,29 @@ const AdminPanel: React.FC = () => {
         </Box>
       )}
 
-      {/* Tab 1: Katana Ürünleri */}
-      {activeTab === 1 && <KatanaProducts />}
+      {/* Tab 1: Siparişler */}
+      {activeTab === 1 && <Orders />}
 
-      {/* Tab 2: Luca Ürünleri */}
-      {activeTab === 2 && <LucaProducts />}
+      {/* Tab 2: Katana Ürünleri */}
+      {activeTab === 2 && <KatanaProducts />}
 
-      {/* Tab 3: Stok Yönetimi */}
-      {activeTab === 3 && <StockManagement />}
+      {/* Tab 3: Luca Ürünleri */}
+      {activeTab === 3 && <LucaProducts />}
 
-      {/* Tab 4: Veri Düzeltme */}
-      {activeTab === 4 && <DataCorrectionPanel />}
+      {/* Tab 4: Stok Yönetimi */}
+      {activeTab === 4 && <StockManagement />}
 
-      {/* Tab 5: Loglar */}
-      {activeTab === 5 && <LogsViewer />}
+      {/* Tab 5: Hatalı Kayıtlar */}
+      {activeTab === 5 && <FailedRecords />}
 
-      {/* Tab 6: Ayarlar */}
-      {activeTab === 6 && <Settings />}
+      {/* Tab 6: Veri Düzeltme */}
+      {activeTab === 6 && <DataCorrectionPanel />}
+
+      {/* Tab 7: Loglar */}
+      {activeTab === 7 && <LogsViewer />}
+
+      {/* Tab 8: Ayarlar */}
+      {activeTab === 8 && <Settings />}
     </Box>
   );
 };

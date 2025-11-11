@@ -43,7 +43,8 @@ public class SyncServiceEdgeCaseTests : IDisposable
         _loader.Setup(l => l.LoadProductsAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(0);
 
-        var svc = new SyncService(_extractor.Object, _transformer.Object, _loader.Object, _db, _logger.Object);
+        var mockLucaService = new Mock<ILucaService>();
+        var svc = new SyncService(_extractor.Object, _transformer.Object, _loader.Object, mockLucaService.Object, _db, _logger.Object);
 
         // Act
         var result = await svc.SyncStockAsync(DateTime.UtcNow.AddDays(-1));
@@ -71,7 +72,8 @@ public class SyncServiceEdgeCaseTests : IDisposable
         _transformer.Setup(t => t.ToProductsAsync(It.IsAny<IEnumerable<ProductDto>>()))
             .ThrowsAsync(new InvalidOperationException("Transform error"));
 
-        var svc = new SyncService(_extractor.Object, _transformer.Object, _loader.Object, _db, _logger.Object);
+        var mockLucaService = new Mock<ILucaService>();
+        var svc = new SyncService(_extractor.Object, _transformer.Object, _loader.Object, mockLucaService.Object, _db, _logger.Object);
 
         // Act
         var result = await svc.SyncStockAsync();
@@ -105,7 +107,8 @@ public class SyncServiceEdgeCaseTests : IDisposable
         _loader.Setup(l => l.LoadProductsAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(2);
 
-        var svc = new SyncService(_extractor.Object, _transformer.Object, _loader.Object, _db, _logger.Object);
+        var mockLucaService = new Mock<ILucaService>();
+        var svc = new SyncService(_extractor.Object, _transformer.Object, _loader.Object, mockLucaService.Object, _db, _logger.Object);
 
         // Act
         var result = await svc.SyncStockAsync();
@@ -130,7 +133,8 @@ public class SyncServiceEdgeCaseTests : IDisposable
         _extractor.Setup(e => e.ExtractCustomersAsync(It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Extractor failure"));
 
-        var svc = new SyncService(_extractor.Object, _transformer.Object, _loader.Object, _db, _logger.Object);
+        var mockLucaService = new Mock<ILucaService>();
+        var svc = new SyncService(_extractor.Object, _transformer.Object, _loader.Object, mockLucaService.Object, _db, _logger.Object);
 
         // Act
         var result = await svc.SyncCustomersAsync();

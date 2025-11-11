@@ -77,13 +77,18 @@ const KatanaProducts: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
+      console.log("Fetching Katana products...");
       const response = await api.get("/Products/katana");
+      console.log("Response:", response.data);
       const responseData: any = response.data;
       const productData = responseData?.data || responseData || [];
+      console.log("Product data:", productData.length, "items");
       setProducts(productData);
       setFilteredProducts(productData);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Ürünler yüklenemedi");
+      const errorMsg =
+        err.response?.data?.error || err.message || "Ürünler yüklenemedi";
+      setError(errorMsg);
       console.error("Katana ürünleri yükleme hatası:", err);
     } finally {
       setLoading(false);
@@ -137,12 +142,12 @@ const KatanaProducts: React.FC = () => {
     try {
       const productId = parseInt(selectedProduct.id);
       const updateDto = {
-        name: selectedProduct.name || selectedProduct.Name || "",
-        sku: selectedProduct.sku || selectedProduct.SKU || "",
-        price: selectedProduct.salesPrice || selectedProduct.SalesPrice || 0,
-        stock: selectedProduct.onHand || selectedProduct.OnHand || 0,
-        categoryId: 1,
-        isActive: selectedProduct.isActive ?? selectedProduct.IsActive ?? true,
+        Name: selectedProduct.name || selectedProduct.Name || "",
+        SKU: selectedProduct.sku || selectedProduct.SKU || "",
+        Price: selectedProduct.salesPrice || selectedProduct.SalesPrice || 0,
+        Stock: selectedProduct.onHand || selectedProduct.OnHand || 0,
+        CategoryId: 1001,
+        IsActive: selectedProduct.isActive ?? selectedProduct.IsActive ?? true,
       };
 
       await api.put(`/Products/${productId}`, updateDto);

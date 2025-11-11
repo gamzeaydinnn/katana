@@ -252,6 +252,89 @@ public class SyncController : ControllerBase
             return StatusCode(500, new { error = "Sunucu hata verdi: senkronizasyon durumu kontrol edilemedi" });
         }
     }
+
+    // Luca → Katana (Reverse Sync) endpoints
+    
+    /// <summary>
+    /// POST /api/Sync/from-luca/stock - Luca'dan stok hareketlerini çeker
+    /// </summary>
+    [HttpPost("from-luca/stock")]
+    [AllowAnonymous] // Temporarily for testing
+    public async Task<ActionResult<SyncResultDto>> SyncStockFromLuca([FromQuery] DateTime? fromDate = null)
+    {
+        try
+        {
+            _logger.LogInformation("Luca → Katana stock sync triggered via API");
+            var result = await _syncService.SyncStockFromLucaAsync(fromDate);
+            
+            return result.IsSuccess ? Ok(result) : BadRequest(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Luca → Katana stock sync failed");
+            return StatusCode(500, new { error = "Sunucu hata verdi: Luca'dan stok senkronizasyonu sırasında" });
+        }
+    }
+
+    /// <summary>
+    /// POST /api/Sync/from-luca/invoices - Luca'dan faturaları çeker
+    /// </summary>
+    [HttpPost("from-luca/invoices")]
+    public async Task<ActionResult<SyncResultDto>> SyncInvoicesFromLuca([FromQuery] DateTime? fromDate = null)
+    {
+        try
+        {
+            _logger.LogInformation("Luca → Katana invoice sync triggered via API");
+            var result = await _syncService.SyncInvoicesFromLucaAsync(fromDate);
+            
+            return result.IsSuccess ? Ok(result) : BadRequest(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Luca → Katana invoice sync failed");
+            return StatusCode(500, new { error = "Sunucu hata verdi: Luca'dan fatura senkronizasyonu sırasında" });
+        }
+    }
+
+    /// <summary>
+    /// POST /api/Sync/from-luca/customers - Luca'dan müşterileri çeker
+    /// </summary>
+    [HttpPost("from-luca/customers")]
+    public async Task<ActionResult<SyncResultDto>> SyncCustomersFromLuca([FromQuery] DateTime? fromDate = null)
+    {
+        try
+        {
+            _logger.LogInformation("Luca → Katana customer sync triggered via API");
+            var result = await _syncService.SyncCustomersFromLucaAsync(fromDate);
+            
+            return result.IsSuccess ? Ok(result) : BadRequest(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Luca → Katana customer sync failed");
+            return StatusCode(500, new { error = "Sunucu hata verdi: Luca'dan müşteri senkronizasyonu sırasında" });
+        }
+    }
+
+    /// <summary>
+    /// POST /api/Sync/from-luca/all - Luca'dan tüm verileri çeker
+    /// </summary>
+    [HttpPost("from-luca/all")]
+    public async Task<ActionResult<BatchSyncResultDto>> SyncAllFromLuca([FromQuery] DateTime? fromDate = null)
+    {
+        try
+        {
+            _logger.LogInformation("Luca → Katana complete sync triggered via API");
+            var result = await _syncService.SyncAllFromLucaAsync(fromDate);
+            
+            return result.OverallSuccess ? Ok(result) : BadRequest(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Luca → Katana complete sync failed");
+            return StatusCode(500, new { error = "Sunucu hata verdi: Luca'dan tam senkronizasyon sırasında" });
+        }
+    }
 }
 
 public class StartSyncRequest

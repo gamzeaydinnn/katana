@@ -277,5 +277,108 @@ public class LucaService : ILucaService
         }
     }
 
+    // Luca → Katana (Pull) implementations
+    public async Task<List<LucaInvoiceDto>> FetchInvoicesAsync(DateTime? fromDate = null)
+    {
+        try
+        {
+            await EnsureAuthenticatedAsync();
+
+            var queryDate = fromDate?.ToString("yyyy-MM-dd") ?? DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-dd");
+            var endpoint = $"{_settings.Endpoints.Invoices}?fromDate={queryDate}";
+
+            _logger.LogInformation("Fetching invoices from Luca since {Date}", queryDate);
+
+            var response = await _httpClient.GetAsync(endpoint);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var invoices = JsonSerializer.Deserialize<List<LucaInvoiceDto>>(content, _jsonOptions) ?? new List<LucaInvoiceDto>();
+
+                _logger.LogInformation("Successfully fetched {Count} invoices from Luca", invoices.Count);
+                return invoices;
+            }
+            else
+            {
+                _logger.LogError("Failed to fetch invoices from Luca. Status: {StatusCode}", response.StatusCode);
+                return new List<LucaInvoiceDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching invoices from Luca");
+            return new List<LucaInvoiceDto>();
+        }
+    }
+
+    public async Task<List<LucaStockDto>> FetchStockMovementsAsync(DateTime? fromDate = null)
+    {
+        try
+        {
+            await EnsureAuthenticatedAsync();
+
+            var queryDate = fromDate?.ToString("yyyy-MM-dd") ?? DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-dd");
+            var endpoint = $"{_settings.Endpoints.Stock}?fromDate={queryDate}";
+
+            _logger.LogInformation("Fetching stock movements from Luca since {Date}", queryDate);
+
+            var response = await _httpClient.GetAsync(endpoint);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var stockMovements = JsonSerializer.Deserialize<List<LucaStockDto>>(content, _jsonOptions) ?? new List<LucaStockDto>();
+
+                _logger.LogInformation("Successfully fetched {Count} stock movements from Luca", stockMovements.Count);
+                return stockMovements;
+            }
+            else
+            {
+                _logger.LogError("Failed to fetch stock movements from Luca. Status: {StatusCode}", response.StatusCode);
+                return new List<LucaStockDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching stock movements from Luca");
+            return new List<LucaStockDto>();
+        }
+    }
+
+    public async Task<List<LucaCustomerDto>> FetchCustomersAsync(DateTime? fromDate = null)
+    {
+        try
+        {
+            await EnsureAuthenticatedAsync();
+
+            var queryDate = fromDate?.ToString("yyyy-MM-dd") ?? DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-dd");
+            var endpoint = $"{_settings.Endpoints.Customers}?fromDate={queryDate}";
+
+            _logger.LogInformation("Fetching customers from Luca since {Date}", queryDate);
+
+            var response = await _httpClient.GetAsync(endpoint);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var customers = JsonSerializer.Deserialize<List<LucaCustomerDto>>(content, _jsonOptions) ?? new List<LucaCustomerDto>();
+
+                _logger.LogInformation("Successfully fetched {Count} customers from Luca", customers.Count);
+                return customers;
+            }
+            else
+            {
+                _logger.LogError("Failed to fetch customers from Luca. Status: {StatusCode}", response.StatusCode);
+                return new List<LucaCustomerDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching customers from Luca");
+            return new List<LucaCustomerDto>();
+        }
+    }
+
 
 }

@@ -18,6 +18,7 @@ public class SyncServiceTests : IDisposable
     private readonly Mock<IExtractorService> _mockExtractor;
     private readonly Mock<ITransformerService> _mockTransformer;
     private readonly Mock<ILoaderService> _mockLoader;
+    private readonly Mock<ILucaService> _mockLucaService;
     private readonly IntegrationDbContext _context;
     private readonly SyncService _syncService;
 
@@ -27,6 +28,7 @@ public class SyncServiceTests : IDisposable
         _mockExtractor = new Mock<IExtractorService>();
         _mockTransformer = new Mock<ITransformerService>();
         _mockLoader = new Mock<ILoaderService>();
+        _mockLucaService = new Mock<ILucaService>();
 
         var options = new DbContextOptionsBuilder<IntegrationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -55,7 +57,7 @@ public class SyncServiceTests : IDisposable
         _mockLoader.Setup(l => l.LoadCustomersAsync(It.IsAny<IEnumerable<Customer>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((IEnumerable<Customer> customers, int _, CancellationToken __) => customers.Count());
 
-        _syncService = new SyncService(_mockExtractor.Object, _mockTransformer.Object, _mockLoader.Object, _context, _mockLogger.Object);
+        _syncService = new SyncService(_mockExtractor.Object, _mockTransformer.Object, _mockLoader.Object, _mockLucaService.Object, _context, _mockLogger.Object);
     }
 
     [Fact]

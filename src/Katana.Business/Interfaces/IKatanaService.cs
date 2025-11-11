@@ -12,5 +12,6 @@ public interface IKatanaService
     Task<List<KatanaInvoiceDto>> GetInvoicesAsync(DateTime fromDate, DateTime toDate);
     Task<KatanaProductDto?> GetProductBySkuAsync(string sku);
     Task<bool> TestConnectionAsync();
+    Task<bool> UpdateProductAsync(int katanaProductId, string name, decimal? salesPrice, int? stock);
 }
 

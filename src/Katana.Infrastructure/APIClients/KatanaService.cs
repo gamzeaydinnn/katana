@@ -486,4 +486,46 @@ public class KatanaService : IKatanaService
             return false;
         }
     }
+
+    public async Task<bool> UpdateProductAsync(int katanaProductId, string name, decimal? salesPrice, int? stock)
+    {
+        try
+        {
+            _logger.LogInformation("Updating Katana product ID: {ProductId}", katanaProductId);
+
+            var updatePayload = new
+            {
+                name = name,
+                variants = new[]
+                {
+                    new
+                    {
+                        sales_price = salesPrice,
+                        on_hand = stock
+                    }
+                }
+            };
+
+            var json = JsonSerializer.Serialize(updatePayload, _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PatchAsync($"{_settings.Endpoints.Products}/{katanaProductId}", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("Successfully updated Katana product ID: {ProductId}", katanaProductId);
+                return true;
+            }
+            
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("Failed to update Katana product ID: {ProductId}. Status: {Status}, Error: {Error}", 
+                katanaProductId, response.StatusCode, errorContent);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating Katana product ID: {ProductId}", katanaProductId);
+            return false;
+        }
+    }
 }
