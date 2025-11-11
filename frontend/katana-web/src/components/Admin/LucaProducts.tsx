@@ -60,7 +60,6 @@ const LucaProducts: React.FC = () => {
     null
   );
   const [saving, setSaving] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   const fetchProducts = async () => {
@@ -125,29 +124,27 @@ const LucaProducts: React.FC = () => {
 
     try {
       const productId = selectedProduct.id;
+      // Match LucaProductUpdateDto exactly (backend expects PascalCase or camelCase)
       const updateDto = {
-        Name: selectedProduct.productName || selectedProduct.ProductName || "",
-        ProductCode:
-          selectedProduct.productCode || selectedProduct.ProductCode || "",
-        UnitPrice: selectedProduct.unitPrice ?? selectedProduct.UnitPrice ?? 0,
-        Quantity: selectedProduct.quantity ?? selectedProduct.Quantity ?? 0,
+        productCode: selectedProduct.productCode || selectedProduct.ProductCode || "",
+        productName: selectedProduct.productName || selectedProduct.ProductName || "",
+        unit: selectedProduct.unit || selectedProduct.Unit || "Adet",
+        quantity: selectedProduct.quantity ?? selectedProduct.Quantity ?? 0,
+        unitPrice: selectedProduct.unitPrice ?? selectedProduct.UnitPrice ?? 0,
+        vatRate: selectedProduct.vatRate ?? selectedProduct.VatRate ?? 20,
       };
 
+      console.log("Sending update DTO:", updateDto); // Debug log
       await api.put(`/Products/luca/${productId}`, updateDto);
-      setSuccessMessage("Luca ürünü güncellendi!");
-      setTimeout(() => setSuccessMessage(null), 3000);
       handleCloseModal();
       fetchProducts();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Ürün güncellenemedi");
+      const errorMsg = err.response?.data?.error || err.response?.data?.errors?.join(", ") || err.message || "Ürün güncellenemedi";
+      setError(errorMsg);
+      console.error("Ürün güncelleme hatası:", err.response?.data);
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleProductChange = (field: keyof LucaProduct, value: any) => {
-    if (!selectedProduct) return;
-    setSelectedProduct({ ...selectedProduct, [field]: value });
   };
 
   useEffect(() => {

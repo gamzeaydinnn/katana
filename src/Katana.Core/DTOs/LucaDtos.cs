@@ -1,4 +1,6 @@
-﻿namespace Katana.Core.DTOs;
+﻿using System.Text.Json.Serialization;
+
+namespace Katana.Core.DTOs;
 
 public class LucaInvoiceDto
 {
@@ -57,11 +59,22 @@ public class LucaCustomerDto
 
 public class LucaProductUpdateDto
 {
+    [JsonPropertyName("productCode")]
     public string ProductCode { get; set; } = string.Empty;
+    
+    [JsonPropertyName("productName")]
     public string ProductName { get; set; } = string.Empty;
+    
+    [JsonPropertyName("unit")]
     public string? Unit { get; set; }
+    
+    [JsonPropertyName("quantity")]
     public int Quantity { get; set; }
+    
+    [JsonPropertyName("unitPrice")]
     public decimal UnitPrice { get; set; }
+    
+    [JsonPropertyName("vatRate")]
     public int? VatRate { get; set; }
 }
 

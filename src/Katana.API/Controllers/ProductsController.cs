@@ -410,15 +410,38 @@ public class ProductsController : ControllerBase
     [AllowAnonymous] // Temporary for testing
     public async Task<ActionResult> UpdateLucaProduct(int id, [FromBody] LucaProductUpdateDto dto)
     {
+        _logger.LogInformation("UpdateLucaProduct called: ID={Id}, DTO={@Dto}", id, dto);
+        
         if (dto == null)
-            return BadRequest("Ürün verisi boş olamaz");
+        {
+            _logger.LogWarning("UpdateLucaProduct received null DTO for product {Id}", id);
+            return BadRequest(new { error = "Ürün verisi boş olamaz" });
+        }
+
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(dto.ProductName))
+        {
+            _logger.LogWarning("UpdateLucaProduct missing ProductName for product {Id}", id);
+            return BadRequest(new { error = "Ürün adı gereklidir" });
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.ProductCode))
+        {
+            _logger.LogWarning("UpdateLucaProduct missing ProductCode for product {Id}", id);
+            return BadRequest(new { error = "Ürün kodu gereklidir" });
+        }
 
         try
         {
             // Get existing product
             var product = await _productService.GetProductByIdAsync(id);
             if (product == null)
-                return NotFound($"Ürün bulunamadı: {id}");
+            {
+                _logger.LogWarning("UpdateLucaProduct: Product {Id} not found", id);
+                return NotFound(new { error = $"Ürün bulunamadı: {id}" });
+            }
+
+            _logger.LogInformation("Existing product found: {@Product}", product);
 
             // Create UpdateProductDto from Luca data
             var updateDto = new UpdateProductDto
@@ -427,9 +450,19 @@ public class ProductsController : ControllerBase
                 SKU = dto.ProductCode,
                 Price = dto.UnitPrice,
                 Stock = dto.Quantity,
-                CategoryId = product.CategoryId, // Preserve existing category
+                CategoryId = product.CategoryId > 0 ? product.CategoryId : 1, // Ensure valid category
                 IsActive = true
             };
+
+            _logger.LogInformation("Mapped to UpdateProductDto: {@UpdateDto}", updateDto);
+
+            // Validate before update
+            var validationErrors = Katana.Business.Validators.ProductValidator.ValidateUpdate(updateDto);
+            if (validationErrors.Any())
+            {
+                _logger.LogWarning("Validation failed for product {Id}: {Errors}", id, string.Join(", ", validationErrors));
+                return BadRequest(new { errors = validationErrors });
+            }
 
             // Update product
             var updatedProduct = await _productService.UpdateProductAsync(id, updateDto);
@@ -440,31 +473,33 @@ public class ProductsController : ControllerBase
                 id = updatedProduct.Id,
                 productCode = updatedProduct.SKU,
                 productName = updatedProduct.Name,
-                unit = "Adet",
+                unit = dto.Unit ?? "Adet",
                 quantity = updatedProduct.Stock,
                 unitPrice = updatedProduct.Price,
-                vatRate = 20,
+                vatRate = dto.VatRate ?? 20,
                 isActive = updatedProduct.IsActive
             };
 
             _auditService.LogUpdate("Product (Luca)", id.ToString(), User?.Identity?.Name ?? "system", null,
                 $"Updated: {updatedProduct.SKU}");
-            _loggingService.LogInfo($"Luca product updated: {id}", User?.Identity?.Name, null, LogCategory.UserAction);
+            _loggingService.LogInfo($"Luca product updated successfully: {id}", User?.Identity?.Name, null, LogCategory.UserAction);
 
             return Ok(result);
         }
         catch (KeyNotFoundException ex)
         {
-            return NotFound(ex.Message);
+            _logger.LogError(ex, "Product {Id} not found during update", id);
+            return NotFound(new { error = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
+            _logger.LogError(ex, "Invalid operation updating product {Id}", id);
             _loggingService.LogError("Luca product update failed", ex, User?.Identity?.Name, null, LogCategory.Business);
-            return Conflict(ex.Message);
+            return Conflict(new { error = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error updating Luca product {ProductId}", id);
+            _logger.LogError(ex, "Unexpected error updating Luca product {ProductId}. DTO: {@Dto}", id, dto);
             return StatusCode(500, new { error = "Ürün güncelleme sırasında bir hata oluştu", details = ex.Message });
         }
     }
