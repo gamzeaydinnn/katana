@@ -6,9 +6,26 @@ import {
 } from "../utils/jwt";
 import { showGlobalToast } from "../providers/FeedbackProvider";
 
-// Development: prefer an explicit env var REACT_APP_API_URL. If not set, use a relative
-// '/api' so the CRA dev server can proxy requests to the backend (see package.json proxy).
-const API_BASE_URL = process.env.REACT_APP_API_URL || "/api";
+// Development: prefer an explicit env var REACT_APP_API_URL. If not set, choose a smart default.
+// In production when the static site is served on :3000 and backend runs on :5055, we want
+// runtime to point requests to :5055 even if build-time env is missing.
+const getDefaultApiBase = () => {
+  try {
+    if (typeof window !== "undefined") {
+      const { protocol, hostname, port } = window.location;
+      // Heuristic: if UI is on port 3000 (static serve), backend is on 5055
+      if (port === "3000") {
+        return `${protocol}//${hostname}:5055/api`;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  // Fallback to relative '/api' for CRA dev proxy or same-origin deployments
+  return "/api";
+};
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || getDefaultApiBase();
 
 const api = axios.create({
   baseURL: API_BASE_URL,

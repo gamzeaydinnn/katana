@@ -124,6 +124,7 @@ public class ProductsController : ControllerBase
     /// mapped from local products to avoid 404s until direct Luca listing is wired.
     /// </summary>
     [HttpGet("luca")]
+    [HttpGet("~/api/Luca/products")] // Route alias: also available as /api/Luca/products
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetLucaStyleProducts()
