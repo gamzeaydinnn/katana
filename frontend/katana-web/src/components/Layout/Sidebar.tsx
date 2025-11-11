@@ -31,7 +31,7 @@ interface SidebarProps {
 
 const menuItems = [
   { text: "Dashboard", icon: <DashboardIcon />, path: "/" },
-  { text: "Stok Görünümü", icon: <InventoryIcon />, path: "/stock-view" },
+  { text: "Canlı Stok", icon: <InventoryIcon />, path: "/stock-view" },
   // Admin panel promoted near the top for quick approvals
   { text: "Admin Paneli", icon: <AdminIcon />, path: "/admin" },
   { text: "Stok Yönetimi", icon: <InventoryIcon />, path: "/stock" },

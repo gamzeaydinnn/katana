@@ -123,7 +123,7 @@ const StockView: React.FC = () => {
         mb={3}
       >
         <Typography variant="h4" fontWeight="bold">
-          Stok Görünümü
+          Canlı Stok
         </Typography>
         <Tooltip title="Otomatik yenileme: Her 30 saniye">
           <IconButton onClick={fetchData} disabled={loading} color="primary">

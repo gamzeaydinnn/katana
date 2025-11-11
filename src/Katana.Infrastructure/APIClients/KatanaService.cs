@@ -196,7 +196,24 @@ public class KatanaService : IKatanaService
         else if (prodEl.TryGetProperty("main_image_url", out var mainImg) && mainImg.ValueKind == JsonValueKind.String)
             dto.ImageUrl = mainImg.GetString();
 
-        // Variants: get first variant's sku, prices and stock levels
+        // Try to read SKU from product level first (some APIs don't have variants)
+        if (prodEl.TryGetProperty("sku", out var productSkuEl) && productSkuEl.ValueKind == JsonValueKind.String)
+            dto.SKU = productSkuEl.GetString() ?? string.Empty;
+
+        // Try to read stock from product level
+        if (prodEl.TryGetProperty("in_stock", out var prodInStockEl) && prodInStockEl.ValueKind == JsonValueKind.Number)
+            dto.InStock = prodInStockEl.GetInt32();
+        
+        if (prodEl.TryGetProperty("on_hand", out var prodOnHandEl) && prodOnHandEl.ValueKind == JsonValueKind.Number)
+            dto.OnHand = prodOnHandEl.GetInt32();
+        
+        if (prodEl.TryGetProperty("available", out var prodAvailEl) && prodAvailEl.ValueKind == JsonValueKind.Number)
+            dto.Available = prodAvailEl.GetInt32();
+        
+        if (prodEl.TryGetProperty("committed", out var prodCommitEl) && prodCommitEl.ValueKind == JsonValueKind.Number)
+            dto.Committed = prodCommitEl.GetInt32();
+
+        // Variants: get first variant's sku, prices and stock levels (override product-level if exists)
         if (prodEl.TryGetProperty("variants", out var variantsEl) && variantsEl.ValueKind == JsonValueKind.Array)
         {
             var firstVar = variantsEl.EnumerateArray().FirstOrDefault();

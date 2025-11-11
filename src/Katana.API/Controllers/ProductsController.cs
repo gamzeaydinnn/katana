@@ -51,7 +51,18 @@ public class ProductsController : ControllerBase
         try
         {
             _loggingService.LogInfo("Fetching products from Katana API", User?.Identity?.Name, $"Page: {page}, Limit: {limit}, Sync: {sync}", LogCategory.ExternalAPI);
-            var products = await _katanaService.GetProductsAsync();
+            var allProducts = await _katanaService.GetProductsAsync();
+            
+            // Remove duplicates based on SKU - keep first occurrence
+            var products = allProducts
+                .GroupBy(p => p.SKU)
+                .Select(g => g.First())
+                .ToList();
+            
+            if (products.Count < allProducts.Count)
+            {
+                _logger.LogWarning($"Removed {allProducts.Count - products.Count} duplicate products from Katana API response");
+            }
             
             // Sync to local DB if requested
             if (sync)
