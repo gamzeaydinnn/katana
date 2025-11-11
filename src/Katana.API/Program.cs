@@ -24,6 +24,7 @@ using Katana.Core.Entities;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Katana.API.Workers;
+using Katana.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -68,6 +69,7 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddMemoryCache();
 builder.Services.AddResponseCaching();
+builder.Services.AddHttpContextAccessor();
 
 // -----------------------------
 // Swagger
@@ -201,6 +203,7 @@ builder.Services.AddScoped<IErrorHandler, ErrorHandlerService>();
 builder.Services.AddSingleton<Katana.Infrastructure.Services.CacheService>();
 builder.Services.AddScoped<ILoggingService, LoggingService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<INotificationService, EmailNotificationService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<IMappingService, MappingService>();

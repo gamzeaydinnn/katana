@@ -1,5 +1,6 @@
 import axios from "axios";
-import { decodeJwtPayload, isJwtExpired } from "../utils/jwt";
+import { decodeJwtPayload, isJwtExpired, isJwtTokenExpired } from "../utils/jwt";
+import { showGlobalToast } from "../providers/FeedbackProvider";
 
 // Development: prefer an explicit env var REACT_APP_API_URL. If not set, use a relative
 // '/api' so the CRA dev server can proxy requests to the backend (see package.json proxy).
@@ -60,9 +61,40 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem("authToken");
-      window.location.href = "/login";
+    const status = error?.response?.status;
+    if (status === 401 || status === 403) {
+      const path = typeof window !== "undefined" ? window.location.pathname : "";
+      const token =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem("authToken")
+          : null;
+
+      const tokenExpiredOrInvalid = isJwtTokenExpired(token);
+
+      if (path.startsWith("/admin")) {
+        // Show a user-friendly message for admin-only pages
+        try {
+          showGlobalToast({
+            message: "Yetkisiz erişim veya oturum süresi doldu.",
+            severity: "warning",
+            durationMs: 3500,
+          });
+        } catch {
+          // ignore toast errors
+        }
+      }
+
+      // Only clear the token and redirect if it's missing or expired/invalid
+      if (!token || tokenExpiredOrInvalid) {
+        try {
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem("authToken");
+            window.location.href = "/login";
+          }
+        } catch {
+          // ignore storage/navigation errors
+        }
+      }
     }
     return Promise.reject(error);
   }
