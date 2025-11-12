@@ -186,10 +186,6 @@ const AdminPanel: React.FC = () => {
   }> = ({ title, value, icon, color }) => (
     <Card
       sx={{
-        height: "100%",
-        minHeight: "140px",
-        display: "flex",
-        flexDirection: "column",
         borderRadius: 2,
         boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
         transition: "transform 0.2s ease, box-shadow 0.2s ease",
@@ -199,8 +195,8 @@ const AdminPanel: React.FC = () => {
         },
       }}
     >
-      <CardContent sx={{ p: 3, flexGrow: 1, display: "flex", alignItems: "center" }}>
-        <Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
+      <CardContent sx={{ p: 3 }}>
+        <Box display="flex" alignItems="center" justifyContent="space-between">
           <Box>
             <Typography
               color="textSecondary"
@@ -267,13 +263,11 @@ const AdminPanel: React.FC = () => {
       >
         <Typography
           variant="h4"
+          fontWeight={700}
           sx={{
-            fontWeight: 900,
-            letterSpacing: "-0.02em",
-            background: "linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
+            fontFamily: '"Poppins", "Inter", sans-serif',
+            letterSpacing: "-0.5px",
+            color: "text.primary",
           }}
         >
           Admin Paneli

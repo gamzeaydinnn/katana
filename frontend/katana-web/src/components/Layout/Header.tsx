@@ -410,7 +410,7 @@ const Header: React.FC<HeaderProps> = ({
               fontSize: "1.15rem",
             }}
           >
-            BeforMet Metal
+            Beformet Metal
           </Typography>
         </Box>
 
