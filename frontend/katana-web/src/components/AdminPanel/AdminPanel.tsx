@@ -260,6 +260,9 @@ const AdminPanel: React.FC = () => {
               flexDirection: "row",
               textTransform: "none",
               fontSize: "0.95rem",
+              minWidth: "auto",
+              whiteSpace: "nowrap",
+              px: 2,
             },
             "& .MuiTab-iconWrapper": {
               marginRight: "8px",
