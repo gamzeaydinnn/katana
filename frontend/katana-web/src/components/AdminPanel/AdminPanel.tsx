@@ -4,6 +4,7 @@ import {
   Error as ErrorIcon,
   Inventory,
   Article as LogsIcon,
+  MoreVert as MoreVertIcon,
   Receipt,
   Refresh,
   ReportProblem,
@@ -16,12 +17,15 @@ import {
 import {
   Alert,
   Box,
+  Button,
   Card,
   CardContent,
   Chip,
   CircularProgress,
   Divider,
   IconButton,
+  Menu,
+  MenuItem,
   Paper,
   Tab,
   Table,
@@ -83,6 +87,9 @@ const AdminPanel: React.FC = () => {
   const [totalSyncLogs, setTotalSyncLogs] = useState(0);
   // null = unknown / not loaded yet, true/false = explicit health state
   const [katanaHealth, setKatanaHealth] = useState<boolean | null>(null);
+  const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(
+    null
+  );
 
   const loadData = async () => {
     try {
@@ -260,6 +267,10 @@ const AdminPanel: React.FC = () => {
         alignItems="center"
         mb={4}
         mt={2}
+        sx={{
+          flexWrap: "wrap",
+          gap: 2,
+        }}
       >
         <Typography
           variant="h4"
@@ -268,11 +279,12 @@ const AdminPanel: React.FC = () => {
             fontFamily: '"Poppins", "Inter", sans-serif',
             letterSpacing: "-0.5px",
             color: "text.primary",
+            flexShrink: 0,
           }}
         >
           Admin Paneli
         </Typography>
-        <Box display="flex" gap={2} alignItems="center">
+        <Box display="flex" gap={2} alignItems="center" sx={{ flexShrink: 0 }}>
           <IconButton
             onClick={() => navigate("/admin/logs")}
             color="primary"
@@ -289,13 +301,13 @@ const AdminPanel: React.FC = () => {
               color={katanaHealth ? "success" : "error"}
             />
           )}
-          <IconButton 
-            onClick={loadData} 
-            sx={{ 
+          <IconButton
+            onClick={loadData}
+            sx={{
               color: "#fff",
               "&:hover": {
                 backgroundColor: "rgba(255, 255, 255, 0.1)",
-              }
+              },
             }}
           >
             <Refresh />
@@ -306,8 +318,12 @@ const AdminPanel: React.FC = () => {
       {/* Tabs */}
       <Paper sx={{ mb: 4, borderRadius: 2 }}>
         <Tabs
-          value={activeTab}
-          onChange={(_, v) => setActiveTab(v)}
+          value={activeTab > 5 ? false : activeTab}
+          onChange={(_, v) => {
+            if (v !== 5) {
+              setActiveTab(v);
+            }
+          }}
           variant="scrollable"
           scrollButtons="auto"
           sx={{
@@ -335,6 +351,7 @@ const AdminPanel: React.FC = () => {
             "& .MuiTabs-indicator": {
               height: 3,
               borderRadius: "3px 3px 0 0",
+              backgroundColor: "#667eea",
             },
           }}
         >
@@ -356,19 +373,119 @@ const AdminPanel: React.FC = () => {
             iconPosition="start"
           />
           <Tab
-            icon={<ReportProblem />}
-            label="Hatalı Kayıtlar"
+            icon={<MoreVertIcon />}
+            label="Diğer"
             iconPosition="start"
+            onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+              e.stopPropagation();
+              setMoreMenuAnchor(e.currentTarget);
+            }}
+            sx={{
+              backgroundColor:
+                activeTab > 5 ? "rgba(102, 126, 234, 0.08)" : "transparent",
+              "&:hover": {
+                backgroundColor: "rgba(102, 126, 234, 0.12)",
+              },
+            }}
           />
-          <Tab
-            icon={<CompareArrowsIcon />}
-            label="Veri Düzeltme"
-            iconPosition="start"
-          />
-          <Tab icon={<UsersIcon />} label="Kullanıcılar" iconPosition="start" />
-          <Tab icon={<LogsIcon />} label="Loglar" iconPosition="start" />
-          <Tab icon={<SettingsIcon />} label="Ayarlar" iconPosition="start" />
         </Tabs>
+
+        {/* Dropdown Menu for "Diğer" */}
+        <Menu
+          anchorEl={moreMenuAnchor}
+          open={Boolean(moreMenuAnchor)}
+          onClose={() => setMoreMenuAnchor(null)}
+          anchorOrigin={{
+            vertical: "bottom",
+            horizontal: "left",
+          }}
+          transformOrigin={{
+            vertical: "top",
+            horizontal: "left",
+          }}
+          PaperProps={{
+            sx: {
+              mt: 1,
+              minWidth: 200,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+              borderRadius: 2,
+            },
+          }}
+        >
+          <MenuItem
+            onClick={() => {
+              setActiveTab(5);
+              setMoreMenuAnchor(null);
+            }}
+            sx={{
+              py: 1.5,
+              px: 2,
+              "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
+            }}
+          >
+            <ReportProblem sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
+            <Typography variant="body2">Hatalı Kayıtlar</Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setActiveTab(6);
+              setMoreMenuAnchor(null);
+            }}
+            sx={{
+              py: 1.5,
+              px: 2,
+              "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
+            }}
+          >
+            <CompareArrowsIcon
+              sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }}
+            />
+            <Typography variant="body2">Veri Düzeltme</Typography>
+          </MenuItem>
+          <Divider sx={{ my: 1 }} />
+          <MenuItem
+            onClick={() => {
+              setActiveTab(7);
+              setMoreMenuAnchor(null);
+            }}
+            sx={{
+              py: 1.5,
+              px: 2,
+              "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
+            }}
+          >
+            <UsersIcon sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
+            <Typography variant="body2">Kullanıcılar</Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setActiveTab(8);
+              setMoreMenuAnchor(null);
+            }}
+            sx={{
+              py: 1.5,
+              px: 2,
+              "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
+            }}
+          >
+            <LogsIcon sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
+            <Typography variant="body2">Loglar</Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setActiveTab(9);
+              setMoreMenuAnchor(null);
+            }}
+            sx={{
+              py: 1.5,
+              px: 2,
+              "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
+            }}
+          >
+            <SettingsIcon sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
+            <Typography variant="body2">Ayarlar</Typography>
+          </MenuItem>
+        </Menu>
       </Paper>
 
       {error && (
@@ -571,14 +688,14 @@ const AdminPanel: React.FC = () => {
       {/* Tab 6: Veri Düzeltme */}
       {activeTab === 6 && <DataCorrectionPanel />}
 
-  {/* Tab 7: Kullanıcılar */}
-  {activeTab === 7 && <UsersManagement />}
+      {/* Tab 7: Kullanıcılar */}
+      {activeTab === 7 && <UsersManagement />}
 
-  {/* Tab 8: Loglar */}
-  {activeTab === 8 && <LogsViewer />}
+      {/* Tab 8: Loglar */}
+      {activeTab === 8 && <LogsViewer />}
 
-  {/* Tab 9: Ayarlar */}
-  {activeTab === 9 && <Settings />}
+      {/* Tab 9: Ayarlar */}
+      {activeTab === 9 && <Settings />}
     </Box>
   );
 };

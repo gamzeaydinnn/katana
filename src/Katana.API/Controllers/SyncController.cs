@@ -41,19 +41,22 @@ public class SyncController : ControllerBase
     {
         try
         {
-            // Tablo yoksa bo� liste d�nd�r
             var logs = await _context.SyncOperationLogs
                 .OrderByDescending(l => l.StartTime)
                 .Take(50)
                 .ToListAsync();
+
+            var turkeyTimeZone = TimeZoneInfo.FindSystemTimeZoneById(
+                OperatingSystem.IsWindows() ? "Turkey Standard Time" : "Europe/Istanbul"
+            );
 
             var result = logs.Select(l => new
             {
                 id = l.Id,
                 syncType = l.SyncType,
                 status = l.Status,
-                startTime = TimeZoneInfo.ConvertTimeFromUtc(l.StartTime, TimeZoneInfo.FindSystemTimeZoneById("Turkey Standard Time")),
-                endTime = l.EndTime.HasValue ? TimeZoneInfo.ConvertTimeFromUtc(l.EndTime.Value, TimeZoneInfo.FindSystemTimeZoneById("Turkey Standard Time")) : (DateTime?)null,
+                startTime = TimeZoneInfo.ConvertTimeFromUtc(l.StartTime, turkeyTimeZone),
+                endTime = l.EndTime.HasValue ? TimeZoneInfo.ConvertTimeFromUtc(l.EndTime.Value, turkeyTimeZone) : (DateTime?)null,
                 processedRecords = l.ProcessedRecords,
                 successfulRecords = l.SuccessfulRecords,
                 failedRecords = l.FailedRecords,
@@ -65,7 +68,7 @@ public class SyncController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting sync history");
-            return StatusCode(500, new { message = "Sync ge�mi�i al�namad�" });
+            return StatusCode(500, new { message = "Sync geçmişi alınamadı" });
         }
     }
 
@@ -101,7 +104,13 @@ public class SyncController : ControllerBase
         {
             _logger.LogError(ex, "Senkronizasyon başlatılırken hata oluştu");
             _loggingService.LogError($"Senkronizasyon başarısız: {request.SyncType}", ex, User?.Identity?.Name, null, LogCategory.Sync);
-            return StatusCode(500, new { message = "Sync ba�lat�lamad�" });
+            return StatusCode(500, new { 
+                message = "Sync başlatılamadı",
+                error = ex.Message,
+                innerError = ex.InnerException?.Message,
+                type = ex.GetType().Name,
+                stackTrace = ex.StackTrace?.Split('\n').Take(3).ToArray()
+            });
         }
     }
 

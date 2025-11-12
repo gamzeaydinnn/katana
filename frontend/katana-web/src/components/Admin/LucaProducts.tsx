@@ -74,7 +74,8 @@ const LucaProducts: React.FC = () => {
       setFilteredProducts(productData);
       if (!Array.isArray(productData) && !responseData?.data) {
         console.warn(
-          "Beklenen format 'data: []' değil. Ham yanıt:", responseData
+          "Beklenen format 'data: []' değil. Ham yanıt:",
+          responseData
         );
       }
     } catch (err: any) {
@@ -84,16 +85,13 @@ const LucaProducts: React.FC = () => {
         backendMsg ||
         "Luca ürünleri yüklenemedi. Endpoint veya reverse proxy yapılandırması eksik olabilir.";
       setError(finalMessage);
-      console.error(
-        "[LucaProducts] İstek başarısız",
-        {
-          requestedUrl: "/api/Products/luca",
-          aliasTried: "/api/Luca/products (alias mevcut)",
-          status,
-          message: backendMsg,
-          fullError: err,
-        }
-      );
+      console.error("[LucaProducts] İstek başarısız", {
+        requestedUrl: "/api/Products/luca",
+        aliasTried: "/api/Luca/products (alias mevcut)",
+        status,
+        message: backendMsg,
+        fullError: err,
+      });
       // Ek tanı: 404 ise reverse proxy veya route mismatch olasılığını vurgula
       if (status === 404) {
         console.warn(
@@ -126,8 +124,10 @@ const LucaProducts: React.FC = () => {
       const productId = selectedProduct.id;
       // Match LucaProductUpdateDto exactly (backend expects PascalCase or camelCase)
       const updateDto = {
-        productCode: selectedProduct.productCode || selectedProduct.ProductCode || "",
-        productName: selectedProduct.productName || selectedProduct.ProductName || "",
+        productCode:
+          selectedProduct.productCode || selectedProduct.ProductCode || "",
+        productName:
+          selectedProduct.productName || selectedProduct.ProductName || "",
         unit: selectedProduct.unit || selectedProduct.Unit || "Adet",
         quantity: selectedProduct.quantity ?? selectedProduct.Quantity ?? 0,
         unitPrice: selectedProduct.unitPrice ?? selectedProduct.UnitPrice ?? 0,
@@ -139,7 +139,11 @@ const LucaProducts: React.FC = () => {
       handleCloseModal();
       fetchProducts();
     } catch (err: any) {
-      const errorMsg = err.response?.data?.error || err.response?.data?.errors?.join(", ") || err.message || "Ürün güncellenemedi";
+      const errorMsg =
+        err.response?.data?.error ||
+        err.response?.data?.errors?.join(", ") ||
+        err.message ||
+        "Ürün güncellenemedi";
       setError(errorMsg);
       console.error("Ürün güncelleme hatası:", err.response?.data);
     } finally {

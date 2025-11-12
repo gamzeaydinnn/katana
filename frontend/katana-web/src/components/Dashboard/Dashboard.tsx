@@ -40,19 +40,8 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleStartSync = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      setSuccess("");
-      await stockAPI.startSync("ALL");
-      setSuccess("Senkronizasyon başarıyla başlatıldı");
-      setTimeout(() => loadDashboard(), 2000);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Senkronizasyon başlatılamadı");
-    } finally {
-      setLoading(false);
-    }
+  const handleStartSync = () => {
+    window.location.href = "/sync";
   };
 
   const handleStockReport = () => {

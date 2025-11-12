@@ -86,7 +86,7 @@ const KatanaProducts: React.FC = () => {
       console.log("Product data:", productData.length, "items");
       setProducts(productData);
       setFilteredProducts(productData);
-      
+
       // Show sync info if available
       if (responseData?.sync) {
         const { created, updated, skipped } = responseData.sync;

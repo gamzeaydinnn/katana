@@ -21,8 +21,61 @@ import {
 } from "@mui/material";
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { styled } from "@mui/material/styles";
 
 const drawerWidth = 280;
+
+const AnimatedHeader = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(3),
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  background: "#ffffff",
+  borderBottom: `1px solid ${theme.palette.divider}`,
+}));
+
+const GlowingText = styled(Typography)(({ theme }) => ({
+  fontWeight: 800,
+  letterSpacing: "-0.02em",
+  background: "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",
+  backgroundClip: "text",
+  WebkitBackgroundClip: "text",
+  WebkitTextFillColor: "transparent",
+}));
+
+const AnimatedIconButton = styled(IconButton)(({ theme }) => ({
+  color: theme.palette.text.secondary,
+  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+  "&:hover": {
+    transform: "rotate(180deg) scale(1.15)",
+    color: "#667eea",
+  },
+}));
+
+const AnimatedListItem = styled(ListItem)<{ index: number }>(({ index }) => ({
+  marginBottom: 12,
+  animation: `slideIn 0.5s ease-out ${index * 0.08}s both`,
+}));
+
+const ColorfulDivider = styled(Divider)(({ theme }) => ({
+  opacity: 0.1,
+}));
+
+const AnimatedFooter = styled(Box)(({ theme }) => ({
+  padding: 24,
+  textAlign: "center",
+  borderTop: `1px solid ${theme.palette.divider}`,
+}));
+
+const GradientFooterText = styled(Typography)({
+  fontWeight: 600,
+  letterSpacing: "0.05em",
+  fontSize: "0.75rem",
+  background: "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",
+  backgroundClip: "text",
+  WebkitBackgroundClip: "text",
+  WebkitTextFillColor: "transparent",
+});
 
 interface SidebarProps {
   open: boolean;
@@ -30,13 +83,48 @@ interface SidebarProps {
 }
 
 const menuItems = [
-  { text: "Dashboard", icon: <DashboardIcon />, path: "/" },
-  { text: "Canlı Stok", icon: <InventoryIcon />, path: "/stock-view" },
-  // Admin panel promoted near the top for quick approvals
-  { text: "Admin Paneli", icon: <AdminIcon />, path: "/admin" },
-  { text: "Stok Yönetimi", icon: <InventoryIcon />, path: "/stock" },
-  { text: "Senkronizasyon", icon: <SyncIcon />, path: "/sync" },
-  { text: "Raporlar", icon: <ReportsIcon />, path: "/reports" },
+  {
+    text: "Dashboard",
+    icon: <DashboardIcon />,
+    path: "/",
+    gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    color: "#667eea",
+  },
+  {
+    text: "Canlı Stok",
+    icon: <InventoryIcon />,
+    path: "/stock-view",
+    gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+    color: "#f093fb",
+  },
+  {
+    text: "Admin Paneli",
+    icon: <AdminIcon />,
+    path: "/admin",
+    gradient: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+    color: "#4facfe",
+  },
+  {
+    text: "Stok Yönetimi",
+    icon: <InventoryIcon />,
+    path: "/stock",
+    gradient: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
+    color: "#43e97b",
+  },
+  {
+    text: "Senkronizasyon",
+    icon: <SyncIcon />,
+    path: "/sync",
+    gradient: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+    color: "#fa709a",
+  },
+  {
+    text: "Raporlar",
+    icon: <ReportsIcon />,
+    path: "/reports",
+    gradient: "linear-gradient(135deg, #30cfd0 0%, #330867 100%)",
+    color: "#30cfd0",
+  },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
@@ -70,75 +158,25 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         "& .MuiDrawer-paper": {
           width: drawerWidth,
           boxSizing: "border-box",
-          backdropFilter: "blur(20px)",
-          backgroundImage:
-            theme.palette.mode === "dark"
-              ? "linear-gradient(135deg, rgba(30,41,59,0.95) 0%, rgba(15,23,42,0.95) 100%)"
-              : "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)",
-          borderRight: `1px solid ${
-            theme.palette.mode === "dark"
-              ? "rgba(255,255,255,0.1)"
-              : "rgba(0,0,0,0.05)"
-          }`,
-          boxShadow:
-            theme.palette.mode === "dark"
-              ? "0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
-              : "0 20px 40px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
-          transition: "all 0.3s ease",
+          background: "#ffffff",
+          borderRight: `1px solid ${theme.palette.divider}`,
+          boxShadow: "0 0 40px rgba(0,0,0,0.08)",
+          transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
         },
       }}
     >
-      <Box
-        sx={{
-          p: 3,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-          backgroundClip: "text",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          borderBottom: `1px solid ${
-            theme.palette.mode === "dark"
-              ? "rgba(255,255,255,0.1)"
-              : "rgba(0,0,0,0.05)"
-          }`,
-        }}
-      >
-        <Typography
-          variant="h6"
-          component="div"
-          sx={{
-            fontWeight: 900,
-            letterSpacing: "-0.02em",
-            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-            backgroundClip: "text",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
-          Katana Stok
-        </Typography>
-        <IconButton
-          onClick={onClose}
-          sx={{
-            color: theme.palette.primary.main,
-            transition: "transform 0.2s ease",
-            "&:hover": {
-              transform: "scale(1.1)",
-              backgroundColor: theme.palette.action.hover,
-            },
-          }}
-        >
+      <AnimatedHeader>
+        <GlowingText variant="h6">⚡ Katana Stok</GlowingText>
+        <AnimatedIconButton onClick={onClose} size="medium">
           <ChevronLeftIcon />
-        </IconButton>
-      </Box>
+        </AnimatedIconButton>
+      </AnimatedHeader>
 
-      <Divider sx={{ opacity: 0.3 }} />
+      <ColorfulDivider />
 
       <List sx={{ flexGrow: 1, pt: 2, px: 1 }}>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
+        {menuItems.map((item, index) => (
+          <AnimatedListItem key={item.text} disablePadding index={index}>
             <ListItemButton
               onClick={() =>
                 item.path === "/admin"
@@ -148,48 +186,79 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
               selected={location.pathname === item.path}
               sx={{
                 mx: 1,
-                borderRadius: 3,
-                py: 1.5,
-                px: 2,
-                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                borderRadius: 4,
+                py: 1.8,
+                px: 2.5,
+                transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
                 position: "relative",
-                "&.Mui-selected": {
-                  background: `linear-gradient(135deg, ${theme.palette.primary.main}20, ${theme.palette.secondary.main}20)`,
-                  color: theme.palette.primary.main,
-                  boxShadow: `0 0 20px ${theme.palette.primary.main}40`,
-                  "& .MuiListItemIcon-root": {
-                    color: theme.palette.primary.main,
-                  },
-                  "&::before": {
-                    content: '""',
-                    position: "absolute",
-                    left: 0,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    width: 4,
-                    height: "60%",
-                    background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                    borderRadius: "0 2px 2px 0",
-                  },
+                overflow: "visible",
+                background:
+                  location.pathname === item.path
+                    ? item.gradient
+                    : "transparent",
+                color: location.pathname === item.path ? "#ffffff" : "inherit",
+                boxShadow:
+                  location.pathname === item.path
+                    ? `0 8px 32px ${item.color}50, 0 0 0 2px ${item.color}30`
+                    : "none",
+                transform:
+                  location.pathname === item.path
+                    ? "translateX(8px) scale(1.02)"
+                    : "translateX(0) scale(1)",
+                "& .MuiListItemIcon-root": {
+                  color:
+                    location.pathname === item.path ? "#ffffff" : item.color,
+                  transform:
+                    location.pathname === item.path
+                      ? "scale(1.15)"
+                      : "scale(1)",
+                  filter:
+                    location.pathname === item.path
+                      ? "drop-shadow(0 2px 8px rgba(0,0,0,0.3))"
+                      : "none",
+                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
                 },
+                "& .MuiListItemText-primary": {
+                  fontWeight: location.pathname === item.path ? 800 : 600,
+                  color:
+                    location.pathname === item.path ? "#ffffff" : "inherit",
+                },
+                "&::after":
+                  location.pathname === item.path
+                    ? {
+                        content: '""',
+                        position: "absolute",
+                        left: 0,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        width: 5,
+                        height: "70%",
+                        background: "#ffffff",
+                        borderRadius: "0 3px 3px 0",
+                        boxShadow: "0 0 15px rgba(255,255,255,0.8)",
+                      }
+                    : {},
                 "&:hover": {
-                  backgroundColor: theme.palette.action.hover,
-                  transform: "translateX(4px)",
-                  boxShadow:
-                    theme.palette.mode === "dark"
-                      ? "0 8px 16px rgba(0,0,0,0.3)"
-                      : "0 8px 16px rgba(0,0,0,0.1)",
+                  transform: "translateX(12px) scale(1.03)",
+                  boxShadow: `0 12px 40px ${item.color}40`,
+                  background:
+                    location.pathname !== item.path
+                      ? `linear-gradient(135deg, ${item.color}15, ${item.color}10)`
+                      : item.gradient,
+                  "& .MuiListItemIcon-root": {
+                    transform: "scale(1.25) rotate(10deg)",
+                    color: item.color,
+                  },
+                  "& .MuiListItemText-primary": {
+                    color:
+                      location.pathname === item.path ? "#ffffff" : item.color,
+                    fontWeight: 700,
+                  },
                 },
               }}
             >
               <ListItemIcon
-                sx={{
-                  minWidth: 48,
-                  transition: "transform 0.2s ease",
-                  "&:hover": {
-                    transform: "scale(1.1)",
-                  },
-                }}
+                sx={{ minWidth: 48, position: "relative", zIndex: 1 }}
               >
                 {item.icon}
               </ListItemIcon>
@@ -197,40 +266,23 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
                 primary={item.text}
                 primaryTypographyProps={{
                   fontSize: "0.95rem",
-                  fontWeight: location.pathname === item.path ? 700 : 500,
                   letterSpacing: "0.01em",
+                  position: "relative",
+                  zIndex: 1,
                 }}
               />
             </ListItemButton>
-          </ListItem>
+          </AnimatedListItem>
         ))}
       </List>
 
-      <Divider sx={{ opacity: 0.3 }} />
+      <ColorfulDivider />
 
-      <Box
-        sx={{
-          p: 3,
-          textAlign: "center",
-          background: `linear-gradient(135deg, ${theme.palette.primary.main}05, ${theme.palette.secondary.main}05)`,
-          borderTop: `1px solid ${
-            theme.palette.mode === "dark"
-              ? "rgba(255,255,255,0.1)"
-              : "rgba(0,0,0,0.05)"
-          }`,
-        }}
-      >
-        <Typography
-          variant="caption"
-          sx={{
-            color: theme.palette.text.secondary,
-            fontWeight: 600,
-            letterSpacing: "0.02em",
-          }}
-        >
-          Katana Integration v1.0
-        </Typography>
-      </Box>
+      <AnimatedFooter>
+        <GradientFooterText variant="caption">
+          🚀 Katana Integration v1.0
+        </GradientFooterText>
+      </AnimatedFooter>
     </Drawer>
   );
 };

@@ -29,6 +29,7 @@ import {
   Typography,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
+import * as XLSX from "xlsx";
 import { stockAPI } from "../../services/api";
 
 interface StockReportData {
@@ -74,10 +75,11 @@ const Reports: React.FC = () => {
   const [lowStockOnly, setLowStockOnly] = useState(false);
 
   useEffect(() => {
-    handleStockReport();
+    loadStockReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleStockReport = async () => {
+  const loadStockReport = async () => {
     try {
       setLoading(true);
       setError("");
@@ -90,51 +92,43 @@ const Reports: React.FC = () => {
       const response = await stockAPI.getStockReport(params.toString());
       setStockReport(response as StockReportResponse);
     } catch (err: any) {
-      console.error("Stock report error:", err);
+      console.warn("Stock report warning:", {
+        message: err?.message,
+        status: err?.response?.status,
+      });
       setError(
-        err.response?.data?.error || err.message || "Stok raporu yüklenemedi"
+        err?.response?.data?.error || err?.message || "Stok raporu yüklenemedi"
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const downloadCSV = () => {
+  const downloadExcel = () => {
     if (!stockReport?.stockData.length) return;
-    const headers = [
-      "Ürün Adı",
-      "SKU",
-      "Stok",
-      "Fiyat",
-      "Değer",
-      "Durum",
-      "Güncelleme",
-    ];
-    const rows = stockReport.stockData.map((item) => [
-      item.name,
-      item.sku,
-      item.quantity,
-      item.price.toFixed(2),
-      item.stockValue.toFixed(2),
-      item.isOutOfStock ? "Tükendi" : item.isLowStock ? "Düşük Stok" : "Normal",
-      new Date(item.lastUpdated).toLocaleDateString("tr-TR"),
-    ]);
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((r) => r.join(",")),
-    ].join("\n");
-    const BOM = "\uFEFF";
-    const blob = new Blob([BOM + csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `stok_raporu_${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+
+    const worksheet = XLSX.utils.json_to_sheet(
+      stockReport.stockData.map((item) => ({
+        "Ürün Adı": item.name,
+        SKU: item.sku,
+        Stok: item.quantity,
+        Fiyat: item.price.toFixed(2),
+        Değer: item.stockValue.toFixed(2),
+        Durum: item.isOutOfStock
+          ? "Tükendi"
+          : item.isLowStock
+          ? "Düşük Stok"
+          : "Normal",
+        Güncelleme: new Date(item.lastUpdated).toLocaleDateString("tr-TR"),
+      }))
+    );
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Stok Raporu");
+    XLSX.writeFile(
+      workbook,
+      `stok_raporu_${new Date().toISOString().split("T")[0]}.xlsx`
+    );
   };
 
   return (
@@ -185,14 +179,12 @@ const Reports: React.FC = () => {
               />
               <Button
                 variant="contained"
-                startIcon={
-                  loading ? <CircularProgress size={16} /> : <Download />
-                }
-                onClick={handleStockReport}
-                disabled={loading}
+                startIcon={<FileDownload />}
+                onClick={downloadExcel}
+                disabled={!stockReport || stockReport.stockData.length === 0}
                 sx={{ minWidth: 150 }}
               >
-                Rapor Oluştur
+                Excel İndir
               </Button>
             </Box>
           </Box>
@@ -307,9 +299,9 @@ const Reports: React.FC = () => {
                 variant="outlined"
                 size="small"
                 startIcon={<FileDownload />}
-                onClick={downloadCSV}
+                onClick={downloadExcel}
               >
-                CSV İndir
+                Excel İndir
               </Button>
             </Box>
             <TableContainer>

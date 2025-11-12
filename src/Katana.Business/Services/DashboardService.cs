@@ -23,7 +23,8 @@ public class DashboardService
     /// </summary>
     public async Task<DashboardStatsDto> GetDashboardStatsAsync()
     {
-        var totalProducts = await _context.Products.CountAsync(p => p.IsActive);
+        // Tüm ürünleri say (Canlı Stok ile tutarlılık için)
+        var totalProducts = await _context.Products.CountAsync();
         var totalStock = await _context.Products.Where(p => p.IsActive).SumAsync(p => p.Stock);
         var criticalStock = await _context.Products.CountAsync(p => p.Stock <= 5 && p.IsActive);
         var pendingSync = await _context.PendingStockAdjustments.CountAsync(p => p.Status == "Pending");

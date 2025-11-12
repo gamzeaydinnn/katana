@@ -158,11 +158,12 @@ const Header: React.FC<HeaderProps> = ({
           );
         }
       } catch (err: any) {
-        console.error("[Header] ❌ Failed to load initial notifications:", {
+        console.warn("[Header] ⚠ Notification loading warning:", {
           message: err?.message,
           status: err?.response?.status,
-          data: err?.response?.data,
         });
+        // Notifications are optional - set empty array if loading fails
+        setNotifications([]);
       }
     };
 
@@ -524,8 +525,8 @@ const Header: React.FC<HeaderProps> = ({
             <IconButton
               sx={{
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
-                width: 48,
-                height: 48,
+                width: 52,
+                height: 52,
                 borderRadius: 3,
                 border: "2px solid #10b981",
                 color: "#10b981",
@@ -548,7 +549,7 @@ const Header: React.FC<HeaderProps> = ({
                   : {}),
               }}
             >
-              <Sync sx={{ fontSize: "1.5rem" }} />
+              <Sync sx={{ fontSize: "1.6rem" }} />
             </IconButton>
           </Tooltip>
 
@@ -558,8 +559,8 @@ const Header: React.FC<HeaderProps> = ({
               onClick={handleNotificationOpen}
               sx={{
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
-                width: 48,
-                height: 48,
+                width: 52,
+                height: 52,
                 borderRadius: 3,
                 border:
                   pendingCount > 0
@@ -610,7 +611,7 @@ const Header: React.FC<HeaderProps> = ({
                   },
                 }}
               >
-                <NotificationsIcon sx={{ fontSize: "1.5rem" }} />
+                <NotificationsIcon sx={{ fontSize: "1.6rem" }} />
               </Badge>
             </IconButton>
           </Tooltip>

@@ -88,6 +88,27 @@ const LogsViewer: React.FC = () => {
   const [totalAudits, setTotalAudits] = useState(0);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
 
+  // Format date to Turkish timezone (UTC+3)
+  const formatToTurkishTime = (dateString: string) => {
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      // Türkiye saati (UTC+3)
+      const turkeyDate = new Date(date.getTime() + 3 * 60 * 60 * 1000);
+
+      const day = String(turkeyDate.getDate()).padStart(2, "0");
+      const month = String(turkeyDate.getMonth() + 1).padStart(2, "0");
+      const year = turkeyDate.getFullYear();
+      const hours = String(turkeyDate.getHours()).padStart(2, "0");
+      const minutes = String(turkeyDate.getMinutes()).padStart(2, "0");
+      const seconds = String(turkeyDate.getSeconds()).padStart(2, "0");
+
+      return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
+    } catch (error) {
+      return "Invalid Date";
+    }
+  };
+
   useEffect(() => {
     fetchStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -278,9 +299,20 @@ const LogsViewer: React.FC = () => {
             <Tab label={`Audit Logs (${totalAudits})`} />
           </Tabs>
           <Button
+            variant="contained"
             startIcon={<RefreshIcon />}
             onClick={handleRefresh}
-            sx={{ my: 1 }}
+            sx={{
+              my: 1,
+              color: "#fff",
+              fontWeight: 600,
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)",
+              "&:hover": {
+                background: "linear-gradient(135deg, #5568d3 0%, #653a8e 100%)",
+                boxShadow: "0 6px 20px rgba(102, 126, 234, 0.6)",
+              },
+            }}
           >
             Refresh
           </Button>
@@ -425,7 +457,7 @@ const LogsViewer: React.FC = () => {
                               <TableCell>{log.message}</TableCell>
                               <TableCell>{log.user || "System"}</TableCell>
                               <TableCell>
-                                {new Date(log.createdAt).toLocaleString()}
+                                {formatToTurkishTime(log.createdAt)}
                               </TableCell>
                             </TableRow>
                             <TableRow>
@@ -599,7 +631,7 @@ const LogsViewer: React.FC = () => {
                               <TableCell>{log.performedBy}</TableCell>
                               <TableCell>{log.ipAddress || "N/A"}</TableCell>
                               <TableCell>
-                                {new Date(log.timestamp).toLocaleString()}
+                                {formatToTurkishTime(log.timestamp)}
                               </TableCell>
                             </TableRow>
                             <TableRow>

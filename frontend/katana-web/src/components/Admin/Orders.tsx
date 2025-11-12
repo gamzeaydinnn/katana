@@ -136,7 +136,7 @@ const Orders: React.FC = () => {
         )}
 
         <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
+          <Table>
             <TableHead>
               <TableRow sx={{ backgroundColor: "grey.100" }}>
                 <TableCell>

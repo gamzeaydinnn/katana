@@ -347,8 +347,8 @@ const StockManagement: React.FC = () => {
               <CircularProgress />
             </Box>
           ) : (
-            <TableContainer component={Paper} sx={{ maxHeight: 600 }}>
-              <Table stickyHeader>
+            <TableContainer component={Paper}>
+              <Table>
                 <TableHead>
                   <TableRow>
                     <TableCell>
@@ -458,15 +458,27 @@ const StockManagement: React.FC = () => {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell><strong>SKU</strong></TableCell>
-                    <TableCell><strong>Ürün Adı</strong></TableCell>
-                    <TableCell align="right"><strong>Fiyat</strong></TableCell>
-                    <TableCell align="center"><strong>İşlem</strong></TableCell>
+                    <TableCell>
+                      <strong>SKU</strong>
+                    </TableCell>
+                    <TableCell>
+                      <strong>Ürün Adı</strong>
+                    </TableCell>
+                    <TableCell align="right">
+                      <strong>Fiyat</strong>
+                    </TableCell>
+                    <TableCell align="center">
+                      <strong>İşlem</strong>
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {criticalProducts.map((product) => (
-                    <TableRow key={product.id} hover sx={{ bgcolor: 'error.lighter' }}>
+                    <TableRow
+                      key={product.id}
+                      hover
+                      sx={{ bgcolor: "error.lighter" }}
+                    >
                       <TableCell>
                         <Typography variant="body2" fontWeight="bold">
                           {product.sku}

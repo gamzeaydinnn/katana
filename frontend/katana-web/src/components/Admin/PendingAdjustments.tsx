@@ -268,6 +268,8 @@ export default function PendingAdjustments() {
           WebkitTextFillColor: "transparent",
           backgroundClip: "text",
           mb: 2,
+          wordBreak: "break-word",
+          maxWidth: "100%",
         }}
       >
         Stok Hareketleri
@@ -285,17 +287,19 @@ export default function PendingAdjustments() {
             <CircularProgress />
           </Box>
         ) : (
-          <TableContainer>
-            <Table>
+          <TableContainer sx={{ maxHeight: 600, overflowX: "auto" }}>
+            <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>SKU</TableCell>
-                  <TableCell>ProductId</TableCell>
-                  <TableCell>Quantity</TableCell>
-                  <TableCell>RequestedAt</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell sx={{ minWidth: 60 }}>ID</TableCell>
+                  <TableCell sx={{ minWidth: 150 }}>SKU</TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>ProductId</TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>Quantity</TableCell>
+                  <TableCell sx={{ minWidth: 180 }}>RequestedAt</TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>Status</TableCell>
+                  <TableCell align="right" sx={{ minWidth: 200 }}>
+                    Actions
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -349,7 +353,9 @@ export default function PendingAdjustments() {
                 {items.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} align="center">
-                      No pending adjustments
+                      <Typography color="textSecondary">
+                        Bekleyen stok hareketi bulunamadı
+                      </Typography>
                     </TableCell>
                   </TableRow>
                 )}

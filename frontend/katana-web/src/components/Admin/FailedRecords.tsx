@@ -272,15 +272,33 @@ const FailedRecords: React.FC = () => {
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>ID</TableCell>
-                      <TableCell>Kayıt Tipi</TableCell>
-                      <TableCell>Kayıt ID</TableCell>
-                      <TableCell>Kaynak Sistem</TableCell>
-                      <TableCell>Hata Mesajı</TableCell>
-                      <TableCell>Hata Tarihi</TableCell>
-                      <TableCell>Deneme</TableCell>
-                      <TableCell>Durum</TableCell>
-                      <TableCell align="right">İşlemler</TableCell>
+                      <TableCell>
+                        <strong>ID</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Kayıt Tipi</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Kayıt ID</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Kaynak Sistem</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Hata Mesajı</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Hata Tarihi</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Deneme</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Durum</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>İşlemler</strong>
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>

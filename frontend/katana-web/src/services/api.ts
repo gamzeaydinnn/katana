@@ -57,43 +57,47 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const status = error?.response?.status;
-    if (status === 401 || status === 403) {
-      const path =
-        typeof window !== "undefined" ? window.location.pathname : "";
-      const token =
-        typeof window !== "undefined"
-          ? window.localStorage.getItem("authToken")
-          : null;
+    try {
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        const path =
+          typeof window !== "undefined" ? window.location.pathname : "";
+        const token =
+          typeof window !== "undefined"
+            ? window.localStorage.getItem("authToken")
+            : null;
 
-      const tokenExpiredOrInvalid = isJwtTokenExpired(token);
+        const tokenExpiredOrInvalid = isJwtTokenExpired(token);
 
-      // Only handle 401/403 if user is on /admin routes
-      if (path.startsWith("/admin")) {
-        try {
-          showGlobalToast({
-            message:
-              "Yetkisiz erişim veya oturum süresi doldu. Lütfen giriş yapın.",
-            severity: "warning",
-            durationMs: 3500,
-          });
-        } catch {
-          // ignore toast errors
-        }
-
-        // Clear token and redirect to login only for admin routes
-        if (!token || tokenExpiredOrInvalid) {
+        // Only handle 401/403 if user is on /admin routes
+        if (path.startsWith("/admin")) {
           try {
-            if (typeof window !== "undefined") {
-              window.localStorage.removeItem("authToken");
-              window.location.href = "/login";
-            }
+            showGlobalToast({
+              message:
+                "Yetkisiz erişim veya oturum süresi doldu. Lütfen giriş yapın.",
+              severity: "warning",
+              durationMs: 3500,
+            });
           } catch {
-            // ignore storage/navigation errors
+            // ignore toast errors
+          }
+
+          // Clear token and redirect to login only for admin routes
+          if (!token || tokenExpiredOrInvalid) {
+            try {
+              if (typeof window !== "undefined") {
+                window.localStorage.removeItem("authToken");
+                window.location.href = "/login";
+              }
+            } catch {
+              // ignore storage/navigation errors
+            }
           }
         }
+        // For non-admin routes, just ignore 401/403 - don't redirect
       }
-      // For non-admin routes, just ignore 401/403 - don't redirect
+    } catch (handlerError) {
+      console.error("[Axios] Response interceptor error:", handlerError);
     }
     return Promise.reject(error);
   }
@@ -307,10 +311,13 @@ export const usersAPI = {
   update: (id: number, payload: UpdateUserRequest) =>
     api.put<UserDto>(`/Users/${id}`, payload).then((res) => res.data),
   updateRole: (id: number, role: string) =>
-    api.put<void>(`/Users/${id}/role`, role, {
-      headers: { "Content-Type": "application/json" },
-    }).then((res) => res.data),
-  delete: (id: number) => api.delete<void>(`/Users/${id}`).then((res) => res.data),
+    api
+      .put<void>(`/Users/${id}/role`, role, {
+        headers: { "Content-Type": "application/json" },
+      })
+      .then((res) => res.data),
+  delete: (id: number) =>
+    api.delete<void>(`/Users/${id}`).then((res) => res.data),
 };
 
 export default api;
