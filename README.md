@@ -229,6 +229,23 @@ Frontend automatically connects to SignalR hub at `/hubs/notifications`:
 - ⚠️ Review `[AllowAnonymous]` usage (Health/Auth expected; Webhook via API key)
 - 🔑 JWT secret hardcoded in appsettings.json (use env/Key Vault in production)
 
+### Alt Kullanıcı Ekleme (Admin)
+
+Uygulamada alt kullanıcı eklemek için:
+
+- Sol menüden "Admin Paneli"ne girin
+- Üst sekmelerden "Kullanıcılar" sekmesini açın
+- Formdaki alanları doldurup "Kullanıcı Ekle" butonuna basın
+
+Teknik arka plan:
+
+- Endpoint: `POST /api/Users` (yalnızca Admin)
+- DTO: `{ username, password, role, email? }`
+- Listeleme: `GET /api/Users`
+- Silme: `DELETE /api/Users/{id}`
+
+> Not: Roller `Admin`, `Manager`, `Staff` olarak kullanılabilir. Varsayılan `Staff`.
+
 ## ⚡ Performans
 
 - **Batch Processing**: Toplu veri işleme

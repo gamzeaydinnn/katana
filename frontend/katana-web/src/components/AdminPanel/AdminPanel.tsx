@@ -34,6 +34,7 @@ import {
   Warehouse,
   ReportProblem,
   Receipt,
+  Group as UsersIcon,
 } from "@mui/icons-material";
 import LogsViewer from "./LogsViewer";
 import Settings from "../Settings/Settings";
@@ -45,6 +46,7 @@ import StockManagement from "../Admin/StockManagement";
 import DataCorrectionPanel from "../Admin/DataCorrectionPanel";
 import FailedRecords from "../Admin/FailedRecords";
 import Orders from "../Admin/Orders";
+import UsersManagement from "./UsersManagement";
 
 interface Statistics {
   totalProducts: number;
@@ -293,6 +295,7 @@ const AdminPanel: React.FC = () => {
             label="Veri Düzeltme"
             iconPosition="start"
           />
+          <Tab icon={<UsersIcon />} label="Kullanıcılar" iconPosition="start" />
           <Tab icon={<LogsIcon />} label="Loglar" iconPosition="start" />
           <Tab icon={<SettingsIcon />} label="Ayarlar" iconPosition="start" />
         </Tabs>
@@ -480,11 +483,14 @@ const AdminPanel: React.FC = () => {
       {/* Tab 6: Veri Düzeltme */}
       {activeTab === 6 && <DataCorrectionPanel />}
 
-      {/* Tab 7: Loglar */}
-      {activeTab === 7 && <LogsViewer />}
+  {/* Tab 7: Kullanıcılar */}
+  {activeTab === 7 && <UsersManagement />}
 
-      {/* Tab 8: Ayarlar */}
-      {activeTab === 8 && <Settings />}
+  {/* Tab 8: Loglar */}
+  {activeTab === 8 && <LogsViewer />}
+
+  {/* Tab 9: Ayarlar */}
+  {activeTab === 9 && <Settings />}
     </Box>
   );
 };

@@ -184,6 +184,30 @@ export interface AdminSyncLog {
   errorMessage?: string;
 }
 
+// Users
+export interface UserDto {
+  id: number;
+  username: string;
+  role: string;
+  email: string;
+  isActive: boolean;
+}
+
+export interface CreateUserRequest {
+  username: string;
+  password: string;
+  role: string; // e.g. "Staff" | "Manager" | "Admin"
+  email?: string;
+}
+
+export interface UpdateUserRequest {
+  username: string;
+  password?: string;
+  role: string;
+  isActive: boolean;
+  email?: string;
+}
+
 export const stockAPI = {
   // Dashboard - GET /api/Dashboard
   getDashboardStats: () => api.get("/Dashboard").then((res) => res.data),
@@ -274,6 +298,19 @@ export const authAPI = {
         token: (data.token ?? data.Token) || null,
       } as any;
     }),
+};
+
+export const usersAPI = {
+  list: () => api.get<UserDto[]>("/Users").then((res) => res.data),
+  create: (payload: CreateUserRequest) =>
+    api.post<UserDto>("/Users", payload).then((res) => res.data),
+  update: (id: number, payload: UpdateUserRequest) =>
+    api.put<UserDto>(`/Users/${id}`, payload).then((res) => res.data),
+  updateRole: (id: number, role: string) =>
+    api.put<void>(`/Users/${id}/role`, role, {
+      headers: { "Content-Type": "application/json" },
+    }).then((res) => res.data),
+  delete: (id: number) => api.delete<void>(`/Users/${id}`).then((res) => res.data),
 };
 
 export default api;
