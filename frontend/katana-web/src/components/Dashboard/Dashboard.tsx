@@ -184,6 +184,7 @@ const Dashboard: React.FC = () => {
             py: 1.5,
             fontWeight: 700,
             letterSpacing: "0.01em",
+            color: "#fff",
             background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
             boxShadow: `0 4px 12px ${theme.palette.primary.main}40`,
             transition: "all 0.2s ease",

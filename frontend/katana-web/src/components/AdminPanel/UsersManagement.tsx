@@ -184,7 +184,7 @@ const UsersManagement: React.FC = () => {
           {isAdmin && (
             <>
               <Divider sx={{ mb: 2 }} />
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="flex-start">
                 <TextField
                   label="Kullanıcı Adı"
                   value={form.username}
@@ -228,6 +228,7 @@ const UsersManagement: React.FC = () => {
                   startIcon={<AddIcon />}
                   onClick={handleCreate}
                   disabled={creating}
+                  sx={{ mt: 1 }}
                 >
                   {creating ? "Ekleniyor..." : "Kullanıcı Ekle"}
                 </Button>

@@ -289,7 +289,15 @@ const AdminPanel: React.FC = () => {
               color={katanaHealth ? "success" : "error"}
             />
           )}
-          <IconButton onClick={loadData} color="primary">
+          <IconButton 
+            onClick={loadData} 
+            sx={{ 
+              color: "#fff",
+              "&:hover": {
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+              }
+            }}
+          >
             <Refresh />
           </IconButton>
         </Box>

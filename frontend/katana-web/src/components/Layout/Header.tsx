@@ -344,18 +344,10 @@ const Header: React.FC<HeaderProps> = ({
       position="fixed"
       sx={{
         zIndex: (theme) => theme.zIndex.drawer + 1,
-        backdropFilter: "blur(10px)",
-        background:
-          "linear-gradient(90deg, #2b6ef6 0%, #4f86ff 50%, #79a8ff 100%)",
-        backgroundSize: "300% 300%",
-        animation: "headerGradient 10s ease-in-out infinite",
-        "@keyframes headerGradient": {
-          "0%": { backgroundPosition: "0% 50%" },
-          "50%": { backgroundPosition: "100% 50%" },
-          "100%": { backgroundPosition: "0% 50%" },
-        },
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
-        boxShadow: "0 8px 32px rgba(16,24,40,0.14)",
+        backdropFilter: "blur(20px)",
+        background: "rgba(79, 134, 255, 0.15)",
+        borderBottom: "1px solid rgba(79, 134, 255, 0.2)",
+        boxShadow: "0 4px 20px rgba(43, 110, 246, 0.08)",
         transition: "all 0.3s ease",
       }}
     >
@@ -367,11 +359,11 @@ const Header: React.FC<HeaderProps> = ({
           edge="start"
           sx={{
             mr: 2,
-            color: "#fff",
+            color: "#1e40af",
             transition: "transform 0.2s ease",
             "&:hover": {
               transform: "scale(1.08)",
-              backgroundColor: "rgba(255,255,255,0.06)",
+              backgroundColor: "rgba(79, 134, 255, 0.1)",
             },
           }}
         >
@@ -383,7 +375,7 @@ const Header: React.FC<HeaderProps> = ({
             flexGrow: 1,
             display: "flex",
             alignItems: "center",
-            gap: 1.2,
+            gap: 0.5,
           }}
         >
           <Box
@@ -391,7 +383,7 @@ const Header: React.FC<HeaderProps> = ({
             src="/logoo.png"
             alt="BeforMet Metal Logo"
             sx={{
-              height: 52,
+              height: 64,
               width: "auto",
               objectFit: "contain",
               filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.15))",
@@ -405,8 +397,8 @@ const Header: React.FC<HeaderProps> = ({
               fontFamily: '"Poppins", "Inter", sans-serif',
               fontWeight: 600,
               letterSpacing: "-0.5px",
-              color: "#fff",
-              textShadow: "0 2px 10px rgba(0,0,0,0.18)",
+              color: "#1e40af",
+              textShadow: "0 1px 2px rgba(0,0,0,0.05)",
               fontSize: "1.15rem",
             }}
           >
