@@ -27,6 +27,7 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpGet]
+    [AllowAnonymous] // Temporary for testing
     public async Task<IActionResult> GetAll()
         => Ok(await _categoryService.GetAllAsync());
 

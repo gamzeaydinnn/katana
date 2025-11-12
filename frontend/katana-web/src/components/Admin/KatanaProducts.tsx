@@ -72,6 +72,25 @@ const KatanaProducts: React.FC = () => {
   );
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [defaultCategoryId, setDefaultCategoryId] = useState<number>(1);
+
+  // Fetch default category ID from the API
+  const fetchDefaultCategory = async () => {
+    try {
+      const response = await api.get("/Categories");
+      if (response.data && response.data.length > 0) {
+        setDefaultCategoryId(response.data[0].id);
+        console.log("Default category ID set to:", response.data[0].id);
+      }
+    } catch (err) {
+      console.error("Failed to fetch categories, using default ID 1:", err);
+      setDefaultCategoryId(1);
+    }
+  };
+
+  useEffect(() => {
+    fetchDefaultCategory();
+  }, []);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -146,10 +165,11 @@ const KatanaProducts: React.FC = () => {
         SKU: selectedProduct.sku || selectedProduct.SKU || "",
         Price: selectedProduct.salesPrice || selectedProduct.SalesPrice || 0,
         Stock: selectedProduct.onHand || selectedProduct.OnHand || 0,
-        CategoryId: 1001,
+        CategoryId: defaultCategoryId, // Use the fetched category ID
         IsActive: selectedProduct.isActive ?? selectedProduct.IsActive ?? true,
       };
 
+      console.log("Updating product with DTO:", updateDto);
       await api.put(`/Products/${productId}`, updateDto);
 
       setSuccessMessage("Ürün başarıyla güncellendi!");
@@ -158,12 +178,14 @@ const KatanaProducts: React.FC = () => {
       handleCloseModal();
       fetchProducts();
     } catch (err: any) {
-      setError(
-        err.response?.data?.error ||
-          err.response?.data?.errors?.[0] ||
-          "Ürün güncellenemedi"
-      );
       console.error("Ürün güncelleme hatası:", err);
+      const errorMessage = 
+        err.response?.data?.details ||
+        err.response?.data?.error ||
+        err.response?.data?.errors?.[0] ||
+        err.response?.data?.message ||
+        "Ürün güncellenemedi";
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }

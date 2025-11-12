@@ -33,6 +33,7 @@ public class Product
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     
     // Navigation properties
+    public virtual Category? Category { get; set; }
     public virtual ICollection<Stock> StockMovements { get; set; } = new List<Stock>();
 }
 

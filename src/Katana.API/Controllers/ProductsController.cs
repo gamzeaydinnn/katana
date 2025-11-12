@@ -321,9 +321,20 @@ public class ProductsController : ControllerBase
     [AllowAnonymous] // Temporary for testing
     public async Task<ActionResult<ProductDto>> Update(int id, [FromBody] UpdateProductDto dto)
     {
+        _logger.LogInformation("Update product called: ID={Id}, DTO={@Dto}", id, dto);
+        
+        if (dto == null)
+        {
+            _logger.LogWarning("Update received null DTO for product {Id}", id);
+            return BadRequest(new { error = "Ürün verisi boş olamaz" });
+        }
+
         var validationErrors = Katana.Business.Validators.ProductValidator.ValidateUpdate(dto);
         if (validationErrors.Any())
+        {
+            _logger.LogWarning("Validation failed for product {Id}: {Errors}", id, string.Join(", ", validationErrors));
             return BadRequest(new { errors = validationErrors });
+        }
 
         try
         {
@@ -353,17 +364,32 @@ public class ProductsController : ControllerBase
             
             _auditService.LogUpdate("Product", id.ToString(), User?.Identity?.Name ?? "system", null, 
                 $"Updated: {product.SKU}");
-            _loggingService.LogInfo($"Product updated: {id}", User?.Identity?.Name, null, LogCategory.UserAction);
+            _loggingService.LogInfo($"Product updated successfully: {id}", User?.Identity?.Name, null, LogCategory.UserAction);
             return Ok(product);
         }
         catch (KeyNotFoundException ex)
         {
-            return NotFound(ex.Message);
+            _logger.LogError(ex, "Product {Id} not found during update", id);
+            return NotFound(new { error = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
+            _logger.LogError(ex, "Invalid operation updating product {Id}", id);
             _loggingService.LogError("Product update failed", ex, User?.Identity?.Name, null, LogCategory.Business);
-            return Conflict(ex.Message);
+            return Conflict(new { error = ex.Message, details = ex.InnerException?.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error updating product {Id}. DTO: {@Dto}, InnerException: {InnerException}", 
+                id, dto, ex.InnerException?.Message);
+            _loggingService.LogError("Product update failed", ex, User?.Identity?.Name, null, LogCategory.Business);
+            return StatusCode(500, new 
+            { 
+                message = "Ürün güncellenirken bir hata oluştu", 
+                error = ex.Message,
+                details = ex.InnerException?.Message ?? ex.Message,
+                timestamp = DateTime.UtcNow
+            });
         }
     }
 
@@ -443,6 +469,29 @@ public class ProductsController : ControllerBase
 
             _logger.LogInformation("Existing product found: {@Product}", product);
 
+            // Ensure valid category exists
+            int validCategoryId = product.CategoryId;
+            if (validCategoryId <= 0)
+            {
+                _logger.LogWarning("Product {Id} has invalid CategoryId {CategoryId}, fetching default", id, validCategoryId);
+                var categories = await _categoryService.GetAllAsync();
+                if (categories != null && categories.Any())
+                {
+                    validCategoryId = categories.First().Id;
+                }
+                else
+                {
+                    // Create default category if none exists
+                    _logger.LogWarning("No categories found, creating default category");
+                    var newCategory = await _categoryService.CreateAsync(new CreateCategoryDto
+                    {
+                        Name = "Genel",
+                        Description = "Varsayılan kategori"
+                    });
+                    validCategoryId = newCategory.Id;
+                }
+            }
+
             // Create UpdateProductDto from Luca data
             var updateDto = new UpdateProductDto
             {
@@ -450,7 +499,7 @@ public class ProductsController : ControllerBase
                 SKU = dto.ProductCode,
                 Price = dto.UnitPrice,
                 Stock = dto.Quantity,
-                CategoryId = product.CategoryId > 0 ? product.CategoryId : 1, // Ensure valid category
+                CategoryId = validCategoryId,
                 IsActive = true
             };
 

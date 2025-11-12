@@ -119,28 +119,42 @@ public class ProductService : IProductService
 
     public async Task<ProductDto> UpdateProductAsync(int id, UpdateProductDto dto)
     {
-        var product = await _context.Products.FindAsync(id);
-        if (product == null)
-            throw new KeyNotFoundException($"Ürün bulunamadı: {id}");
+        try
+        {
+            var product = await _context.Products.FindAsync(id);
+            if (product == null)
+                throw new KeyNotFoundException($"Ürün bulunamadı: {id}");
 
-        var existingProduct = await _context.Products
-            .FirstOrDefaultAsync(p => p.SKU == dto.SKU && p.Id != id);
+            // Validate that the category exists
+            var categoryExists = await _context.Categories.AnyAsync(c => c.Id == dto.CategoryId);
+            if (!categoryExists)
+                throw new InvalidOperationException($"Geçersiz kategori ID: {dto.CategoryId}. Bu kategori mevcut değil.");
 
-        if (existingProduct != null)
-            throw new InvalidOperationException($"Bu SKU'ya sahip başka bir ürün mevcut: {dto.SKU}");
+            var existingProduct = await _context.Products
+                .FirstOrDefaultAsync(p => p.SKU == dto.SKU && p.Id != id);
 
-        product.Name = dto.Name;
-        product.SKU = dto.SKU;
-        product.Price = dto.Price;
-        product.Stock = dto.Stock;
-        product.CategoryId = dto.CategoryId;
-        product.MainImageUrl = dto.MainImageUrl;
-        product.Description = dto.Description;
-        product.IsActive = dto.IsActive;
-        product.UpdatedAt = DateTime.UtcNow;
+            if (existingProduct != null)
+                throw new InvalidOperationException($"Bu SKU'ya sahip başka bir ürün mevcut: {dto.SKU}");
 
-        await _context.SaveChangesAsync();
-        return MapToDto(product);
+            product.Name = dto.Name;
+            product.SKU = dto.SKU;
+            product.Price = dto.Price;
+            product.Stock = dto.Stock;
+            product.CategoryId = dto.CategoryId;
+            product.MainImageUrl = dto.MainImageUrl;
+            product.Description = dto.Description;
+            product.IsActive = dto.IsActive;
+            product.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return MapToDto(product);
+        }
+        catch (DbUpdateException ex)
+        {
+            // Log the inner exception details
+            var innerMessage = ex.InnerException?.Message ?? ex.Message;
+            throw new InvalidOperationException($"Ürün güncellenirken veritabanı hatası oluştu: {innerMessage}", ex);
+        }
     }
 
     public async Task<bool> UpdateStockAsync(int id, int quantity)
