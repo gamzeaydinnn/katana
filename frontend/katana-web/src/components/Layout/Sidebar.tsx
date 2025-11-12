@@ -49,10 +49,14 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   };
 
   const handleAdminClick = () => {
-    // Kullanıcıyı güvenli bir şekilde admin paneline yönlendirmeden önce
-    // mevcut oturumu sonlandırıp yeniden giriş yapmasını zorunlu kıl.
-    localStorage.removeItem("authToken");
-    navigate("/login");
+    // Token varsa direkt admin paneline git
+    const token = localStorage.getItem("authToken");
+    if (token) {
+      navigate("/admin");
+    } else {
+      // Token yoksa login'e yönlendir
+      navigate("/login");
+    }
   };
 
   return (

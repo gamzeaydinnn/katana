@@ -383,7 +383,7 @@ const Header: React.FC<HeaderProps> = ({
             flexGrow: 1,
             display: "flex",
             alignItems: "center",
-            gap: 1.5,
+            gap: 0.1, // tightened spacing so text sits closer to the logo
           }}
         >
           <Box
@@ -391,7 +391,7 @@ const Header: React.FC<HeaderProps> = ({
             src="/logoo.png"
             alt="Beformat Metal Logo"
             sx={{
-              height: 40,
+              height: 80,
               width: "auto",
               objectFit: "contain",
               filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.15))",
