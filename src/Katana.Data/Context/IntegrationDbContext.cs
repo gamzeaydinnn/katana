@@ -71,6 +71,11 @@ public class IntegrationDbContext : DbContext
         entity.HasIndex(e => e.SKU).IsUnique();
         entity.Property(e => e.Price).HasPrecision(18, 2);
         
+        entity.HasOne(e => e.Category)
+            .WithMany()
+            .HasForeignKey(e => e.CategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+        
         entity.HasMany(e => e.StockMovements)
             .WithOne(e => e.Product)
             .HasForeignKey(e => e.ProductId)
