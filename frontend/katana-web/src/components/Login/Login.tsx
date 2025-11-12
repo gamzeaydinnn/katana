@@ -1,18 +1,18 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Lock, Person, Visibility, VisibilityOff } from "@mui/icons-material";
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  TextField,
-  Button,
-  Typography,
-  Alert,
-  InputAdornment,
   IconButton,
+  InputAdornment,
+  TextField,
+  Typography,
   useTheme,
 } from "@mui/material";
-import { Visibility, VisibilityOff, Lock, Person } from "@mui/icons-material";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { authAPI } from "../../services/api";
 
 const Login: React.FC = () => {
@@ -185,111 +185,113 @@ const Login: React.FC = () => {
           )}
 
           <form onSubmit={handleLogin}>
-            <Box sx={{ mb: 2 }}>
-              <Typography
-                variant="body2"
-                sx={{
-                  mb: 1,
-                  fontWeight: 600,
-                  color: theme.palette.primary.main,
-                }}
-              >
-                Kullanıcı Adı *
-              </Typography>
-              <TextField
-                fullWidth
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                placeholder="admin"
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 3,
-                    "& fieldset": {
-                      borderColor: theme.palette.primary.main,
-                      borderWidth: "2px",
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              <Box>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mb: 1,
+                    fontWeight: 600,
+                    color: theme.palette.primary.main,
+                  }}
+                >
+                  Kullanıcı Adı *
+                </Typography>
+                <TextField
+                  fullWidth
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  placeholder="admin"
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 3,
+                      "& fieldset": {
+                        borderColor: theme.palette.primary.main,
+                        borderWidth: "2px",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: theme.palette.primary.main,
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: theme.palette.primary.main,
+                      },
                     },
-                    "&:hover fieldset": {
-                      borderColor: theme.palette.primary.main,
+                    "& .MuiInputBase-input": {
+                      paddingLeft: "8px",
                     },
-                    "&.Mui-focused fieldset": {
-                      borderColor: theme.palette.primary.main,
-                    },
-                  },
-                  "& .MuiInputBase-input": {
-                    paddingLeft: "8px",
-                  },
-                }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Person sx={{ color: theme.palette.primary.main }} />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Box>
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Person sx={{ color: theme.palette.primary.main }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
 
-            <Box sx={{ mb: 3 }}>
-              <Typography
-                variant="body2"
-                sx={{
-                  mb: 1,
-                  fontWeight: 600,
-                  color: theme.palette.primary.main,
-                }}
-              >
-                Şifre *
-              </Typography>
-              <TextField
-                fullWidth
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder="••••••••"
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 3,
-                    "& fieldset": {
-                      borderColor: theme.palette.primary.main,
-                      borderWidth: "2px",
+              <Box>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mb: 1,
+                    fontWeight: 600,
+                    color: theme.palette.primary.main,
+                  }}
+                >
+                  Şifre *
+                </Typography>
+                <TextField
+                  fullWidth
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 3,
+                      "& fieldset": {
+                        borderColor: theme.palette.primary.main,
+                        borderWidth: "2px",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: theme.palette.primary.main,
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: theme.palette.primary.main,
+                      },
                     },
-                    "&:hover fieldset": {
-                      borderColor: theme.palette.primary.main,
+                    "& .MuiInputBase-input": {
+                      paddingLeft: "8px",
                     },
-                    "&.Mui-focused fieldset": {
-                      borderColor: theme.palette.primary.main,
-                    },
-                  },
-                  "& .MuiInputBase-input": {
-                    paddingLeft: "8px",
-                  },
-                }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Lock sx={{ color: theme.palette.primary.main }} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setShowPassword(!showPassword)}
-                        edge="end"
-                        sx={{
-                          color: theme.palette.primary.main,
-                          "&:hover": {
-                            backgroundColor: "transparent",
-                          },
-                        }}
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Lock sx={{ color: theme.palette.primary.main }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                          sx={{
+                            color: theme.palette.primary.main,
+                            "&:hover": {
+                              backgroundColor: "transparent",
+                            },
+                          }}
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
             </Box>
 
             <Button
@@ -299,6 +301,7 @@ const Login: React.FC = () => {
               size="large"
               disabled={loading}
               sx={{
+                mt: 3,
                 py: 1.75,
                 borderRadius: 3,
                 fontWeight: 700,
