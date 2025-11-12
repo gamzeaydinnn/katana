@@ -250,24 +250,49 @@ const AdminPanel: React.FC = () => {
       </Box>
 
       {/* Tabs */}
-      <Paper sx={{ mb: 3 }}>
+      <Paper sx={{ mb: 3, overflow: "hidden" }}>
         <Tabs
           value={activeTab}
           onChange={(_, v) => setActiveTab(v)}
           variant="scrollable"
           scrollButtons="auto"
           sx={{
-            "& .MuiTab-root": {
+            minHeight: 56,
+            px: 2,
+            "& .MuiTabs-scroller": {
+              overflow: "auto !important",
+            },
+            "& .MuiTabs-flexContainer": {
+              gap: 0.5,
               alignItems: "center",
-              flexDirection: "row",
-              textTransform: "none",
-              fontSize: "0.95rem",
+            },
+            "& .MuiTab-root": {
+              minHeight: 56,
               minWidth: "auto",
-              whiteSpace: "nowrap",
-              px: 2,
+              px: 2.5,
+              py: 1.5,
+              textTransform: "none",
+              fontSize: "0.9rem",
+              fontWeight: 500,
+              color: "text.secondary",
+              transition: "all 0.2s ease",
+              "&.Mui-selected": {
+                color: "primary.main",
+                fontWeight: 600,
+              },
+              "&:hover": {
+                color: "primary.main",
+                backgroundColor: "rgba(25, 118, 210, 0.04)",
+              },
             },
             "& .MuiTab-iconWrapper": {
               marginRight: "8px",
+              marginBottom: "0 !important",
+            },
+            "& .MuiTabs-indicator": {
+              height: 3,
+              borderRadius: "3px 3px 0 0",
+              backgroundColor: "primary.main",
             },
           }}
         >
