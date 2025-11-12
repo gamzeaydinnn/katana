@@ -256,8 +256,20 @@ export default function PendingAdjustments() {
   }, [load, rejectReason, selected, showToast]);
 
   return (
-    <Box p={2}>
-      <Typography variant="h5" gutterBottom>
+    <Box p={0}>
+      <Typography
+        variant="h5"
+        gutterBottom
+        sx={{
+          fontWeight: 900,
+          letterSpacing: "-0.02em",
+          background: "linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          backgroundClip: "text",
+          mb: 2,
+        }}
+      >
         Stok Hareketleri
       </Typography>
 

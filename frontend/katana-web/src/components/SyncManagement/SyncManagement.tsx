@@ -1,36 +1,36 @@
-import React, { useState, useEffect } from "react";
 import {
-  Container,
+  CheckCircle,
+  Error,
+  History,
+  PlayArrow,
+  Refresh,
+  Sync,
+} from "@mui/icons-material";
+import {
+  Alert,
   Box,
-  Paper,
-  Typography,
   Button,
+  Chip,
+  CircularProgress,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
-  Alert,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  Typography,
 } from "@mui/material";
-import {
-  Sync,
-  PlayArrow,
-  History,
-  CheckCircle,
-  Error,
-  Refresh,
-} from "@mui/icons-material";
+import React, { useEffect, useState } from "react";
 import { stockAPI } from "../../services/api";
 
 interface SyncHistory {
@@ -114,7 +114,17 @@ const SyncManagement: React.FC = () => {
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Sync sx={{ fontSize: 32, color: "primary.main" }} />
-          <Typography variant="h4" fontWeight="bold">
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 900,
+              letterSpacing: "-0.02em",
+              background: "linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+          >
             Senkronizasyon Yönetimi
           </Typography>
         </Box>

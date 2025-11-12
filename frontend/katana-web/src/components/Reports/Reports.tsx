@@ -1,14 +1,24 @@
-import React, { useState, useEffect } from "react";
 import {
-  Container,
+  Assessment,
+  CheckCircle,
+  Download,
+  FileDownload,
+  Inventory,
+  TrendingDown,
+  TrendingUp,
+} from "@mui/icons-material";
+import {
+  Alert,
   Box,
-  Paper,
-  Typography,
   Button,
   Card,
   CardContent,
-  Alert,
+  Chip,
   CircularProgress,
+  Container,
+  FormControlLabel,
+  Paper,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -16,19 +26,9 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Chip,
-  FormControlLabel,
-  Switch,
+  Typography,
 } from "@mui/material";
-import {
-  Assessment,
-  Inventory,
-  Download,
-  FileDownload,
-  TrendingUp,
-  TrendingDown,
-  CheckCircle,
-} from "@mui/icons-material";
+import React, { useEffect, useState } from "react";
 import { stockAPI } from "../../services/api";
 
 interface StockReportData {
@@ -141,7 +141,17 @@ const Reports: React.FC = () => {
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
         <Assessment sx={{ fontSize: 32, color: "primary.main" }} />
-        <Typography variant="h4" fontWeight="bold">
+        <Typography
+          variant="h4"
+          sx={{
+            fontWeight: 900,
+            letterSpacing: "-0.02em",
+            background: "linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
+        >
           Stok Raporu
         </Typography>
       </Box>

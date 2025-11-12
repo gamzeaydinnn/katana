@@ -26,11 +26,11 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api, { stockAPI } from "../../services/api";
 import {
-  startConnection,
-  onPendingCreated,
+  offPendingApproved,
   offPendingCreated,
   onPendingApproved,
-  offPendingApproved,
+  onPendingCreated,
+  startConnection,
 } from "../../services/signalr";
 
 interface HeaderProps {
@@ -383,15 +383,15 @@ const Header: React.FC<HeaderProps> = ({
             flexGrow: 1,
             display: "flex",
             alignItems: "center",
-            gap: 0.1, // tightened spacing so text sits closer to the logo
+            gap: 1.2,
           }}
         >
           <Box
             component="img"
             src="/logoo.png"
-            alt="Beformat Metal Logo"
+            alt="BeforMet Metal Logo"
             sx={{
-              height: 80,
+              height: 52,
               width: "auto",
               objectFit: "contain",
               filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.15))",
@@ -402,13 +402,15 @@ const Header: React.FC<HeaderProps> = ({
             noWrap
             component="div"
             sx={{
-              fontWeight: 800,
-              letterSpacing: "-0.02em",
+              fontFamily: '"Poppins", "Inter", sans-serif',
+              fontWeight: 600,
+              letterSpacing: "-0.5px",
               color: "#fff",
               textShadow: "0 2px 10px rgba(0,0,0,0.18)",
+              fontSize: "1.15rem",
             }}
           >
-            Beformet Metal
+            BeforMet Metal
           </Typography>
         </Box>
 

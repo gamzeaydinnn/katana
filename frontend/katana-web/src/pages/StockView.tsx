@@ -1,33 +1,33 @@
-import React, { useState, useEffect } from "react";
+import InventoryIcon from "@mui/icons-material/Inventory";
+import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import SearchIcon from "@mui/icons-material/Search";
+import TrendingDownIcon from "@mui/icons-material/TrendingDown";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import WarningIcon from "@mui/icons-material/Warning";
 import {
+  Alert,
+  Badge,
   Box,
   Card,
   CardContent,
-  Typography,
+  Chip,
+  CircularProgress,
+  IconButton,
+  InputAdornment,
+  Paper,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
-  Chip,
-  CircularProgress,
-  Alert,
   TextField,
-  InputAdornment,
-  IconButton,
   Tooltip,
-  Stack,
-  Badge,
+  Typography,
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import InventoryIcon from "@mui/icons-material/Inventory";
-import WarningIcon from "@mui/icons-material/Warning";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import TrendingDownIcon from "@mui/icons-material/TrendingDown";
-import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
+import React, { useEffect, useState } from "react";
 import api from "../services/api";
 
 interface Product {
@@ -122,7 +122,17 @@ const StockView: React.FC = () => {
         alignItems="center"
         mb={3}
       >
-        <Typography variant="h4" fontWeight="bold">
+        <Typography
+          variant="h4"
+          sx={{
+            fontWeight: 900,
+            letterSpacing: "-0.02em",
+            background: "linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
+        >
           Canlı Stok
         </Typography>
         <Tooltip title="Otomatik yenileme: Her 30 saniye">

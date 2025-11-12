@@ -1,51 +1,51 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import {
+  CheckCircle,
+  CompareArrows as CompareArrowsIcon,
+  Error as ErrorIcon,
+  Inventory,
+  Article as LogsIcon,
+  Receipt,
+  Refresh,
+  ReportProblem,
+  Settings as SettingsIcon,
+  ShoppingCart,
+  TrendingUp,
+  Group as UsersIcon,
+  Warehouse,
+} from "@mui/icons-material";
+import {
+  Alert,
   Box,
   Card,
   CardContent,
-  Typography,
+  Chip,
+  CircularProgress,
+  Divider,
+  IconButton,
+  Paper,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
-  TableRow,
   TablePagination,
-  Paper,
-  Chip,
-  IconButton,
-  Alert,
-  CircularProgress,
-  Divider,
+  TableRow,
   Tabs,
-  Tab,
+  Typography,
 } from "@mui/material";
-import {
-  Inventory,
-  TrendingUp,
-  CheckCircle,
-  Error as ErrorIcon,
-  Refresh,
-  Article as LogsIcon,
-  Settings as SettingsIcon,
-  CompareArrows as CompareArrowsIcon,
-  ShoppingCart,
-  Warehouse,
-  ReportProblem,
-  Receipt,
-  Group as UsersIcon,
-} from "@mui/icons-material";
-import LogsViewer from "./LogsViewer";
-import Settings from "../Settings/Settings";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
-import PendingAdjustments from "../Admin/PendingAdjustments";
-import KatanaProducts from "../Admin/KatanaProducts";
-import LucaProducts from "../Admin/LucaProducts";
-import StockManagement from "../Admin/StockManagement";
 import DataCorrectionPanel from "../Admin/DataCorrectionPanel";
 import FailedRecords from "../Admin/FailedRecords";
+import KatanaProducts from "../Admin/KatanaProducts";
+import LucaProducts from "../Admin/LucaProducts";
 import Orders from "../Admin/Orders";
+import PendingAdjustments from "../Admin/PendingAdjustments";
+import StockManagement from "../Admin/StockManagement";
+import Settings from "../Settings/Settings";
+import LogsViewer from "./LogsViewer";
 import UsersManagement from "./UsersManagement";
 
 interface Statistics {
@@ -184,18 +184,59 @@ const AdminPanel: React.FC = () => {
     icon: React.ReactNode;
     color: string;
   }> = ({ title, value, icon, color }) => (
-    <Card>
-      <CardContent>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
+    <Card
+      sx={{
+        height: "100%",
+        minHeight: "140px",
+        display: "flex",
+        flexDirection: "column",
+        borderRadius: 2,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        transition: "transform 0.2s ease, box-shadow 0.2s ease",
+        "&:hover": {
+          transform: "translateY(-4px)",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+        },
+      }}
+    >
+      <CardContent sx={{ p: 3, flexGrow: 1, display: "flex", alignItems: "center" }}>
+        <Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
           <Box>
-            <Typography color="textSecondary" gutterBottom variant="body2">
+            <Typography
+              color="textSecondary"
+              gutterBottom
+              variant="body2"
+              sx={{
+                fontWeight: 500,
+                fontSize: "0.875rem",
+                letterSpacing: "0.2px",
+                mb: 1,
+              }}
+            >
               {title}
             </Typography>
-            <Typography variant="h4" fontWeight="bold">
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 700,
+                fontFamily: '"Poppins", "Inter", sans-serif',
+                letterSpacing: "-0.5px",
+              }}
+            >
               {value}
             </Typography>
           </Box>
-          <Box sx={{ color, fontSize: 48 }}>{icon}</Box>
+          <Box
+            sx={{
+              color,
+              fontSize: 48,
+              opacity: 0.9,
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            {icon}
+          </Box>
         </Box>
       </CardContent>
     </Card>
@@ -221,9 +262,20 @@ const AdminPanel: React.FC = () => {
         display="flex"
         justifyContent="space-between"
         alignItems="center"
-        mb={3}
+        mb={4}
+        mt={2}
       >
-        <Typography variant="h4" fontWeight="bold">
+        <Typography
+          variant="h4"
+          sx={{
+            fontWeight: 900,
+            letterSpacing: "-0.02em",
+            background: "linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
+        >
           Admin Paneli
         </Typography>
         <Box display="flex" gap={2} alignItems="center">
@@ -250,49 +302,37 @@ const AdminPanel: React.FC = () => {
       </Box>
 
       {/* Tabs */}
-      <Paper sx={{ mb: 3, overflow: "hidden" }}>
+      <Paper sx={{ mb: 4, borderRadius: 2 }}>
         <Tabs
           value={activeTab}
           onChange={(_, v) => setActiveTab(v)}
           variant="scrollable"
           scrollButtons="auto"
           sx={{
-            minHeight: 56,
-            px: 2,
-            "& .MuiTabs-scroller": {
-              overflow: "auto !important",
-            },
-            "& .MuiTabs-flexContainer": {
-              gap: 0.5,
-              alignItems: "center",
-            },
             "& .MuiTab-root": {
-              minHeight: 56,
+              display: "flex",
+              alignItems: "center",
+              flexDirection: "row",
+              textTransform: "none",
+              fontSize: "0.9375rem",
+              fontWeight: 500,
               minWidth: "auto",
+              minHeight: 56,
+              whiteSpace: "nowrap",
               px: 2.5,
               py: 1.5,
-              textTransform: "none",
-              fontSize: "0.9rem",
-              fontWeight: 500,
-              color: "text.secondary",
-              transition: "all 0.2s ease",
-              "&.Mui-selected": {
-                color: "primary.main",
-                fontWeight: 600,
-              },
-              "&:hover": {
-                color: "primary.main",
-                backgroundColor: "rgba(25, 118, 210, 0.04)",
-              },
+              fontFamily: '"Inter", "Poppins", sans-serif',
+              letterSpacing: "-0.2px",
             },
             "& .MuiTab-iconWrapper": {
-              marginRight: "8px",
+              marginRight: 1,
               marginBottom: "0 !important",
+              display: "flex",
+              alignItems: "center",
             },
             "& .MuiTabs-indicator": {
               height: 3,
               borderRadius: "3px 3px 0 0",
-              backgroundColor: "primary.main",
             },
           }}
         >
@@ -339,7 +379,7 @@ const AdminPanel: React.FC = () => {
       {activeTab === 0 && (
         <Box>
           {/* Pending adjustments - put high so admin can approve quickly */}
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: 4 }}>
             <PendingAdjustments />
           </Box>
 
@@ -350,11 +390,11 @@ const AdminPanel: React.FC = () => {
                 display: "grid",
                 gridTemplateColumns: {
                   xs: "1fr",
-                  sm: "1fr 1fr",
-                  md: "1fr 1fr 1fr 1fr",
+                  sm: "repeat(2, 1fr)",
+                  md: "repeat(4, 1fr)",
                 },
                 gap: 3,
-                mb: 3,
+                mb: 4,
               }}
             >
               <StatCard
@@ -387,13 +427,22 @@ const AdminPanel: React.FC = () => {
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+              gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
               gap: 3,
             }}
           >
             {/* Recent Products */}
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
+            <Paper sx={{ p: 3, borderRadius: 2 }}>
+              <Typography
+                variant="h6"
+                gutterBottom
+                sx={{
+                  fontWeight: 600,
+                  fontFamily: '"Poppins", "Inter", sans-serif',
+                  letterSpacing: "-0.3px",
+                  mb: 2,
+                }}
+              >
                 Son Eklenen Ürünler
               </Typography>
               <Divider sx={{ mb: 2 }} />
@@ -436,9 +485,18 @@ const AdminPanel: React.FC = () => {
             </Paper>
 
             {/* Sync Logs */}
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                Senkronizasyon Logları
+            <Paper sx={{ p: 3, borderRadius: 2 }}>
+              <Typography
+                variant="h6"
+                gutterBottom
+                sx={{
+                  fontWeight: 600,
+                  fontFamily: '"Poppins", "Inter", sans-serif',
+                  letterSpacing: "-0.3px",
+                  mb: 2,
+                }}
+              >
+                Son Sync Logları
               </Typography>
               <Divider sx={{ mb: 2 }} />
               <TableContainer>
