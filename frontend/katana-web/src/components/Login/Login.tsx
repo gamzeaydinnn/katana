@@ -133,7 +133,7 @@ const Login: React.FC = () => {
                 src="/logoo.png"
                 alt="Beformet Metal Logo"
                 sx={{
-                  height: 100,
+                  height: 160,
                   width: "auto",
                   objectFit: "contain",
                   filter: "drop-shadow(0 8px 24px rgba(43,110,246,0.25))",

@@ -1,9 +1,9 @@
 import axios from "axios";
 import { showGlobalToast } from "../providers/FeedbackProvider";
 import {
-    decodeJwtPayload,
-    isJwtExpired,
-    isJwtTokenExpired,
+  decodeJwtPayload,
+  isJwtExpired,
+  isJwtTokenExpired,
 } from "../utils/jwt";
 
 // Development: prefer an explicit env var REACT_APP_API_URL. If not set, choose a smart default.
@@ -35,27 +35,7 @@ const api = axios.create({
   },
 });
 
-// On module load: validate any stored auth token and remove it if malformed.
-// This ensures we don't accidentally send non-JWT strings as Bearer tokens
-// which were triggering IDX14100 logs on the backend.
-try {
-  if (typeof window !== "undefined") {
-    const stored = window.localStorage.getItem("authToken");
-    const payload = decodeJwtPayload(stored);
-    if (!payload) {
-      console.warn(
-        "Stored authToken is malformed; removing from localStorage."
-      );
-      window.localStorage.removeItem("authToken");
-    } else if (isJwtExpired(payload)) {
-      console.warn("Stored authToken has expired; removing from localStorage.");
-      window.localStorage.removeItem("authToken");
-    }
-  }
-} catch {
-  // localStorage may be unavailable in some environments; ignore failures
-}
-
+// Request interceptor: token'ı her istekte kontrol et
 api.interceptors.request.use((config) => {
   const token =
     typeof window !== "undefined"
@@ -69,11 +49,6 @@ api.interceptors.request.use((config) => {
     const payload = decodeJwtPayload(token);
     if (payload && !isJwtExpired(payload)) {
       (config.headers as any).Authorization = `Bearer ${token}`;
-    } else if (typeof window !== "undefined") {
-      console.warn(
-        "Auth token in storage is invalid or expired, skipping Authorization header."
-      );
-      window.localStorage.removeItem("authToken");
     }
   }
   return config;

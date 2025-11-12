@@ -48,6 +48,17 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     navigate(path);
   };
 
+  const handleAdminClick = () => {
+    // Token varsa direkt admin paneline git
+    const token = localStorage.getItem("authToken");
+    if (token) {
+      navigate("/admin");
+    } else {
+      // Token yoksa login'e yönlendir
+      navigate("/login");
+    }
+  };
+
   return (
     <Drawer
       variant="persistent"
@@ -129,7 +140,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
             <ListItemButton
-              onClick={() => handleNavigation(item.path)}
+              onClick={() =>
+                item.path === "/admin"
+                  ? handleAdminClick()
+                  : handleNavigation(item.path)
+              }
               selected={location.pathname === item.path}
               sx={{
                 mx: 1,
