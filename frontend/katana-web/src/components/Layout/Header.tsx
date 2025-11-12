@@ -412,7 +412,7 @@ const Header: React.FC<HeaderProps> = ({
           </Typography>
         </Box>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           {/* Theme toggle */}
           <Tooltip title={mode === "dark" ? "Açık tema" : "Koyu tema"}>
             <IconButton
@@ -465,33 +465,35 @@ const Header: React.FC<HeaderProps> = ({
             label={
               backendStatus === "connected" ? "API Bağlı" : "API Bağlantısı Yok"
             }
-            color={backendStatus === "connected" ? "success" : "error"}
-            size="small"
-            variant="outlined"
+            size="medium"
             sx={{
-              borderRadius: 2,
-              fontWeight: 600,
-              transition: "all 0.22s ease",
-              ...(backendStatus === "connected"
-                ? {
-                    animation: "pulse 2400ms ease-in-out infinite",
-                    "@keyframes pulse": {
-                      "0%": {
-                        transform: "scale(1)",
-                        boxShadow: "0 0 0 0 rgba(79,110,247,0.35)",
-                      },
-                      "70%": {
-                        transform: "scale(1.03)",
-                        boxShadow: "0 10px 30px 6px rgba(79,110,247,0.08)",
-                      },
-                      "100%": {
-                        transform: "scale(1)",
-                        boxShadow: "0 0 0 0 rgba(79,110,247,0)",
-                      },
-                    },
-                  }
-                : {}),
-              "&:hover": { transform: "scale(1.05)" },
+              backgroundColor: "rgba(255, 255, 255, 0.95)",
+              borderRadius: 3,
+              fontWeight: 700,
+              fontSize: "0.9rem",
+              height: 38,
+              px: 2,
+              border:
+                backendStatus === "connected"
+                  ? "2px solid #10b981"
+                  : "2px solid #ef4444",
+              color: backendStatus === "connected" ? "#10b981" : "#ef4444",
+              boxShadow:
+                backendStatus === "connected"
+                  ? "0 4px 14px rgba(16, 185, 129, 0.3)"
+                  : "0 4px 14px rgba(239, 68, 68, 0.3)",
+              transition: "all 0.3s ease",
+              "& .MuiChip-icon": {
+                color: backendStatus === "connected" ? "#10b981" : "#ef4444",
+                fontSize: "1.3rem",
+              },
+              "&:hover": {
+                transform: "scale(1.05)",
+                boxShadow:
+                  backendStatus === "connected"
+                    ? "0 6px 20px rgba(16, 185, 129, 0.4)"
+                    : "0 6px 20px rgba(239, 68, 68, 0.4)",
+              },
             }}
           />
 
@@ -500,17 +502,24 @@ const Header: React.FC<HeaderProps> = ({
             <Chip
               label={currentBranchName ? String(currentBranchName) : "Şube Seç"}
               onClick={onOpenBranchSelector}
-              size="small"
-              variant="outlined"
+              size="medium"
               sx={{
-                ml: 1,
+                backgroundColor: "rgba(255, 255, 255, 0.95)",
+                borderRadius: 3,
+                fontWeight: 700,
+                fontSize: "0.9rem",
+                height: 38,
+                px: 2.5,
+                border: "2px solid #3b82f6",
+                color: "#3b82f6",
                 cursor: "pointer",
-                borderRadius: 2,
-                fontWeight: 600,
-                transition: "all 0.2s ease",
+                boxShadow: "0 4px 14px rgba(59, 130, 246, 0.3)",
+                transition: "all 0.3s ease",
                 "&:hover": {
-                  transform: "scale(1.05)",
-                  backgroundColor: theme.palette.action.hover,
+                  transform: "translateY(-2px) scale(1.05)",
+                  backgroundColor: "#3b82f6",
+                  color: "#fff",
+                  boxShadow: "0 6px 20px rgba(59, 130, 246, 0.5)",
                 },
               }}
             />
@@ -519,13 +528,20 @@ const Header: React.FC<HeaderProps> = ({
           {/* Sync Status */}
           <Tooltip title="Son senkronizasyon: 10 dakika önce">
             <IconButton
-              size="small"
               sx={{
-                color: theme.palette.success.main,
-                transition: "all 0.22s ease",
+                backgroundColor: "rgba(255, 255, 255, 0.95)",
+                width: 48,
+                height: 48,
+                borderRadius: 3,
+                border: "2px solid #10b981",
+                color: "#10b981",
+                boxShadow: "0 4px 14px rgba(16, 185, 129, 0.25)",
+                transition: "all 0.3s ease",
                 "&:hover": {
-                  transform: "scale(1.12)",
-                  backgroundColor: theme.palette.action.hover,
+                  transform: "translateY(-2px) scale(1.1)",
+                  backgroundColor: "#10b981",
+                  color: "#fff",
+                  boxShadow: "0 6px 20px rgba(16, 185, 129, 0.4)",
                 },
                 ...(isChecking
                   ? {
@@ -538,49 +554,69 @@ const Header: React.FC<HeaderProps> = ({
                   : {}),
               }}
             >
-              <Sync />
+              <Sync sx={{ fontSize: "1.5rem" }} />
             </IconButton>
           </Tooltip>
 
           {/* Notifications */}
           <Tooltip title={notificationTooltip}>
             <IconButton
-              size="large"
               onClick={handleNotificationOpen}
               sx={{
-                color:
-                  signalrStatus === "error"
-                    ? theme.palette.error.main
-                    : theme.palette.primary.main,
-                transition: "all 0.22s ease",
+                backgroundColor: "rgba(255, 255, 255, 0.95)",
+                width: 48,
+                height: 48,
+                borderRadius: 3,
+                border:
+                  pendingCount > 0
+                    ? "2px solid #ef4444"
+                    : "2px solid rgba(59, 130, 246, 0.3)",
+                color: pendingCount > 0 ? "#ef4444" : "#3b82f6",
+                boxShadow:
+                  pendingCount > 0
+                    ? "0 4px 14px rgba(239, 68, 68, 0.3)"
+                    : "0 4px 14px rgba(59, 130, 246, 0.2)",
+                transition: "all 0.3s ease",
                 "&:hover": {
-                  transform: "scale(1.08)",
-                  backgroundColor: theme.palette.action.hover,
+                  transform: "translateY(-2px) scale(1.1)",
+                  backgroundColor: pendingCount > 0 ? "#ef4444" : "#3b82f6",
+                  color: "#fff",
+                  borderColor: pendingCount > 0 ? "#ef4444" : "#3b82f6",
+                  boxShadow:
+                    pendingCount > 0
+                      ? "0 6px 20px rgba(239, 68, 68, 0.5)"
+                      : "0 6px 20px rgba(59, 130, 246, 0.4)",
                 },
-                "@keyframes bounce": {
-                  "0%": { transform: "translateY(0)" },
-                  "30%": { transform: "translateY(-6px)" },
-                  "60%": { transform: "translateY(0)" },
-                  "100%": { transform: "translateY(0)" },
-                },
+                ...(pendingCount > 0 && {
+                  animation: "bellShake 1.5s ease-in-out infinite",
+                  "@keyframes bellShake": {
+                    "0%, 100%": { transform: "rotate(0deg)" },
+                    "10%, 30%": { transform: "rotate(-10deg)" },
+                    "20%, 40%": { transform: "rotate(10deg)" },
+                    "50%": { transform: "rotate(0deg)" },
+                  },
+                }),
               }}
             >
               <Badge
                 badgeContent={pendingCount}
-                color={pendingCount > 0 ? "error" : "default"}
-                showZero
+                color="error"
+                max={99}
                 sx={{
-                  ...(pendingCount > 0
-                    ? {
-                        "& .MuiBadge-badge": {
-                          transformOrigin: "center top",
-                          animation: "bounce 1600ms ease-in-out infinite",
-                        },
-                      }
-                    : {}),
+                  "& .MuiBadge-badge": {
+                    backgroundColor: "#ef4444",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: "0.75rem",
+                    minWidth: 22,
+                    height: 22,
+                    borderRadius: "11px",
+                    border: "2px solid #fff",
+                    boxShadow: "0 2px 8px rgba(239, 68, 68, 0.4)",
+                  },
                 }}
               >
-                <NotificationsIcon />
+                <NotificationsIcon sx={{ fontSize: "1.5rem" }} />
               </Badge>
             </IconButton>
           </Tooltip>
@@ -588,27 +624,39 @@ const Header: React.FC<HeaderProps> = ({
           {/* Profile Menu */}
           <Tooltip title="Profil">
             <IconButton
-              size="large"
               edge="end"
               onClick={handleProfileMenuOpen}
               sx={{
-                transition: "all 0.2s ease",
+                backgroundColor: "rgba(255, 255, 255, 0.95)",
+                width: 52,
+                height: 52,
+                borderRadius: 3,
+                border: "2px solid #8b5cf6ff",
+                padding: 0.5,
+                boxShadow: "0 4px 14px rgba(139, 92, 246, 0.25)",
+                transition: "all 0.3s ease",
                 "&:hover": {
-                  transform: "scale(1.1)",
-                  backgroundColor: theme.palette.action.hover,
+                  transform: "translateY(-2px) scale(1.08)",
+                  backgroundColor: "#8b5cf6",
+                  borderColor: "#8b5cf6",
+                  boxShadow: "0 6px 20px rgba(139, 92, 246, 0.4)",
+                  "& .MuiAvatar-root": {
+                    borderColor: "#fff",
+                    boxShadow: "0 0 16px rgba(255, 255, 255, 0.6)",
+                  },
                 },
               }}
             >
               <Avatar
                 sx={{
-                  width: 36,
-                  height: 36,
-                  border: `2px solid ${theme.palette.primary.main}`,
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    borderColor: theme.palette.secondary.main,
-                    boxShadow: `0 0 12px ${theme.palette.primary.main}40`,
-                  },
+                  width: 40,
+                  height: 40,
+                  border: "2px solid #3b82f6",
+                  backgroundColor: "#3b82f6",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "1.1rem",
+                  transition: "all 0.3s ease",
                 }}
               >
                 A
