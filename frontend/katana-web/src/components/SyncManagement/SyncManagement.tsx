@@ -197,32 +197,84 @@ const SyncManagement: React.FC = () => {
                         {item.processedRecords}
                       </TableCell>
                       <TableCell align="center">
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.5,
-                            justifyContent: "center",
-                          }}
-                        >
-                          <CheckCircle
-                            sx={{ fontSize: 16, color: "success.main" }}
-                          />
-                          {item.successfulRecords}
-                        </Box>
+                        {item.status === "Success" ||
+                        item.status === "SUCCESS" ? (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                              justifyContent: "center",
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{ fontSize: 16, color: "success.main" }}
+                            />
+                            <Typography
+                              variant="body2"
+                              fontWeight={600}
+                              color="success.main"
+                            >
+                              Başarılı
+                            </Typography>
+                          </Box>
+                        ) : item.successfulRecords > 0 ? (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                              justifyContent: "center",
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{ fontSize: 16, color: "success.main" }}
+                            />
+                            {item.successfulRecords}
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            -
+                          </Typography>
+                        )}
                       </TableCell>
                       <TableCell align="center">
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.5,
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Error sx={{ fontSize: 16, color: "error.main" }} />
-                          {item.failedRecords}
-                        </Box>
+                        {item.status === "Failed" ||
+                        item.status === "FAILED" ? (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                              justifyContent: "center",
+                            }}
+                          >
+                            <Error sx={{ fontSize: 16, color: "error.main" }} />
+                            <Typography
+                              variant="body2"
+                              fontWeight={600}
+                              color="error.main"
+                            >
+                              Başarısız
+                            </Typography>
+                          </Box>
+                        ) : item.failedRecords > 0 ? (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                              justifyContent: "center",
+                            }}
+                          >
+                            <Error sx={{ fontSize: 16, color: "error.main" }} />
+                            {item.failedRecords}
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            -
+                          </Typography>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
