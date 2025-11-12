@@ -167,7 +167,38 @@ public class ProductsController : ControllerBase
                 });
             }
             
-            return Ok(new { data = products, count = products.Count });
+            // ALWAYS map to local DB IDs for editing capability
+            var localProducts = await _productService.GetAllProductsAsync();
+            var localProductsMap = localProducts.ToDictionary(p => p.SKU, p => p);
+            
+            var result = new List<object>();
+            foreach (var katanaProduct in products)
+            {
+                var localProduct = localProductsMap.GetValueOrDefault(katanaProduct.SKU);
+                
+                // Only include products that exist in local DB (can be edited)
+                if (localProduct != null)
+                {
+                    result.Add(new
+                    {
+                        id = localProduct.Id.ToString(),
+                        katanaId = katanaProduct.Id,
+                        sku = localProduct.SKU,
+                        name = localProduct.Name,
+                        category = katanaProduct.Category,
+                        unit = katanaProduct.Unit,
+                        inStock = katanaProduct.InStock,
+                        committed = katanaProduct.Committed,
+                        available = katanaProduct.Available,
+                        onHand = localProduct.Stock,
+                        salesPrice = localProduct.Price,
+                        costPrice = katanaProduct.CostPrice,
+                        isActive = localProduct.IsActive
+                    });
+                }
+            }
+            
+            return Ok(new { data = result, count = result.Count });
         }
         catch (Exception ex)
         {

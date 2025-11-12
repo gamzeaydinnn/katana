@@ -78,13 +78,25 @@ const KatanaProducts: React.FC = () => {
     setError(null);
     try {
       console.log("Fetching Katana products...");
-      const response = await api.get("/Products/katana");
+      // Always sync to ensure local DB has products for editing
+      const response = await api.get("/Products/katana?sync=true");
       console.log("Response:", response.data);
       const responseData: any = response.data;
       const productData = responseData?.data || responseData || [];
       console.log("Product data:", productData.length, "items");
       setProducts(productData);
       setFilteredProducts(productData);
+      
+      // Show sync info if available
+      if (responseData?.sync) {
+        const { created, updated, skipped } = responseData.sync;
+        if (created > 0 || updated > 0) {
+          setSuccessMessage(
+            `Senkronizasyon tamamlandı: ${created} yeni, ${updated} güncellendi, ${skipped} atlandı`
+          );
+          setTimeout(() => setSuccessMessage(null), 5000);
+        }
+      }
     } catch (err: any) {
       const errorMsg =
         err.response?.data?.error || err.message || "Ürünler yüklenemedi";
