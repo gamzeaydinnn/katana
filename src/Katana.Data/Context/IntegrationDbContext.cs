@@ -69,7 +69,14 @@ public class IntegrationDbContext : DbContext
     {
         entity.HasKey(e => e.Id);
         entity.HasIndex(e => e.SKU).IsUnique();
+        entity.HasIndex(e => e.CategoryId); // FK index for performance
         entity.Property(e => e.Price).HasPrecision(18, 2);
+        
+        // Explicit FK to Category without navigation properties
+        entity.HasOne<Category>()
+            .WithMany()
+            .HasForeignKey(e => e.CategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
         
         entity.HasMany(e => e.StockMovements)
             .WithOne(e => e.Product)
