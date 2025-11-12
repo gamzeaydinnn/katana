@@ -376,7 +376,41 @@ public class ProductsController : ControllerBase
         {
             _logger.LogError(ex, "Invalid operation updating product {Id}", id);
             _loggingService.LogError("Product update failed", ex, User?.Identity?.Name, null, LogCategory.Business);
+            
+            // Check if this is a CategoryId validation error
+            if (ex.Message.Contains("kategori") || ex.Message.Contains("CategoryId"))
+            {
+                return BadRequest(new { error = ex.Message, details = ex.InnerException?.Message });
+            }
+            
             return Conflict(new { error = ex.Message, details = ex.InnerException?.Message });
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Database update error for product {Id}. InnerException: {InnerException}", 
+                id, ex.InnerException?.Message);
+            _loggingService.LogError("Product update DB error", ex, User?.Identity?.Name, null, LogCategory.Business);
+            
+            // Check for foreign key constraint violation on CategoryId
+            var innerMessage = ex.InnerException?.Message ?? ex.Message;
+            if (innerMessage.Contains("FK_Products_Categories_CategoryId") || 
+                innerMessage.Contains("FOREIGN KEY constraint"))
+            {
+                return BadRequest(new 
+                { 
+                    error = "Geçersiz kategori ID'si. Bu kategori veritabanında mevcut değil.",
+                    message = "Invalid CategoryId or category does not exist",
+                    details = innerMessage
+                });
+            }
+            
+            return StatusCode(500, new 
+            { 
+                message = "Veritabanı güncelleme hatası", 
+                error = ex.Message,
+                details = innerMessage,
+                timestamp = DateTime.UtcNow
+            });
         }
         catch (Exception ex)
         {
