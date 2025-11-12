@@ -19,5 +19,6 @@ public interface IProductService
     Task<bool> ActivateProductAsync(int id);
     Task<bool> DeactivateProductAsync(int id);
     Task<ProductStatisticsDto> GetProductStatisticsAsync();
+    Task<(int created, int updated, int skipped, List<string> errors)> BulkSyncProductsAsync(IEnumerable<CreateProductDto> products, int defaultCategoryId);
     
 }

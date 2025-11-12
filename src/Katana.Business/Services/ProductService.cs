@@ -226,6 +226,103 @@ public class ProductService : IProductService
         };
     }
 
+    public async Task<(int created, int updated, int skipped, List<string> errors)> BulkSyncProductsAsync(
+        IEnumerable<CreateProductDto> products, 
+        int defaultCategoryId)
+    {
+        var createdCount = 0;
+        var updatedCount = 0;
+        var skippedCount = 0;
+        var errors = new List<string>();
+
+        // Validate default category exists
+        var categoryExists = await _context.Categories.AnyAsync(c => c.Id == defaultCategoryId);
+        if (!categoryExists)
+        {
+            errors.Add($"Default CategoryId {defaultCategoryId} does not exist in database");
+            return (0, 0, 0, errors);
+        }
+
+        // Fetch all existing products in one query for performance
+        var existingProducts = await _context.Products.ToListAsync();
+        var existingProductsBySku = existingProducts.ToDictionary(p => p.SKU, p => p);
+
+        foreach (var productDto in products)
+        {
+            try
+            {
+                // Ensure valid CategoryId
+                if (productDto.CategoryId <= 0)
+                {
+                    productDto.CategoryId = defaultCategoryId;
+                }
+
+                // Validate the CategoryId exists
+                var catExists = await _context.Categories.AnyAsync(c => c.Id == productDto.CategoryId);
+                if (!catExists)
+                {
+                    errors.Add($"Product {productDto.SKU}: Invalid CategoryId {productDto.CategoryId}, using default {defaultCategoryId}");
+                    productDto.CategoryId = defaultCategoryId;
+                }
+
+                if (existingProductsBySku.TryGetValue(productDto.SKU, out var existingProduct))
+                {
+                    // Update existing product
+                    existingProduct.Name = productDto.Name;
+                    existingProduct.Price = productDto.Price;
+                    existingProduct.Stock = productDto.Stock;
+                    existingProduct.CategoryId = productDto.CategoryId;
+                    existingProduct.MainImageUrl = productDto.MainImageUrl;
+                    existingProduct.Description = productDto.Description;
+                    existingProduct.UpdatedAt = DateTime.UtcNow;
+                    updatedCount++;
+                }
+                else
+                {
+                    // Create new product
+                    var newProduct = new Product
+                    {
+                        Name = productDto.Name,
+                        SKU = productDto.SKU,
+                        Price = productDto.Price,
+                        Stock = productDto.Stock,
+                        CategoryId = productDto.CategoryId,
+                        MainImageUrl = productDto.MainImageUrl,
+                        Description = productDto.Description,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.Products.Add(newProduct);
+                    createdCount++;
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Product {productDto.SKU}: {ex.Message}");
+                skippedCount++;
+            }
+        }
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            var innerMessage = ex.InnerException?.Message ?? ex.Message;
+            errors.Add($"Database error during bulk save: {innerMessage}");
+            
+            // If FK constraint violation, provide specific guidance
+            if (innerMessage.Contains("FK_Products_Categories_CategoryId"))
+            {
+                errors.Add("Foreign key constraint violation on CategoryId. Some products have invalid category references.");
+            }
+        }
+
+        return (createdCount, updatedCount, skippedCount, errors);
+    }
+
     private ProductDto MapToDto(Product product)
     {
         return new ProductDto
