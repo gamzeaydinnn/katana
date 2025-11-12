@@ -125,11 +125,6 @@ public class ProductService : IProductService
             if (product == null)
                 throw new KeyNotFoundException($"Ürün bulunamadı: {id}");
 
-            // Validate that the category exists
-            var categoryExists = await _context.Categories.AnyAsync(c => c.Id == dto.CategoryId);
-            if (!categoryExists)
-                throw new InvalidOperationException($"Geçersiz kategori ID: {dto.CategoryId}. Bu kategori mevcut değil.");
-
             var existingProduct = await _context.Products
                 .FirstOrDefaultAsync(p => p.SKU == dto.SKU && p.Id != id);
 
