@@ -3,11 +3,10 @@ namespace Katana.Core.DTOs;
 
 public class DashboardStatsDto
 {
-    public decimal TotalSales { get; set; }
-    public decimal TotalRevenue { get; set; }
-    public int ProductCount { get; set; }
-    public int CustomerCount { get; set; }
-    public int LowStockCount { get; set; }
+    public int TotalProducts { get; set; }
+    public int TotalStock { get; set; }
+    public int CriticalStock { get; set; }
+    public int PendingSync { get; set; }
 }
 public class ActivityLogDto
 {

@@ -23,19 +23,17 @@ public class DashboardService
     /// </summary>
     public async Task<DashboardStatsDto> GetDashboardStatsAsync()
     {
-        var totalSales = await _context.Invoices.SumAsync(i => i.TotalAmount);
-        var totalRevenue = await _context.AccountingRecords.SumAsync(a => a.Amount);
-        var totalProducts = await _context.Products.CountAsync();
-        var totalCustomers = await _context.Customers.CountAsync();
-        var lowStock = await _context.Products.CountAsync(p => p.Stock < 10);
+        var totalProducts = await _context.Products.CountAsync(p => p.IsActive);
+        var totalStock = await _context.Products.Where(p => p.IsActive).SumAsync(p => p.Stock);
+        var criticalStock = await _context.Products.CountAsync(p => p.Stock <= 5 && p.IsActive);
+        var pendingSync = await _context.PendingStockAdjustments.CountAsync(p => p.Status == "Pending");
 
         return new DashboardStatsDto
         {
-            TotalSales = totalSales,
-            TotalRevenue = totalRevenue,
-            ProductCount = totalProducts,
-            CustomerCount = totalCustomers,
-            LowStockCount = lowStock
+            TotalProducts = totalProducts,
+            TotalStock = totalStock,
+            CriticalStock = criticalStock,
+            PendingSync = pendingSync
         };
     }
 }
