@@ -70,7 +70,7 @@ namespace Katana.API.Controllers
                 Secure = isHttps,
                 SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax,
                 Path = "/",
-                Expires = DateTimeOffset.UtcNow.AddHours(8)
+                Expires = DateTimeOffset.UtcNow.AddMinutes(5)
             });
             return sessionId;
         }

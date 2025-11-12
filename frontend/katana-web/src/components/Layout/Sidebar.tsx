@@ -48,13 +48,6 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     navigate(path);
   };
 
-  const handleAdminClick = () => {
-    // Kullanıcıyı güvenli bir şekilde admin paneline yönlendirmeden önce
-    // mevcut oturumu sonlandırıp yeniden giriş yapmasını zorunlu kıl.
-    localStorage.removeItem("authToken");
-    navigate("/login");
-  };
-
   return (
     <Drawer
       variant="persistent"
@@ -136,11 +129,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
             <ListItemButton
-              onClick={() =>
-                item.path === "/admin"
-                  ? handleAdminClick()
-                  : handleNavigation(item.path)
-              }
+              onClick={() => handleNavigation(item.path)}
               selected={location.pathname === item.path}
               sx={{
                 mx: 1,
