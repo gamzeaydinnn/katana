@@ -83,18 +83,24 @@ public class ProductsController : ControllerBase
                         Description = "Varsayılan kategori"
                     });
                     defaultCategoryId = newCategory.Id;
+                    _logger.LogInformation("Created default category with ID: {CategoryId}", defaultCategoryId);
                 }
                 else
                 {
                     defaultCategoryId = categories.First().Id;
                 }
                 
+                // PERFORMANCE: Fetch all existing products in one query instead of N queries
+                var allLocalProducts = await _productService.GetAllProductsAsync();
+                var localProductsBySku = allLocalProducts.ToDictionary(p => p.SKU, p => p);
+                
+                // Prepare products for bulk sync (only new ones)
+                var productsToSync = new List<CreateProductDto>();
                 foreach (var katanaProduct in products)
                 {
-                    var existingProduct = await _productService.GetProductBySkuAsync(katanaProduct.SKU);
-                    if (existingProduct == null)
+                    if (!localProductsBySku.ContainsKey(katanaProduct.SKU))
                     {
-                        await _productService.CreateProductAsync(new CreateProductDto
+                        productsToSync.Add(new CreateProductDto
                         {
                             Name = katanaProduct.Name ?? katanaProduct.SKU,
                             SKU = katanaProduct.SKU,
@@ -105,11 +111,30 @@ public class ProductsController : ControllerBase
                     }
                 }
                 
+                // Use bulk sync method for better performance and error handling
+                var (created, updated, skipped, syncErrors) = await _productService.BulkSyncProductsAsync(
+                    productsToSync, 
+                    defaultCategoryId
+                );
+                
+                if (syncErrors.Any())
+                {
+                    _logger.LogWarning("Sync completed with {ErrorCount} errors: {Errors}", 
+                        syncErrors.Count, string.Join("; ", syncErrors));
+                }
+                
+                _logger.LogInformation("Sync completed: {Created} created, {Updated} updated, {Skipped} skipped", 
+                    created, updated, skipped);
+                
+                // PERFORMANCE: Re-fetch local products once after sync
+                allLocalProducts = await _productService.GetAllProductsAsync();
+                localProductsBySku = allLocalProducts.ToDictionary(p => p.SKU, p => p);
+                
                 // Map local DB IDs and values to Katana products for frontend operations
                 var enrichedProducts = new List<object>();
                 foreach (var katanaProduct in products)
                 {
-                    var localProduct = await _productService.GetProductBySkuAsync(katanaProduct.SKU);
+                    var localProduct = localProductsBySku.GetValueOrDefault(katanaProduct.SKU);
                     enrichedProducts.Add(new
                     {
                         id = localProduct?.Id.ToString() ?? katanaProduct.Id,
@@ -127,7 +152,19 @@ public class ProductsController : ControllerBase
                         isActive = localProduct?.IsActive ?? katanaProduct.IsActive
                     });
                 }
-                return Ok(new { data = enrichedProducts, count = enrichedProducts.Count });
+                
+                return Ok(new 
+                { 
+                    data = enrichedProducts, 
+                    count = enrichedProducts.Count, 
+                    sync = new 
+                    { 
+                        created, 
+                        updated, 
+                        skipped, 
+                        errors = syncErrors.Count > 0 ? syncErrors : null 
+                    } 
+                });
             }
             
             return Ok(new { data = products, count = products.Count });
