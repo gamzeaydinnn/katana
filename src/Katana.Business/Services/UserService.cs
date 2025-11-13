@@ -54,7 +54,7 @@ public async Task<UserDto> UpdateAsync(int id, UpdateUserDto dto)
         throw new KeyNotFoundException($"Kullanıcı bulunamadı: {id}");
 
     // Role validation
-    var validRoles = new[] { "Admin", "Manager", "Staff", "StockManager" };
+        var validRoles = new[] { "Admin", "Manager", "Staff", "StokYonetici" };
     if (!validRoles.Contains(dto.Role))
         throw new InvalidOperationException($"Geçersiz rol: {dto.Role}. Geçerli roller: {string.Join(", ", validRoles)}");
 
@@ -100,7 +100,7 @@ public async Task<UserDto> UpdateAsync(int id, UpdateUserDto dto)
     public async Task<UserDto> CreateAsync(CreateUserDto dto)
     {
         // Role validation
-        var validRoles = new[] { "Admin", "Manager", "Staff", "StockManager" };
+            var validRoles = new[] { "Admin", "Manager", "Staff", "StokYonetici" };
         if (!validRoles.Contains(dto.Role))
             throw new InvalidOperationException($"Geçersiz rol: {dto.Role}. Geçerli roller: {string.Join(", ", validRoles)}");
 

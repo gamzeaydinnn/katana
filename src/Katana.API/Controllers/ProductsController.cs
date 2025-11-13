@@ -373,7 +373,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin,StockManager")] // Ürün ekleme yetkisi
+    [Authorize(Roles = "Admin,StokYonetici")] // Ürün ekleme yetkisi
     public async Task<ActionResult<ProductDto>> Create([FromBody] CreateProductDto dto)
     {
         var validationErrors = Katana.Business.Validators.ProductValidator.ValidateCreate(dto);
@@ -396,7 +396,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = "Admin,StockManager")] // Ürün güncelleme yetkisi
+    [Authorize(Roles = "Admin,StokYonetici")] // Ürün güncelleme yetkisi
     public async Task<ActionResult<ProductDto>> Update(int id, [FromBody] UpdateProductDto dto)
     {
         _logger.LogInformation("Update product called: ID={Id}, DTO={@Dto}", id, dto);
@@ -545,7 +545,7 @@ public class ProductsController : ControllerBase
     /// Update a Luca-style product (maps to local DB product)
     /// </summary>
     [HttpPut("luca/{id}")]
-    [Authorize(Roles = "Admin,StockManager")] // Luca ürün güncelleme
+    [Authorize(Roles = "Admin,StokYonetici")] // Luca ürün güncelleme
     public async Task<ActionResult> UpdateLucaProduct(int id, [FromBody] LucaProductUpdateDto dto)
     {
         _logger.LogInformation("UpdateLucaProduct called: ID={Id}, DTO={@Dto}", id, dto);
@@ -666,7 +666,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id}/activate")]
-    [Authorize(Roles = "Admin,StockManager")] // Ürün aktif etme yetkisi
+    [Authorize(Roles = "Admin,StokYonetici")] // Ürün aktif etme yetkisi
     public async Task<ActionResult> Activate(int id)
     {
         var result = await _productService.ActivateProductAsync(id);
@@ -677,7 +677,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id}/deactivate")]
-    [Authorize(Roles = "Admin,StockManager")] // Ürün pasif etme yetkisi
+    [Authorize(Roles = "Admin,StokYonetici")] // Ürün pasif etme yetkisi
     public async Task<ActionResult> Deactivate(int id)
     {
         var result = await _productService.DeactivateProductAsync(id);

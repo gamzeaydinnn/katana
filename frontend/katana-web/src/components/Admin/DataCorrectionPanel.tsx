@@ -104,7 +104,7 @@ const DataCorrectionPanel: React.FC = () => {
       ? window.localStorage.getItem("authToken")
       : null;
   const _roles = getJwtRoles(decodeJwtPayload(_token));
-  const canEdit = _roles.includes("admin") || _roles.includes("stockmanager");
+  const canEdit = _roles.includes("admin") || _roles.includes("stokyonetici");
 
   // Compare Katana vs Luca data
   const performComparison = async () => {

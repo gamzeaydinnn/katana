@@ -76,7 +76,7 @@ export default function PendingAdjustments() {
     }
   })();
   const canApproveReject =
-    userRoles.includes("admin") || userRoles.includes("stockmanager");
+    userRoles.includes("admin") || userRoles.includes("stokyonetici");
 
   const isPendingStatus = (status?: string) =>
     (status ?? "").trim().toLowerCase() === "pending";
@@ -298,7 +298,7 @@ export default function PendingAdjustments() {
       {!canApproveReject && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Stok hareketlerini görüntüleyebilirsiniz. Onaylama/reddetme yetkisi
-          için Admin veya StockManager rolü gereklidir.
+          için Admin veya Stok Yöneticisi rolü gereklidir.
         </Alert>
       )}
 

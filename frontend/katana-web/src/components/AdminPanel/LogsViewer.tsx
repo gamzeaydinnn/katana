@@ -215,7 +215,7 @@ const LogsViewer: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
-        System Logs
+        Sistem Logları
       </Typography>
 
       {/* Stats Cards */}
@@ -231,7 +231,7 @@ const LogsViewer: React.FC = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                Error Logs ({stats.period})
+                Hata Logları ({stats.period})
               </Typography>
               {stats.errorStats.map((s) => (
                 <Chip
@@ -247,7 +247,7 @@ const LogsViewer: React.FC = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                Audit Logs ({stats.period})
+                Denetim Logları ({stats.period})
               </Typography>
               {stats.auditStats.map((s) => (
                 <Chip
@@ -263,7 +263,7 @@ const LogsViewer: React.FC = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                By Category
+                Kategoriye Göre
               </Typography>
               {stats.categoryStats.slice(0, 5).map((s) => (
                 <Chip
@@ -295,8 +295,8 @@ const LogsViewer: React.FC = () => {
           }}
         >
           <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
-            <Tab label={`Error Logs (${totalErrors})`} />
-            <Tab label={`Audit Logs (${totalAudits})`} />
+            <Tab label={`Hata Logları (${totalErrors})`} />
+            <Tab label={`Denetim Logları (${totalAudits})`} />
           </Tabs>
           <Button
             variant="contained"
@@ -314,7 +314,7 @@ const LogsViewer: React.FC = () => {
               },
             }}
           >
-            Refresh
+            Yenile
           </Button>
         </Box>
 
@@ -334,7 +334,7 @@ const LogsViewer: React.FC = () => {
                   select
                   fullWidth
                   size="small"
-                  label="Level"
+                  label="Seviye"
                   value={errorFilters.level}
                   onChange={(e) =>
                     setErrorFilters({
@@ -344,10 +344,10 @@ const LogsViewer: React.FC = () => {
                     })
                   }
                 >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="Error">Error</MenuItem>
-                  <MenuItem value="Warning">Warning</MenuItem>
-                  <MenuItem value="Info">Info</MenuItem>
+                  <MenuItem value="">Tümü</MenuItem>
+                  <MenuItem value="Error">Hata</MenuItem>
+                  <MenuItem value="Warning">Uyarı</MenuItem>
+                  <MenuItem value="Info">Bilgi</MenuItem>
                 </TextField>
                 <TextField
                   select
@@ -376,7 +376,7 @@ const LogsViewer: React.FC = () => {
                   type="date"
                   fullWidth
                   size="small"
-                  label="From Date"
+                  label="Başlangıç Tarihi"
                   value={errorFilters.fromDate}
                   onChange={(e) =>
                     setErrorFilters({
@@ -519,7 +519,7 @@ const LogsViewer: React.FC = () => {
                   select
                   fullWidth
                   size="small"
-                  label="Action"
+                  label="İşlem"
                   value={auditFilters.actionType}
                   onChange={(e) =>
                     setAuditFilters({
@@ -529,7 +529,7 @@ const LogsViewer: React.FC = () => {
                     })
                   }
                 >
-                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="">Tümü</MenuItem>
                   <MenuItem value="CREATE">CREATE</MenuItem>
                   <MenuItem value="UPDATE">UPDATE</MenuItem>
                   <MenuItem value="DELETE">DELETE</MenuItem>
@@ -539,7 +539,7 @@ const LogsViewer: React.FC = () => {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Entity Name"
+                  label="Varlık Adı"
                   value={auditFilters.entityName}
                   onChange={(e) =>
                     setAuditFilters({
@@ -553,7 +553,7 @@ const LogsViewer: React.FC = () => {
                   type="date"
                   fullWidth
                   size="small"
-                  label="From Date"
+                  label="Başlangıç Tarihi"
                   value={auditFilters.fromDate}
                   onChange={(e) =>
                     setAuditFilters({
@@ -577,7 +577,7 @@ const LogsViewer: React.FC = () => {
                     },
                   }}
                 >
-                  Filter
+                  Uygula
                 </Button>
               </Box>
 
@@ -590,12 +590,12 @@ const LogsViewer: React.FC = () => {
                       <TableHead>
                         <TableRow>
                           <TableCell width={50}></TableCell>
-                          <TableCell>Action</TableCell>
-                          <TableCell>Entity</TableCell>
-                          <TableCell>Entity ID</TableCell>
-                          <TableCell>User</TableCell>
-                          <TableCell>IP Address</TableCell>
-                          <TableCell>Date</TableCell>
+                          <TableCell>İşlem</TableCell>
+                          <TableCell>Varlık</TableCell>
+                          <TableCell>Varlık ID</TableCell>
+                          <TableCell>Kullanıcı</TableCell>
+                          <TableCell>IP Adresi</TableCell>
+                          <TableCell>Tarih</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>

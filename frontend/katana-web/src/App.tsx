@@ -189,7 +189,7 @@ const App: React.FC = () => {
                           <Route path="/stock-view" element={<StockView />} />
                           <Route path="/sync" element={<SyncManagement />} />
                           <Route path="/reports" element={<Reports />} />
-                          {/* Protect the Admin Panel route - accessible by Admin, Manager (read-only), StockManager (partial) */}
+                          {/* Protect the Admin Panel route - accessible by Admin, Manager (read-only), StokYonetici (partial) */}
                           <Route
                             path="/admin"
                             element={

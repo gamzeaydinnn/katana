@@ -37,11 +37,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // If a requiredRole prop is not provided, allow admin/manager/stockmanager for /admin routes
   let roleNeeded = requiredRole?.toLowerCase();
   if (!roleNeeded && location.pathname.startsWith("/admin")) {
-    // Admin panel accessible by Admin, Manager (read-only), and StockManager (partial)
+    // Admin panel accessible by Admin, Manager (read-only), and StokYonetici (partial)
     const hasAdminPanelAccess =
       roles.includes("admin") ||
       roles.includes("manager") ||
-      roles.includes("stockmanager");
+      roles.includes("stokyonetici");
     if (!hasAdminPanelAccess) {
       return <Navigate to="/unauthorized" replace state={{ from: location }} />;
     }

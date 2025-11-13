@@ -116,7 +116,7 @@ const LucaProducts: React.FC = () => {
       ? window.localStorage.getItem("authToken")
       : null;
   const _roles = getJwtRoles(decodeJwtPayload(_token));
-  const canEdit = _roles.includes("admin") || _roles.includes("stockmanager");
+  const canEdit = _roles.includes("admin") || _roles.includes("stokyonetici");
 
   const handleCloseModal = () => {
     setEditModalOpen(false);
@@ -336,10 +336,10 @@ const LucaProducts: React.FC = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Ürünü Düzenle</DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
+        <DialogTitle sx={{ pb: 2 }}>Ürünü Düzenle</DialogTitle>
+        <DialogContent dividers sx={{ pt: 2 }}>
           {selectedProduct && (
-            <Stack spacing={3}>
+            <Stack spacing={2.5}>
               <TextField
                 fullWidth
                 label="Ürün Kodu"
@@ -348,7 +348,12 @@ const LucaProducts: React.FC = () => {
                   selectedProduct.ProductCode ||
                   ""
                 }
-                disabled
+                onChange={(e) =>
+                  setSelectedProduct({
+                    ...selectedProduct,
+                    productCode: e.target.value,
+                  })
+                }
                 size="small"
               />
               <TextField

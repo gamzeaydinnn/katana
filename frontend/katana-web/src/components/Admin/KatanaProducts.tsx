@@ -194,13 +194,13 @@ const KatanaProducts: React.FC = () => {
     setSelectedProduct({ ...selectedProduct, [field]: value });
   };
 
-  // Determine edit permission from JWT roles: only Admin and StockManager can edit
+  // Determine edit permission from JWT roles: only Admin and StokYonetici can edit
   const _token =
     typeof window !== "undefined"
       ? window.localStorage.getItem("authToken")
       : null;
   const _roles = getJwtRoles(decodeJwtPayload(_token));
-  const canEdit = _roles.includes("admin") || _roles.includes("stockmanager");
+  const canEdit = _roles.includes("admin") || _roles.includes("stokyonetici");
 
   return (
     <Box>

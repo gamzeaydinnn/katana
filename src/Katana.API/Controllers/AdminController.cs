@@ -14,7 +14,7 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/adminpanel")]
-[Authorize(Roles = "Admin,Manager,StockManager")]
+[Authorize(Roles = "Admin,Manager,StokYonetici")]
 public class AdminController : ControllerBase
 {
     private readonly IKatanaService _katanaService;
@@ -84,7 +84,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("pending-adjustments/{id}/approve")]
-    [Authorize(Roles = "Admin,StockManager")] // Stok onaylama yetkisi
+    [Authorize(Roles = "Admin,StokYonetici")] // Stok onaylama yetkisi
     public async Task<IActionResult> ApprovePendingAdjustment(long id, [FromQuery] string approvedBy = "admin")
     {
         try
@@ -114,7 +114,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("pending-adjustments/{id}/reject")]
-    [Authorize(Roles = "Admin,StockManager")] // Stok red yetkisi
+    [Authorize(Roles = "Admin,StokYonetici")] // Stok red yetkisi
     public async Task<IActionResult> RejectPendingAdjustment(long id, [FromBody] RejectDto dto)
     {
         try
@@ -222,7 +222,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("sync-logs")]
-    [Authorize(Roles = "Admin,Manager,StockManager")] // Allow viewing by Admin, Manager and StockManager
+    [Authorize(Roles = "Admin,Manager,StokYonetici")] // Allow viewing by Admin, Manager and StokYonetici
     public IActionResult GetSyncLogs([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         try
@@ -249,8 +249,8 @@ public class AdminController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting sync logs");
-            return StatusCode(500, new { error = "Failed to get sync logs" });
+            _logger.LogError(ex, "Senkronizasyon logları alınırken hata oluştu");
+            return StatusCode(500, new { error = "Senkronizasyon logları alınamadı" });
         }
     }
 
