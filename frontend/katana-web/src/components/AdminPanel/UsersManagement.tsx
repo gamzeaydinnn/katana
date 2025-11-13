@@ -29,19 +29,30 @@ import {
   Alert,
   Switch,
 } from "@mui/material";
-import { Add as AddIcon, Delete as DeleteIcon, Refresh as RefreshIcon, Edit as EditIcon } from "@mui/icons-material";
-import { usersAPI, type CreateUserRequest, type UserDto } from "../../services/api";
+import {
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  Refresh as RefreshIcon,
+  Edit as EditIcon,
+} from "@mui/icons-material";
+import {
+  usersAPI,
+  type CreateUserRequest,
+  type UserDto,
+} from "../../services/api";
 import { showGlobalToast } from "../../providers/FeedbackProvider";
 import { decodeJwtPayload, getJwtRoles } from "../../utils/jwt";
 
-const roleOptions = ["Admin", "Manager", "Staff"] as const;
+const roleOptions = ["Admin", "Manager", "Staff", "StockManager"] as const;
 
 const UsersManagement: React.FC = () => {
   const [users, setUsers] = useState<UserDto[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [creating, setCreating] = useState<boolean>(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [editing, setEditing] = useState<null | (UserDto & { password?: string })>(null);
+  const [editing, setEditing] = useState<
+    null | (UserDto & { password?: string })
+  >(null);
 
   const [form, setForm] = useState<CreateUserRequest>({
     username: "",
@@ -60,7 +71,9 @@ const UsersManagement: React.FC = () => {
     } catch (err: any) {
       console.error("Failed to load users", err);
       showGlobalToast?.({
-        message: `Kullanıcılar yüklenemedi: ${err?.response?.data?.error || err.message || "Hata"}`,
+        message: `Kullanıcılar yüklenemedi: ${
+          err?.response?.data?.error || err.message || "Hata"
+        }`,
         severity: "error",
         durationMs: 3500,
       });
@@ -74,25 +87,40 @@ const UsersManagement: React.FC = () => {
   }, []);
 
   const rolesFromToken = (() => {
-    const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null;
+    const token =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("authToken")
+        : null;
     const payload = decodeJwtPayload(token);
     return getJwtRoles(payload);
   })();
-  const isAdmin = rolesFromToken.includes("admin");
+  const isAdmin = rolesFromToken.some((r) => r.toLowerCase() === "admin");
 
   const handleCreate = async () => {
     try {
       // Inline validation so kullanıcı butona basabilsin ve sebebini görsün
       if (form.username.trim().length < 3) {
-        showGlobalToast?.({ message: "Kullanıcı adı en az 3 karakter olmalı", severity: "warning", durationMs: 3000 });
+        showGlobalToast?.({
+          message: "Kullanıcı adı en az 3 karakter olmalı",
+          severity: "warning",
+          durationMs: 3000,
+        });
         return;
       }
       if (form.password.trim().length < 6) {
-        showGlobalToast?.({ message: "Şifre en az 6 karakter olmalı", severity: "warning", durationMs: 3000 });
+        showGlobalToast?.({
+          message: "Şifre en az 6 karakter olmalı",
+          severity: "warning",
+          durationMs: 3000,
+        });
         return;
       }
       if (!form.role) {
-        showGlobalToast?.({ message: "Lütfen bir rol seçin", severity: "warning", durationMs: 3000 });
+        showGlobalToast?.({
+          message: "Lütfen bir rol seçin",
+          severity: "warning",
+          durationMs: 3000,
+        });
         return;
       }
 
@@ -101,30 +129,66 @@ const UsersManagement: React.FC = () => {
         username: form.username.trim(),
         password: form.password,
         role: form.role,
-        email: form.email?.trim() || undefined,
+        // Only send email if it's not empty and looks like an email
+        email:
+          form.email?.trim() && form.email.includes("@")
+            ? form.email.trim()
+            : undefined,
       };
+      console.log("Creating user with payload:", payload);
       await usersAPI.create(payload);
-      showGlobalToast?.({ message: "Kullanıcı oluşturuldu", severity: "success", durationMs: 2500 });
+      showGlobalToast?.({
+        message: "Kullanıcı oluşturuldu",
+        severity: "success",
+        durationMs: 2500,
+      });
       setForm({ username: "", password: "", role: "Staff", email: "" });
       await load();
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.response?.data?.message || err.message || "Hata";
-      showGlobalToast?.({ message: `Oluşturma başarısız: ${msg}`, severity: "error", durationMs: 4000 });
+      console.error("User creation error:", err);
+      console.error("Response data:", err?.response?.data);
+      console.error("Response status:", err?.response?.status);
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err.message ||
+        "Hata";
+      showGlobalToast?.({
+        message: `Oluşturma başarısız: ${msg}`,
+        severity: "error",
+        durationMs: 4000,
+      });
     } finally {
       setCreating(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (typeof window !== "undefined" && !window.confirm("Kullanıcıyı silmek istediğinize emin misiniz?")) return;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm("Kullanıcıyı silmek istediğinize emin misiniz?")
+    )
+      return;
     try {
       setDeletingId(id);
       await usersAPI.delete(id);
-      showGlobalToast?.({ message: "Kullanıcı silindi", severity: "success", durationMs: 2500 });
+      showGlobalToast?.({
+        message: "Kullanıcı silindi",
+        severity: "success",
+        durationMs: 2500,
+      });
       await load();
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.response?.data?.message || err.message || "Hata";
-      showGlobalToast?.({ message: `Silme başarısız: ${msg}`, severity: "error", durationMs: 4000 });
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err.message ||
+        "Hata";
+      showGlobalToast?.({
+        message: `Silme başarısız: ${msg}`,
+        severity: "error",
+        durationMs: 4000,
+      });
     } finally {
       setDeletingId(null);
     }
@@ -141,7 +205,11 @@ const UsersManagement: React.FC = () => {
     try {
       const { id, username, email, role, isActive, password } = editing;
       if (username.trim().length < 3) {
-        showGlobalToast?.({ message: "Kullanıcı adı en az 3 karakter olmalı", severity: "warning", durationMs: 3000 });
+        showGlobalToast?.({
+          message: "Kullanıcı adı en az 3 karakter olmalı",
+          severity: "warning",
+          durationMs: 3000,
+        });
         return;
       }
       await usersAPI.update(id, {
@@ -151,12 +219,24 @@ const UsersManagement: React.FC = () => {
         isActive,
         password: password && password.trim() !== "" ? password : undefined,
       });
-      showGlobalToast?.({ message: "Kullanıcı güncellendi", severity: "success", durationMs: 2500 });
+      showGlobalToast?.({
+        message: "Kullanıcı güncellendi",
+        severity: "success",
+        durationMs: 2500,
+      });
       setEditing(null);
       await load();
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.response?.data?.message || err.message || "Hata";
-      showGlobalToast?.({ message: `Güncelleme başarısız: ${msg}`, severity: "error", durationMs: 4000 });
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err.message ||
+        "Hata";
+      showGlobalToast?.({
+        message: `Güncelleme başarısız: ${msg}`,
+        severity: "error",
+        durationMs: 4000,
+      });
     }
   };
 
@@ -164,7 +244,12 @@ const UsersManagement: React.FC = () => {
     <Stack spacing={3}>
       <Card>
         <CardContent>
-          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+            mb={2}
+          >
             <Typography variant="h6" fontWeight={700}>
               Alt Kullanıcılar / Kullanıcı Yönetimi
             </Typography>
@@ -177,18 +262,25 @@ const UsersManagement: React.FC = () => {
 
           {!isAdmin && (
             <Alert severity="info" sx={{ mb: 2 }}>
-              Bu bölümde yalnızca Admin kullanıcılar değişiklik yapabilir. Siz kullanıcıları görüntüleyebilirsiniz.
+              Bu bölümde yalnızca Admin kullanıcılar değişiklik yapabilir. Siz
+              kullanıcıları görüntüleyebilirsiniz.
             </Alert>
           )}
 
           {isAdmin && (
             <>
               <Divider sx={{ mb: 2 }} />
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="flex-start">
+              <Stack
+                direction={{ xs: "column", md: "row" }}
+                spacing={2}
+                alignItems="flex-start"
+              >
                 <TextField
                   label="Kullanıcı Adı"
                   value={form.username}
-                  onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, username: e.target.value }))
+                  }
                   required
                   sx={{ minWidth: 220 }}
                 />
@@ -196,14 +288,18 @@ const UsersManagement: React.FC = () => {
                   type="email"
                   label="E-posta (opsiyonel)"
                   value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, email: e.target.value }))
+                  }
                   sx={{ minWidth: 260 }}
                 />
                 <TextField
                   label="Şifre"
                   type="password"
                   value={form.password}
-                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, password: e.target.value }))
+                  }
                   required
                   sx={{ minWidth: 220 }}
                   helperText="En az 6 karakter"
@@ -214,7 +310,9 @@ const UsersManagement: React.FC = () => {
                     labelId="role-label"
                     label="Rol"
                     value={form.role}
-                    onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as any }))}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, role: e.target.value as any }))
+                    }
                   >
                     {roleOptions.map((r) => (
                       <MenuItem key={r} value={r}>
@@ -246,7 +344,12 @@ const UsersManagement: React.FC = () => {
           <Divider sx={{ mb: 2 }} />
 
           {loading ? (
-            <Box display="flex" alignItems="center" justifyContent="center" minHeight={160}>
+            <Box
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              minHeight={160}
+            >
               <CircularProgress />
             </Box>
           ) : (
@@ -268,7 +371,11 @@ const UsersManagement: React.FC = () => {
                       <TableCell>{u.email}</TableCell>
                       <TableCell>{u.role}</TableCell>
                       <TableCell>
-                        <Chip size="small" label={u.isActive ? "Aktif" : "Pasif"} color={u.isActive ? "success" : "default"} />
+                        <Chip
+                          size="small"
+                          label={u.isActive ? "Aktif" : "Pasif"}
+                          color={u.isActive ? "success" : "default"}
+                        />
                       </TableCell>
                       <TableCell align="right">
                         <IconButton
@@ -286,7 +393,11 @@ const UsersManagement: React.FC = () => {
                           disabled={deletingId === u.id || !isAdmin}
                           title="Sil"
                         >
-                          {deletingId === u.id ? <CircularProgress size={18} /> : <DeleteIcon />}
+                          {deletingId === u.id ? (
+                            <CircularProgress size={18} />
+                          ) : (
+                            <DeleteIcon />
+                          )}
                         </IconButton>
                       </TableCell>
                     </TableRow>
@@ -313,14 +424,18 @@ const UsersManagement: React.FC = () => {
               <TextField
                 label="Kullanıcı Adı"
                 value={editing.username}
-                onChange={(e) => setEditing({ ...(editing as any), username: e.target.value })}
+                onChange={(e) =>
+                  setEditing({ ...(editing as any), username: e.target.value })
+                }
                 required
               />
               <TextField
                 label="E-posta (opsiyonel)"
                 type="email"
                 value={editing.email}
-                onChange={(e) => setEditing({ ...(editing as any), email: e.target.value })}
+                onChange={(e) =>
+                  setEditing({ ...(editing as any), email: e.target.value })
+                }
               />
               <FormControl fullWidth>
                 <InputLabel id="edit-role-label">Rol</InputLabel>
@@ -328,7 +443,12 @@ const UsersManagement: React.FC = () => {
                   labelId="edit-role-label"
                   label="Rol"
                   value={editing.role}
-                  onChange={(e) => setEditing({ ...(editing as any), role: e.target.value as any })}
+                  onChange={(e) =>
+                    setEditing({
+                      ...(editing as any),
+                      role: e.target.value as any,
+                    })
+                  }
                 >
                   {roleOptions.map((r) => (
                     <MenuItem key={r} value={r}>
@@ -341,7 +461,12 @@ const UsersManagement: React.FC = () => {
                 control={
                   <Switch
                     checked={!!editing.isActive}
-                    onChange={(e) => setEditing({ ...(editing as any), isActive: e.target.checked })}
+                    onChange={(e) =>
+                      setEditing({
+                        ...(editing as any),
+                        isActive: e.target.checked,
+                      })
+                    }
                   />
                 }
                 label="Aktif"
@@ -350,7 +475,9 @@ const UsersManagement: React.FC = () => {
                 label="Yeni Şifre (opsiyonel)"
                 type="password"
                 value={editing.password ?? ""}
-                onChange={(e) => setEditing({ ...(editing as any), password: e.target.value })}
+                onChange={(e) =>
+                  setEditing({ ...(editing as any), password: e.target.value })
+                }
                 helperText="Boş bırakırsanız şifre değişmez"
               />
             </Stack>
@@ -358,7 +485,9 @@ const UsersManagement: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={closeEdit}>Vazgeç</Button>
-          <Button variant="contained" onClick={saveEdit} disabled={!isAdmin}>Kaydet</Button>
+          <Button variant="contained" onClick={saveEdit} disabled={!isAdmin}>
+            Kaydet
+          </Button>
         </DialogActions>
       </Dialog>
     </Stack>

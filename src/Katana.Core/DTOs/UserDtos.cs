@@ -19,7 +19,6 @@ public class CreateUserDto
     public string Password { get; set; } = string.Empty;
     [Required]
     public string Role { get; set; } = "Staff";
-    [EmailAddress]
     public string? Email { get; set; }
 }
 public class UpdateUserDto
@@ -31,6 +30,5 @@ public class UpdateUserDto
     [Required]
     public string Role { get; set; } = "Staff";
     public bool IsActive { get; set; } = true;
-    [EmailAddress]
     public string? Email { get; set; }
 }

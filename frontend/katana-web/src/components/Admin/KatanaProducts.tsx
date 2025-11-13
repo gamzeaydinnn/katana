@@ -32,6 +32,8 @@ import {
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
+import { showGlobalToast } from "../../providers/FeedbackProvider";
+import { decodeJwtPayload, getJwtRoles } from "../../utils/jwt";
 
 interface KatanaProduct {
   id: string;
@@ -64,7 +66,7 @@ const KatanaProducts: React.FC = () => {
   const [products, setProducts] = useState<KatanaProduct[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<KatanaProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Inline error banner removed; use global toast notifications instead
   const [searchTerm, setSearchTerm] = useState("");
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<KatanaProduct | null>(
@@ -75,7 +77,6 @@ const KatanaProducts: React.FC = () => {
 
   const fetchProducts = async () => {
     setLoading(true);
-    setError(null);
     try {
       console.log("Fetching Katana products...");
       // Always sync to ensure local DB has products for editing
@@ -100,8 +101,15 @@ const KatanaProducts: React.FC = () => {
     } catch (err: any) {
       const errorMsg =
         err.response?.data?.error || err.message || "Ürünler yüklenemedi";
-      setError(errorMsg);
-      console.error("Katana ürünleri yükleme hatası:", err);
+      try {
+        showGlobalToast({
+          message: errorMsg,
+          severity: "error",
+          durationMs: 4000,
+        });
+      } catch {
+        console.error("Katana ürünleri yükleme hatası:", err);
+      }
     } finally {
       setLoading(false);
     }
@@ -186,6 +194,14 @@ const KatanaProducts: React.FC = () => {
     setSelectedProduct({ ...selectedProduct, [field]: value });
   };
 
+  // Determine edit permission from JWT roles: only Admin and StockManager can edit
+  const _token =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("authToken")
+      : null;
+  const _roles = getJwtRoles(decodeJwtPayload(_token));
+  const canEdit = _roles.includes("admin") || _roles.includes("stockmanager");
+
   return (
     <Box>
       <Card sx={{ mb: 3 }}>
@@ -236,11 +252,7 @@ const KatanaProducts: React.FC = () => {
         </CardContent>
       </Card>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
+      {/* Inline error banner removed; global toast is used for errors */}
 
       {successMessage && (
         <Alert
@@ -359,15 +371,21 @@ const KatanaProducts: React.FC = () => {
                         />
                       </TableCell>
                       <TableCell align="center">
-                        <Tooltip title="Düzenle">
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => handleEditClick(product)}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                        {canEdit ? (
+                          <Tooltip title="Düzenle">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => handleEditClick(product)}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            -
+                          </Typography>
+                        )}
                       </TableCell>
                     </TableRow>
                   );

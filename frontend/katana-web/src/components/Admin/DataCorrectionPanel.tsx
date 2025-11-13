@@ -31,6 +31,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SaveIcon from "@mui/icons-material/Save";
 import api from "../../services/api";
+import { decodeJwtPayload, getJwtRoles } from "../../utils/jwt";
 
 interface KatanaProduct {
   id: string;
@@ -97,6 +98,13 @@ const DataCorrectionPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const _token =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("authToken")
+      : null;
+  const _roles = getJwtRoles(decodeJwtPayload(_token));
+  const canEdit = _roles.includes("admin") || _roles.includes("stockmanager");
 
   // Compare Katana vs Luca data
   const performComparison = async () => {
@@ -455,7 +463,7 @@ const DataCorrectionPanel: React.FC = () => {
                             spacing={1}
                             justifyContent="center"
                           >
-                            {comp.katanaProduct && (
+                            {comp.katanaProduct && canEdit && (
                               <Button
                                 size="small"
                                 variant="outlined"
@@ -467,7 +475,7 @@ const DataCorrectionPanel: React.FC = () => {
                                 Katana Düzelt
                               </Button>
                             )}
-                            {comp.lucaProduct && (
+                            {comp.lucaProduct && canEdit && (
                               <Button
                                 size="small"
                                 variant="outlined"
@@ -535,13 +543,19 @@ const DataCorrectionPanel: React.FC = () => {
                           {product.onHand || 0}
                         </TableCell>
                         <TableCell align="center">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleKatanaEdit(product)}
-                            color="primary"
-                          >
-                            <EditIcon />
-                          </IconButton>
+                          {canEdit ? (
+                            <IconButton
+                              size="small"
+                              onClick={() => handleKatanaEdit(product)}
+                              color="primary"
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">
+                              -
+                            </Typography>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))
@@ -595,13 +609,19 @@ const DataCorrectionPanel: React.FC = () => {
                         </TableCell>
                         <TableCell align="right">{product.quantity}</TableCell>
                         <TableCell align="center">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleLucaEdit(product)}
-                            color="primary"
-                          >
-                            <EditIcon />
-                          </IconButton>
+                          {canEdit ? (
+                            <IconButton
+                              size="small"
+                              onClick={() => handleLucaEdit(product)}
+                              color="primary"
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">
+                              -
+                            </Typography>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))

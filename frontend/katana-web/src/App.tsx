@@ -162,7 +162,10 @@ const App: React.FC = () => {
                       mode={mode}
                       onToggleMode={toggleMode}
                     />
-                    <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+                    <Sidebar
+                      open={sidebarOpen}
+                      onClose={() => setSidebarOpen(false)}
+                    />
 
                     {/* 🎯 Main Content: Soldan Hizalı */}
                     <Box
@@ -186,16 +189,19 @@ const App: React.FC = () => {
                           <Route path="/stock-view" element={<StockView />} />
                           <Route path="/sync" element={<SyncManagement />} />
                           <Route path="/reports" element={<Reports />} />
-                          {/* Protect only the Admin Panel route */}
+                          {/* Protect the Admin Panel route - accessible by Admin, Manager (read-only), StockManager (partial) */}
                           <Route
                             path="/admin"
                             element={
-                              <ProtectedRoute requiredRole="admin">
+                              <ProtectedRoute>
                                 <AdminPanel />
                               </ProtectedRoute>
                             }
                           />
-                          <Route path="/unauthorized" element={<Unauthorized />} />
+                          <Route
+                            path="/unauthorized"
+                            element={<Unauthorized />}
+                          />
                           <Route path="/profile" element={<Profile />} />
                           <Route path="/settings" element={<Settings />} />
                         </Routes>

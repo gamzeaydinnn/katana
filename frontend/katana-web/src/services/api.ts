@@ -59,42 +59,101 @@ api.interceptors.response.use(
   (error) => {
     try {
       const status = error?.response?.status;
-      if (status === 401 || status === 403) {
-        const path =
-          typeof window !== "undefined" ? window.location.pathname : "";
-        const token =
-          typeof window !== "undefined"
-            ? window.localStorage.getItem("authToken")
-            : null;
+      const path =
+        typeof window !== "undefined" ? window.location.pathname : "";
+      const token =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem("authToken")
+          : null;
+      const tokenExpiredOrInvalid = isJwtTokenExpired(token);
 
-        const tokenExpiredOrInvalid = isJwtTokenExpired(token);
-
-        // Only handle 401/403 if user is on /admin routes
-        if (path.startsWith("/admin")) {
-          try {
+      if (status === 401) {
+        // Authentication problem / token expired
+        try {
+          if (path.startsWith("/admin")) {
             showGlobalToast({
               message:
-                "Yetkisiz erişim veya oturum süresi doldu. Lütfen giriş yapın.",
+                "Oturum süresi doldu veya kimlik doğrulama başarısız. Lütfen giriş yapın.",
               severity: "warning",
               durationMs: 3500,
             });
-          } catch {
-            // ignore toast errors
+          } else {
+            showGlobalToast({
+              message: "Oturum süresi doldu. Lütfen tekrar giriş yapın.",
+              severity: "warning",
+              durationMs: 3000,
+            });
           }
+        } catch {
+          // ignore toast errors
+        }
 
-          // Clear token and redirect to login only for admin routes
-          if (!token || tokenExpiredOrInvalid) {
-            try {
-              if (typeof window !== "undefined") {
-                window.localStorage.removeItem("authToken");
-                window.location.href = "/login";
-              }
-            } catch {
-              // ignore storage/navigation errors
+        if (!token || tokenExpiredOrInvalid) {
+          try {
+            if (typeof window !== "undefined") {
+              window.localStorage.removeItem("authToken");
+              window.location.href = "/login";
             }
+          } catch {
+            // ignore
           }
         }
-        // For non-admin routes, just ignore 401/403 - don't redirect
+      } else if (status === 403) {
+        // Forbidden - user is authenticated but lacks permission
+        try {
+          showGlobalToast({
+            message: "Bu işlem için yetkiniz yok.",
+            severity: "warning",
+            durationMs: 3500,
+          });
+        } catch {
+          // ignore
+        }
+      } else if (status === 400) {
+        // Bad request - try to display helpful validation message
+        try {
+          const data = error?.response?.data;
+          if (data) {
+            // ASP.NET ValidationProblemDetails shape: { title, status, errors: { field: [..] }}
+            if (data.errors && typeof data.errors === "object") {
+              const firstKey = Object.keys(data.errors)[0];
+              const firstMsg = firstKey
+                ? (data.errors[firstKey] || [])[0]
+                : null;
+              showGlobalToast({
+                message: firstMsg || data.title || "İstem hatası (400).",
+                severity: "error",
+                durationMs: 5000,
+              });
+            } else if (typeof data === "string") {
+              showGlobalToast({
+                message: data,
+                severity: "error",
+                durationMs: 5000,
+              });
+            } else if (data.error) {
+              showGlobalToast({
+                message: data.error.toString(),
+                severity: "error",
+                durationMs: 5000,
+              });
+            } else if (data.title) {
+              showGlobalToast({
+                message: data.title,
+                severity: "error",
+                durationMs: 5000,
+              });
+            } else {
+              showGlobalToast({
+                message: "İstem hatası (400).",
+                severity: "error",
+                durationMs: 4000,
+              });
+            }
+          }
+        } catch {
+          // ignore toast errors
+        }
       }
     } catch (handlerError) {
       console.error("[Axios] Response interceptor error:", handlerError);

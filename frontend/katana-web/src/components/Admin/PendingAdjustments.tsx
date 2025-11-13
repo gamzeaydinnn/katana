@@ -31,7 +31,11 @@ import {
   offPendingRejected,
 } from "../../services/signalr";
 import { useFeedback } from "../../providers/FeedbackProvider";
-import { decodeJwtPayload, tryGetJwtUsername } from "../../utils/jwt";
+import {
+  decodeJwtPayload,
+  tryGetJwtUsername,
+  getJwtRoles,
+} from "../../utils/jwt";
 
 interface PendingItem {
   id: number;
@@ -57,6 +61,22 @@ export default function PendingAdjustments() {
   const [rejecting, setRejecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useFeedback();
+
+  // Check user role
+  const userRoles = (() => {
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem("authToken")
+          : null;
+      const payload = decodeJwtPayload(token);
+      return getJwtRoles(payload).map((r) => r.toLowerCase());
+    } catch {
+      return [];
+    }
+  })();
+  const canApproveReject =
+    userRoles.includes("admin") || userRoles.includes("stockmanager");
 
   const isPendingStatus = (status?: string) =>
     (status ?? "").trim().toLowerCase() === "pending";
@@ -275,6 +295,13 @@ export default function PendingAdjustments() {
         Stok Hareketleri
       </Typography>
 
+      {!canApproveReject && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Stok hareketlerini görüntüleyebilirsiniz. Onaylama/reddetme yetkisi
+          için Admin veya StockManager rolü gereklidir.
+        </Alert>
+      )}
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
@@ -327,26 +354,34 @@ export default function PendingAdjustments() {
                     </TableCell>
                     <TableCell>{it.status}</TableCell>
                     <TableCell align="right">
-                      <Button
-                        size="small"
-                        variant="contained"
-                        color="success"
-                        disabled={!isPendingStatus(it.status)}
-                        onClick={() => handleApprove(it)}
-                        sx={{ mr: 1, color: "white", fontWeight: 600 }}
-                      >
-                        Onayla
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="contained"
-                        color="error"
-                        disabled={!isPendingStatus(it.status)}
-                        onClick={() => openReject(it)}
-                        sx={{ color: "white", fontWeight: 600 }}
-                      >
-                        Reddet
-                      </Button>
+                      {canApproveReject ? (
+                        <>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="success"
+                            disabled={!isPendingStatus(it.status)}
+                            onClick={() => handleApprove(it)}
+                            sx={{ mr: 1, color: "white", fontWeight: 600 }}
+                          >
+                            Onayla
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="error"
+                            disabled={!isPendingStatus(it.status)}
+                            onClick={() => openReject(it)}
+                            sx={{ color: "white", fontWeight: 600 }}
+                          >
+                            Reddet
+                          </Button>
+                        </>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          Sadece görüntüleme
+                        </Typography>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -77,7 +77,7 @@ public class SyncController : ControllerBase
     /// POST /api/Sync/start - Yeni senkronizasyon başlatır
     /// </summary>
     [HttpPost("start")]
-    [AllowAnonymous]
+    [Authorize(Roles = "Admin,StockManager")]
     public async Task<IActionResult> StartSync([FromBody] StartSyncRequest request)
     {
         try

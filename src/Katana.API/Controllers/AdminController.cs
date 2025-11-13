@@ -14,7 +14,7 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/adminpanel")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,Manager,StockManager")]
 public class AdminController : ControllerBase
 {
     private readonly IKatanaService _katanaService;
@@ -37,9 +37,20 @@ public class AdminController : ControllerBase
         _pendingService = pendingService;
     }
 
+    // Debug endpoint to check user roles
+    [HttpGet("debug/roles")]
+    public IActionResult GetCurrentUserRoles()
+    {
+        var username = User?.Identity?.Name;
+        var roles = User?.Claims
+            .Where(c => c.Type == System.Security.Claims.ClaimTypes.Role)
+            .Select(c => c.Value)
+            .ToList();
+        return Ok(new { username, roles, isAuthenticated = User?.Identity?.IsAuthenticated });
+    }
+
     // Pending adjustments service will be resolved from DI when needed
     [HttpGet("pending-adjustments")]
-    [AllowAnonymous] // Manager ve Staff da pending adjustments'ları görebilmeli
     public async Task<IActionResult> GetPendingAdjustments()
     {
         try
@@ -73,6 +84,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("pending-adjustments/{id}/approve")]
+    [Authorize(Roles = "Admin,StockManager")] // Stok onaylama yetkisi
     public async Task<IActionResult> ApprovePendingAdjustment(long id, [FromQuery] string approvedBy = "admin")
     {
         try
@@ -102,6 +114,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("pending-adjustments/{id}/reject")]
+    [Authorize(Roles = "Admin,StockManager")] // Stok red yetkisi
     public async Task<IActionResult> RejectPendingAdjustment(long id, [FromBody] RejectDto dto)
     {
         try
@@ -133,7 +146,6 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("statistics")]
-    [AllowAnonymous] // İstatistikleri herkes görebilmeli
     public async Task<IActionResult> GetStatistics()
     {
         try
@@ -160,7 +172,6 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("products")]
-    [AllowAnonymous] // Manager ve Staff da stok görüntüleyebilmeli
     public async Task<IActionResult> GetProducts([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         try
@@ -192,7 +203,6 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("products/{id}")]
-    [AllowAnonymous] // Manager ve Staff da ürün detaylarını görebilmeli
     public async Task<IActionResult> GetProductById(string id)
     {
         try
@@ -212,6 +222,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("sync-logs")]
+    [Authorize(Roles = "Admin,Manager,StockManager")] // Allow viewing by Admin, Manager and StockManager
     public IActionResult GetSyncLogs([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         try
@@ -316,6 +327,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("pending-adjustments/test-create")]
+    [Authorize(Roles = "Admin")] // Test endpoint - sadece Admin
     public async Task<IActionResult> CreateTestPendingAdjustment()
     {
         try

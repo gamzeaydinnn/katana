@@ -10,7 +10,7 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin,Manager")] // tüm endpoint’leri varsayılan olarak Admin ve Manager görebilir
+[Authorize] // Tüm authenticated kullanıcılar erişebilir, özel yetkiler endpoint seviyesinde
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
@@ -28,6 +28,7 @@ public class UsersController : ControllerBase
     /// Tüm kullanıcıları getirir.
     /// </summary>
     [HttpGet]
+    [Authorize(Roles = "Admin,Manager")] // Manager sadece görüntüleyebilir
     public async Task<IActionResult> GetAll()
     {
         var users = await _userService.GetAllAsync();
@@ -36,9 +37,10 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
-    /// Belirli bir kullanıcıyı ID’ye göre getirir.
+    /// Belirli bir kullanıcıyı ID'ye göre getirir.
     /// </summary>
     [HttpGet("{id}")]
+    [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> GetById(int id)
     {
         var user = await _userService.GetByIdAsync(id);
@@ -49,16 +51,34 @@ public class UsersController : ControllerBase
     /// Yeni bir kullanıcı oluşturur.
     /// </summary>
     [HttpPost]
-    [Authorize(Roles = "Admin")] // yalnızca admin kullanıcı oluşturabilir
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
     {
         if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+        {
+            var errors = ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList();
+            return BadRequest(new { error = "Validation failed", errors });
+        }
 
-        var user = await _userService.CreateAsync(dto);
-        _auditService.LogCreate("User", user.Id.ToString(), User?.Identity?.Name ?? "system", $"Username: {user.Username}");
-        _loggingService.LogInfo($"User created: {user.Username}", User?.Identity?.Name, null, LogCategory.UserAction);
-        return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
+        try
+        {
+            var user = await _userService.CreateAsync(dto);
+            _auditService.LogCreate("User", user.Id.ToString(), User?.Identity?.Name ?? "system", $"Username: {user.Username}");
+            _loggingService.LogInfo($"User created: {user.Username}", User?.Identity?.Name, null, LogCategory.UserAction);
+            return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _loggingService.LogError("User creation failed", ex, User?.Identity?.Name, null, LogCategory.UserAction);
+            return StatusCode(500, new { error = "User creation failed", details = ex.Message });
+        }
     }
 
     /// <summary>

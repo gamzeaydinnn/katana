@@ -32,6 +32,7 @@ import {
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { stockAPI } from "../../services/api";
+import { showGlobalToast } from "../../providers/FeedbackProvider";
 
 interface SyncHistory {
   id: number;
@@ -48,7 +49,7 @@ interface SyncHistory {
 const SyncManagement: React.FC = () => {
   const [history, setHistory] = useState<SyncHistory[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  // Note: we use global toast for errors instead of rendering a persistent Alert banner
   const [openDialog, setOpenDialog] = useState(false);
   const [syncType, setSyncType] = useState("Stock");
   const [syncing, setSyncing] = useState(false);
@@ -56,11 +57,21 @@ const SyncManagement: React.FC = () => {
   const loadHistory = async () => {
     try {
       setLoading(true);
-      setError("");
       const data: any = await stockAPI.getSyncHistory();
       setHistory(data || []);
     } catch (err: any) {
-      setError(err.message || "Geçmiş yüklenemedi");
+      // Show a friendly toast; avoid rendering raw error text in page
+      try {
+        showGlobalToast({
+          message:
+            err?.response?.data?.error || err.message || "Geçmiş yüklenemedi",
+          severity: "error",
+          durationMs: 4000,
+        });
+      } catch {
+        // fallback: console log
+        console.error("Failed to show toast for sync history error:", err);
+      }
     } finally {
       setLoading(false);
     }
@@ -147,11 +158,7 @@ const SyncManagement: React.FC = () => {
         </Box>
       </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
+      {/* Error notifications are shown with global toast; remove inline error banner */}
 
       <Paper sx={{ p: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 3 }}>

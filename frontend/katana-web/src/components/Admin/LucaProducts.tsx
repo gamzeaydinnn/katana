@@ -30,6 +30,7 @@ import {
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
+import { decodeJwtPayload, getJwtRoles } from "../../utils/jwt";
 
 interface LucaProduct {
   id: string;
@@ -109,6 +110,13 @@ const LucaProducts: React.FC = () => {
     setSelectedProduct(product);
     setEditModalOpen(true);
   };
+
+  const _token =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("authToken")
+      : null;
+  const _roles = getJwtRoles(decodeJwtPayload(_token));
+  const canEdit = _roles.includes("admin") || _roles.includes("stockmanager");
 
   const handleCloseModal = () => {
     setEditModalOpen(false);
@@ -296,15 +304,21 @@ const LucaProducts: React.FC = () => {
                         />
                       </TableCell>
                       <TableCell align="center">
-                        <Tooltip title="Düzenle">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleEditProduct(product)}
-                            color="primary"
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                        {canEdit ? (
+                          <Tooltip title="Düzenle">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleEditProduct(product)}
+                              color="primary"
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            -
+                          </Typography>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
