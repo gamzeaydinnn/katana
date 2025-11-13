@@ -16,6 +16,7 @@ import {
   Alert,
   CircularProgress,
   InputAdornment,
+  useMediaQuery,
 } from "@mui/material";
 import { Search, Refresh, Inventory } from "@mui/icons-material";
 import { stockAPI } from "../../services/api";
@@ -34,6 +35,7 @@ const StockManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const isMobile = useMediaQuery("(max-width:900px)");
 
   const loadProducts = async () => {
     try {
@@ -81,13 +83,26 @@ const StockManagement: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
+    <Container
+      maxWidth="lg"
+      sx={{ mt: { xs: 2, md: 4 }, mb: { xs: 2.5, md: 4 }, px: { xs: 1.5, sm: 2, md: 0 } }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: { xs: "flex-start", sm: "center" },
+          flexDirection: { xs: "column", sm: "row" },
+          gap: { xs: 1.5, sm: 0 },
+          mb: 3,
+        }}
+      >
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Inventory sx={{ fontSize: 32, color: "primary.main" }} />
           <Typography
             variant="h4"
             sx={{
+              fontSize: { xs: "1.6rem", md: "2rem" },
               fontWeight: 800,
               letterSpacing: "-0.02em",
               background: (t) =>
@@ -104,6 +119,7 @@ const StockManagement: React.FC = () => {
           startIcon={<Refresh />}
           onClick={loadProducts}
           disabled={loading}
+          sx={{ width: { xs: "100%", sm: "auto" } }}
         >
           Yenile
         </Button>
@@ -115,13 +131,13 @@ const StockManagement: React.FC = () => {
         </Alert>
       )}
 
-      <Paper elevation={0} sx={{ p: 3 }}>
+      <Paper elevation={0} sx={{ p: { xs: 2, md: 3 } }}>
         <TextField
           fullWidth
           placeholder="Ürün ara (isim veya SKU)..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ mb: 3 }}
+          sx={{ mb: { xs: 2, md: 3 } }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -141,15 +157,35 @@ const StockManagement: React.FC = () => {
               Toplam {filteredProducts.length} ürün gösteriliyor
             </Typography>
 
-            <TableContainer>
-              <Table size="small">
+            <TableContainer
+              sx={{
+                overflowX: "auto",
+                borderRadius: 2,
+                "&::-webkit-scrollbar": { height: 6 },
+                "&::-webkit-scrollbar-thumb": {
+                  backgroundColor: "#cbd5f5",
+                  borderRadius: 3,
+                },
+              }}
+            >
+              <Table size="small" sx={{ minWidth: isMobile ? 600 : "auto" }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 700 }}>SKU</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Ürün Adı</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700 }}>Stok</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700 }}>Durum</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700 }}>Aktif</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: { xs: "0.8rem", md: "0.9rem" } }}>
+                      SKU
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: { xs: "0.8rem", md: "0.9rem" } }}>
+                      Ürün Adı
+                    </TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: { xs: "0.8rem", md: "0.9rem" } }}>
+                      Stok
+                    </TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: { xs: "0.8rem", md: "0.9rem" } }}>
+                      Durum
+                    </TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: { xs: "0.8rem", md: "0.9rem" } }}>
+                      Aktif
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>

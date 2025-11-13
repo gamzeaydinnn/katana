@@ -20,6 +20,7 @@ import {
   Toolbar,
   Tooltip,
   Typography,
+  useMediaQuery,
   useTheme,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
@@ -93,6 +94,7 @@ const Header: React.FC<HeaderProps> = ({
   onToggleMode,
 }) => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [notificationAnchor, setNotificationAnchor] =
     React.useState<null | HTMLElement>(null);
@@ -352,14 +354,22 @@ const Header: React.FC<HeaderProps> = ({
         transition: "all 0.3s ease",
       }}
     >
-      <Toolbar sx={{ minHeight: 64 }}>
+      <Toolbar
+        sx={{
+          minHeight: isMobile ? 56 : 64,
+          px: { xs: 1.5, sm: 2, md: 3 },
+          gap: isMobile ? 1 : 0,
+          flexWrap: isMobile ? "wrap" : "nowrap",
+          alignItems: isMobile ? "flex-start" : "center",
+        }}
+      >
         <IconButton
           color="inherit"
           aria-label="open drawer"
           onClick={onMenuClick}
           edge="start"
           sx={{
-            mr: 2,
+            mr: isMobile ? 1 : 2,
             color: "#1e40af",
             transition: "transform 0.2s ease",
             "&:hover": {
@@ -368,15 +378,16 @@ const Header: React.FC<HeaderProps> = ({
             },
           }}
         >
-          <MenuIcon />
+          <MenuIcon sx={{ fontSize: isMobile ? 22 : 26 }} />
         </IconButton>
 
         <Box
           sx={{
-            flexGrow: 1,
+            flexGrow: isMobile ? 1 : 0,
             display: "flex",
             alignItems: "center",
-            gap: 0.5,
+            gap: isMobile ? 0.5 : 0.75,
+            minWidth: 0,
           }}
         >
           <Box
@@ -384,7 +395,7 @@ const Header: React.FC<HeaderProps> = ({
             src="/logoo.png"
             alt="BeforMet Metal Logo"
             sx={{
-              height: 64,
+              height: isMobile ? 44 : 64,
               width: "auto",
               objectFit: "contain",
               filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.15))",
@@ -400,14 +411,26 @@ const Header: React.FC<HeaderProps> = ({
               letterSpacing: "-0.5px",
               color: "#1e40af",
               textShadow: "0 1px 2px rgba(0,0,0,0.05)",
-              fontSize: "1.15rem",
+              fontSize: isMobile ? "1rem" : "1.15rem",
             }}
           >
             Beformet Metal
           </Typography>
         </Box>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: isMobile ? 0.75 : 1.5,
+            flexWrap: isMobile ? "wrap" : "nowrap",
+            justifyContent: "flex-end",
+            width: { xs: "100%", md: "auto" },
+            flexGrow: isMobile ? 1 : 0,
+            ml: "auto",
+            mt: isMobile ? 1 : 0,
+          }}
+        >
           {/* Theme toggle */}
           <Tooltip title={mode === "dark" ? "Açık tema" : "Koyu tema"}>
             <IconButton
@@ -416,6 +439,8 @@ const Header: React.FC<HeaderProps> = ({
               sx={{
                 color: "#1e40af",
                 transition: "all 0.2s ease",
+                width: isMobile ? 34 : 38,
+                height: isMobile ? 34 : 38,
                 "&:hover": {
                   transform: "scale(1.1)",
                   backgroundColor: "rgba(30, 64, 175, 0.1)",
@@ -464,9 +489,9 @@ const Header: React.FC<HeaderProps> = ({
               backgroundColor: "rgba(255, 255, 255, 0.95)",
               borderRadius: "12px",
               fontWeight: 700,
-              fontSize: "13px !important",
-              height: "40px !important",
-              px: "14px",
+              fontSize: `${isMobile ? 11 : 13}px !important`,
+              height: `${isMobile ? 32 : 40}px !important`,
+              px: isMobile ? "10px" : "14px",
               border:
                 backendStatus === "connected"
                   ? "2px solid #10b981"
@@ -479,12 +504,12 @@ const Header: React.FC<HeaderProps> = ({
               transition: "all 0.3s ease",
               "& .MuiChip-icon": {
                 color: backendStatus === "connected" ? "#10b981" : "#ef4444",
-                fontSize: "18px",
-                marginLeft: "4px",
+                fontSize: isMobile ? "16px" : "18px",
+                marginLeft: isMobile ? "2px" : "4px",
               },
               "& .MuiChip-label": {
                 padding: "0 8px",
-                fontSize: "13px !important",
+                fontSize: `${isMobile ? 11 : 13}px !important`,
               },
               "&:hover": {
                 transform: "scale(1.05)",
@@ -496,31 +521,35 @@ const Header: React.FC<HeaderProps> = ({
             }}
           />
 
-          {/* Branch display + selector */}
-          {onOpenBranchSelector && (
-            <Chip
-              label={currentBranchName ? String(currentBranchName) : "Şube Seç"}
-              onClick={onOpenBranchSelector}
-              sx={{
-                backgroundColor: "rgba(255, 255, 255, 0.95)",
-                borderRadius: "12px",
-                fontWeight: 700,
-                fontSize: "13px !important",
-                height: "40px !important",
-                px: "14px",
-                border: "2px solid #3b82f6",
-                color: "#3b82f6",
-                cursor: "pointer",
-                boxShadow: "0 4px 14px rgba(59, 130, 246, 0.3)",
-                transition: "all 0.3s ease",
-                "& .MuiChip-label": {
-                  padding: "0 8px",
-                  fontSize: "13px !important",
-                },
-                "&:hover": {
-                  transform: "translateY(-2px) scale(1.05)",
-                  backgroundColor: "#3b82f6",
-                  color: "#fff",
+        {/* Branch display + selector */}
+        {onOpenBranchSelector && (
+          <Chip
+            label={currentBranchName ? String(currentBranchName) : "Şube Seç"}
+            onClick={onOpenBranchSelector}
+            sx={{
+              backgroundColor: "rgba(255, 255, 255, 0.95)",
+              borderRadius: "12px",
+              fontWeight: 700,
+              fontSize: `${isMobile ? 11 : 13}px !important`,
+              height: `${isMobile ? 32 : 40}px !important`,
+              px: isMobile ? "10px" : "14px",
+              border: "2px solid #3b82f6",
+              color: "#3b82f6",
+              cursor: "pointer",
+              boxShadow: "0 4px 14px rgba(59, 130, 246, 0.3)",
+              transition: "all 0.3s ease",
+              maxWidth: { xs: "100%", sm: 240 },
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              "& .MuiChip-label": {
+                padding: "0 8px",
+                fontSize: `${isMobile ? 11 : 13}px !important`,
+              },
+              "&:hover": {
+                transform: "translateY(-2px) scale(1.05)",
+                backgroundColor: "#3b82f6",
+                color: "#fff",
                   boxShadow: "0 6px 20px rgba(59, 130, 246, 0.5)",
                 },
               }}
@@ -532,9 +561,9 @@ const Header: React.FC<HeaderProps> = ({
             <IconButton
               sx={{
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
-                width: 40,
-                height: 40,
-                borderRadius: "12px",
+                width: isMobile ? 34 : 40,
+                height: isMobile ? 34 : 40,
+                borderRadius: isMobile ? "10px" : "12px",
                 border: "2px solid #10b981",
                 color: "#10b981",
                 boxShadow: "0 4px 14px rgba(16, 185, 129, 0.25)",
@@ -570,9 +599,9 @@ const Header: React.FC<HeaderProps> = ({
               onClick={handleNotificationOpen}
               sx={{
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
-                width: 40,
-                height: 40,
-                borderRadius: "12px",
+                width: isMobile ? 34 : 40,
+                height: isMobile ? 34 : 40,
+                borderRadius: isMobile ? "10px" : "12px",
                 border:
                   pendingCount > 0
                     ? "2px solid #ef4444"
@@ -638,9 +667,9 @@ const Header: React.FC<HeaderProps> = ({
               onClick={handleProfileMenuOpen}
               sx={{
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
-                width: 40,
-                height: 40,
-                borderRadius: "12px",
+                width: isMobile ? 34 : 40,
+                height: isMobile ? 34 : 40,
+                borderRadius: isMobile ? "10px" : "12px",
                 border: "2px solid #8b5cf6",
                 padding: 0,
                 boxShadow: "0 4px 14px rgba(139, 92, 246, 0.25)",
@@ -662,13 +691,13 @@ const Header: React.FC<HeaderProps> = ({
             >
               <Avatar
                 sx={{
-                  width: 32,
-                  height: 32,
+                  width: isMobile ? 28 : 32,
+                  height: isMobile ? 28 : 32,
                   border: "2px solid #3b82f6",
                   backgroundColor: "#3b82f6",
                   color: "#fff",
                   fontWeight: 700,
-                  fontSize: "14px",
+                  fontSize: isMobile ? "12px" : "14px",
                   transition: "all 0.3s ease",
                 }}
               >

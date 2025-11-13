@@ -17,13 +17,15 @@ import {
   ListItemIcon,
   ListItemText,
   Typography,
+  useMediaQuery,
   useTheme,
 } from "@mui/material";
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { styled } from "@mui/material/styles";
 
-const drawerWidth = 280;
+const DESKTOP_DRAWER_WIDTH = 280;
+const MOBILE_DRAWER_WIDTH = 220;
 
 const AnimatedHeader = styled(Box)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -129,11 +131,16 @@ const menuItems = [
 
 const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const drawerWidth = isMobile ? MOBILE_DRAWER_WIDTH : DESKTOP_DRAWER_WIDTH;
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleNavigation = (path: string) => {
     navigate(path);
+    if (isMobile) {
+      onClose();
+    }
   };
 
   const handleAdminClick = () => {
@@ -145,15 +152,26 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       // Token yoksa login'e yönlendir
       navigate("/login");
     }
+    if (isMobile) {
+      onClose();
+    }
   };
 
   return (
     <Drawer
-      variant="persistent"
+      variant={isMobile ? "temporary" : "persistent"}
       anchor="left"
       open={open}
+      onClose={onClose}
+      ModalProps={
+        isMobile
+          ? {
+              keepMounted: true,
+            }
+          : undefined
+      }
       sx={{
-        width: drawerWidth,
+        width: isMobile ? 0 : drawerWidth,
         flexShrink: 0,
         "& .MuiDrawer-paper": {
           width: drawerWidth,
@@ -165,7 +183,13 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         },
       }}
     >
-      <AnimatedHeader>
+      <AnimatedHeader
+        sx={{
+          py: isMobile ? 2 : 3,
+          px: isMobile ? 2 : 3,
+          gap: isMobile ? 1 : 0,
+        }}
+      >
         <GlowingText variant="h6">⚡ Katana Stok</GlowingText>
         <AnimatedIconButton onClick={onClose} size="medium">
           <ChevronLeftIcon />
@@ -174,7 +198,13 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
 
       <ColorfulDivider />
 
-      <List sx={{ flexGrow: 1, pt: 2, px: 1 }}>
+      <List
+        sx={{
+          flexGrow: 1,
+          pt: isMobile ? 1 : 2,
+          px: isMobile ? 0.5 : 1,
+        }}
+      >
         {menuItems.map((item, index) => (
           <AnimatedListItem key={item.text} disablePadding index={index}>
             <ListItemButton
@@ -186,9 +216,9 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
               selected={location.pathname === item.path}
               sx={{
                 mx: 1,
-                borderRadius: 4,
-                py: 1.8,
-                px: 2.5,
+                borderRadius: isMobile ? 3 : 4,
+                py: isMobile ? 1.2 : 1.8,
+                px: isMobile ? 2 : 2.5,
                 transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
                 position: "relative",
                 overflow: "visible",
@@ -203,7 +233,9 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
                     : "none",
                 transform:
                   location.pathname === item.path
-                    ? "translateX(8px) scale(1.02)"
+                    ? isMobile
+                      ? "translateX(4px) scale(1)"
+                      : "translateX(8px) scale(1.02)"
                     : "translateX(0) scale(1)",
                 "& .MuiListItemIcon-root": {
                   color:
@@ -239,7 +271,9 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
                       }
                     : {},
                 "&:hover": {
-                  transform: "translateX(12px) scale(1.03)",
+                  transform: isMobile
+                    ? "translateX(6px)"
+                    : "translateX(12px) scale(1.03)",
                   boxShadow: `0 12px 40px ${item.color}40`,
                   background:
                     location.pathname !== item.path
@@ -258,14 +292,18 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
               }}
             >
               <ListItemIcon
-                sx={{ minWidth: 48, position: "relative", zIndex: 1 }}
+                sx={{
+                  minWidth: isMobile ? 40 : 48,
+                  position: "relative",
+                  zIndex: 1,
+                }}
               >
                 {item.icon}
               </ListItemIcon>
               <ListItemText
                 primary={item.text}
                 primaryTypographyProps={{
-                  fontSize: "0.95rem",
+                  fontSize: isMobile ? "0.9rem" : "0.95rem",
                   letterSpacing: "0.01em",
                   position: "relative",
                   zIndex: 1,
@@ -278,7 +316,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
 
       <ColorfulDivider />
 
-      <AnimatedFooter>
+      <AnimatedFooter
+        sx={{
+          py: isMobile ? 2 : 3,
+        }}
+      >
         <GradientFooterText variant="caption">
           🚀 Katana Integration v1.0
         </GradientFooterText>

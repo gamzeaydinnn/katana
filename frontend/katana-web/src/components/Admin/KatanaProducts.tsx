@@ -74,6 +74,7 @@ const KatanaProducts: React.FC = () => {
   );
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchProducts = async () => {
     setLoading(true);

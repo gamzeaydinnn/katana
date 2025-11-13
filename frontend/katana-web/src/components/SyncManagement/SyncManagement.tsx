@@ -29,6 +29,7 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { stockAPI } from "../../services/api";
@@ -53,6 +54,7 @@ const SyncManagement: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [syncType, setSyncType] = useState("Stock");
   const [syncing, setSyncing] = useState(false);
+  const isMobile = useMediaQuery("(max-width:900px)");
 
   const loadHistory = async () => {
     try {
@@ -121,13 +123,26 @@ const SyncManagement: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
+    <Container
+      maxWidth="lg"
+      sx={{ mt: { xs: 2, md: 4 }, mb: { xs: 2.5, md: 4 }, px: { xs: 1.5, sm: 2, md: 0 } }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: { xs: "flex-start", sm: "center" },
+          flexDirection: { xs: "column", sm: "row" },
+          gap: { xs: 2, sm: 0 },
+          mb: 3,
+        }}
+      >
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Sync sx={{ fontSize: 32, color: "primary.main" }} />
           <Typography
             variant="h4"
             sx={{
+              fontSize: { xs: "1.6rem", md: "2rem" },
               fontWeight: 900,
               letterSpacing: "-0.02em",
               background: "linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)",
@@ -139,12 +154,20 @@ const SyncManagement: React.FC = () => {
             Senkronizasyon Yönetimi
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", gap: 2 }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 2,
+            flexWrap: "wrap",
+            width: { xs: "100%", md: "auto" },
+          }}
+        >
           <Button
             variant="outlined"
             startIcon={<Refresh />}
             onClick={loadHistory}
             disabled={loading}
+            sx={{ flex: { xs: 1, sm: "none" }, minWidth: { xs: "48%", sm: 120 } }}
           >
             Yenile
           </Button>
@@ -152,6 +175,7 @@ const SyncManagement: React.FC = () => {
             variant="contained"
             startIcon={<PlayArrow />}
             onClick={() => setOpenDialog(true)}
+            sx={{ flex: { xs: 1, sm: "none" }, minWidth: { xs: "48%", sm: 180 } }}
           >
             Senkronizasyon Başlat
           </Button>
@@ -160,7 +184,7 @@ const SyncManagement: React.FC = () => {
 
       {/* Error notifications are shown with global toast; remove inline error banner */}
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: { xs: 2, md: 3 } }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 3 }}>
           <History />
           <Typography variant="h6">Senkronizasyon Geçmişi</Typography>
@@ -171,8 +195,18 @@ const SyncManagement: React.FC = () => {
             <CircularProgress />
           </Box>
         ) : (
-          <TableContainer>
-            <Table>
+          <TableContainer
+            sx={{
+              overflowX: "auto",
+              borderRadius: 2,
+              "&::-webkit-scrollbar": { height: 6 },
+              "&::-webkit-scrollbar-thumb": {
+                backgroundColor: "#cbd5f5",
+                borderRadius: 3,
+              },
+            }}
+          >
+            <Table size="small" sx={{ minWidth: isMobile ? 700 : "auto" }}>
               <TableHead>
                 <TableRow>
                   <TableCell>
@@ -311,7 +345,7 @@ const SyncManagement: React.FC = () => {
       {/* Start Sync Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
         <DialogTitle>Senkronizasyon Başlat</DialogTitle>
-        <DialogContent sx={{ minWidth: 400, pt: 2 }}>
+        <DialogContent sx={{ minWidth: { xs: "auto", sm: 400 }, pt: 2 }}>
           <FormControl fullWidth>
             <InputLabel>Senkronizasyon Tipi</InputLabel>
             <Select

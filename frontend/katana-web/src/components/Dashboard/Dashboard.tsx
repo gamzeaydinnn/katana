@@ -15,6 +15,7 @@ import {
   Container,
   Paper,
   Typography,
+  useMediaQuery,
   useTheme,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
@@ -22,6 +23,7 @@ import { stockAPI } from "../../services/api";
 
 const Dashboard: React.FC = () => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -56,6 +58,16 @@ const Dashboard: React.FC = () => {
     loadDashboard();
   }, []);
 
+  const formatNumber = (
+    value?: number,
+    options: Intl.NumberFormatOptions = { maximumFractionDigits: 0 }
+  ) => {
+    if (value === undefined || value === null || Number.isNaN(Number(value))) {
+      return "0";
+    }
+    return new Intl.NumberFormat("tr-TR", options).format(Number(value));
+  };
+
   const StatCard = ({ title, value, icon, color }: any) => (
     <Card
       sx={{
@@ -83,11 +95,17 @@ const Dashboard: React.FC = () => {
         },
       }}
     >
-      <CardContent sx={{ p: 3 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+      <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+          }}
+        >
           <Box
             sx={{
-              p: 2,
+              p: { xs: 1.2, md: 2 },
               borderRadius: 3,
               background: `linear-gradient(135deg, ${color}20, ${color}10)`,
               color,
@@ -99,12 +117,15 @@ const Dashboard: React.FC = () => {
               },
             }}
           >
-            {icon}
+            {React.cloneElement(icon, {
+              sx: { fontSize: isMobile ? 26 : 32 },
+            })}
           </Box>
           <Box>
             <Typography
               variant="h4"
               sx={{
+                fontSize: { xs: "1.5rem", md: "2.25rem" },
                 fontWeight: 900,
                 letterSpacing: "-0.02em",
                 background: `linear-gradient(135deg, ${color}, ${color}dd)`,
@@ -121,6 +142,7 @@ const Dashboard: React.FC = () => {
                 color: theme.palette.text.secondary,
                 fontWeight: 600,
                 letterSpacing: "0.01em",
+                opacity: 0.8,
               }}
             >
               {title}
@@ -147,27 +169,54 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 4 }}>
-        <Typography
-          variant="h4"
-          sx={{
-            fontWeight: 900,
-            letterSpacing: "-0.02em",
-            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-            backgroundClip: "text",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
-          Dashboard
-        </Typography>
+    <Container
+      maxWidth="lg"
+      sx={{
+        mt: { xs: 2, md: 4 },
+        mb: { xs: 2.5, md: 4 },
+        px: { xs: 1.5, sm: 2, md: 0 },
+      }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: { xs: "flex-start", sm: "center" },
+          flexDirection: { xs: "column", sm: "row" },
+          gap: { xs: 2, sm: 0 },
+          mb: { xs: 3, md: 4 },
+        }}
+      >
+        <Box>
+          <Typography
+            variant="h4"
+            sx={{
+              fontSize: { xs: "1.6rem", md: "2rem" },
+              fontWeight: 900,
+              letterSpacing: "-0.02em",
+              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+              backgroundClip: "text",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
+            Canlı Stok
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{ color: theme.palette.text.secondary, mt: 0.5 }}
+          >
+            Güncel stok sağlığı ve kritik uyarılar
+          </Typography>
+        </Box>
         <Button
           variant="contained"
           startIcon={<Refresh />}
           onClick={loadDashboard}
           disabled={loading}
           sx={{
+            width: { xs: "100%", sm: "auto" },
+            mt: { xs: 1, sm: 0 },
             borderRadius: 3,
             px: 3,
             py: 1.5,
@@ -226,38 +275,105 @@ const Dashboard: React.FC = () => {
         </Alert>
       )}
 
+      {stats && (
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 1.5,
+            mb: 3,
+          }}
+        >
+          {[
+            stats?.outOfStock > 0 && (
+              <Alert
+                severity="error"
+                key="out"
+                sx={{ borderRadius: 3, fontWeight: 600 }}
+              >
+                Kritik Uyarı: {formatNumber(stats?.outOfStock)} ürün stokta yok!
+                Lütfen yöneticinizle kontrol edin.
+              </Alert>
+            ),
+            stats?.lowStock > 0 && (
+              <Alert
+                severity="warning"
+                key="low"
+                sx={{ borderRadius: 3, fontWeight: 600 }}
+              >
+                Düşük Stok: {formatNumber(stats?.lowStock)} ürün kritik seviyede.
+              </Alert>
+            ),
+            stats?.pendingSync > 0 && (
+              <Alert
+                severity="info"
+                key="sync"
+                sx={{ borderRadius: 3, fontWeight: 600 }}
+              >
+                Bekleyen Senkronizasyon:{" "}
+                {formatNumber(stats?.pendingSync)} kayıt sırada.
+              </Alert>
+            ),
+          ].filter(Boolean)}
+        </Box>
+      )}
+
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-          gap: 3,
+          gridTemplateColumns: {
+            xs: "repeat(auto-fit, minmax(180px, 1fr))",
+            sm: "repeat(auto-fit, minmax(220px, 1fr))",
+            md: "repeat(auto-fit, minmax(260px, 1fr))",
+          },
+          gap: { xs: 2, md: 3 },
           mb: 4,
         }}
       >
-        <StatCard
-          title="Toplam Ürün"
-          value={stats?.totalProducts}
-          icon={<Inventory sx={{ fontSize: 32 }} />}
-          color={theme.palette.primary.main}
-        />
-        <StatCard
-          title="Toplam Stok"
-          value={stats?.totalStock}
-          icon={<TrendingUp sx={{ fontSize: 32 }} />}
-          color={theme.palette.success.main}
-        />
-        <StatCard
-          title="Bekleyen Sync"
-          value={stats?.pendingSync}
-          icon={<Sync sx={{ fontSize: 32 }} />}
-          color={theme.palette.warning.main}
-        />
-        <StatCard
-          title="Kritik Stok"
-          value={stats?.criticalStock || 0}
-          icon={<Warning sx={{ fontSize: 32 }} />}
-          color={theme.palette.error.main}
-        />
+        {[
+          {
+            key: "totalProducts",
+            title: "Toplam Ürün",
+            value: formatNumber(stats?.totalProducts),
+            icon: <Inventory />,
+            color: theme.palette.primary.main,
+          },
+          {
+            key: "activeProducts",
+            title: "Aktif Ürün",
+            value: formatNumber(
+              stats?.activeProducts ?? stats?.activeCount ?? stats?.totalStock
+            ),
+            icon: <TrendingUp />,
+            color: theme.palette.success.main,
+          },
+          {
+            key: "lowStock",
+            title: "Düşük Stok",
+            value: formatNumber(stats?.lowStock ?? stats?.criticalStock),
+            icon: <Warning />,
+            color: theme.palette.warning.main,
+          },
+          {
+            key: "out",
+            title: "Stokta Yok",
+            value: formatNumber(stats?.outOfStock ?? stats?.outOfStockCount),
+            icon: <Warning />,
+            color: theme.palette.error.main,
+          },
+          {
+            key: "value",
+            title: "Toplam Değer",
+            value: `₺ ${formatNumber(
+              stats?.totalValue ?? stats?.totalStockValue,
+              { maximumFractionDigits: 0 }
+            )}`,
+            icon: <TrendingUp />,
+            color: theme.palette.info.main,
+          },
+        ].map((item) => (
+          <StatCard key={item.key} {...item} />
+        ))}
       </Box>
 
       <Paper
@@ -277,7 +393,7 @@ const Dashboard: React.FC = () => {
             theme.palette.mode === "dark"
               ? "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
               : "0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
-          p: 4,
+          p: { xs: 2.5, md: 4 },
           transition: "all 0.3s ease",
         }}
       >
@@ -292,13 +408,21 @@ const Dashboard: React.FC = () => {
         >
           Hızlı İşlemler
         </Typography>
-        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 2,
+            flexWrap: "wrap",
+            flexDirection: { xs: "column", sm: "row" },
+          }}
+        >
           <Button
             variant="contained"
             startIcon={<Sync />}
             onClick={handleStartSync}
             disabled={loading}
             sx={{
+              width: { xs: "100%", sm: "auto" },
               borderRadius: 3,
               px: 3,
               py: 1.5,
@@ -346,6 +470,7 @@ const Dashboard: React.FC = () => {
             startIcon={<TrendingUp />}
             onClick={handleSalesAnalysis}
             sx={{
+              width: { xs: "100%", sm: "auto" },
               borderRadius: 3,
               px: 3,
               py: 1.5,

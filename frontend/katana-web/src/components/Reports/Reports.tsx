@@ -27,6 +27,7 @@ import {
   TableRow,
   TextField,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
@@ -73,6 +74,7 @@ const Reports: React.FC = () => {
   );
   const [search, setSearch] = useState("");
   const [lowStockOnly, setLowStockOnly] = useState(false);
+  const isMobile = useMediaQuery("(max-width:900px)");
 
   useEffect(() => {
     loadStockReport();
@@ -132,12 +134,24 @@ const Reports: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
+    <Container
+      maxWidth="lg"
+      sx={{ mt: { xs: 2, md: 4 }, mb: { xs: 2.5, md: 4 }, px: { xs: 1.5, sm: 2, md: 0 } }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: { xs: "flex-start", sm: "center" },
+          flexDirection: { xs: "column", sm: "row" },
+          gap: { xs: 1, sm: 2 },
+          mb: 3,
+        }}
+      >
         <Assessment sx={{ fontSize: 32, color: "primary.main" }} />
         <Typography
           variant="h4"
           sx={{
+            fontSize: { xs: "1.6rem", md: "2rem" },
             fontWeight: 900,
             letterSpacing: "-0.02em",
             background: "linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)",
@@ -167,7 +181,15 @@ const Reports: React.FC = () => {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Ürün adı veya SKU girin"
             />
-            <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: { xs: 1, sm: 2 },
+                alignItems: "center",
+                justifyContent: { xs: "space-between", sm: "flex-start" },
+              }}
+            >
               <FormControlLabel
                 control={
                   <Switch
@@ -182,7 +204,7 @@ const Reports: React.FC = () => {
                 startIcon={<FileDownload />}
                 onClick={downloadExcel}
                 disabled={!stockReport || stockReport.stockData.length === 0}
-                sx={{ minWidth: 150 }}
+                sx={{ minWidth: 150, width: { xs: "100%", sm: "auto" } }}
               >
                 Excel İndir
               </Button>
@@ -196,8 +218,12 @@ const Reports: React.FC = () => {
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-              gap: 2,
+              gridTemplateColumns: {
+                xs: "repeat(auto-fit, minmax(180px, 1fr))",
+                sm: "repeat(auto-fit, minmax(220px, 1fr))",
+                md: "repeat(auto-fit, minmax(250px, 1fr))",
+              },
+              gap: { xs: 1.5, md: 2 },
               mb: 3,
             }}
           >
@@ -283,12 +309,14 @@ const Reports: React.FC = () => {
             </Card>
           </Box>
 
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: { xs: 2, md: 3 } }}>
             <Box
               sx={{
                 display: "flex",
                 justifyContent: "space-between",
-                alignItems: "center",
+                alignItems: { xs: "flex-start", sm: "center" },
+                flexDirection: { xs: "column", sm: "row" },
+                gap: { xs: 1.5, sm: 0 },
                 mb: 2,
               }}
             >
@@ -300,12 +328,23 @@ const Reports: React.FC = () => {
                 size="small"
                 startIcon={<FileDownload />}
                 onClick={downloadExcel}
+                sx={{ width: { xs: "100%", sm: "auto" } }}
               >
                 Excel İndir
               </Button>
             </Box>
-            <TableContainer>
-              <Table size="small">
+            <TableContainer
+              sx={{
+                overflowX: "auto",
+                borderRadius: 2,
+                "&::-webkit-scrollbar": { height: 6 },
+                "&::-webkit-scrollbar-thumb": {
+                  backgroundColor: "#cbd5f5",
+                  borderRadius: 3,
+                },
+              }}
+            >
+              <Table size="small" sx={{ minWidth: isMobile ? 720 : "auto" }}>
                 <TableHead>
                   <TableRow>
                     <TableCell>

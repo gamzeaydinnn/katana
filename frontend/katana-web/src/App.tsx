@@ -1,5 +1,11 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { ThemeProvider, CssBaseline, Box, Toolbar } from "@mui/material";
+import {
+  ThemeProvider,
+  CssBaseline,
+  Box,
+  Toolbar,
+  useMediaQuery,
+} from "@mui/material";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import {
@@ -34,6 +40,7 @@ const App: React.FC = () => {
   );
 
   const theme = useMemo(() => createAppTheme(mode), [mode]);
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   const toggleMode = () => {
     setMode((prev) => {
@@ -88,6 +95,10 @@ const App: React.FC = () => {
   useEffect(() => {
     initializeLucaSession();
   }, []);
+
+  useEffect(() => {
+    setSidebarOpen(!isMobile);
+  }, [isMobile]);
 
   const handleBranchSelect = async (b: Branch) => {
     setShowBranchSelector(false);

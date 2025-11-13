@@ -26,6 +26,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import api from "../services/api";
@@ -48,6 +50,8 @@ interface StockStats {
 }
 
 const StockView: React.FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [stats, setStats] = useState<StockStats | null>(null);
@@ -114,29 +118,53 @@ const StockView: React.FC = () => {
   const criticalProducts = products.filter((p) => p.stock === 0);
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box
+      sx={{
+        p: { xs: 1.5, md: 3 },
+        maxWidth: 1440,
+        mx: "auto",
+      }}
+    >
       {/* Header */}
       <Stack
-        direction="row"
+        direction={{ xs: "column", sm: "row" }}
         justifyContent="space-between"
-        alignItems="center"
+        alignItems={{ xs: "flex-start", sm: "center" }}
+        gap={1.5}
         mb={3}
       >
-        <Typography
-          variant="h4"
-          sx={{
-            fontWeight: 900,
-            letterSpacing: "-0.02em",
-            background: "linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}
-        >
-          Canlı Stok
-        </Typography>
+        <Box>
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 900,
+              letterSpacing: "-0.02em",
+              fontSize: { xs: "1.55rem", md: "2rem" },
+              background: "linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+          >
+            Canlı Stok
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{ color: "text.secondary", mt: 0.5 }}
+          >
+            En güncel stok rakamları ve canlı uyarılar
+          </Typography>
+        </Box>
         <Tooltip title="Otomatik yenileme: Her 30 saniye">
-          <IconButton onClick={fetchData} disabled={loading} color="primary">
+          <IconButton
+            onClick={fetchData}
+            disabled={loading}
+            color="primary"
+            sx={{
+              alignSelf: { xs: "flex-end", sm: "center" },
+              backgroundColor: "rgba(79,134,255,0.08)",
+            }}
+          >
             <RefreshIcon />
           </IconButton>
         </Tooltip>
@@ -148,142 +176,94 @@ const StockView: React.FC = () => {
           sx={{
             display: "grid",
             gridTemplateColumns: {
-              xs: "1fr",
-              sm: "repeat(2, 1fr)",
-              md: "repeat(5, 1fr)",
+              xs: "repeat(auto-fit, minmax(115px, 1fr))",
+              sm: "repeat(2, minmax(160px, 1fr))",
+              md: "repeat(5, minmax(200px, 1fr))",
             },
-            gap: 2,
+            gap: { xs: 0.75, md: 2 },
             mb: 3,
           }}
         >
-          <Card
-            sx={{
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              color: "white",
-            }}
-          >
-            <CardContent>
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                alignItems="center"
-              >
-                <Box>
-                  <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                    Toplam Ürün
-                  </Typography>
-                  <Typography variant="h4" fontWeight="bold">
-                    {stats.totalProducts || 0}
-                  </Typography>
-                </Box>
-                <InventoryIcon sx={{ fontSize: 40, opacity: 0.8 }} />
-              </Stack>
-            </CardContent>
-          </Card>
-
-          <Card
-            sx={{
-              background: "linear-gradient(135deg, #2ecc71 0%, #27ae60 100%)",
-              color: "white",
-            }}
-          >
-            <CardContent>
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                alignItems="center"
-              >
-                <Box>
-                  <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                    Aktif Ürün
-                  </Typography>
-                  <Typography variant="h4" fontWeight="bold">
-                    {stats.activeProducts || 0}
-                  </Typography>
-                </Box>
-                <TrendingUpIcon sx={{ fontSize: 40, opacity: 0.8 }} />
-              </Stack>
-            </CardContent>
-          </Card>
-
-          <Card
-            sx={{
-              background: "linear-gradient(135deg, #f39c12 0%, #e67e22 100%)",
-              color: "white",
-            }}
-          >
-            <CardContent>
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                alignItems="center"
-              >
-                <Box>
-                  <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                    Düşük Stok
-                  </Typography>
-                  <Typography variant="h4" fontWeight="bold">
-                    {stats.lowStockProducts || 0}
-                  </Typography>
-                </Box>
-                <Badge badgeContent={stats.lowStockProducts || 0} color="error">
-                  <WarningIcon sx={{ fontSize: 40, opacity: 0.8 }} />
-                </Badge>
-              </Stack>
-            </CardContent>
-          </Card>
-
-          <Card
-            sx={{
-              background: "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)",
-              color: "white",
-            }}
-          >
-            <CardContent>
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                alignItems="center"
-              >
-                <Box>
-                  <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                    Stokta Yok
-                  </Typography>
-                  <Typography variant="h4" fontWeight="bold">
-                    {stats.outOfStockProducts || 0}
-                  </Typography>
-                </Box>
+          {[
+            {
+              key: "total",
+              title: "Toplam Ürün",
+              value: stats.totalProducts || 0,
+              icon: <InventoryIcon sx={{ fontSize: { xs: 26, md: 32 }, opacity: 0.8 }} />,
+              gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              mobileOrder: 1,
+            },
+            {
+              key: "active",
+              title: "Aktif Ürün",
+              value: stats.activeProducts || 0,
+              icon: <TrendingUpIcon sx={{ fontSize: { xs: 26, md: 32 }, opacity: 0.8 }} />,
+              gradient: "linear-gradient(135deg, #2ecc71 0%, #27ae60 100%)",
+              mobileOrder: 2,
+            },
+            {
+              key: "value",
+              title: "Toplam Değer",
+              value: `₺${(stats.totalInventoryValue || 0).toLocaleString(
+                "tr-TR"
+              )}`,
+              icon: <TrendingUpIcon sx={{ fontSize: { xs: 26, md: 32 }, opacity: 0.8 }} />,
+              gradient: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+              mobileOrder: 3,
+            },
+            {
+              key: "low",
+              title: "Düşük Stok",
+              value: stats.lowStockProducts || 0,
+              icon: <WarningIcon sx={{ fontSize: { xs: 26, md: 32 }, opacity: 0.8 }} />,
+              gradient: "linear-gradient(135deg, #f39c12 0%, #e67e22 100%)",
+              mobileOrder: 4,
+            },
+            {
+              key: "out",
+              title: "Stokta Yok",
+              value: stats.outOfStockProducts || 0,
+              icon: (
                 <Badge badgeContent="!" color="error">
-                  <TrendingDownIcon sx={{ fontSize: 40, opacity: 0.8 }} />
+                  <TrendingDownIcon sx={{ fontSize: { xs: 26, md: 32 }, opacity: 0.8 }} />
                 </Badge>
-              </Stack>
-            </CardContent>
-          </Card>
-
-          <Card
-            sx={{
-              background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
-              color: "white",
-            }}
-          >
-            <CardContent>
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                alignItems="center"
-              >
-                <Box>
-                  <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                    Toplam Değer
-                  </Typography>
-                  <Typography variant="h5" fontWeight="bold">
-                    ₺{(stats.totalInventoryValue || 0).toLocaleString("tr-TR")}
-                  </Typography>
-                </Box>
-                <TrendingUpIcon sx={{ fontSize: 40, opacity: 0.8 }} />
-              </Stack>
-            </CardContent>
-          </Card>
+              ),
+              gradient: "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)",
+              mobileOrder: 5,
+            },
+          ].map((stat) => (
+            <Card
+              key={stat.key}
+              sx={{
+                color: "white",
+                background: stat.gradient,
+                order: { xs: stat.mobileOrder, md: "initial" },
+                minHeight: { xs: 120, md: "auto" },
+              }}
+            >
+              <CardContent sx={{ py: 1.5, px: 2 }}>
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                  <Box>
+                    <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                      {stat.title}
+                    </Typography>
+                    <Typography
+                      variant="h5"
+                      fontWeight="bold"
+                      sx={{ fontSize: { xs: "1.1rem", md: "1.65rem" } }}
+                    >
+                      {stat.value}
+                    </Typography>
+                  </Box>
+                  {stat.icon}
+                </Stack>
+              </CardContent>
+            </Card>
+          ))}
         </Box>
       )}
 
@@ -292,7 +272,7 @@ const StockView: React.FC = () => {
         <Alert
           severity="error"
           icon={<NotificationsActiveIcon />}
-          sx={{ mb: 2 }}
+          sx={{ mb: 2, borderRadius: 3 }}
         >
           <strong>KRİTİK UYARI:</strong> {criticalProducts.length} ürün stokta
           yok! Lütfen yöneticiye bildiriniz.
@@ -300,7 +280,11 @@ const StockView: React.FC = () => {
       )}
 
       {lowStockProducts.length > 0 && (
-        <Alert severity="warning" icon={<WarningIcon />} sx={{ mb: 2 }}>
+        <Alert
+          severity="warning"
+          icon={<WarningIcon />}
+          sx={{ mb: 2, borderRadius: 3 }}
+        >
           <strong>DİKKAT:</strong> {lowStockProducts.length} ürün düşük stokta.
           Yakında tükenebilit.
         </Alert>
@@ -313,12 +297,18 @@ const StockView: React.FC = () => {
       )}
 
       {/* Main Card */}
-      <Card>
-        <CardContent>
+      <Card
+        sx={{
+          borderRadius: 3,
+          boxShadow: "0 12px 40px rgba(15,34,67,0.08)",
+        }}
+      >
+        <CardContent sx={{ p: { xs: 2, md: 3 } }}>
           <Stack
-            direction="row"
+            direction={{ xs: "column", sm: "row" }}
             justifyContent="space-between"
-            alignItems="center"
+            alignItems={{ xs: "flex-start", sm: "center" }}
+            gap={1.5}
             mb={2}
           >
             <Stack direction="row" alignItems="center" spacing={1}>
@@ -332,6 +322,7 @@ const StockView: React.FC = () => {
               color="success"
               size="small"
               icon={<CircularProgress size={12} color="inherit" />}
+              sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
             />
           </Stack>
 
@@ -355,28 +346,49 @@ const StockView: React.FC = () => {
               <CircularProgress />
             </Box>
           ) : (
-            <TableContainer component={Paper} sx={{ maxHeight: 600 }}>
-              <Table stickyHeader>
+            <TableContainer
+              component={Paper}
+              sx={{
+                maxHeight: 600,
+                overflowX: "auto",
+                borderRadius: 2,
+                "&::-webkit-scrollbar": { height: 6 },
+                "&::-webkit-scrollbar-thumb": {
+                  backgroundColor: "#cbd5f5",
+                  borderRadius: 999,
+                },
+              }}
+            >
+              <Table
+                stickyHeader
+                size="small"
+                sx={{
+                  minWidth: isMobile ? 560 : "auto",
+                  tableLayout: "fixed",
+                }}
+              >
                 <TableHead>
                   <TableRow>
-                    <TableCell>
-                      <strong>SKU</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Ürün Adı</strong>
-                    </TableCell>
-                    <TableCell align="center">
-                      <strong>Mevcut Stok</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Birim Fiyat</strong>
-                    </TableCell>
-                    <TableCell align="center">
-                      <strong>Durum</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Toplam Değer</strong>
-                    </TableCell>
+                    {[
+                      { label: "SKU", align: "left" },
+                      { label: "Ürün Adı", align: "left" },
+                      { label: "Mevcut Stok", align: "center" },
+                      { label: "Birim Fiyat", align: "right" },
+                      { label: "Durum", align: "center" },
+                      { label: "Toplam Değer", align: "right" },
+                    ].map((col) => (
+                      <TableCell
+                        key={col.label}
+                        align={col.align as any}
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: { xs: "0.75rem", md: "0.85rem" },
+                          px: { xs: 1, md: 2 },
+                        }}
+                      >
+                        {col.label}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 </TableHead>
                 <TableBody>
