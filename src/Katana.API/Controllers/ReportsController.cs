@@ -255,7 +255,7 @@ public class ReportsController : ControllerBase
     /// Gets stock report with product details, quantities, and values
     /// </summary>
     [HttpGet("stock")]
-    [Authorize(Roles = "Admin,StockManager")]
+    [AllowAnonymous] // Manager ve Staff da stok raporlarını görebilmeli
     public async Task<ActionResult<object>> GetStockReport(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 100,

@@ -11,7 +11,6 @@ namespace Katana.API.Controllers;
 /// Product management endpoints. Requires authorization for write operations.
 /// Read endpoints return product data from local DB or Katana API.
 /// </summary>
-[AllowAnonymous] // Temporary for testing
 [ApiController]
 [Route("api/[controller]")]
 public class ProductsController : ControllerBase
@@ -47,6 +46,7 @@ public class ProductsController : ControllerBase
     /// Get all products from Katana API and sync to local DB
     /// </summary>
     [HttpGet("katana")]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetKatanaProducts([FromQuery] int? page = null, [FromQuery] int? limit = null, [FromQuery] bool sync = false)
@@ -215,6 +215,7 @@ public class ProductsController : ControllerBase
     /// </summary>
     [HttpGet("luca")]
     [HttpGet("~/api/Luca/products")] // Route alias: also available as /api/Luca/products
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetLucaStyleProducts()
@@ -268,6 +269,7 @@ public class ProductsController : ControllerBase
     /// Get a specific product by SKU from Katana API
     /// </summary>
     [HttpGet("katana/{sku}")]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -296,6 +298,7 @@ public class ProductsController : ControllerBase
     // ==========================================
 
     [HttpGet]
+    [AllowAnonymous]
     [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any, NoStore = false)]
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetAll()
     {
@@ -305,6 +308,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("active")]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<ProductSummaryDto>>> GetActive()
     {
         var products = await _productService.GetActiveProductsAsync();
@@ -312,6 +316,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("{id:int}")]
+    [AllowAnonymous]
     public async Task<ActionResult<ProductDto>> GetById(int id)
     {
         var product = await _productService.GetProductByIdAsync(id);
@@ -322,6 +327,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("by-sku/{sku}")]
+    [AllowAnonymous]
     public async Task<ActionResult<ProductDto>> GetBySku(string sku)
     {
         var product = await _productService.GetProductBySkuAsync(sku);
@@ -332,6 +338,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("category/{categoryId}")]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetByCategory(int categoryId)
     {
         var products = await _productService.GetProductsByCategoryAsync(categoryId);
@@ -339,6 +346,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("search")]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<ProductDto>>> Search([FromQuery] string q)
     {
         if (string.IsNullOrWhiteSpace(q))
@@ -349,6 +357,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("low-stock")]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetLowStock([FromQuery] int threshold = 10)
     {
         var products = await _productService.GetLowStockProductsAsync(threshold);
@@ -356,6 +365,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("out-of-stock")]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetOutOfStock()
     {
         var products = await _productService.GetOutOfStockProductsAsync();
@@ -363,7 +373,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin,StockManager")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ProductDto>> Create([FromBody] CreateProductDto dto)
     {
         var validationErrors = Katana.Business.Validators.ProductValidator.ValidateCreate(dto);
@@ -386,7 +396,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [AllowAnonymous] // Temporary for testing
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ProductDto>> Update(int id, [FromBody] UpdateProductDto dto)
     {
         _logger.LogInformation("Update product called: ID={Id}, DTO={@Dto}", id, dto);
@@ -496,7 +506,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPatch("{id}/stock")]
-    [Authorize(Roles = "Admin,StockManager")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult> UpdateStock(int id, [FromBody] int quantity)
     {
         var validationErrors = Katana.Business.Validators.ProductValidator.ValidateStock(quantity);
@@ -511,7 +521,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Admin,StockManager")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult> Delete(int id)
     {
         try
@@ -535,7 +545,7 @@ public class ProductsController : ControllerBase
     /// Update a Luca-style product (maps to local DB product)
     /// </summary>
     [HttpPut("luca/{id}")]
-    [AllowAnonymous] // Temporary for testing
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult> UpdateLucaProduct(int id, [FromBody] LucaProductUpdateDto dto)
     {
         _logger.LogInformation("UpdateLucaProduct called: ID={Id}, DTO={@Dto}", id, dto);
@@ -656,6 +666,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id}/activate")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult> Activate(int id)
     {
         var result = await _productService.ActivateProductAsync(id);
@@ -666,6 +677,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id}/deactivate")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult> Deactivate(int id)
     {
         var result = await _productService.DeactivateProductAsync(id);
@@ -676,6 +688,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("statistics")]
+    [AllowAnonymous]
     public async Task<ActionResult<ProductStatisticsDto>> GetStatistics()
     {
         var stats = await _productService.GetProductStatisticsAsync();

@@ -34,9 +34,10 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>
-    /// GET /api/Sync/history - Senkronizasyon ge�mi�ini getirir
+    /// GET /api/Sync/history - Senkronizasyon geçmişini getirir
     /// </summary>
     [HttpGet("history")]
+    [AllowAnonymous] // Manager ve Staff da senkronizasyon geçmişini görebilmeli
     public async Task<IActionResult> GetSyncHistory()
     {
         try
@@ -230,6 +231,7 @@ public class SyncController : ControllerBase
     /// Gets the status of all sync operations
     /// </summary>
     [HttpGet("status")]
+    [AllowAnonymous] // Manager ve Staff da sync durumunu görebilmeli
     public async Task<ActionResult<List<SyncStatusDto>>> GetSyncStatus()
     {
         try
@@ -248,6 +250,7 @@ public class SyncController : ControllerBase
     /// Checks if a specific sync type is currently running
     /// </summary>
     [HttpGet("status/{syncType}")]
+    [AllowAnonymous] // Manager ve Staff da sync durumunu görebilmeli
     public async Task<ActionResult<object>> GetSyncTypeStatus(string syncType)
     {
         try

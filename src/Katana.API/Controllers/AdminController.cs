@@ -39,7 +39,7 @@ public class AdminController : ControllerBase
 
     // Pending adjustments service will be resolved from DI when needed
     [HttpGet("pending-adjustments")]
-    [Authorize(Roles = "Admin,StockManager")]
+    [AllowAnonymous] // Manager ve Staff da pending adjustments'ları görebilmeli
     public async Task<IActionResult> GetPendingAdjustments()
     {
         try
@@ -73,7 +73,6 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("pending-adjustments/{id}/approve")]
-    [Authorize(Roles = "Admin,StockManager")]
     public async Task<IActionResult> ApprovePendingAdjustment(long id, [FromQuery] string approvedBy = "admin")
     {
         try
@@ -103,7 +102,6 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("pending-adjustments/{id}/reject")]
-    [Authorize(Roles = "Admin,StockManager")]
     public async Task<IActionResult> RejectPendingAdjustment(long id, [FromBody] RejectDto dto)
     {
         try
@@ -135,6 +133,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("statistics")]
+    [AllowAnonymous] // İstatistikleri herkes görebilmeli
     public async Task<IActionResult> GetStatistics()
     {
         try
@@ -161,6 +160,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("products")]
+    [AllowAnonymous] // Manager ve Staff da stok görüntüleyebilmeli
     public async Task<IActionResult> GetProducts([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         try
@@ -192,6 +192,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("products/{id}")]
+    [AllowAnonymous] // Manager ve Staff da ürün detaylarını görebilmeli
     public async Task<IActionResult> GetProductById(string id)
     {
         try
@@ -315,7 +316,6 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("pending-adjustments/test-create")]
-    [Authorize(Roles = "Admin,StockManager")]
     public async Task<IActionResult> CreateTestPendingAdjustment()
     {
         try
