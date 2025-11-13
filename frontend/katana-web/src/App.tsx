@@ -182,10 +182,31 @@ const App: React.FC = () => {
                       <Box sx={{ width: "100%", maxWidth: "1440px", mx: 0 }}>
                         <Routes>
                           <Route path="/" element={<Dashboard />} />
-                          <Route path="/stock" element={<StockManagement />} />
+                          <Route
+                            path="/stock"
+                            element={
+                              <ProtectedRoute requiredRole="StockManager">
+                                <StockManagement />
+                              </ProtectedRoute>
+                            }
+                          />
                           <Route path="/stock-view" element={<StockView />} />
-                          <Route path="/sync" element={<SyncManagement />} />
-                          <Route path="/reports" element={<Reports />} />
+                          <Route
+                            path="/sync"
+                            element={
+                              <ProtectedRoute requiredRole="StockManager">
+                                <SyncManagement />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/reports"
+                            element={
+                              <ProtectedRoute requiredRole="StockManager">
+                                <Reports />
+                              </ProtectedRoute>
+                            }
+                          />
                           {/* Protect only the Admin Panel route */}
                           <Route
                             path="/admin"

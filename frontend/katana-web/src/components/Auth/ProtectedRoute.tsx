@@ -28,12 +28,20 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
 
   // Role-based access control
   const roles = getJwtRoles(payload).map((r) => r.toLowerCase());
+  
   // If a requiredRole prop is not provided, automatically require 'admin' for /admin routes
   const roleNeeded = (requiredRole || (location.pathname.startsWith("/admin") ? "admin" : undefined))?.toLowerCase();
 
-  if (roleNeeded && !roles.includes(roleNeeded)) {
-    // Do not clear token; just redirect to unauthorized page
-    return <Navigate to="/unauthorized" replace state={{ from: location }} />;
+  if (roleNeeded) {
+    // Admin her şeye erişebilir
+    const hasAdminRole = roles.includes("admin");
+    // Gereken role sahip mi kontrol et
+    const hasRequiredRole = roles.includes(roleNeeded);
+    
+    if (!hasAdminRole && !hasRequiredRole) {
+      // Do not clear token; just redirect to unauthorized page
+      return <Navigate to="/unauthorized" replace state={{ from: location }} />;
+    }
   }
 
   return children;
