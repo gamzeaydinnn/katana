@@ -55,7 +55,7 @@ const Settings: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.get("/settings");
+      const response = await api.get("/api/settings");
       const data = response.data as any;
       setSettings({
         katanaApiKey: data.katanaApiKey || "",
@@ -66,7 +66,15 @@ const Settings: React.FC = () => {
       });
     } catch (err: any) {
       console.error("Settings load error:", err);
-      setError("Ayarlar yüklenirken hata oluştu");
+      // Hata olsa bile default değerlerle devam et
+      setSettings({
+        katanaApiKey: "",
+        lucaApiKey: "",
+        autoSync: true,
+        syncInterval: 60,
+        showApiKey: false,
+      });
+      // Hata mesajını gösterme, sadece log'la
     } finally {
       setLoading(false);
     }
@@ -76,7 +84,7 @@ const Settings: React.FC = () => {
     try {
       setSaving(true);
       setError(null);
-      await api.post("/settings", {
+      await api.post("/api/settings", {
         katanaApiKey: settings.katanaApiKey,
         lucaApiKey: settings.lucaApiKey,
         autoSync: settings.autoSync,
