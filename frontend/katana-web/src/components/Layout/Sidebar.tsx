@@ -19,10 +19,9 @@ import {
   Typography,
   useTheme,
 } from "@mui/material";
-import React, { useMemo } from "react";
+import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { styled } from "@mui/material/styles";
-import { decodeJwtPayload, getJwtRoles } from "../../utils/jwt";
 
 const drawerWidth = 280;
 
@@ -90,7 +89,6 @@ const menuItems = [
     path: "/",
     gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     color: "#667eea",
-    roles: ["Admin", "StockManager", "Staff"], // Herkes erişebilir
   },
   {
     text: "Canlı Stok",
@@ -98,7 +96,6 @@ const menuItems = [
     path: "/stock-view",
     gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
     color: "#f093fb",
-    roles: ["Admin", "StockManager", "Staff"], // Herkes erişebilir
   },
   {
     text: "Admin Paneli",
@@ -106,7 +103,6 @@ const menuItems = [
     path: "/admin",
     gradient: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
     color: "#4facfe",
-    roles: ["Admin"], // Sadece Admin
   },
   {
     text: "Stok Yönetimi",
@@ -114,7 +110,6 @@ const menuItems = [
     path: "/stock",
     gradient: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
     color: "#43e97b",
-    roles: ["Admin", "StockManager"], // Admin ve StockManager
   },
   {
     text: "Senkronizasyon",
@@ -122,7 +117,6 @@ const menuItems = [
     path: "/sync",
     gradient: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
     color: "#fa709a",
-    roles: ["Admin", "StockManager"], // Admin ve StockManager
   },
   {
     text: "Raporlar",
@@ -130,7 +124,6 @@ const menuItems = [
     path: "/reports",
     gradient: "linear-gradient(135deg, #30cfd0 0%, #330867 100%)",
     color: "#30cfd0",
-    roles: ["Admin", "StockManager"], // Admin ve StockManager
   },
 ];
 
@@ -138,24 +131,6 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Kullanıcının rollerini al
-  const userRoles = useMemo(() => {
-    const token = localStorage.getItem("authToken");
-    if (!token) return [];
-    const payload = decodeJwtPayload(token);
-    if (!payload) return [];
-    return getJwtRoles(payload);
-  }, []);
-
-  // Kullanıcının erişebileceği menüleri filtrele
-  const accessibleMenuItems = useMemo(() => {
-    return menuItems.filter((item) =>
-      item.roles.some((role) =>
-        userRoles.some((userRole) => userRole.toLowerCase() === role.toLowerCase())
-      )
-    );
-  }, [userRoles]);
 
   const handleNavigation = (path: string) => {
     navigate(path);
@@ -200,7 +175,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       <ColorfulDivider />
 
       <List sx={{ flexGrow: 1, pt: 2, px: 1 }}>
-        {accessibleMenuItems.map((item, index) => (
+        {menuItems.map((item, index) => (
           <AnimatedListItem key={item.text} disablePadding index={index}>
             <ListItemButton
               onClick={() =>

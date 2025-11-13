@@ -407,18 +407,18 @@ const Header: React.FC<HeaderProps> = ({
           </Typography>
         </Box>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: "10px" }}>
           {/* Theme toggle */}
           <Tooltip title={mode === "dark" ? "Açık tema" : "Koyu tema"}>
             <IconButton
               size="small"
               onClick={onToggleMode}
               sx={{
-                color: theme.palette.primary.main,
+                color: "#1e40af",
                 transition: "all 0.2s ease",
                 "&:hover": {
                   transform: "scale(1.1)",
-                  backgroundColor: theme.palette.action.hover,
+                  backgroundColor: "rgba(30, 64, 175, 0.1)",
                 },
               }}
             >
@@ -460,14 +460,13 @@ const Header: React.FC<HeaderProps> = ({
             label={
               backendStatus === "connected" ? "API Bağlı" : "API Bağlantısı Yok"
             }
-            size="medium"
             sx={{
               backgroundColor: "rgba(255, 255, 255, 0.95)",
-              borderRadius: 3,
+              borderRadius: "10px",
               fontWeight: 700,
-              fontSize: "0.9rem",
-              height: 38,
-              px: 2,
+              fontSize: "13px !important",
+              height: "40px !important",
+              px: "14px",
               border:
                 backendStatus === "connected"
                   ? "2px solid #10b981"
@@ -480,7 +479,12 @@ const Header: React.FC<HeaderProps> = ({
               transition: "all 0.3s ease",
               "& .MuiChip-icon": {
                 color: backendStatus === "connected" ? "#10b981" : "#ef4444",
-                fontSize: "1.3rem",
+                fontSize: "18px",
+                marginLeft: "4px",
+              },
+              "& .MuiChip-label": {
+                padding: "0 8px",
+                fontSize: "13px !important",
               },
               "&:hover": {
                 transform: "scale(1.05)",
@@ -497,19 +501,22 @@ const Header: React.FC<HeaderProps> = ({
             <Chip
               label={currentBranchName ? String(currentBranchName) : "Şube Seç"}
               onClick={onOpenBranchSelector}
-              size="medium"
               sx={{
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
-                borderRadius: 3,
+                borderRadius: "10px",
                 fontWeight: 700,
-                fontSize: "0.9rem",
-                height: 38,
-                px: 2.5,
+                fontSize: "13px !important",
+                height: "40px !important",
+                px: "14px",
                 border: "2px solid #3b82f6",
                 color: "#3b82f6",
                 cursor: "pointer",
                 boxShadow: "0 4px 14px rgba(59, 130, 246, 0.3)",
                 transition: "all 0.3s ease",
+                "& .MuiChip-label": {
+                  padding: "0 8px",
+                  fontSize: "13px !important",
+                },
                 "&:hover": {
                   transform: "translateY(-2px) scale(1.05)",
                   backgroundColor: "#3b82f6",
@@ -525,13 +532,17 @@ const Header: React.FC<HeaderProps> = ({
             <IconButton
               sx={{
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
-                width: 52,
-                height: 52,
-                borderRadius: 3,
+                width: 40,
+                height: 40,
+                borderRadius: "10px",
                 border: "2px solid #10b981",
                 color: "#10b981",
                 boxShadow: "0 4px 14px rgba(16, 185, 129, 0.25)",
                 transition: "all 0.3s ease",
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 "&:hover": {
                   transform: "translateY(-2px) scale(1.1)",
                   backgroundColor: "#10b981",
@@ -549,7 +560,7 @@ const Header: React.FC<HeaderProps> = ({
                   : {}),
               }}
             >
-              <Sync sx={{ fontSize: "1.6rem" }} />
+              <Sync sx={{ fontSize: "18px" }} />
             </IconButton>
           </Tooltip>
 
@@ -559,9 +570,9 @@ const Header: React.FC<HeaderProps> = ({
               onClick={handleNotificationOpen}
               sx={{
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
-                width: 52,
-                height: 52,
-                borderRadius: 3,
+                width: 40,
+                height: 40,
+                borderRadius: "10px",
                 border:
                   pendingCount > 0
                     ? "2px solid #ef4444"
@@ -572,6 +583,10 @@ const Header: React.FC<HeaderProps> = ({
                     ? "0 4px 14px rgba(239, 68, 68, 0.3)"
                     : "0 4px 14px rgba(59, 130, 246, 0.2)",
                 transition: "all 0.3s ease",
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 "&:hover": {
                   transform: "translateY(-2px) scale(1.1)",
                   backgroundColor: pendingCount > 0 ? "#ef4444" : "#3b82f6",
@@ -602,16 +617,16 @@ const Header: React.FC<HeaderProps> = ({
                     backgroundColor: "#ef4444",
                     color: "#fff",
                     fontWeight: 700,
-                    fontSize: "0.75rem",
-                    minWidth: 22,
-                    height: 22,
-                    borderRadius: "11px",
+                    fontSize: "10px",
+                    minWidth: 18,
+                    height: 18,
+                    borderRadius: "9px",
                     border: "2px solid #fff",
                     boxShadow: "0 2px 8px rgba(239, 68, 68, 0.4)",
                   },
                 }}
               >
-                <NotificationsIcon sx={{ fontSize: "1.6rem" }} />
+                <NotificationsIcon sx={{ fontSize: "18px" }} />
               </Badge>
             </IconButton>
           </Tooltip>
@@ -623,13 +638,16 @@ const Header: React.FC<HeaderProps> = ({
               onClick={handleProfileMenuOpen}
               sx={{
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
-                width: 52,
-                height: 52,
-                borderRadius: 3,
-                border: "2px solid #8b5cf6ff",
-                padding: 0.5,
+                width: 40,
+                height: 40,
+                borderRadius: "10px",
+                border: "2px solid #8b5cf6",
+                padding: 0,
                 boxShadow: "0 4px 14px rgba(139, 92, 246, 0.25)",
                 transition: "all 0.3s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 "&:hover": {
                   transform: "translateY(-2px) scale(1.08)",
                   backgroundColor: "#8b5cf6",
@@ -644,13 +662,13 @@ const Header: React.FC<HeaderProps> = ({
             >
               <Avatar
                 sx={{
-                  width: 40,
-                  height: 40,
+                  width: 32,
+                  height: 32,
                   border: "2px solid #3b82f6",
                   backgroundColor: "#3b82f6",
                   color: "#fff",
                   fontWeight: 700,
-                  fontSize: "1.1rem",
+                  fontSize: "14px",
                   transition: "all 0.3s ease",
                 }}
               >
