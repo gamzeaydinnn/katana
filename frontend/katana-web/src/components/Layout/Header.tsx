@@ -462,7 +462,7 @@ const Header: React.FC<HeaderProps> = ({
             }
             sx={{
               backgroundColor: "rgba(255, 255, 255, 0.95)",
-              borderRadius: "10px",
+              borderRadius: "12px",
               fontWeight: 700,
               fontSize: "13px !important",
               height: "40px !important",
@@ -503,7 +503,7 @@ const Header: React.FC<HeaderProps> = ({
               onClick={onOpenBranchSelector}
               sx={{
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
-                borderRadius: "10px",
+                borderRadius: "12px",
                 fontWeight: 700,
                 fontSize: "13px !important",
                 height: "40px !important",
@@ -534,7 +534,7 @@ const Header: React.FC<HeaderProps> = ({
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
                 width: 40,
                 height: 40,
-                borderRadius: "10px",
+                borderRadius: "12px",
                 border: "2px solid #10b981",
                 color: "#10b981",
                 boxShadow: "0 4px 14px rgba(16, 185, 129, 0.25)",
@@ -572,7 +572,7 @@ const Header: React.FC<HeaderProps> = ({
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
                 width: 40,
                 height: 40,
-                borderRadius: "10px",
+                borderRadius: "12px",
                 border:
                   pendingCount > 0
                     ? "2px solid #ef4444"
@@ -640,7 +640,7 @@ const Header: React.FC<HeaderProps> = ({
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
                 width: 40,
                 height: 40,
-                borderRadius: "10px",
+                borderRadius: "12px",
                 border: "2px solid #8b5cf6",
                 padding: 0,
                 boxShadow: "0 4px 14px rgba(139, 92, 246, 0.25)",
