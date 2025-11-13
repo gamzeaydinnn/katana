@@ -1,21 +1,34 @@
-import React, { useEffect, useState } from "react";
+import { 
+  Add as AddIcon, 
+  Cancel as CancelIcon,
+  CheckCircle as CheckIcon,
+  Delete as DeleteIcon, 
+  Edit as EditIcon, 
+  Refresh as RefreshIcon,
+  Shield as ShieldIcon,
+  Warning as WarningIcon,
+} from "@mui/icons-material";
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
+  Chip,
   CircularProgress,
   Dialog,
-  DialogTitle,
-  DialogContent,
   DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
   FormControlLabel,
+  IconButton,
   InputLabel,
   MenuItem,
   Select,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -24,17 +37,20 @@ import {
   TableRow,
   TextField,
   Typography,
-  Chip,
-  IconButton,
-  Alert,
-  Switch,
 } from "@mui/material";
-import { Add as AddIcon, Delete as DeleteIcon, Refresh as RefreshIcon, Edit as EditIcon } from "@mui/icons-material";
-import { usersAPI, type CreateUserRequest, type UserDto } from "../../services/api";
+import React, { useEffect, useState } from "react";
 import { showGlobalToast } from "../../providers/FeedbackProvider";
+import { usersAPI, type CreateUserRequest, type UserDto } from "../../services/api";
 import { decodeJwtPayload, getJwtRoles } from "../../utils/jwt";
 
-const roleOptions = ["Admin", "Manager", "Staff"] as const;
+const roleOptions = ["Admin", "Manager", "Staff", "StockManager"] as const;
+
+const roleDisplayNames: Record<string, string> = {
+  Admin: "Yönetim",
+  Manager: "Yetkili",
+  Staff: "Kullanıcı",
+  StockManager: "Stok Yöneticisi",
+};
 
 const UsersManagement: React.FC = () => {
   const [users, setUsers] = useState<UserDto[]>([]);
@@ -218,7 +234,7 @@ const UsersManagement: React.FC = () => {
                   >
                     {roleOptions.map((r) => (
                       <MenuItem key={r} value={r}>
-                        {r}
+                        {roleDisplayNames[r] || r}
                       </MenuItem>
                     ))}
                   </Select>
@@ -266,7 +282,7 @@ const UsersManagement: React.FC = () => {
                     <TableRow key={u.id} hover>
                       <TableCell>{u.username}</TableCell>
                       <TableCell>{u.email}</TableCell>
-                      <TableCell>{u.role}</TableCell>
+                      <TableCell>{roleDisplayNames[u.role] || u.role}</TableCell>
                       <TableCell>
                         <Chip size="small" label={u.isActive ? "Aktif" : "Pasif"} color={u.isActive ? "success" : "default"} />
                       </TableCell>
@@ -305,6 +321,298 @@ const UsersManagement: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Rol Yetkilendirmesi */}
+      <Card>
+        <CardContent>
+          <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+            <ShieldIcon sx={{ mr: 1, color: "primary.main" }} />
+            <Typography variant="h6" fontWeight={600}>
+              Rol Yetkilendirme Rehberi
+            </Typography>
+          </Box>
+          <Divider sx={{ mb: 3 }} />
+
+          <Alert severity="info" sx={{ mb: 3 }}>
+            Bu bölüm yalnızca bilgilendirme amaçlıdır. Kullanıcılara hangi
+            rolü atayacağınıza karar verirken bu tabloyu referans
+            alabilirsiniz.
+          </Alert>
+
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>
+                    <strong>Yetki</strong>
+                  </TableCell>
+                  <TableCell align="center">
+                    <strong>Admin</strong>
+                  </TableCell>
+                  <TableCell align="center">
+                    <strong>Manager</strong>
+                  </TableCell>
+                  <TableCell align="center">
+                    <strong>Staff</strong>
+                  </TableCell>
+                  <TableCell align="center">
+                    <strong>StockManager</strong>
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                <TableRow>
+                  <TableCell>Kullanıcı Yönetimi (Görüntüleme)</TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Kullanıcı Ekleme/Düzenleme/Silme</TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Rol Atama/Değiştirme</TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Admin Paneli Erişimi</TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <WarningIcon color="warning" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Senkronizasyon Başlatma</TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Ürün Güncelleme</TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Stok Onaylama</TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Müşteri/Tedarikçi/Kategori Yönetimi</TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CancelIcon color="error" fontSize="small" />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Dashboard/Raporlar Görüntüleme</TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Canlı Stok Görüntüleme</TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <CheckIcon color="success" fontSize="small" />
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          <Box sx={{ mt: 3, display: "flex", gap: 2, flexWrap: "wrap" }}>
+            <Chip
+              icon={<CheckIcon />}
+              label="Tam Yetki"
+              color="success"
+              size="small"
+            />
+            <Chip
+              icon={<WarningIcon />}
+              label="Sınırlı Yetki"
+              color="warning"
+              size="small"
+            />
+            <Chip
+              icon={<CancelIcon />}
+              label="Yetki Yok"
+              color="error"
+              size="small"
+            />
+          </Box>
+
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              Rol Açıklamaları:
+            </Typography>
+            <Stack spacing={1.5}>
+              <Box>
+                <Typography
+                  variant="body2"
+                  color="primary.main"
+                  fontWeight={600}
+                >
+                  • Yönetim:
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ pl: 2 }}
+                >
+                  Sistemin tüm alanlarına tam erişim. Kullanıcı yönetimi,
+                  senkronizasyon, tüm CRUD işlemleri.
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  variant="body2"
+                  color="warning.main"
+                  fontWeight={600}
+                >
+                  • Yetkili:
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ pl: 2 }}
+                >
+                  Kullanıcı listesini görüntüleme yetkisi. Değişiklik
+                  yapamaz, sadece okuma erişimi.
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  variant="body2"
+                  color="info.main"
+                  fontWeight={600}
+                >
+                  • Kullanıcı:
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ pl: 2 }}
+                >
+                  Temel kullanıcı. Dashboard, raporlar ve canlı stok
+                  görüntüleme. Değişiklik yapamaz.
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  variant="body2"
+                  color="secondary.main"
+                  fontWeight={600}
+                >
+                  • Stok Yöneticisi:
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ pl: 2 }}
+                >
+                  Stok odaklı işlemler. Ürün güncelleme, stok onaylama,
+                  hatalı kayıt düzeltme yetkisi.
+                </Typography>
+              </Box>
+            </Stack>
+          </Box>
+        </CardContent>
+      </Card>
+
       <Dialog open={!!editing} onClose={closeEdit} fullWidth maxWidth="sm">
         <DialogTitle>Kullanıcıyı Düzenle</DialogTitle>
         <DialogContent>
@@ -332,7 +640,7 @@ const UsersManagement: React.FC = () => {
                 >
                   {roleOptions.map((r) => (
                     <MenuItem key={r} value={r}>
-                      {r}
+                      {roleDisplayNames[r] || r}
                     </MenuItem>
                   ))}
                 </Select>

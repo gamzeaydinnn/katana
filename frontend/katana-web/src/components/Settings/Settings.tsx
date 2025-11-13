@@ -1,40 +1,29 @@
-import React, { useState, useEffect } from "react";
 import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  TextField,
-  Button,
-  Switch,
-  FormControlLabel,
-  Divider,
-  Alert,
-  IconButton,
-  InputAdornment,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
-  CircularProgress,
-} from "@mui/material";
-import {
-  Save as SaveIcon,
-  Refresh as RefreshIcon,
-  Visibility,
-  VisibilityOff,
-  Key as KeyIcon,
-  Api as ApiIcon,
-  Sync as SyncIcon,
-  Shield as ShieldIcon,
-  CheckCircle as CheckIcon,
-  Cancel as CancelIcon,
-  Warning as WarningIcon,
+    Api as ApiIcon,
+    Key as KeyIcon,
+    Refresh as RefreshIcon,
+    Save as SaveIcon,
+    Sync as SyncIcon,
+    Visibility,
+    VisibilityOff,
 } from "@mui/icons-material";
+import {
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    CircularProgress,
+    Divider,
+    FormControlLabel,
+    IconButton,
+    InputAdornment,
+    Stack,
+    Switch,
+    TextField,
+    Typography,
+} from "@mui/material";
+import React, { useEffect, useState } from "react";
 import api from "../../services/api";
 
 interface SettingsState {
@@ -333,298 +322,6 @@ const Settings: React.FC = () => {
                     18.10.2025
                   </Typography>
                 </Box>
-              </Box>
-            </CardContent>
-          </Card>
-
-          {/* Rol Yetkilendirmesi */}
-          <Card>
-            <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
-                <ShieldIcon sx={{ mr: 1, color: "primary.main" }} />
-                <Typography variant="h6" fontWeight={600}>
-                  Rol Yetkilendirme Rehberi
-                </Typography>
-              </Box>
-              <Divider sx={{ mb: 3 }} />
-
-              <Alert severity="info" sx={{ mb: 3 }}>
-                Bu bölüm yalnızca bilgilendirme amaçlıdır. Kullanıcılara hangi
-                rolü atayacağınıza karar verirken bu tabloyu referans
-                alabilirsiniz.
-              </Alert>
-
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>
-                        <strong>Yetki</strong>
-                      </TableCell>
-                      <TableCell align="center">
-                        <strong>Admin</strong>
-                      </TableCell>
-                      <TableCell align="center">
-                        <strong>Manager</strong>
-                      </TableCell>
-                      <TableCell align="center">
-                        <strong>Staff</strong>
-                      </TableCell>
-                      <TableCell align="center">
-                        <strong>StockManager</strong>
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell>Kullanıcı Yönetimi (Görüntüleme)</TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Kullanıcı Ekleme/Düzenleme/Silme</TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Rol Atama/Değiştirme</TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Admin Paneli Erişimi</TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <WarningIcon color="warning" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Senkronizasyon Başlatma</TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Ürün Güncelleme</TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Stok Onaylama</TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Müşteri/Tedarikçi/Kategori Yönetimi</TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CancelIcon color="error" fontSize="small" />
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Dashboard/Raporlar Görüntüleme</TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Canlı Stok Görüntüleme</TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <CheckIcon color="success" fontSize="small" />
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              <Box sx={{ mt: 3, display: "flex", gap: 2, flexWrap: "wrap" }}>
-                <Chip
-                  icon={<CheckIcon />}
-                  label="Tam Yetki"
-                  color="success"
-                  size="small"
-                />
-                <Chip
-                  icon={<WarningIcon />}
-                  label="Sınırlı Yetki"
-                  color="warning"
-                  size="small"
-                />
-                <Chip
-                  icon={<CancelIcon />}
-                  label="Yetki Yok"
-                  color="error"
-                  size="small"
-                />
-              </Box>
-
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                  Rol Açıklamaları:
-                </Typography>
-                <Stack spacing={1.5}>
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      color="primary.main"
-                      fontWeight={600}
-                    >
-                      • Admin:
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ pl: 2 }}
-                    >
-                      Sistemin tüm alanlarına tam erişim. Kullanıcı yönetimi,
-                      senkronizasyon, tüm CRUD işlemleri.
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      color="warning.main"
-                      fontWeight={600}
-                    >
-                      • Manager:
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ pl: 2 }}
-                    >
-                      Kullanıcı listesini görüntüleme yetkisi. Değişiklik
-                      yapamaz, sadece okuma erişimi.
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      color="info.main"
-                      fontWeight={600}
-                    >
-                      • Staff:
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ pl: 2 }}
-                    >
-                      Temel kullanıcı. Dashboard, raporlar ve canlı stok
-                      görüntüleme. Değişiklik yapamaz.
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      color="secondary.main"
-                      fontWeight={600}
-                    >
-                      • StockManager:
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ pl: 2 }}
-                    >
-                      Stok odaklı işlemler. Ürün güncelleme, stok onaylama,
-                      hatalı kayıt düzeltme yetkisi.
-                    </Typography>
-                  </Box>
-                </Stack>
               </Box>
             </CardContent>
           </Card>
