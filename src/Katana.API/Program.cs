@@ -149,6 +149,7 @@ builder.Services.AddDbContext<IntegrationDbContext>(options =>
 // -----------------------------
 builder.Services.Configure<KatanaApiSettings>(builder.Configuration.GetSection("KatanaApi"));
 builder.Services.Configure<LucaApiSettings>(builder.Configuration.GetSection("LucaApi"));
+builder.Services.Configure<SyncSettings>(builder.Configuration.GetSection(SyncSettings.SectionName));
 builder.Services.AddAuthorization();
 
 // -----------------------------
@@ -295,6 +296,7 @@ if (enableBackground)
 builder.Services.AddHostedService<HourlyMetricsAggregator>();
 builder.Services.AddHostedService<LogRetentionService>();
 builder.Services.AddHostedService<FailedNotificationProcessor>();
+builder.Services.AddHostedService<AutoSyncWorker>();
 
 // -----------------------------
 // Build & Run
