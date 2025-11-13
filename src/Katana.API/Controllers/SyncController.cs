@@ -74,9 +74,10 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>
-    /// POST /api/Sync/start - Yeni senkronizasyon ba�lat�r
+    /// POST /api/Sync/start - Yeni senkronizasyon başlatır
     /// </summary>
     [HttpPost("start")]
+    [AllowAnonymous]
     public async Task<IActionResult> StartSync([FromBody] StartSyncRequest request)
     {
         try

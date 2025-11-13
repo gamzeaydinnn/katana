@@ -278,7 +278,13 @@ const SyncManagement: React.FC = () => {
                             }}
                           >
                             <Error sx={{ fontSize: 16, color: "error.main" }} />
-                            {item.failedRecords}
+                            <Typography
+                              variant="body2"
+                              fontWeight={600}
+                              color="error.main"
+                            >
+                              {item.failedRecords} Başarısız
+                            </Typography>
                           </Box>
                         ) : (
                           <Typography variant="body2" color="text.secondary">
