@@ -129,7 +129,7 @@ public class AuthController : ControllerBase
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddMinutes(5), // Token 5 dakika geçerli
+            Expires = DateTime.UtcNow.AddMinutes(20), // Token 20 dakika geçerli
             Issuer = jwtSettings["Issuer"],
             Audience = jwtSettings["Audience"],
             SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature)
