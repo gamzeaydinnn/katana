@@ -25,6 +25,7 @@ import {
   Tooltip,
   Stack,
   Chip,
+  useMediaQuery,
 } from "@mui/material";
 import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
 import EditIcon from "@mui/icons-material/Edit";
@@ -65,6 +66,7 @@ const DataCorrectionPanel: React.FC = () => {
   const [sourceTab, setSourceTab] = useState<"comparison" | "katana" | "luca">(
     "comparison"
   );
+  const isMobile = useMediaQuery("(max-width:900px)");
 
   // Karşılaştırma
   const [comparisons, setComparisons] = useState<ComparisonResult[]>([]);
@@ -367,269 +369,505 @@ const DataCorrectionPanel: React.FC = () => {
       ) : (
         <>
           {/* Comparison Tab */}
-          {sourceTab === "comparison" && (
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-                    <TableCell>
-                      <strong>SKU</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Ürün Adı</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Katana Veri</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Luca Veri</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Sorunlar</strong>
-                    </TableCell>
-                    <TableCell align="center">
-                      <strong>İşlemler</strong>
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {comparisons.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} align="center">
-                        <Typography color="textSecondary">
-                          Uyuşmazlık bulunamadı - Tüm veriler senkronize!
+          {sourceTab === "comparison" &&
+            (isMobile ? (
+              <Stack spacing={1.5}>
+                {comparisons.length === 0 && (
+                  <Typography
+                    color="text.secondary"
+                    align="center"
+                    sx={{ py: 2 }}
+                  >
+                    Uyuşmazlık bulunamadı - Tüm veriler senkronize!
+                  </Typography>
+                )}
+                {comparisons.map((comp) => (
+                  <Paper
+                    key={comp.sku}
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      border: "1px solid",
+                      borderColor: "divider",
+                    }}
+                  >
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      {comp.sku} •{" "}
+                      {comp.katanaProduct?.name || comp.lucaProduct?.productName}
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                        columnGap: 1,
+                        rowGap: 1,
+                        mt: 1,
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Katana
                         </Typography>
+                        {comp.katanaProduct ? (
+                          <Typography fontWeight={600}>
+                            Fiyat:{" "}
+                            {comp.katanaProduct.salesPrice?.toFixed(2) || "0.00"}{" "}
+                            ₺ • Stok: {comp.katanaProduct.onHand || 0}
+                          </Typography>
+                        ) : (
+                          <Chip label="Yok" size="small" color="error" />
+                        )}
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Luca
+                        </Typography>
+                        {comp.lucaProduct ? (
+                          <Typography fontWeight={600}>
+                            Fiyat: {comp.lucaProduct.unitPrice.toFixed(2)} ₺ •
+                            Stok: {comp.lucaProduct.quantity}
+                          </Typography>
+                        ) : (
+                          <Chip label="Yok" size="small" color="error" />
+                        )}
+                      </Box>
+                    </Box>
+                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                      {comp.issues.map((issue, idx) => (
+                        <Chip
+                          key={idx}
+                          label={issue.issue}
+                          size="small"
+                          color="warning"
+                          variant="outlined"
+                        />
+                      ))}
+                    </Stack>
+                    {canEdit && (
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{ mt: 1 }}
+                        flexWrap="wrap"
+                      >
+                        {comp.katanaProduct && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => handleKatanaEdit(comp.katanaProduct!)}
+                          >
+                            Katana Düzelt
+                          </Button>
+                        )}
+                        {comp.lucaProduct && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="secondary"
+                            onClick={() => handleLucaEdit(comp.lucaProduct!)}
+                          >
+                            Luca Düzelt
+                          </Button>
+                        )}
+                      </Stack>
+                    )}
+                  </Paper>
+                ))}
+              </Stack>
+            ) : (
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                      <TableCell>
+                        <strong>SKU</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Ürün Adı</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Katana Veri</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Luca Veri</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Sorunlar</strong>
+                      </TableCell>
+                      <TableCell align="center">
+                        <strong>İşlemler</strong>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    comparisons.map((comp) => (
-                      <TableRow key={comp.sku} hover>
-                        <TableCell>
-                          <strong>{comp.sku}</strong>
-                        </TableCell>
-                        <TableCell>
-                          {comp.katanaProduct?.name ||
-                            comp.lucaProduct?.productName}
-                        </TableCell>
-                        <TableCell>
-                          {comp.katanaProduct ? (
-                            <Box>
-                              <Typography variant="caption">
-                                Fiyat:{" "}
-                                {comp.katanaProduct.salesPrice?.toFixed(2) ||
-                                  "0.00"}{" "}
-                                ₺
-                              </Typography>
-                              <br />
-                              <Typography variant="caption">
-                                Stok: {comp.katanaProduct.onHand || 0}
-                              </Typography>
-                            </Box>
-                          ) : (
-                            <Chip label="Yok" size="small" color="error" />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {comp.lucaProduct ? (
-                            <Box>
-                              <Typography variant="caption">
-                                Fiyat: {comp.lucaProduct.unitPrice.toFixed(2)} ₺
-                              </Typography>
-                              <br />
-                              <Typography variant="caption">
-                                Stok: {comp.lucaProduct.quantity}
-                              </Typography>
-                            </Box>
-                          ) : (
-                            <Chip label="Yok" size="small" color="error" />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Stack spacing={0.5}>
-                            {comp.issues.map((issue, idx) => (
-                              <Chip
-                                key={idx}
-                                label={issue.issue}
-                                size="small"
-                                color="warning"
-                                variant="outlined"
-                              />
-                            ))}
-                          </Stack>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Stack
-                            direction="row"
-                            spacing={1}
-                            justifyContent="center"
-                          >
-                            {comp.katanaProduct && canEdit && (
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="primary"
-                                onClick={() =>
-                                  handleKatanaEdit(comp.katanaProduct!)
-                                }
-                              >
-                                Katana Düzelt
-                              </Button>
-                            )}
-                            {comp.lucaProduct && canEdit && (
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="secondary"
-                                onClick={() =>
-                                  handleLucaEdit(comp.lucaProduct!)
-                                }
-                              >
-                                Luca Düzelt
-                              </Button>
-                            )}
-                          </Stack>
+                  </TableHead>
+                  <TableBody>
+                    {comparisons.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center">
+                          <Typography color="textSecondary">
+                            Uyuşmazlık bulunamadı - Tüm veriler senkronize!
+                          </Typography>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+                    ) : (
+                      comparisons.map((comp) => (
+                        <TableRow key={comp.sku} hover>
+                          <TableCell>
+                            <strong>{comp.sku}</strong>
+                          </TableCell>
+                          <TableCell>
+                            {comp.katanaProduct?.name ||
+                              comp.lucaProduct?.productName}
+                          </TableCell>
+                          <TableCell>
+                            {comp.katanaProduct ? (
+                              <Box>
+                                <Typography variant="caption">
+                                  Fiyat:{" "}
+                                  {comp.katanaProduct.salesPrice?.toFixed(2) ||
+                                    "0.00"}{" "}
+                                  ₺
+                                </Typography>
+                                <br />
+                                <Typography variant="caption">
+                                  Stok: {comp.katanaProduct.onHand || 0}
+                                </Typography>
+                              </Box>
+                            ) : (
+                              <Chip label="Yok" size="small" color="error" />
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {comp.lucaProduct ? (
+                              <Box>
+                                <Typography variant="caption">
+                                  Fiyat: {comp.lucaProduct.unitPrice.toFixed(2)}{" "}
+                                  ₺
+                                </Typography>
+                                <br />
+                                <Typography variant="caption">
+                                  Stok: {comp.lucaProduct.quantity}
+                                </Typography>
+                              </Box>
+                            ) : (
+                              <Chip label="Yok" size="small" color="error" />
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Stack spacing={0.5}>
+                              {comp.issues.map((issue, idx) => (
+                                <Chip
+                                  key={idx}
+                                  label={issue.issue}
+                                  size="small"
+                                  color="warning"
+                                  variant="outlined"
+                                />
+                              ))}
+                            </Stack>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              justifyContent="center"
+                            >
+                              {comp.katanaProduct && canEdit && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="primary"
+                                  onClick={() =>
+                                    handleKatanaEdit(comp.katanaProduct!)
+                                  }
+                                >
+                                  Katana Düzelt
+                                </Button>
+                              )}
+                              {comp.lucaProduct && canEdit && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="secondary"
+                                  onClick={() =>
+                                    handleLucaEdit(comp.lucaProduct!)
+                                  }
+                                >
+                                  Luca Düzelt
+                                </Button>
+                              )}
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ))}
 
           {/* Katana Issues Tab */}
-          {sourceTab === "katana" && (
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-                    <TableCell>
-                      <strong>SKU</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Ürün Adı</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Fiyat (₺)</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Stok</strong>
-                    </TableCell>
-                    <TableCell align="center">
-                      <strong>İşlemler</strong>
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {katanaIssueProducts.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center">
-                        <Typography color="textSecondary">
-                          Katana sorun yaşayan ürün bulunamadı
+          {sourceTab === "katana" &&
+            (isMobile ? (
+              <Stack spacing={1.5}>
+                {katanaIssueProducts.length === 0 && (
+                  <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
+                    Katana sorun yaşayan ürün bulunamadı
+                  </Typography>
+                )}
+                {katanaIssueProducts.map((product) => (
+                  <Paper
+                    key={product.id}
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      border: "1px solid",
+                      borderColor: "divider",
+                    }}
+                  >
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      {product.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      SKU: <strong>{product.sku}</strong>
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                        columnGap: 1,
+                        rowGap: 1,
+                        mt: 1,
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Fiyat
                         </Typography>
+                        <Typography fontWeight={600}>
+                          {product.salesPrice?.toFixed(2) || "0.00"} ₺
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Stok
+                        </Typography>
+                        <Typography fontWeight={600}>
+                          {product.onHand || 0}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    {canEdit && (
+                      <Button
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                        startIcon={<EditIcon />}
+                        sx={{ mt: 1.25 }}
+                        onClick={() => handleKatanaEdit(product)}
+                      >
+                        Katana Düzelt
+                      </Button>
+                    )}
+                  </Paper>
+                ))}
+              </Stack>
+            ) : (
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                      <TableCell>
+                        <strong>SKU</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Ürün Adı</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>Fiyat (₺)</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>Stok</strong>
+                      </TableCell>
+                      <TableCell align="center">
+                        <strong>İşlemler</strong>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    katanaIssueProducts.map((product) => (
-                      <TableRow key={product.id} hover>
-                        <TableCell>
-                          <strong>{product.sku}</strong>
-                        </TableCell>
-                        <TableCell>{product.name}</TableCell>
-                        <TableCell align="right">
-                          {product.salesPrice?.toFixed(2) || "0.00"}
-                        </TableCell>
-                        <TableCell align="right">
-                          {product.onHand || 0}
-                        </TableCell>
-                        <TableCell align="center">
-                          {canEdit ? (
-                            <IconButton
-                              size="small"
-                              onClick={() => handleKatanaEdit(product)}
-                              color="primary"
-                            >
-                              <EditIcon />
-                            </IconButton>
-                          ) : (
-                            <Typography variant="body2" color="text.secondary">
-                              -
-                            </Typography>
-                          )}
+                  </TableHead>
+                  <TableBody>
+                    {katanaIssueProducts.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center">
+                          <Typography color="textSecondary">
+                            Katana sorun yaşayan ürün bulunamadı
+                          </Typography>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+                    ) : (
+                      katanaIssueProducts.map((product) => (
+                        <TableRow key={product.id} hover>
+                          <TableCell>
+                            <strong>{product.sku}</strong>
+                          </TableCell>
+                          <TableCell>{product.name}</TableCell>
+                          <TableCell align="right">
+                            {product.salesPrice?.toFixed(2) || "0.00"}
+                          </TableCell>
+                          <TableCell align="right">
+                            {product.onHand || 0}
+                          </TableCell>
+                          <TableCell align="center">
+                            {canEdit ? (
+                              <IconButton
+                                size="small"
+                                onClick={() => handleKatanaEdit(product)}
+                                color="primary"
+                              >
+                                <EditIcon />
+                              </IconButton>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">
+                                -
+                              </Typography>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ))}
 
           {/* Luca Issues Tab */}
-          {sourceTab === "luca" && (
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-                    <TableCell>
-                      <strong>Ürün Kodu</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Ürün Adı</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Birim Fiyat (₺)</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Miktar</strong>
-                    </TableCell>
-                    <TableCell align="center">
-                      <strong>İşlemler</strong>
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {lucaIssueProducts.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center">
-                        <Typography color="textSecondary">
-                          Luca sorun yaşayan ürün bulunamadı
+          {sourceTab === "luca" &&
+            (isMobile ? (
+              <Stack spacing={1.5}>
+                {lucaIssueProducts.length === 0 && (
+                  <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
+                    Luca sorun yaşayan ürün bulunamadı
+                  </Typography>
+                )}
+                {lucaIssueProducts.map((product) => (
+                  <Paper
+                    key={product.id}
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      border: "1px solid",
+                      borderColor: "divider",
+                    }}
+                  >
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      {product.productName}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Kod: <strong>{product.productCode}</strong>
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                        columnGap: 1,
+                        rowGap: 1,
+                        mt: 1,
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Birim Fiyat
                         </Typography>
+                        <Typography fontWeight={600}>
+                          {product.unitPrice.toFixed(2)} ₺
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Miktar
+                        </Typography>
+                        <Typography fontWeight={600}>
+                          {product.quantity}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    {canEdit && (
+                      <Button
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                        startIcon={<EditIcon />}
+                        sx={{ mt: 1.25 }}
+                        onClick={() => handleLucaEdit(product)}
+                      >
+                        Luca Düzelt
+                      </Button>
+                    )}
+                  </Paper>
+                ))}
+              </Stack>
+            ) : (
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                      <TableCell>
+                        <strong>Ürün Kodu</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Ürün Adı</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>Birim Fiyat (₺)</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>Miktar</strong>
+                      </TableCell>
+                      <TableCell align="center">
+                        <strong>İşlemler</strong>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    lucaIssueProducts.map((product) => (
-                      <TableRow key={product.id} hover>
-                        <TableCell>
-                          <strong>{product.productCode}</strong>
-                        </TableCell>
-                        <TableCell>{product.productName}</TableCell>
-                        <TableCell align="right">
-                          {product.unitPrice.toFixed(2)}
-                        </TableCell>
-                        <TableCell align="right">{product.quantity}</TableCell>
-                        <TableCell align="center">
-                          {canEdit ? (
-                            <IconButton
-                              size="small"
-                              onClick={() => handleLucaEdit(product)}
-                              color="primary"
-                            >
-                              <EditIcon />
-                            </IconButton>
-                          ) : (
-                            <Typography variant="body2" color="text.secondary">
-                              -
-                            </Typography>
-                          )}
+                  </TableHead>
+                  <TableBody>
+                    {lucaIssueProducts.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center">
+                          <Typography color="textSecondary">
+                            Luca sorun yaşayan ürün bulunamadı
+                          </Typography>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+                    ) : (
+                      lucaIssueProducts.map((product) => (
+                        <TableRow key={product.id} hover>
+                          <TableCell>
+                            <strong>{product.productCode}</strong>
+                          </TableCell>
+                          <TableCell>{product.productName}</TableCell>
+                          <TableCell align="right">
+                            {product.unitPrice.toFixed(2)}
+                          </TableCell>
+                          <TableCell align="right">{product.quantity}</TableCell>
+                          <TableCell align="center">
+                            {canEdit ? (
+                              <IconButton
+                                size="small"
+                                onClick={() => handleLucaEdit(product)}
+                                color="primary"
+                              >
+                                <EditIcon />
+                              </IconButton>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">
+                                -
+                              </Typography>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ))}
         </>
       )}
 

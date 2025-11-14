@@ -194,6 +194,126 @@ const SyncManagement: React.FC = () => {
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <CircularProgress />
           </Box>
+        ) : isMobile ? (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+            {history.length === 0 ? (
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  textAlign: "center",
+                  backgroundColor: "background.default",
+                }}
+              >
+                <Typography color="text.secondary">
+                  Henüz senkronizasyon geçmişi yok
+                </Typography>
+              </Paper>
+            ) : (
+              history.map((item) => (
+                <Box
+                  key={item.id}
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "divider",
+                    borderRadius: 2,
+                    p: 1.5,
+                    backgroundColor: "background.paper",
+                    boxShadow: (t) => t.shadows[1],
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: 1,
+                      mb: 1,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={600}>
+                        {item.syncType}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatDate(item.startTime)}
+                      </Typography>
+                    </Box>
+                    {getStatusChip(item.status)}
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                      columnGap: 1,
+                      rowGap: 1,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        İşlenen Kayıt
+                      </Typography>
+                      <Typography fontWeight={600}>
+                        {item.processedRecords}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Başarılı
+                      </Typography>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 0.5,
+                          mt: 0.25,
+                        }}
+                      >
+                        <CheckCircle
+                          sx={{ fontSize: 16, color: "success.main" }}
+                        />
+                        <Typography fontWeight={600}>
+                          {item.successfulRecords || "-"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Başarısız
+                      </Typography>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 0.5,
+                          mt: 0.25,
+                        }}
+                      >
+                        <Error sx={{ fontSize: 16, color: "error.main" }} />
+                        <Typography fontWeight={600}>
+                          {item.failedRecords || "-"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Durum Mesajı
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{ wordBreak: "break-word" }}
+                        color="text.secondary"
+                      >
+                        {item.errorMessage || "-"}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              ))
+            )}
+          </Box>
         ) : (
           <TableContainer
             sx={{
@@ -206,7 +326,7 @@ const SyncManagement: React.FC = () => {
               },
             }}
           >
-            <Table size="small" sx={{ minWidth: isMobile ? 700 : "auto" }}>
+            <Table size="small">
               <TableHead>
                 <TableRow>
                   <TableCell>

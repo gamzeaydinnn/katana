@@ -25,6 +25,7 @@ import {
   DialogContent,
   DialogActions,
   Badge,
+  useMediaQuery,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -64,6 +65,7 @@ const StockManagement: React.FC = () => {
   const [purchaseQty, setPurchaseQty] = useState(0);
   const [lowStockThreshold] = useState(10);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const isMobile = useMediaQuery("(max-width:900px)");
 
   const fetchData = async () => {
     setLoading(true);
@@ -346,6 +348,96 @@ const StockManagement: React.FC = () => {
             <Box display="flex" justifyContent="center" p={4}>
               <CircularProgress />
             </Box>
+          ) : isMobile ? (
+            <Stack spacing={1.5}>
+              {filteredProducts.length === 0 && (
+                <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
+                  Ürün bulunamadı
+                </Typography>
+              )}
+              {filteredProducts.map((product) => {
+                const status = getStockStatus(product.stock);
+                return (
+                  <Paper
+                    key={product.id}
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      border: "1px solid",
+                      borderColor: "divider",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 1,
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight={600}>
+                          {product.name}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          SKU: <strong>{product.sku}</strong>
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label={status.label}
+                        color={status.color}
+                        size="small"
+                      />
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                        columnGap: 1,
+                        rowGap: 1,
+                        mt: 1.25,
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Stok
+                        </Typography>
+                        <Typography
+                          fontWeight={700}
+                          color={
+                            status.severity === "critical"
+                              ? "error.main"
+                              : status.severity === "warning"
+                              ? "warning.main"
+                              : "success.main"
+                          }
+                        >
+                          {product.stock}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Fiyat
+                        </Typography>
+                        <Typography fontWeight={600}>
+                          ₺{(product.price || 0).toFixed(2)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Button
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      startIcon={<AddShoppingCartIcon />}
+                      sx={{ mt: 1.25 }}
+                      onClick={() => handlePurchaseClick(product)}
+                    >
+                      Satın Al
+                    </Button>
+                  </Paper>
+                );
+              })}
+            </Stack>
           ) : (
             <TableContainer component={Paper}>
               <Table>
@@ -454,56 +546,93 @@ const StockManagement: React.FC = () => {
                 Stokta Olmayan Ürünler ({criticalProducts.length})
               </Typography>
             </Stack>
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>
-                      <strong>SKU</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Ürün Adı</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Fiyat</strong>
-                    </TableCell>
-                    <TableCell align="center">
-                      <strong>İşlem</strong>
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {criticalProducts.map((product) => (
-                    <TableRow
-                      key={product.id}
-                      hover
-                      sx={{ bgcolor: "error.lighter" }}
+            {isMobile ? (
+              <Stack spacing={1.5}>
+                {criticalProducts.map((product) => (
+                  <Paper
+                    key={product.id}
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      border: "1px solid",
+                      borderColor: "error.light",
+                      backgroundColor: "error.lighter",
+                    }}
+                  >
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      {product.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      SKU: <strong>{product.sku}</strong>
+                    </Typography>
+                    <Typography fontWeight={600} sx={{ mt: 1 }}>
+                      ₺{(product.price || 0).toFixed(2)}
+                    </Typography>
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      color="error"
+                      startIcon={<AddShoppingCartIcon />}
+                      sx={{ mt: 1 }}
+                      onClick={() => handlePurchaseClick(product)}
                     >
+                      Satın Al
+                    </Button>
+                  </Paper>
+                ))}
+              </Stack>
+            ) : (
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
                       <TableCell>
-                        <Typography variant="body2" fontWeight="bold">
-                          {product.sku}
-                        </Typography>
+                        <strong>SKU</strong>
                       </TableCell>
-                      <TableCell>{product.name}</TableCell>
+                      <TableCell>
+                        <strong>Ürün Adı</strong>
+                      </TableCell>
                       <TableCell align="right">
-                        ₺{(product.price || 0).toFixed(2)}
+                        <strong>Fiyat</strong>
                       </TableCell>
                       <TableCell align="center">
-                        <Tooltip title="Satın Al">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handlePurchaseClick(product)}
-                          >
-                            <AddShoppingCartIcon />
-                          </IconButton>
-                        </Tooltip>
+                        <strong>İşlem</strong>
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {criticalProducts.map((product) => (
+                      <TableRow
+                        key={product.id}
+                        hover
+                        sx={{ bgcolor: "error.lighter" }}
+                      >
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="bold">
+                            {product.sku}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{product.name}</TableCell>
+                        <TableCell align="right">
+                          ₺{(product.price || 0).toFixed(2)}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="Satın Al">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handlePurchaseClick(product)}
+                            >
+                              <AddShoppingCartIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </CardContent>
         </Card>
       )}

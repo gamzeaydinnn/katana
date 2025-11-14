@@ -21,6 +21,7 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Container,
   Divider,
   IconButton,
   Menu,
@@ -35,7 +36,8 @@ import {
   TablePagination,
   TableRow,
   Tabs,
-  Typography
+  Typography,
+  useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -89,6 +91,11 @@ const AdminPanel: React.FC = () => {
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(
     null
   );
+  const isMobile = useMediaQuery("(max-width:900px)");
+  const moreTabIndex = isMobile ? 2 : 5;
+  const visibleTabThreshold = moreTabIndex - 1;
+  const visibleTabValue = activeTab <= visibleTabThreshold ? activeTab : false;
+  const overflowTabActive = activeTab > visibleTabThreshold;
 
   const loadData = async () => {
     try {
@@ -258,17 +265,24 @@ const AdminPanel: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Container
+      maxWidth="xl"
+      disableGutters
+      sx={{
+        py: { xs: 2, md: 4 },
+        px: { xs: 1.5, sm: 2, md: 3 },
+      }}
+    >
       {/* Header */}
       <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={4}
-        mt={2}
         sx={{
-          flexWrap: "wrap",
-          gap: 2,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: { xs: "flex-start", md: "center" },
+          flexDirection: { xs: "column", md: "row" },
+          gap: { xs: 1.5, md: 2 },
+          mb: { xs: 3, md: 4 },
+          mt: { xs: 1, md: 2 },
         }}
       >
         <Typography
@@ -283,7 +297,12 @@ const AdminPanel: React.FC = () => {
         >
           Admin Paneli
         </Typography>
-        <Box display="flex" gap={2} alignItems="center" sx={{ flexShrink: 0 }}>
+        <Box
+          display="flex"
+          gap={1}
+          alignItems="center"
+          sx={{ flexShrink: 0, width: { xs: "100%", md: "auto" } }}
+        >
           <IconButton
             onClick={() => navigate("/admin/logs")}
             color="primary"
@@ -303,6 +322,7 @@ const AdminPanel: React.FC = () => {
           <IconButton
             onClick={loadData}
             sx={{
+              ml: "auto",
               color: "#fff",
               "&:hover": {
                 backgroundColor: "rgba(255, 255, 255, 0.1)",
@@ -315,11 +335,17 @@ const AdminPanel: React.FC = () => {
       </Box>
 
       {/* Tabs */}
-      <Paper sx={{ mb: 4, borderRadius: 2 }}>
+      <Paper
+        sx={{
+          mb: 4,
+          borderRadius: 2,
+          overflow: "hidden",
+        }}
+      >
         <Tabs
-          value={activeTab > 5 ? false : activeTab}
+          value={visibleTabValue}
           onChange={(_, v) => {
-            if (v !== 5) {
+            if (v !== moreTabIndex) {
               setActiveTab(v);
             }
           }}
@@ -331,12 +357,12 @@ const AdminPanel: React.FC = () => {
               alignItems: "center",
               flexDirection: "row",
               textTransform: "none",
-              fontSize: "0.9375rem",
+              fontSize: { xs: "0.85rem", sm: "0.9375rem" },
               fontWeight: 500,
               minWidth: "auto",
-              minHeight: 56,
+              minHeight: { xs: 48, sm: 56 },
               whiteSpace: "nowrap",
-              px: 2.5,
+              px: { xs: 1.5, sm: 2.5 },
               py: 1.5,
               fontFamily: '"Inter", "Poppins", sans-serif',
               letterSpacing: "-0.2px",
@@ -356,21 +382,25 @@ const AdminPanel: React.FC = () => {
         >
           <Tab icon={<TrendingUp />} label="Genel Bakış" iconPosition="start" />
           <Tab icon={<Receipt />} label="Siparişler" iconPosition="start" />
-          <Tab
-            icon={<ShoppingCart />}
-            label="Katana Ürünleri"
-            iconPosition="start"
-          />
-          <Tab
-            icon={<Inventory />}
-            label="Luca Ürünleri"
-            iconPosition="start"
-          />
-          <Tab
-            icon={<Warehouse />}
-            label="Stok Yönetimi"
-            iconPosition="start"
-          />
+          {!isMobile && (
+            <>
+              <Tab
+                icon={<ShoppingCart />}
+                label="Katana Ürünleri"
+                iconPosition="start"
+              />
+              <Tab
+                icon={<Inventory />}
+                label="Luca Ürünleri"
+                iconPosition="start"
+              />
+              <Tab
+                icon={<Warehouse />}
+                label="Stok Yönetimi"
+                iconPosition="start"
+              />
+            </>
+          )}
           <Tab
             icon={<MoreVertIcon />}
             label="Diğer"
@@ -380,8 +410,9 @@ const AdminPanel: React.FC = () => {
               setMoreMenuAnchor(e.currentTarget);
             }}
             sx={{
-              backgroundColor:
-                activeTab > 5 ? "rgba(102, 126, 234, 0.08)" : "transparent",
+              backgroundColor: overflowTabActive
+                ? "rgba(102, 126, 234, 0.08)"
+                : "transparent",
               "&:hover": {
                 backgroundColor: "rgba(102, 126, 234, 0.12)",
               },
@@ -411,6 +442,53 @@ const AdminPanel: React.FC = () => {
             },
           }}
         >
+          {isMobile && (
+            <>
+              <MenuItem
+                onClick={() => {
+                  setActiveTab(2);
+                  setMoreMenuAnchor(null);
+                }}
+                sx={{
+                  py: 1.5,
+                  px: 2,
+                  "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
+                }}
+              >
+                <ShoppingCart sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
+                <Typography variant="body2">Katana Ürünleri</Typography>
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  setActiveTab(3);
+                  setMoreMenuAnchor(null);
+                }}
+                sx={{
+                  py: 1.5,
+                  px: 2,
+                  "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
+                }}
+              >
+                <Inventory sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
+                <Typography variant="body2">Luca Ürünleri</Typography>
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  setActiveTab(4);
+                  setMoreMenuAnchor(null);
+                }}
+                sx={{
+                  py: 1.5,
+                  px: 2,
+                  "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
+                }}
+              >
+                <Warehouse sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
+                <Typography variant="body2">Stok Yönetimi</Typography>
+              </MenuItem>
+              <Divider sx={{ my: 1 }} />
+            </>
+          )}
           <MenuItem
             onClick={() => {
               setActiveTab(5);
@@ -550,7 +628,7 @@ const AdminPanel: React.FC = () => {
             }}
           >
             {/* Recent Products */}
-            <Paper sx={{ p: 3, borderRadius: 2 }}>
+            <Paper sx={{ p: { xs: 1.5, md: 3 }, borderRadius: 2 }}>
               <Typography
                 variant="h6"
                 gutterBottom
@@ -564,19 +642,25 @@ const AdminPanel: React.FC = () => {
                 Son Eklenen Ürünler
               </Typography>
               <Divider sx={{ mb: 2 }} />
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>SKU</TableCell>
-                      <TableCell>Ürün Adı</TableCell>
-                      <TableCell align="right">Stok</TableCell>
-                      <TableCell>Durum</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {products.map((product, idx) => (
-                      <TableRow
+              {isMobile ? (
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 1.5,
+                  }}
+                >
+                  {products.length === 0 ? (
+                    <Typography
+                      color="text.secondary"
+                      align="center"
+                      sx={{ py: 2 }}
+                    >
+                      Ürün bulunamadı
+                    </Typography>
+                  ) : (
+                    products.map((product, idx) => (
+                      <Paper
                         key={
                           product.id && product.id !== ""
                             ? product.id
@@ -584,26 +668,104 @@ const AdminPanel: React.FC = () => {
                             ? product.sku
                             : `product-${idx}`
                         }
+                        sx={{
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: 2,
+                          p: 1.5,
+                        }}
                       >
-                        <TableCell>{product.sku}</TableCell>
-                        <TableCell>{product.name}</TableCell>
-                        <TableCell align="right">{product.stock}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={product.isActive ? "Aktif" : "Pasif"}
-                            color={product.isActive ? "success" : "default"}
-                            size="small"
-                          />
-                        </TableCell>
+                        <Typography variant="subtitle1" fontWeight={600}>
+                          {product.name}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mt: 0.25 }}
+                        >
+                          SKU: <strong>{product.sku}</strong>
+                        </Typography>
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                            columnGap: 1,
+                            rowGap: 1,
+                            mt: 1,
+                          }}
+                        >
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Stok
+                            </Typography>
+                            <Typography fontWeight={600}>
+                              {product.stock}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Durum
+                            </Typography>
+                            <Chip
+                              label={product.isActive ? "Aktif" : "Pasif"}
+                              color={product.isActive ? "success" : "default"}
+                              size="small"
+                              sx={{ mt: 0.25 }}
+                            />
+                          </Box>
+                        </Box>
+                      </Paper>
+                    ))
+                  )}
+                </Box>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>SKU</TableCell>
+                        <TableCell>Ürün Adı</TableCell>
+                        <TableCell align="right">Stok</TableCell>
+                        <TableCell>Durum</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                      {products.map((product, idx) => (
+                        <TableRow
+                          key={
+                            product.id && product.id !== ""
+                              ? product.id
+                              : product.sku && product.sku !== ""
+                              ? product.sku
+                              : `product-${idx}`
+                          }
+                        >
+                          <TableCell>{product.sku}</TableCell>
+                          <TableCell>{product.name}</TableCell>
+                          <TableCell align="right">{product.stock}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={product.isActive ? "Aktif" : "Pasif"}
+                              color={product.isActive ? "success" : "default"}
+                              size="small"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
             </Paper>
 
             {/* Sync Logs */}
-            <Paper sx={{ p: 3, borderRadius: 2 }}>
+            <Paper sx={{ p: { xs: 1.5, md: 3 }, borderRadius: 2 }}>
               <Typography
                 variant="h6"
                 gutterBottom
@@ -617,40 +779,93 @@ const AdminPanel: React.FC = () => {
                 Son Sync Logları
               </Typography>
               <Divider sx={{ mb: 2 }} />
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Entegrasyon</TableCell>
-                      <TableCell>Tarih</TableCell>
-                      <TableCell>Durum</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {syncLogs.map((log, idx) => (
-                      <TableRow
+              {isMobile ? (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                  {syncLogs.length === 0 ? (
+                    <Typography
+                      color="text.secondary"
+                      align="center"
+                      sx={{ py: 2 }}
+                    >
+                      Kayıt bulunamadı
+                    </Typography>
+                  ) : (
+                    syncLogs.map((log, idx) => (
+                      <Paper
                         key={
                           log.id && String(log.id) !== "0"
                             ? log.id
                             : `log-${idx}`
                         }
+                        sx={{
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: 2,
+                          p: 1.5,
+                        }}
                       >
-                        <TableCell>{log.integrationName}</TableCell>
-                        <TableCell>
-                          {new Date(log.createdAt).toLocaleString("tr-TR")}
-                        </TableCell>
-                        <TableCell>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 1,
+                            alignItems: "flex-start",
+                          }}
+                        >
+                          <Box>
+                            <Typography variant="subtitle1" fontWeight={600}>
+                              {log.integrationName}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {new Date(log.createdAt).toLocaleString("tr-TR")}
+                            </Typography>
+                          </Box>
                           <Chip
                             label={log.isSuccess ? "Başarılı" : "Başarısız"}
                             color={log.isSuccess ? "success" : "error"}
                             size="small"
                           />
-                        </TableCell>
+                        </Box>
+                      </Paper>
+                    ))
+                  )}
+                </Box>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Entegrasyon</TableCell>
+                        <TableCell>Tarih</TableCell>
+                        <TableCell>Durum</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                      {syncLogs.map((log, idx) => (
+                        <TableRow
+                          key={
+                            log.id && String(log.id) !== "0"
+                              ? log.id
+                              : `log-${idx}`
+                          }
+                        >
+                          <TableCell>{log.integrationName}</TableCell>
+                          <TableCell>
+                            {new Date(log.createdAt).toLocaleString("tr-TR")}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={log.isSuccess ? "Başarılı" : "Başarısız"}
+                              color={log.isSuccess ? "success" : "error"}
+                              size="small"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
               <TablePagination
                 component="div"
                 count={totalSyncLogs}
@@ -695,7 +910,7 @@ const AdminPanel: React.FC = () => {
 
       {/* Tab 9: Ayarlar */}
       {activeTab === 9 && <Settings />}
-    </Box>
+    </Container>
   );
 };
 

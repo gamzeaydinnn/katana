@@ -4,6 +4,7 @@ import {
   Box,
   Alert,
   Button,
+  Chip,
   CircularProgress,
   Paper,
   Table,
@@ -18,6 +19,8 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Stack,
+  useMediaQuery,
 } from "@mui/material";
 import { pendingAdjustmentsAPI } from "../../services/api";
 import {
@@ -61,6 +64,7 @@ export default function PendingAdjustments() {
   const [rejecting, setRejecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useFeedback();
+  const isMobile = useMediaQuery("(max-width:900px)");
 
   // Check user role
   const userRoles = (() => {
@@ -313,6 +317,140 @@ export default function PendingAdjustments() {
           <Box p={4} display="flex" justifyContent="center">
             <CircularProgress />
           </Box>
+        ) : isMobile ? (
+          <Stack spacing={1.5}>
+            {items.length === 0 && (
+              <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
+                Bekleyen stok hareketi bulunamadı
+              </Typography>
+            )}
+            {items.map((it) => {
+              const requestedAt = it.requestedAt
+                ? new Date(it.requestedAt).toLocaleString()
+                : "-";
+              return (
+                <Paper
+                  id={`pending-row-${it.id}`}
+                  key={it.id}
+                  sx={{
+                    border: "1px solid",
+                    borderColor:
+                      highlightedId === it.id ? "primary.main" : "divider",
+                    borderWidth: highlightedId === it.id ? 2 : 1,
+                    p: 1.5,
+                    borderRadius: 2,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: 1,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={700}>
+                        #{it.id} {it.sku && `• ${it.sku}`}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Talep: {requestedAt}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={it.status || "Bilinmiyor"}
+                      color={
+                        isPendingStatus(it.status)
+                          ? "warning"
+                          : it.status === "Approved"
+                          ? "success"
+                          : it.status === "Rejected"
+                          ? "error"
+                          : "default"
+                      }
+                      size="small"
+                    />
+                  </Box>
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns: {
+                              xs: "1fr",
+                              sm: "repeat(2, minmax(0, 1fr))",
+                            },
+                            columnGap: 1,
+                            rowGap: 1,
+                            mt: 1.25,
+                          }}
+                        >
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Ürün ID
+                      </Typography>
+                      <Typography fontWeight={600}>{it.productId}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Miktar
+                      </Typography>
+                      <Typography fontWeight={600}>{it.quantity}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Talep Eden
+                      </Typography>
+                      <Typography fontWeight={600}>
+                        {it.requestedBy || "-"}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Notlar
+                      </Typography>
+                      <Typography fontWeight={500}>
+                        {it.notes || "-"}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ mt: 1.5 }}
+                    justifyContent="flex-end"
+                  >
+                    {canApproveReject ? (
+                      <>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="success"
+                          disabled={!isPendingStatus(it.status)}
+                          onClick={() => handleApprove(it)}
+                          sx={{ flex: 1 }}
+                        >
+                          Onayla
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          disabled={!isPendingStatus(it.status)}
+                          onClick={() => openReject(it)}
+                          sx={{ flex: 1 }}
+                        >
+                          Reddet
+                        </Button>
+                      </>
+                    ) : (
+                      <Typography variant="caption" color="text.secondary">
+                        Sadece görüntüleme
+                      </Typography>
+                    )}
+                  </Stack>
+                </Paper>
+              );
+            })}
+          </Stack>
         ) : (
           <TableContainer sx={{ maxHeight: 600, overflowX: "auto" }}>
             <Table stickyHeader size="small">

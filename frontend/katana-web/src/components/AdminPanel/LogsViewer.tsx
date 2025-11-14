@@ -23,6 +23,8 @@ import {
   Tab,
   Collapse,
   IconButton,
+  Stack,
+  useMediaQuery,
 } from "@mui/material";
 import {
   ExpandMore as ExpandMoreIcon,
@@ -87,6 +89,7 @@ const LogsViewer: React.FC = () => {
   const [totalErrors, setTotalErrors] = useState(0);
   const [totalAudits, setTotalAudits] = useState(0);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const isMobile = useMediaQuery("(max-width:900px)");
 
   // Format date to Turkish timezone (UTC+3)
   const formatToTurkishTime = (dateString: string) => {
@@ -300,10 +303,16 @@ const LogsViewer: React.FC = () => {
           </Tabs>
           <Button
             variant="contained"
-            startIcon={<RefreshIcon />}
+            startIcon={<RefreshIcon fontSize="small" />}
             onClick={handleRefresh}
+            size={isMobile ? "small" : "medium"}
             sx={{
               my: 1,
+              minWidth: isMobile ? 72 : 140,
+              px: isMobile ? 0.75 : 2.5,
+              py: isMobile ? 0.35 : 1,
+              fontSize: isMobile ? "0.68rem" : "0.9rem",
+              borderRadius: 999,
               color: "#fff",
               fontWeight: 600,
               background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -406,6 +415,107 @@ const LogsViewer: React.FC = () => {
 
               {loading ? (
                 <CircularProgress />
+              ) : isMobile ? (
+                <>
+                  <Stack spacing={1.5}>
+                    {errorLogs.map((log) => (
+                      <Paper
+                        key={log.id}
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          border: "1px solid",
+                          borderColor: "divider",
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 1,
+                            alignItems: "flex-start",
+                          }}
+                        >
+                          <Chip
+                            label={log.level}
+                            color={getLevelColor(log.level) as any}
+                            size="small"
+                          />
+                          <Chip
+                            label={log.category || "N/A"}
+                            size="small"
+                          />
+                        </Box>
+                        <Typography variant="body2" sx={{ mt: 1 }}>
+                          {log.message}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: "block", mt: 0.5 }}
+                        >
+                          {log.user || "System"} •{" "}
+                          {formatToTurkishTime(log.createdAt)}
+                        </Typography>
+                        {log.contextData && (
+                          <>
+                            <Button
+                              size="small"
+                              onClick={() =>
+                                setExpandedRow(
+                                  expandedRow === log.id ? null : log.id
+                                )
+                              }
+                              sx={{ mt: 1 }}
+                              startIcon={
+                                expandedRow === log.id ? (
+                                  <ExpandLessIcon />
+                                ) : (
+                                  <ExpandMoreIcon />
+                                )
+                              }
+                            >
+                              Detay
+                            </Button>
+                            <Collapse
+                              in={expandedRow === log.id}
+                              timeout="auto"
+                              unmountOnExit
+                            >
+                              <Box
+                                sx={{
+                                  mt: 1,
+                                  p: 1,
+                                  bgcolor: "grey.50",
+                                  borderRadius: 1,
+                                }}
+                              >
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    fontFamily: "monospace",
+                                    whiteSpace: "pre-wrap",
+                                  }}
+                                >
+                                  {log.contextData}
+                                </Typography>
+                              </Box>
+                            </Collapse>
+                          </>
+                        )}
+                      </Paper>
+                    ))}
+                  </Stack>
+                  <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+                    <Pagination
+                      count={Math.ceil(totalErrors / errorFilters.pageSize)}
+                      page={errorFilters.page}
+                      onChange={(_, p) =>
+                        setErrorFilters({ ...errorFilters, page: p })
+                      }
+                    />
+                  </Box>
+                </>
               ) : (
                 <>
                   <TableContainer component={Paper}>
@@ -583,6 +693,100 @@ const LogsViewer: React.FC = () => {
 
               {loading ? (
                 <CircularProgress />
+              ) : isMobile ? (
+                <>
+                  <Stack spacing={1.5}>
+                    {auditLogs.map((log) => (
+                      <Paper
+                        key={log.id}
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          border: "1px solid",
+                          borderColor: "divider",
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 1,
+                          }}
+                        >
+                          <Chip
+                            label={log.actionType}
+                            color={getActionColor(log.actionType) as any}
+                            size="small"
+                          />
+                          <Typography variant="caption" color="text.secondary">
+                            {formatToTurkishTime(log.timestamp)}
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" sx={{ mt: 1 }}>
+                          {log.entityName} #{log.entityId || "-"}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: "block", mt: 0.25 }}
+                        >
+                          {log.performedBy} • {log.ipAddress || "IP Yok"}
+                        </Typography>
+                        <Button
+                          size="small"
+                          sx={{ mt: 1 }}
+                          startIcon={
+                            expandedRow === log.id ? (
+                              <ExpandLessIcon />
+                            ) : (
+                              <ExpandMoreIcon />
+                            )
+                          }
+                          onClick={() =>
+                            setExpandedRow(
+                              expandedRow === log.id ? null : log.id
+                            )
+                          }
+                        >
+                          Detay
+                        </Button>
+                        <Collapse
+                          in={expandedRow === log.id}
+                          timeout="auto"
+                          unmountOnExit
+                        >
+                          <Box
+                            sx={{
+                              mt: 1,
+                              p: 1,
+                              bgcolor: "grey.50",
+                              borderRadius: 1,
+                            }}
+                          >
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                fontFamily: "monospace",
+                                whiteSpace: "pre-wrap",
+                              }}
+                            >
+                              {log.details || "No details"}
+                            </Typography>
+                          </Box>
+                        </Collapse>
+                      </Paper>
+                    ))}
+                  </Stack>
+                  <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+                    <Pagination
+                      count={Math.ceil(totalAudits / auditFilters.pageSize)}
+                      page={auditFilters.page}
+                      onChange={(_, p) =>
+                        setAuditFilters({ ...auditFilters, page: p })
+                      }
+                    />
+                  </Box>
+                </>
               ) : (
                 <>
                   <TableContainer component={Paper}>

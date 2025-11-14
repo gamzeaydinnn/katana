@@ -29,6 +29,7 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
@@ -75,6 +76,7 @@ const KatanaProducts: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const isMobile = useMediaQuery("(max-width:900px)");
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -269,6 +271,126 @@ const KatanaProducts: React.FC = () => {
         <Box display="flex" justifyContent="center" p={4}>
           <CircularProgress />
         </Box>
+      ) : isMobile ? (
+        <Stack spacing={1.5}>
+          {filteredProducts.length === 0 && (
+            <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
+              {searchTerm ? "Arama sonucu bulunamadı" : "Ürün bulunamadı"}
+            </Typography>
+          )}
+          {filteredProducts.map((product) => {
+            const onHand = product.onHand ?? product.OnHand ?? 0;
+            const available = product.available ?? product.Available ?? 0;
+            const committed = product.committed ?? product.Committed ?? 0;
+            const salesPrice = product.salesPrice ?? product.SalesPrice;
+            const costPrice = product.costPrice ?? product.CostPrice;
+            const sku = product.sku || product.SKU || "";
+            const name = product.name || product.Name || "";
+            const category = product.category || product.Category;
+            const unit = product.unit || product.Unit || "";
+            const stockStatus = getStockStatus(onHand);
+
+            return (
+              <Paper
+                key={product.id}
+                sx={{ p: 1.5, borderRadius: 2, border: "1px solid", borderColor: "divider" }}
+              >
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 1,
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      {name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      SKU: <strong>{sku}</strong>
+                    </Typography>
+                    {category && (
+                      <Chip
+                        label={category}
+                        size="small"
+                        variant="outlined"
+                        sx={{ mt: 0.5 }}
+                      />
+                    )}
+                  </Box>
+                  <Chip
+                    label={stockStatus.label}
+                    color={stockStatus.color}
+                    size="small"
+                  />
+                </Box>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                    columnGap: 1,
+                    rowGap: 1,
+                    mt: 1.25,
+                  }}
+                >
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Eldeki
+                    </Typography>
+                    <Typography fontWeight={700} color={stockStatus.color}>
+                      {onHand} {unit}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Kullanılabilir
+                    </Typography>
+                    <Typography fontWeight={600}>
+                      {available} {unit}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Taahhütlü
+                    </Typography>
+                    <Typography fontWeight={600}>
+                      {committed} {unit}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Satış Fiyatı
+                    </Typography>
+                    <Typography fontWeight={600}>
+                      {salesPrice ? `${salesPrice.toFixed(2)} ₺` : "-"}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Maliyet
+                    </Typography>
+                    <Typography fontWeight={600}>
+                      {costPrice ? `${costPrice.toFixed(2)} ₺` : "-"}
+                    </Typography>
+                  </Box>
+                </Box>
+                {canEdit && (
+                  <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<EditIcon fontSize="small" />}
+                      onClick={() => handleEditClick(product)}
+                    >
+                      Düzenle
+                    </Button>
+                  </Box>
+                )}
+              </Paper>
+            );
+          })}
+        </Stack>
       ) : (
         <TableContainer component={Paper}>
           <Table>

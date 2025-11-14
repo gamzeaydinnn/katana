@@ -16,6 +16,7 @@ import {
   CircularProgress,
   Alert,
   IconButton,
+  useMediaQuery,
 } from "@mui/material";
 import { Refresh } from "@mui/icons-material";
 import api from "../../services/api";
@@ -50,6 +51,7 @@ const Orders: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const isMobile = useMediaQuery("(max-width:900px)");
 
   const loadOrders = async () => {
     try {
@@ -135,81 +137,34 @@ const Orders: React.FC = () => {
           </Alert>
         )}
 
-        <TableContainer component={Paper} variant="outlined">
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: "grey.100" }}>
-                <TableCell>
-                  <strong>Sipariş No</strong>
-                </TableCell>
-                <TableCell>
-                  <strong>Müşteri</strong>
-                </TableCell>
-                <TableCell>
-                  <strong>Durum</strong>
-                </TableCell>
-                <TableCell align="right">
-                  <strong>Toplam Tutar</strong>
-                </TableCell>
-                <TableCell align="right">
-                  <strong>Ürün Sayısı</strong>
-                </TableCell>
-                <TableCell>
-                  <strong>Oluşturulma</strong>
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {orders.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center">
-                    <Typography variant="body2" color="text.secondary" py={3}>
-                      Henüz sipariş bulunmuyor
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                orders
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((order) => (
-                    <TableRow key={order.id} hover>
-                      <TableCell>#{order.id}</TableCell>
-                      <TableCell>
-                        {order.customer ? (
-                          <Box>
-                            <Typography variant="body2">
-                              {order.customer.title}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              {order.customer.taxNo}
-                            </Typography>
-                          </Box>
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            Müşteri #{order.customerId}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={getStatusLabel(order.status)}
-                          color={getStatusColor(order.status)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="right">
-                        ₺
-                        {order.totalAmount.toLocaleString("tr-TR", {
-                          minimumFractionDigits: 2,
-                        })}
-                      </TableCell>
-                      <TableCell align="right">
-                        {order.items?.length || 0}
-                      </TableCell>
-                      <TableCell>
+        {isMobile ? (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+            {orders.length === 0 && (
+              <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
+                Henüz sipariş bulunmuyor
+              </Typography>
+            )}
+            {orders
+              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+              .map((order) => (
+                <Paper
+                  key={order.id}
+                  variant="outlined"
+                  sx={{ p: 1.5, borderRadius: 2 }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: 1,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={600}>
+                        Sipariş #{order.id}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
                         {new Date(order.createdAt).toLocaleString("tr-TR", {
                           day: "2-digit",
                           month: "2-digit",
@@ -217,13 +172,155 @@ const Orders: React.FC = () => {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
-                      </TableCell>
-                    </TableRow>
-                  ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={getStatusLabel(order.status)}
+                      color={getStatusColor(order.status)}
+                      size="small"
+                    />
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                      columnGap: 1,
+                      rowGap: 1,
+                      mt: 1,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Müşteri
+                      </Typography>
+                      <Typography fontWeight={600}>
+                        {order.customer
+                          ? order.customer.title
+                          : `Müşteri #${order.customerId}`}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Ürün Sayısı
+                      </Typography>
+                      <Typography fontWeight={600}>
+                        {order.items?.length || 0}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Toplam Tutar
+                      </Typography>
+                      <Typography fontWeight={700}>
+                        ₺
+                        {order.totalAmount.toLocaleString("tr-TR", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Vergi / Müşteri No
+                      </Typography>
+                      <Typography fontWeight={500}>
+                        {order.customer?.taxNo || "-"}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Paper>
+              ))}
+          </Box>
+        ) : (
+          <TableContainer component={Paper} variant="outlined">
+            <Table>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: "grey.100" }}>
+                  <TableCell>
+                    <strong>Sipariş No</strong>
+                  </TableCell>
+                  <TableCell>
+                    <strong>Müşteri</strong>
+                  </TableCell>
+                  <TableCell>
+                    <strong>Durum</strong>
+                  </TableCell>
+                  <TableCell align="right">
+                    <strong>Toplam Tutar</strong>
+                  </TableCell>
+                  <TableCell align="right">
+                    <strong>Ürün Sayısı</strong>
+                  </TableCell>
+                  <TableCell>
+                    <strong>Oluşturulma</strong>
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {orders.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      <Typography variant="body2" color="text.secondary" py={3}>
+                        Henüz sipariş bulunmuyor
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  orders
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((order) => (
+                      <TableRow key={order.id} hover>
+                        <TableCell>#{order.id}</TableCell>
+                        <TableCell>
+                          {order.customer ? (
+                            <Box>
+                              <Typography variant="body2">
+                                {order.customer.title}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                {order.customer.taxNo}
+                              </Typography>
+                            </Box>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">
+                              Müşteri #{order.customerId}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={getStatusLabel(order.status)}
+                            color={getStatusColor(order.status)}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          ₺
+                          {order.totalAmount.toLocaleString("tr-TR", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </TableCell>
+                        <TableCell align="right">
+                          {order.items?.length || 0}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(order.createdAt).toLocaleString("tr-TR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
 
         <TablePagination
           component="div"

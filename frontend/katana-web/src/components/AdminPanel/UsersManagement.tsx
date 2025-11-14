@@ -16,6 +16,7 @@ import {
   Card,
   CardContent,
   Chip,
+  Paper,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -38,6 +39,7 @@ import {
   TableRow,
   TextField,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
 import { showGlobalToast } from "../../providers/FeedbackProvider";
 import {
@@ -71,6 +73,7 @@ const UsersManagement: React.FC = () => {
     role: "Staff",
     email: "",
   });
+  const isMobile = useMediaQuery("(max-width:900px)");
 
   // Validation now handled inline on submit with toasts
 
@@ -363,6 +366,74 @@ const UsersManagement: React.FC = () => {
             >
               <CircularProgress />
             </Box>
+          ) : isMobile ? (
+            <Stack spacing={1.5}>
+              {users.length === 0 && (
+                <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
+                  Kayıt bulunamadı.
+                </Typography>
+              )}
+              {users.map((u) => (
+                <Paper
+                  key={u.id}
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    border: "1px solid",
+                    borderColor: "divider",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 1,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={600}>
+                        {u.username}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {u.email || "E-posta yok"}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      size="small"
+                      label={u.isActive ? "Aktif" : "Pasif"}
+                      color={u.isActive ? "success" : "default"}
+                    />
+                  </Box>
+                  <Chip
+                    size="small"
+                    label={roleDisplayNames[u.role] || u.role}
+                    sx={{ mt: 1 }}
+                  />
+                  <Stack direction="row" spacing={1} sx={{ mt: 1 }} justifyContent="flex-end">
+                    <IconButton
+                      color="primary"
+                      onClick={() => openEdit(u)}
+                      disabled={!isAdmin}
+                      size="small"
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      color="error"
+                      onClick={() => handleDelete(u.id)}
+                      disabled={deletingId === u.id || !isAdmin}
+                      size="small"
+                    >
+                      {deletingId === u.id ? (
+                        <CircularProgress size={16} />
+                      ) : (
+                        <DeleteIcon fontSize="small" />
+                      )}
+                    </IconButton>
+                  </Stack>
+                </Paper>
+              ))}
+            </Stack>
           ) : (
             <TableContainer>
               <Table size="small">
@@ -445,8 +516,14 @@ const UsersManagement: React.FC = () => {
             atayacağınıza karar verirken bu tabloyu referans alabilirsiniz.
           </Alert>
 
-          <TableContainer>
-            <Table size="small">
+          <TableContainer
+            sx={{
+              overflowX: "auto",
+              borderRadius: 2,
+              border: (theme) => `1px solid ${theme.palette.divider}`,
+            }}
+          >
+            <Table size="small" sx={{ minWidth: 520 }}>
               <TableHead>
                 <TableRow>
                   <TableCell>

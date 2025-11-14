@@ -29,6 +29,8 @@ import {
   Tooltip,
   Tabs,
   Tab,
+  Stack,
+  useMediaQuery,
 } from "@mui/material";
 import {
   Refresh,
@@ -88,6 +90,7 @@ const FailedRecords: React.FC = () => {
   const [parsedData, setParsedData] = useState<any>(null);
   const [resend, setResend] = useState(false);
   const [ignoreReason, setIgnoreReason] = useState("");
+  const isMobile = useMediaQuery("(max-width:900px)");
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -208,12 +211,21 @@ const FailedRecords: React.FC = () => {
           <Box
             display="flex"
             justifyContent="space-between"
-            alignItems="center"
+            alignItems={{ xs: "flex-start", md: "center" }}
+            flexDirection={{ xs: "column", md: "row" }}
+            gap={{ xs: 1.5, md: 0 }}
             mb={2}
           >
             <Typography variant="h5">Hatalı Kayıtlar</Typography>
-            <Box display="flex" gap={2}>
-              <FormControl size="small" sx={{ minWidth: 150 }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: { xs: 1, sm: 2 },
+                width: { xs: "100%", md: "auto" },
+              }}
+            >
+              <FormControl size="small" fullWidth sx={{ minWidth: { md: 150 } }}>
                 <InputLabel>Durum</InputLabel>
                 <Select
                   value={statusFilter}
@@ -227,7 +239,7 @@ const FailedRecords: React.FC = () => {
                   <MenuItem value="IGNORED">Göz Ardı Edildi</MenuItem>
                 </Select>
               </FormControl>
-              <FormControl size="small" sx={{ minWidth: 150 }}>
+              <FormControl size="small" fullWidth sx={{ minWidth: { md: 150 } }}>
                 <InputLabel>Kayıt Tipi</InputLabel>
                 <Select
                   value={recordTypeFilter}
@@ -241,7 +253,7 @@ const FailedRecords: React.FC = () => {
                   <MenuItem value="ORDER">Sipariş</MenuItem>
                 </Select>
               </FormControl>
-              <IconButton onClick={fetchRecords} color="primary">
+              <IconButton onClick={fetchRecords} color="primary" sx={{ alignSelf: "center" }}>
                 <Refresh />
               </IconButton>
             </Box>
@@ -268,106 +280,228 @@ const FailedRecords: React.FC = () => {
             </Box>
           ) : (
             <>
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>
-                        <strong>ID</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Kayıt Tipi</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Kayıt ID</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Kaynak Sistem</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Hata Mesajı</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Hata Tarihi</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Deneme</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Durum</strong>
-                      </TableCell>
-                      <TableCell align="right">
-                        <strong>İşlemler</strong>
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {records.map((record) => (
-                      <TableRow key={record.id}>
-                        <TableCell>{record.id}</TableCell>
+              {isMobile ? (
+                <Stack spacing={1.5}>
+                  {records.length === 0 && (
+                    <Typography
+                      color="text.secondary"
+                      align="center"
+                      sx={{ py: 2 }}
+                    >
+                      Kayıt bulunamadı
+                    </Typography>
+                  )}
+                  {records.map((record) => (
+                    <Paper
+                      key={record.id}
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 2,
+                        border: "1px solid",
+                        borderColor: "divider",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 1,
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <Box>
+                          <Typography variant="subtitle1" fontWeight={700}>
+                            #{record.id} • {record.recordType}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {record.sourceSystem} •{" "}
+                            {new Date(record.failedAt).toLocaleString("tr-TR")}
+                          </Typography>
+                        </Box>
+                        <Chip
+                          label={record.status}
+                          size="small"
+                          color={getStatusColor(record.status) as any}
+                        />
+                      </Box>
+                      <Typography
+                        variant="body2"
+                        color="error.main"
+                        sx={{ mt: 1 }}
+                      >
+                        {record.errorMessage}
+                      </Typography>
+                      <Box
+                        sx={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                          columnGap: 1,
+                          rowGap: 1,
+                          mt: 1.5,
+                        }}
+                      >
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Kayıt ID
+                          </Typography>
+                          <Typography fontWeight={600}>
+                            {record.recordId || "-"}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Deneme
+                          </Typography>
+                          <Typography fontWeight={600}>
+                            {record.retryCount}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{ mt: 1.5 }}
+                        flexWrap="wrap"
+                      >
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<Visibility />}
+                          onClick={() => handleViewDetails(record.id)}
+                        >
+                          Detay
+                        </Button>
+                        {record.status === "FAILED" && (
+                          <>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="success"
+                              startIcon={<Edit />}
+                              onClick={() => {
+                                handleViewDetails(record.id);
+                                setResolveDialogOpen(true);
+                              }}
+                            >
+                              Düzelt
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="warning"
+                              startIcon={<RestartAlt />}
+                              onClick={() => handleRetry(record.id)}
+                            >
+                              Yeniden Dene
+                            </Button>
+                          </>
+                        )}
+                      </Stack>
+                    </Paper>
+                  ))}
+                </Stack>
+              ) : (
+                <TableContainer component={Paper}>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
                         <TableCell>
-                          <Chip
-                            label={record.recordType}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                          />
+                          <strong>ID</strong>
                         </TableCell>
-                        <TableCell>{record.recordId || "-"}</TableCell>
-                        <TableCell>{record.sourceSystem}</TableCell>
                         <TableCell>
-                          <Tooltip title={record.errorMessage}>
-                            <Typography noWrap sx={{ maxWidth: 300 }}>
-                              {record.errorMessage}
-                            </Typography>
-                          </Tooltip>
+                          <strong>Kayıt Tipi</strong>
                         </TableCell>
                         <TableCell>
-                          {new Date(record.failedAt).toLocaleString("tr-TR")}
+                          <strong>Kayıt ID</strong>
                         </TableCell>
-                        <TableCell>{record.retryCount}</TableCell>
                         <TableCell>
-                          <Chip
-                            label={record.status}
-                            size="small"
-                            color={getStatusColor(record.status) as any}
-                          />
+                          <strong>Kaynak Sistem</strong>
+                        </TableCell>
+                        <TableCell>
+                          <strong>Hata Mesajı</strong>
+                        </TableCell>
+                        <TableCell>
+                          <strong>Hata Tarihi</strong>
+                        </TableCell>
+                        <TableCell>
+                          <strong>Deneme</strong>
+                        </TableCell>
+                        <TableCell>
+                          <strong>Durum</strong>
                         </TableCell>
                         <TableCell align="right">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleViewDetails(record.id)}
-                            color="primary"
-                          >
-                            <Visibility />
-                          </IconButton>
-                          {record.status === "FAILED" && (
-                            <>
-                              <IconButton
-                                size="small"
-                                onClick={() => {
-                                  handleViewDetails(record.id);
-                                  setResolveDialogOpen(true);
-                                }}
-                                color="success"
-                              >
-                                <Edit />
-                              </IconButton>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleRetry(record.id)}
-                                color="warning"
-                              >
-                                <RestartAlt />
-                              </IconButton>
-                            </>
-                          )}
+                          <strong>İşlemler</strong>
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                      {records.map((record) => (
+                        <TableRow key={record.id}>
+                          <TableCell>{record.id}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={record.recordType}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell>{record.recordId || "-"}</TableCell>
+                          <TableCell>{record.sourceSystem}</TableCell>
+                          <TableCell>
+                            <Tooltip title={record.errorMessage}>
+                              <Typography noWrap sx={{ maxWidth: 300 }}>
+                                {record.errorMessage}
+                              </Typography>
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell>
+                            {new Date(record.failedAt).toLocaleString("tr-TR")}
+                          </TableCell>
+                          <TableCell>{record.retryCount}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={record.status}
+                              size="small"
+                              color={getStatusColor(record.status) as any}
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleViewDetails(record.id)}
+                              color="primary"
+                            >
+                              <Visibility />
+                            </IconButton>
+                            {record.status === "FAILED" && (
+                              <>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => {
+                                    handleViewDetails(record.id);
+                                    setResolveDialogOpen(true);
+                                  }}
+                                  color="success"
+                                >
+                                  <Edit />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleRetry(record.id)}
+                                  color="warning"
+                                >
+                                  <RestartAlt />
+                                </IconButton>
+                              </>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
               <TablePagination
                 component="div"
                 count={total}

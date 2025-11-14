@@ -333,82 +333,211 @@ const Reports: React.FC = () => {
                 Excel İndir
               </Button>
             </Box>
-            <TableContainer
-              sx={{
-                overflowX: "auto",
-                borderRadius: 2,
-                "&::-webkit-scrollbar": { height: 6 },
-                "&::-webkit-scrollbar-thumb": {
-                  backgroundColor: "#cbd5f5",
-                  borderRadius: 3,
-                },
-              }}
-            >
-              <Table size="small" sx={{ minWidth: isMobile ? 720 : "auto" }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>
-                      <strong>Ürün Adı</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>SKU</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Stok</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Fiyat</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Değer</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Durum</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Güncelleme</strong>
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {stockReport.stockData.map((item) => (
-                    <TableRow key={item.id} hover>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell>{item.sku}</TableCell>
-                      <TableCell align="right">{item.quantity}</TableCell>
-                      <TableCell align="right">
-                        {item.price.toFixed(2)} ₺
-                      </TableCell>
-                      <TableCell align="right">
-                        {item.stockValue.toFixed(2)} ₺
+            {isMobile ? (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                {stockReport.stockData.length === 0 ? (
+                  <Typography color="text.secondary" align="center">
+                    Görüntülenecek veri yok
+                  </Typography>
+                ) : (
+                  stockReport.stockData.map((item) => {
+                    const statusLabel = item.isOutOfStock
+                      ? "Tükendi"
+                      : item.isLowStock
+                      ? "Düşük Stok"
+                      : "Normal";
+                    const statusColor = item.isOutOfStock
+                      ? "error"
+                      : item.isLowStock
+                      ? "warning"
+                      : "success";
+
+                    return (
+                      <Box
+                        key={item.id}
+                        sx={{
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: 2,
+                          p: 1.5,
+                          backgroundColor: "background.paper",
+                          boxShadow: (t) => t.shadows[1],
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 1,
+                            alignItems: "flex-start",
+                          }}
+                        >
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography
+                              variant="subtitle1"
+                              fontWeight={600}
+                              sx={{ wordBreak: "break-word" }}
+                            >
+                              {item.name}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ mt: 0.25 }}
+                            >
+                              SKU: <strong>{item.sku}</strong>
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={statusLabel}
+                            color={statusColor}
+                            size="small"
+                            sx={{ flexShrink: 0 }}
+                          />
+                        </Box>
+
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns:
+                              "repeat(auto-fit, minmax(140px, 1fr))",
+                            columnGap: 1,
+                            rowGap: 1.25,
+                            mt: 1.5,
+                          }}
+                        >
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Stok
+                            </Typography>
+                            <Typography fontWeight={600}>
+                              {item.quantity}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Fiyat
+                            </Typography>
+                            <Typography fontWeight={600}>
+                              {item.price.toFixed(2)} ₺
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Stok Değeri
+                            </Typography>
+                            <Typography fontWeight={600}>
+                              {item.stockValue.toFixed(2)} ₺
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Güncelleme
+                            </Typography>
+                            <Typography fontWeight={600}>
+                              {new Date(
+                                item.lastUpdated
+                              ).toLocaleDateString("tr-TR")}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    );
+                  })
+                )}
+              </Box>
+            ) : (
+              <TableContainer
+                sx={{
+                  overflowX: "auto",
+                  borderRadius: 2,
+                  "&::-webkit-scrollbar": { height: 6 },
+                  "&::-webkit-scrollbar-thumb": {
+                    backgroundColor: "#cbd5f5",
+                    borderRadius: 3,
+                  },
+                }}
+              >
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>
+                        <strong>Ürün Adı</strong>
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          label={
-                            item.isOutOfStock
-                              ? "Tükendi"
-                              : item.isLowStock
-                              ? "Düşük Stok"
-                              : "Normal"
-                          }
-                          color={
-                            item.isOutOfStock
-                              ? "error"
-                              : item.isLowStock
-                              ? "warning"
-                              : "success"
-                          }
-                          size="small"
-                        />
+                        <strong>SKU</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>Stok</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>Fiyat</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>Değer</strong>
                       </TableCell>
                       <TableCell>
-                        {new Date(item.lastUpdated).toLocaleDateString("tr-TR")}
+                        <strong>Durum</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Güncelleme</strong>
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {stockReport.stockData.map((item) => (
+                      <TableRow key={item.id} hover>
+                        <TableCell>{item.name}</TableCell>
+                        <TableCell>{item.sku}</TableCell>
+                        <TableCell align="right">{item.quantity}</TableCell>
+                        <TableCell align="right">
+                          {item.price.toFixed(2)} ₺
+                        </TableCell>
+                        <TableCell align="right">
+                          {item.stockValue.toFixed(2)} ₺
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={
+                              item.isOutOfStock
+                                ? "Tükendi"
+                                : item.isLowStock
+                                ? "Düşük Stok"
+                                : "Normal"
+                            }
+                            color={
+                              item.isOutOfStock
+                                ? "error"
+                                : item.isLowStock
+                                ? "warning"
+                                : "success"
+                            }
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {new Date(item.lastUpdated).toLocaleDateString(
+                            "tr-TR"
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </Paper>
         </>
       )}

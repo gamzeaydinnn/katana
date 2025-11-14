@@ -27,6 +27,7 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
@@ -62,6 +63,7 @@ const LucaProducts: React.FC = () => {
   );
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const isMobile = useMediaQuery("(max-width:900px)");
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -230,6 +232,102 @@ const LucaProducts: React.FC = () => {
         <Box display="flex" justifyContent="center" p={4}>
           <CircularProgress />
         </Box>
+      ) : isMobile ? (
+        <Stack spacing={1.5}>
+          {filteredProducts.length === 0 && (
+            <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
+              {searchTerm
+                ? "Arama sonucu bulunamadı"
+                : "Luca ürün verisi yok veya endpoint aktif değil"}
+            </Typography>
+          )}
+          {filteredProducts.map((product) => {
+            const code = product.productCode || product.ProductCode || "";
+            const name = product.productName || product.ProductName || "";
+            const unit = product.unit || product.Unit || "";
+            const quantity = product.quantity ?? product.Quantity ?? 0;
+            const unitPrice = product.unitPrice ?? product.UnitPrice ?? 0;
+            const vatRate = product.vatRate ?? product.VatRate ?? 0;
+            const isActive = product.isActive ?? product.IsActive ?? true;
+
+            return (
+              <Paper
+                key={product.id}
+                sx={{ p: 1.5, borderRadius: 2, border: "1px solid", borderColor: "divider" }}
+              >
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 1,
+                  }}
+                >
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      {name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Kod: <strong>{code}</strong>
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={isActive ? "Aktif" : "Pasif"}
+                    color={isActive ? "success" : "default"}
+                    size="small"
+                  />
+                </Box>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                    columnGap: 1,
+                    rowGap: 1,
+                    mt: 1.25,
+                  }}
+                >
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Birim
+                    </Typography>
+                    <Typography fontWeight={600}>{unit || "-"}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Miktar
+                    </Typography>
+                    <Typography fontWeight={600}>{quantity}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Birim Fiyat
+                    </Typography>
+                    <Typography fontWeight={600}>
+                      {unitPrice ? `${unitPrice.toFixed(2)} ₺` : "-"}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      KDV
+                    </Typography>
+                    <Typography fontWeight={600}>%{vatRate}</Typography>
+                  </Box>
+                </Box>
+                {canEdit && (
+                  <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<EditIcon fontSize="small" />}
+                      onClick={() => handleEditProduct(product)}
+                    >
+                      Düzenle
+                    </Button>
+                  </Box>
+                )}
+              </Paper>
+            );
+          })}
+        </Stack>
       ) : (
         <TableContainer component={Paper}>
           <Table>

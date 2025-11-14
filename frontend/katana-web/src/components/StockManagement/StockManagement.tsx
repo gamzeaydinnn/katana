@@ -157,88 +157,209 @@ const StockManagement: React.FC = () => {
               Toplam {filteredProducts.length} ürün gösteriliyor
             </Typography>
 
-            <TableContainer
-              sx={{
-                overflowX: "auto",
-                borderRadius: 2,
-                "&::-webkit-scrollbar": { height: 6 },
-                "&::-webkit-scrollbar-thumb": {
-                  backgroundColor: "#cbd5f5",
-                  borderRadius: 3,
-                },
-              }}
-            >
-              <Table size="small" sx={{ minWidth: isMobile ? 600 : "auto" }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 700, fontSize: { xs: "0.8rem", md: "0.9rem" } }}>
-                      SKU
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: { xs: "0.8rem", md: "0.9rem" } }}>
-                      Ürün Adı
-                    </TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: { xs: "0.8rem", md: "0.9rem" } }}>
-                      Stok
-                    </TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: { xs: "0.8rem", md: "0.9rem" } }}>
-                      Durum
-                    </TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: { xs: "0.8rem", md: "0.9rem" } }}>
-                      Aktif
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredProducts.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center">
-                        <Typography color="text.secondary">
-                          Ürün bulunamadı
+            {isMobile ? (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                {filteredProducts.length === 0 ? (
+                  <Paper
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      borderRadius: 2,
+                      textAlign: "center",
+                      backgroundColor: "background.default",
+                    }}
+                  >
+                    <Typography color="text.secondary">
+                      Ürün bulunamadı
+                    </Typography>
+                  </Paper>
+                ) : (
+                  filteredProducts.map((product, idx) => {
+                    const status = getStockStatus(product.stock);
+                    const updatedAtText = product.createdAt
+                      ? new Date(product.createdAt).toLocaleDateString("tr-TR")
+                      : "-";
+                    const key =
+                      product.id && product.id !== ""
+                        ? product.id
+                        : product.sku && product.sku !== ""
+                        ? product.sku
+                        : `product-${idx}`;
+
+                    return (
+                      <Box
+                        key={key}
+                        sx={{
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: 2,
+                          p: 1.5,
+                          backgroundColor: "background.paper",
+                          boxShadow: (t) => t.shadows[1],
+                        }}
+                      >
+                        <Typography
+                          variant="subtitle1"
+                          fontWeight={600}
+                          sx={{
+                            wordBreak: "break-word",
+                            fontSize: "1rem",
+                          }}
+                        >
+                          {product.name || "İsimsiz Ürün"}
                         </Typography>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mt: 0.25 }}
+                        >
+                          SKU: <strong>{product.sku || "-"}</strong>
+                        </Typography>
+
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: 1,
+                            mt: 1,
+                          }}
+                        >
+                          <Chip
+                            label={status.label}
+                            color={status.color}
+                            size="small"
+                            sx={{ fontSize: "0.75rem" }}
+                          />
+                          <Chip
+                            label={product.isActive ? "Aktif" : "Pasif"}
+                            color={product.isActive ? "success" : "default"}
+                            size="small"
+                            variant={product.isActive ? "filled" : "outlined"}
+                          />
+                        </Box>
+
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns:
+                              "repeat(auto-fit, minmax(140px, 1fr))",
+                            rowGap: 1.25,
+                            columnGap: 1,
+                            mt: 1.5,
+                          }}
+                        >
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Stok
+                            </Typography>
+                            <Typography fontWeight={700}>
+                              {product.stock}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Son Güncelleme
+                            </Typography>
+                            <Typography fontWeight={500}>
+                              {updatedAtText}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    );
+                  })
+                )}
+              </Box>
+            ) : (
+              <TableContainer
+                sx={{
+                  overflowX: "auto",
+                  borderRadius: 2,
+                  "&::-webkit-scrollbar": { height: 6 },
+                  "&::-webkit-scrollbar-thumb": {
+                    backgroundColor: "#cbd5f5",
+                    borderRadius: 3,
+                  },
+                }}
+              >
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700, fontSize: "0.9rem" }}>
+                        SKU
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: "0.9rem" }}>
+                        Ürün Adı
+                      </TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 700, fontSize: "0.9rem" }}>
+                        Stok
+                      </TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 700, fontSize: "0.9rem" }}>
+                        Durum
+                      </TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 700, fontSize: "0.9rem" }}>
+                        Aktif
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    filteredProducts.map((product, idx) => {
-                      const status = getStockStatus(product.stock);
-                      return (
-                        <TableRow
-                          key={
-                            product.id && product.id !== ""
-                              ? product.id
-                              : product.sku && product.sku !== ""
-                              ? product.sku
-                              : `product-${idx}`
-                          }
-                          hover
-                          sx={{ transition: "background-color .15s ease" }}
-                        >
-                          <TableCell>{product.sku}</TableCell>
-                          <TableCell>{product.name}</TableCell>
-                          <TableCell align="center">
-                            <strong>{product.stock}</strong>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Chip
-                              label={status.label}
-                              color={status.color}
-                              size="small"
-                            />
-                          </TableCell>
-                          <TableCell align="center">
-                            <Chip
-                              label={product.isActive ? "Aktif" : "Pasif"}
-                              color={product.isActive ? "success" : "default"}
-                              size="small"
-                              variant="outlined"
-                            />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {filteredProducts.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center">
+                          <Typography color="text.secondary">
+                            Ürün bulunamadı
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredProducts.map((product, idx) => {
+                        const status = getStockStatus(product.stock);
+                        return (
+                          <TableRow
+                            key={
+                              product.id && product.id !== ""
+                                ? product.id
+                                : product.sku && product.sku !== ""
+                                ? product.sku
+                                : `product-${idx}`
+                            }
+                            hover
+                            sx={{ transition: "background-color .15s ease" }}
+                          >
+                            <TableCell>{product.sku}</TableCell>
+                            <TableCell>{product.name}</TableCell>
+                            <TableCell align="center">
+                              <strong>{product.stock}</strong>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                label={status.label}
+                                color={status.color}
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                label={product.isActive ? "Aktif" : "Pasif"}
+                                color={product.isActive ? "success" : "default"}
+                                size="small"
+                                variant="outlined"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </>
         )}
       </Paper>
