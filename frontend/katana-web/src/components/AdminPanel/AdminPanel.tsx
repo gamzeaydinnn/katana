@@ -97,6 +97,12 @@ const AdminPanel: React.FC = () => {
   const overflowTabActive = activeTab > visibleTabThreshold;
   const tabBarValue = overflowTabActive ? moreTabIndex : activeTab;
 
+  const tabLabel = (text: string) => (
+    <Box component="span" translate="no" sx={{ display: "inline-flex" }}>
+      {text}
+    </Box>
+  );
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -288,6 +294,7 @@ const AdminPanel: React.FC = () => {
         <Typography
           variant="h4"
           fontWeight={700}
+          translate="no"
           sx={{
             fontFamily: '"Poppins", "Inter", sans-serif',
             letterSpacing: "-0.5px",
@@ -386,32 +393,40 @@ const AdminPanel: React.FC = () => {
             },
           }}
         >
-          <Tab icon={<TrendingUp />} label="Genel Bakış" iconPosition="start" />
-          <Tab icon={<Receipt />} label="Siparişler" iconPosition="start" />
+          <Tab
+            icon={<TrendingUp />}
+            label={tabLabel("Genel Bakış")}
+            iconPosition="start"
+          />
+          <Tab
+            icon={<Receipt />}
+            label={tabLabel("Siparişler")}
+            iconPosition="start"
+          />
           {!isMobile &&
             [
               <Tab
                 key="katana-products"
                 icon={<ShoppingCart />}
-                label="Katana Ürünleri"
+                label={tabLabel("Katana Ürünleri")}
                 iconPosition="start"
               />,
               <Tab
                 key="luca-products"
                 icon={<Inventory />}
-                label="Luca Ürünleri"
+                label={tabLabel("Luca Ürünleri")}
                 iconPosition="start"
               />,
               <Tab
                 key="stock-management"
                 icon={<Warehouse />}
-                label="Stok Yönetimi"
+                label={tabLabel("Stok Yönetimi")}
                 iconPosition="start"
               />,
             ]}
           <Tab
             icon={<MoreVertIcon />}
-            label="Diğer"
+            label={tabLabel("Diğer")}
             iconPosition="start"
             onClick={(e: React.MouseEvent<HTMLDivElement>) => {
               e.stopPropagation();
@@ -465,7 +480,9 @@ const AdminPanel: React.FC = () => {
                 }}
               >
                 <ShoppingCart sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-                <Typography variant="body2">Katana Ürünleri</Typography>
+                <Typography variant="body2" translate="no">
+                  Katana Ürünleri
+                </Typography>
               </MenuItem>,
               <MenuItem
                 key="menu-luca"
@@ -480,7 +497,9 @@ const AdminPanel: React.FC = () => {
                 }}
               >
                 <Inventory sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-                <Typography variant="body2">Luca Ürünleri</Typography>
+                <Typography variant="body2" translate="no">
+                  Luca Ürünleri
+                </Typography>
               </MenuItem>,
               <MenuItem
                 key="menu-stock"
@@ -495,7 +514,9 @@ const AdminPanel: React.FC = () => {
                 }}
               >
                 <Warehouse sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-                <Typography variant="body2">Stok Yönetimi</Typography>
+                <Typography variant="body2" translate="no">
+                  Stok Yönetimi
+                </Typography>
               </MenuItem>,
               <Divider key="menu-divider" sx={{ my: 1 }} />,
             ]}
@@ -511,7 +532,9 @@ const AdminPanel: React.FC = () => {
             }}
           >
             <ReportProblem sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-            <Typography variant="body2">Hatalı Kayıtlar</Typography>
+            <Typography variant="body2" translate="no">
+              Hatalı Kayıtlar
+            </Typography>
           </MenuItem>
           <MenuItem
             onClick={() => {
@@ -527,7 +550,9 @@ const AdminPanel: React.FC = () => {
             <CompareArrowsIcon
               sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }}
             />
-            <Typography variant="body2">Veri Düzeltme</Typography>
+            <Typography variant="body2" translate="no">
+              Veri Düzeltme
+            </Typography>
           </MenuItem>
           <Divider sx={{ my: 1 }} />
           <MenuItem
@@ -542,7 +567,9 @@ const AdminPanel: React.FC = () => {
             }}
           >
             <UsersIcon sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-            <Typography variant="body2">Kullanıcılar</Typography>
+            <Typography variant="body2" translate="no">
+              Kullanıcılar
+            </Typography>
           </MenuItem>
           <MenuItem
             onClick={() => {
@@ -556,7 +583,9 @@ const AdminPanel: React.FC = () => {
             }}
           >
             <LogsIcon sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-            <Typography variant="body2">Loglar</Typography>
+            <Typography variant="body2" translate="no">
+              Loglar
+            </Typography>
           </MenuItem>
           <MenuItem
             onClick={() => {
@@ -570,7 +599,9 @@ const AdminPanel: React.FC = () => {
             }}
           >
             <SettingsIcon sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-            <Typography variant="body2">Ayarlar</Typography>
+            <Typography variant="body2" translate="no">
+              Ayarlar
+            </Typography>
           </MenuItem>
         </Menu>
       </Paper>
