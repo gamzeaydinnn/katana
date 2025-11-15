@@ -255,9 +255,9 @@ const UsersManagement: React.FC = () => {
   };
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={3} sx={{ width: "100%" }}>
       <Card>
-        <CardContent>
+        <CardContent sx={{ p: { xs: 2, md: 3 }, "&:last-child": { pb: { xs: 2, md: 3 } } }}>
           <Box
             display="flex"
             alignItems="center"
@@ -288,6 +288,7 @@ const UsersManagement: React.FC = () => {
                 direction={{ xs: "column", md: "row" }}
                 spacing={2}
                 alignItems="flex-start"
+                sx={{ width: "100%" }}
               >
                 <TextField
                   label="Kullanıcı Adı"
@@ -296,7 +297,7 @@ const UsersManagement: React.FC = () => {
                     setForm((f) => ({ ...f, username: e.target.value }))
                   }
                   required
-                  sx={{ minWidth: 220 }}
+                  sx={{ minWidth: { xs: "100%", md: 220 } }}
                 />
                 <TextField
                   type="email"
@@ -305,7 +306,7 @@ const UsersManagement: React.FC = () => {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, email: e.target.value }))
                   }
-                  sx={{ minWidth: 260 }}
+                  sx={{ minWidth: { xs: "100%", md: 260 } }}
                 />
                 <TextField
                   label="Şifre"
@@ -315,10 +316,10 @@ const UsersManagement: React.FC = () => {
                     setForm((f) => ({ ...f, password: e.target.value }))
                   }
                   required
-                  sx={{ minWidth: 220 }}
+                  sx={{ minWidth: { xs: "100%", md: 220 } }}
                   helperText="En az 6 karakter"
                 />
-                <FormControl sx={{ minWidth: 180 }}>
+                <FormControl sx={{ minWidth: { xs: "100%", md: 180 } }}>
                   <InputLabel id="role-label">Rol</InputLabel>
                   <Select
                     labelId="role-label"
@@ -351,7 +352,7 @@ const UsersManagement: React.FC = () => {
       </Card>
 
       <Card>
-        <CardContent>
+        <CardContent sx={{ p: { xs: 2, md: 3 }, "&:last-child": { pb: { xs: 2, md: 3 } } }}>
           <Typography variant="h6" fontWeight={700} gutterBottom>
             Kullanıcı Listesi
           </Typography>
@@ -435,8 +436,25 @@ const UsersManagement: React.FC = () => {
               ))}
             </Stack>
           ) : (
-            <TableContainer>
-              <Table size="small">
+            <TableContainer
+              sx={{
+                overflowX: "auto",
+                mx: { xs: -1.5, md: 0 },
+                px: { xs: 1.5, md: 0 },
+              }}
+            >
+              <Table
+                size="small"
+                sx={{
+                  minWidth: { xs: "100%", md: 680 },
+                  "& .MuiTableCell-root": {
+                    px: { xs: 0.75, md: 2 },
+                    py: { xs: 0.65, md: 1.25 },
+                    whiteSpace: { xs: "normal", md: "nowrap" },
+                  },
+                  "& th": { fontSize: { xs: "0.85rem", md: "0.95rem" } },
+                }}
+              >
                 <TableHead>
                   <TableRow>
                     <TableCell>Kullanıcı Adı</TableCell>
@@ -502,7 +520,7 @@ const UsersManagement: React.FC = () => {
 
       {/* Rol Yetkilendirmesi */}
       <Card>
-        <CardContent>
+        <CardContent sx={{ p: { xs: 2, md: 3 }, "&:last-child": { pb: { xs: 2, md: 3 } } }}>
           <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
             <ShieldIcon sx={{ mr: 1, color: "primary.main" }} />
             <Typography variant="h6" fontWeight={600}>
@@ -521,9 +539,23 @@ const UsersManagement: React.FC = () => {
               overflowX: "auto",
               borderRadius: 2,
               border: (theme) => `1px solid ${theme.palette.divider}`,
+              mx: { xs: -1.5, md: 0 },
+              px: { xs: 1.5, md: 0 },
             }}
           >
-            <Table size="small" sx={{ minWidth: 520 }}>
+            <Table
+              size="small"
+              sx={{
+                minWidth: { xs: "100%", sm: 500, md: 520 },
+                tableLayout: { xs: "fixed", md: "auto" },
+                "& .MuiTableCell-root": {
+                  px: { xs: 0.75, md: 2 },
+                  py: { xs: 0.65, md: 1.1 },
+                  fontSize: { xs: "0.82rem", md: "0.9rem" },
+                  wordBreak: "break-word",
+                },
+              }}
+            >
               <TableHead>
                 <TableRow>
                   <TableCell>
@@ -665,7 +697,7 @@ const UsersManagement: React.FC = () => {
                   </TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell>Dashboard/Raporlar Görüntüleme</TableCell>
+                  <TableCell>Kontrol Paneli/Raporlar Görüntüleme</TableCell>
                   <TableCell align="center">
                     <CheckIcon color="success" fontSize="small" />
                   </TableCell>
@@ -767,7 +799,7 @@ const UsersManagement: React.FC = () => {
                   color="text.secondary"
                   sx={{ pl: 2 }}
                 >
-                  Temel kullanıcı. Dashboard, raporlar ve canlı stok
+                  Temel kullanıcı. Kontrol paneli, raporlar ve canlı stok
                   görüntüleme. Değişiklik yapamaz.
                 </Typography>
               </Box>

@@ -86,7 +86,7 @@ interface SidebarProps {
 
 const menuItems = [
   {
-    text: "Dashboard",
+    text: "Kontrol Paneli",
     icon: <DashboardIcon />,
     path: "/",
     gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -190,7 +190,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           gap: isMobile ? 1 : 0,
         }}
       >
-        <GlowingText variant="h6">⚡ Katana Stok</GlowingText>
+        <GlowingText variant="h6">⚡ Stok Kontrolleri</GlowingText>
         <AnimatedIconButton onClick={onClose} size="medium">
           <ChevronLeftIcon />
         </AnimatedIconButton>

@@ -36,7 +36,7 @@ const Dashboard: React.FC = () => {
       const data = await stockAPI.getDashboardStats();
       setStats(data);
     } catch (err: any) {
-      setError(err.message || "Dashboard yüklenemedi");
+      setError(err.message || "Kontrol paneli yüklenemedi");
     } finally {
       setLoading(false);
     }
@@ -172,7 +172,7 @@ const Dashboard: React.FC = () => {
     <Container
       maxWidth="lg"
       sx={{
-        mt: { xs: 2, md: 4 },
+        mt: { xs: 7.5, md: 4 },
         mb: { xs: 2.5, md: 4 },
         px: { xs: 1.5, sm: 2, md: 0 },
       }}
@@ -200,7 +200,7 @@ const Dashboard: React.FC = () => {
               WebkitTextFillColor: "transparent",
             }}
           >
-            Canlı Stok
+            Kontrol Paneli
           </Typography>
           <Typography
             variant="body2"

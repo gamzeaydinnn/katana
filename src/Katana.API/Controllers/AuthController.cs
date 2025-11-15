@@ -126,10 +126,17 @@ public class AuthController : ControllerBase
             new Claim(ClaimTypes.Role, role)
         };
 
+        var expiryMinutesConfig = jwtSettings["ExpiryMinutes"];
+        int expiryMinutes = 20;
+        if (int.TryParse(expiryMinutesConfig, out var parsed) && parsed > 0)
+        {
+            expiryMinutes = parsed;
+        }
+
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddMinutes(5), // Token 5 dakika geçerli
+            Expires = DateTime.UtcNow.AddMinutes(expiryMinutes),
             Issuer = jwtSettings["Issuer"],
             Audience = jwtSettings["Audience"],
             SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature)

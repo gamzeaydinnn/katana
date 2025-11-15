@@ -125,7 +125,7 @@ const SyncManagement: React.FC = () => {
   return (
     <Container
       maxWidth="lg"
-      sx={{ mt: { xs: 2, md: 4 }, mb: { xs: 2.5, md: 4 }, px: { xs: 1.5, sm: 2, md: 0 } }}
+      sx={{ mt: { xs: 5.5, md: 4 }, mb: { xs: 2.5, md: 4 }, px: { xs: 1.5, sm: 2, md: 0 } }}
     >
       <Box
         sx={{

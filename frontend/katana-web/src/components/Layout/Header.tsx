@@ -341,6 +341,11 @@ const Header: React.FC<HeaderProps> = ({
       : signalrStatus === "error"
       ? `Bildirimler (SignalR hatası${signalrError ? `: ${signalrError}` : ""})`
       : "Bildirimler (bağlanıyor...)";
+  const branchLabel =
+    currentBranchName && String(currentBranchName).trim() !== ""
+      ? String(currentBranchName)
+      : "Şube Seç";
+  const branchChipLabel = isMobile ? "Ş" : branchLabel;
 
   return (
     <AppBar
@@ -349,18 +354,18 @@ const Header: React.FC<HeaderProps> = ({
         zIndex: (theme) => theme.zIndex.drawer + 1,
         backdropFilter: "blur(20px)",
         background: "rgba(79, 134, 255, 0.15)",
-        borderBottom: "1px solid rgba(79, 134, 255, 0.2)",
+        borderBottom: "none",
         boxShadow: "0 4px 20px rgba(43, 110, 246, 0.08)",
         transition: "all 0.3s ease",
       }}
     >
       <Toolbar
         sx={{
-          minHeight: isMobile ? 56 : 64,
+          minHeight: isMobile ? 72 : 64,
           px: { xs: 1.5, sm: 2, md: 3 },
-          gap: isMobile ? 1 : 0,
-          flexWrap: isMobile ? "wrap" : "nowrap",
-          alignItems: isMobile ? "flex-start" : "center",
+          gap: isMobile ? 0.75 : 0,
+          flexWrap: "nowrap",
+          alignItems: "center",
         }}
       >
         <IconButton
@@ -383,11 +388,13 @@ const Header: React.FC<HeaderProps> = ({
 
         <Box
           sx={{
-            flexGrow: isMobile ? 1 : 0,
+            flexGrow: 0,
+            flexShrink: 1,
             display: "flex",
             alignItems: "center",
-            gap: isMobile ? 0.5 : 0.75,
             minWidth: 0,
+            mr: { xs: 0.5, md: 1.5 },
+            gap: { xs: 0.25, md: 0.75 },
           }}
         >
           <Box
@@ -395,7 +402,8 @@ const Header: React.FC<HeaderProps> = ({
             src="/logoo.png"
             alt="BeforMet Metal Logo"
             sx={{
-              height: isMobile ? 44 : 64,
+              display: { xs: "none", md: "block" },
+              height: 48,
               width: "auto",
               objectFit: "contain",
               filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.15))",
@@ -403,7 +411,6 @@ const Header: React.FC<HeaderProps> = ({
           />
           <Typography
             variant="h6"
-            noWrap
             component="div"
             sx={{
               fontFamily: '"Poppins", "Inter", sans-serif',
@@ -411,10 +418,14 @@ const Header: React.FC<HeaderProps> = ({
               letterSpacing: "-0.5px",
               color: "#1e40af",
               textShadow: "0 1px 2px rgba(0,0,0,0.05)",
-              fontSize: isMobile ? "1rem" : "1.15rem",
+              fontSize: isMobile ? "0.95rem" : "1.15rem",
+              display: "flex",
+              flexDirection: "column",
+              lineHeight: 1.05,
             }}
           >
-            Beformet Metal
+            <span>Beformet</span>
+            <span>Metal</span>
           </Typography>
         </Box>
 
@@ -422,13 +433,13 @@ const Header: React.FC<HeaderProps> = ({
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: isMobile ? 0.75 : 1.5,
-            flexWrap: isMobile ? "wrap" : "nowrap",
-            justifyContent: "flex-end",
-            width: { xs: "100%", md: "auto" },
-            flexGrow: isMobile ? 1 : 0,
+            gap: { xs: 0.35, md: 1.5 },
+            flexWrap: { xs: "wrap", md: "nowrap" },
+            justifyContent: { xs: "flex-start", md: "flex-end" },
+            width: "auto",
+            flexGrow: 1,
             ml: "auto",
-            mt: isMobile ? 1 : 0,
+            mt: { xs: 0.5, md: 0 },
           }}
         >
           {/* Theme toggle */}
@@ -439,8 +450,8 @@ const Header: React.FC<HeaderProps> = ({
               sx={{
                 color: "#1e40af",
                 transition: "all 0.2s ease",
-                width: isMobile ? 34 : 38,
-                height: isMobile ? 34 : 38,
+                width: isMobile ? 30 : 38,
+                height: isMobile ? 30 : 38,
                 "&:hover": {
                   transform: "scale(1.1)",
                   backgroundColor: "rgba(30, 64, 175, 0.1)",
@@ -523,46 +534,48 @@ const Header: React.FC<HeaderProps> = ({
 
         {/* Branch display + selector */}
         {onOpenBranchSelector && (
-          <Chip
-            label={currentBranchName ? String(currentBranchName) : "Şube Seç"}
-            onClick={onOpenBranchSelector}
-            sx={{
-              backgroundColor: "rgba(255, 255, 255, 0.95)",
-              borderRadius: "12px",
-              fontWeight: 700,
-              fontSize: `${isMobile ? 11 : 13}px !important`,
-              height: `${isMobile ? 32 : 40}px !important`,
-              px: isMobile ? "10px" : "14px",
-              border: "2px solid #3b82f6",
-              color: "#3b82f6",
-              cursor: "pointer",
-              boxShadow: "0 4px 14px rgba(59, 130, 246, 0.3)",
-              transition: "all 0.3s ease",
-              maxWidth: { xs: "100%", sm: 240 },
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              "& .MuiChip-label": {
-                padding: "0 8px",
+          <Tooltip title={branchLabel}>
+            <Chip
+              label={branchChipLabel}
+              onClick={onOpenBranchSelector}
+              sx={{
+                backgroundColor: "rgba(255, 255, 255, 0.95)",
+                borderRadius: "12px",
+                fontWeight: 700,
                 fontSize: `${isMobile ? 11 : 13}px !important`,
-              },
-              "&:hover": {
-                transform: "translateY(-2px) scale(1.05)",
-                backgroundColor: "#3b82f6",
-                color: "#fff",
+                height: `${isMobile ? 32 : 40}px !important`,
+                px: isMobile ? "8px" : "14px",
+                border: "2px solid #3b82f6",
+                color: "#3b82f6",
+                cursor: "pointer",
+                boxShadow: "0 4px 14px rgba(59, 130, 246, 0.3)",
+                transition: "all 0.3s ease",
+                maxWidth: { xs: 48, sm: 240 },
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                "& .MuiChip-label": {
+                  padding: "0 6px",
+                  fontSize: `${isMobile ? 11 : 13}px !important`,
+                },
+                "&:hover": {
+                  transform: "translateY(-2px) scale(1.05)",
+                  backgroundColor: "#3b82f6",
+                  color: "#fff",
                   boxShadow: "0 6px 20px rgba(59, 130, 246, 0.5)",
                 },
               }}
             />
-          )}
+          </Tooltip>
+        )}
 
           {/* Sync Status */}
           <Tooltip title="Son senkronizasyon: 10 dakika önce">
             <IconButton
               sx={{
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
-                width: isMobile ? 34 : 40,
-                height: isMobile ? 34 : 40,
+                width: isMobile ? 30 : 40,
+                height: isMobile ? 30 : 40,
                 borderRadius: isMobile ? "10px" : "12px",
                 border: "2px solid #10b981",
                 color: "#10b981",
@@ -599,8 +612,8 @@ const Header: React.FC<HeaderProps> = ({
               onClick={handleNotificationOpen}
               sx={{
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
-                width: isMobile ? 34 : 40,
-                height: isMobile ? 34 : 40,
+                width: isMobile ? 30 : 40,
+                height: isMobile ? 30 : 40,
                 borderRadius: isMobile ? "10px" : "12px",
                 border:
                   pendingCount > 0

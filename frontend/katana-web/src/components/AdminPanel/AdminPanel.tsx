@@ -94,8 +94,8 @@ const AdminPanel: React.FC = () => {
   const isMobile = useMediaQuery("(max-width:900px)");
   const moreTabIndex = isMobile ? 2 : 5;
   const visibleTabThreshold = moreTabIndex - 1;
-  const visibleTabValue = activeTab <= visibleTabThreshold ? activeTab : false;
   const overflowTabActive = activeTab > visibleTabThreshold;
+  const tabBarValue = overflowTabActive ? moreTabIndex : activeTab;
 
   const loadData = async () => {
     try {
@@ -292,6 +292,11 @@ const AdminPanel: React.FC = () => {
             fontFamily: '"Poppins", "Inter", sans-serif',
             letterSpacing: "-0.5px",
             color: "text.primary",
+            background: (theme) =>
+              `linear-gradient(120deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            display: "inline-block",
             flexShrink: 0,
           }}
         >
@@ -343,10 +348,11 @@ const AdminPanel: React.FC = () => {
         }}
       >
         <Tabs
-          value={visibleTabValue}
+          value={tabBarValue}
           onChange={(_, v) => {
             if (v !== moreTabIndex) {
               setActiveTab(v);
+              setMoreMenuAnchor(null);
             }
           }}
           variant="scrollable"
@@ -382,25 +388,27 @@ const AdminPanel: React.FC = () => {
         >
           <Tab icon={<TrendingUp />} label="Genel Bakış" iconPosition="start" />
           <Tab icon={<Receipt />} label="Siparişler" iconPosition="start" />
-          {!isMobile && (
-            <>
+          {!isMobile &&
+            [
               <Tab
+                key="katana-products"
                 icon={<ShoppingCart />}
                 label="Katana Ürünleri"
                 iconPosition="start"
-              />
+              />,
               <Tab
+                key="luca-products"
                 icon={<Inventory />}
                 label="Luca Ürünleri"
                 iconPosition="start"
-              />
+              />,
               <Tab
+                key="stock-management"
                 icon={<Warehouse />}
                 label="Stok Yönetimi"
                 iconPosition="start"
-              />
-            </>
-          )}
+              />,
+            ]}
           <Tab
             icon={<MoreVertIcon />}
             label="Diğer"
@@ -442,9 +450,10 @@ const AdminPanel: React.FC = () => {
             },
           }}
         >
-          {isMobile && (
-            <>
+          {isMobile &&
+            [
               <MenuItem
+                key="menu-katana"
                 onClick={() => {
                   setActiveTab(2);
                   setMoreMenuAnchor(null);
@@ -457,8 +466,9 @@ const AdminPanel: React.FC = () => {
               >
                 <ShoppingCart sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
                 <Typography variant="body2">Katana Ürünleri</Typography>
-              </MenuItem>
+              </MenuItem>,
               <MenuItem
+                key="menu-luca"
                 onClick={() => {
                   setActiveTab(3);
                   setMoreMenuAnchor(null);
@@ -471,8 +481,9 @@ const AdminPanel: React.FC = () => {
               >
                 <Inventory sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
                 <Typography variant="body2">Luca Ürünleri</Typography>
-              </MenuItem>
+              </MenuItem>,
               <MenuItem
+                key="menu-stock"
                 onClick={() => {
                   setActiveTab(4);
                   setMoreMenuAnchor(null);
@@ -485,10 +496,9 @@ const AdminPanel: React.FC = () => {
               >
                 <Warehouse sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
                 <Typography variant="body2">Stok Yönetimi</Typography>
-              </MenuItem>
-              <Divider sx={{ my: 1 }} />
-            </>
-          )}
+              </MenuItem>,
+              <Divider key="menu-divider" sx={{ my: 1 }} />,
+            ]}
           <MenuItem
             onClick={() => {
               setActiveTab(5);
