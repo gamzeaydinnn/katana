@@ -433,7 +433,8 @@ const Header: React.FC<HeaderProps> = ({
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: { xs: 0.35, md: 1.5 },
+            gap: { xs: 0.3, md: 1.5 },
+            rowGap: { xs: 0.75, md: 0 },
             flexWrap: { xs: "wrap", md: "nowrap" },
             justifyContent: { xs: "flex-start", md: "flex-end" },
             width: "auto",
@@ -450,8 +451,10 @@ const Header: React.FC<HeaderProps> = ({
               sx={{
                 color: "#1e40af",
                 transition: "all 0.2s ease",
-                width: isMobile ? 30 : 38,
-                height: isMobile ? 30 : 38,
+                width: isMobile ? 26 : 38,
+                height: isMobile ? 26 : 38,
+                borderRadius: isMobile ? "8px" : "12px",
+                minWidth: isMobile ? 26 : 38,
                 "&:hover": {
                   transform: "scale(1.1)",
                   backgroundColor: "rgba(30, 64, 175, 0.1)",
@@ -498,11 +501,12 @@ const Header: React.FC<HeaderProps> = ({
             }
             sx={{
               backgroundColor: "rgba(255, 255, 255, 0.95)",
-              borderRadius: "12px",
+              borderRadius: isMobile ? "10px" : "12px",
               fontWeight: 700,
-              fontSize: `${isMobile ? 11 : 13}px !important`,
-              height: `${isMobile ? 32 : 40}px !important`,
-              px: isMobile ? "10px" : "14px",
+              fontSize: `${isMobile ? 10 : 13}px !important`,
+              height: `${isMobile ? 26 : 40}px !important`,
+              px: isMobile ? "6px" : "14px",
+              minWidth: isMobile ? "auto" : undefined,
               border:
                 backendStatus === "connected"
                   ? "2px solid #10b981"
@@ -515,12 +519,13 @@ const Header: React.FC<HeaderProps> = ({
               transition: "all 0.3s ease",
               "& .MuiChip-icon": {
                 color: backendStatus === "connected" ? "#10b981" : "#ef4444",
-                fontSize: isMobile ? "16px" : "18px",
-                marginLeft: isMobile ? "2px" : "4px",
+                fontSize: isMobile ? "14px" : "18px",
+                marginLeft: isMobile ? "0px" : "4px",
               },
               "& .MuiChip-label": {
-                padding: "0 8px",
-                fontSize: `${isMobile ? 11 : 13}px !important`,
+                padding: isMobile ? "0 4px" : "0 8px",
+                fontSize: `${isMobile ? 10 : 13}px !important`,
+                letterSpacing: isMobile ? "0.02em" : 0,
               },
               "&:hover": {
                 transform: "scale(1.05)",
@@ -533,35 +538,36 @@ const Header: React.FC<HeaderProps> = ({
           />
 
         {/* Branch display + selector */}
-        {onOpenBranchSelector && (
-          <Tooltip title={branchLabel}>
-            <Chip
-              label={branchChipLabel}
-              onClick={onOpenBranchSelector}
-              sx={{
-                backgroundColor: "rgba(255, 255, 255, 0.95)",
-                borderRadius: "12px",
-                fontWeight: 700,
-                fontSize: `${isMobile ? 11 : 13}px !important`,
-                height: `${isMobile ? 32 : 40}px !important`,
-                px: isMobile ? "8px" : "14px",
-                border: "2px solid #3b82f6",
-                color: "#3b82f6",
-                cursor: "pointer",
-                boxShadow: "0 4px 14px rgba(59, 130, 246, 0.3)",
-                transition: "all 0.3s ease",
-                maxWidth: { xs: 48, sm: 240 },
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                "& .MuiChip-label": {
-                  padding: "0 6px",
-                  fontSize: `${isMobile ? 11 : 13}px !important`,
-                },
-                "&:hover": {
-                  transform: "translateY(-2px) scale(1.05)",
-                  backgroundColor: "#3b82f6",
-                  color: "#fff",
+          {onOpenBranchSelector && (
+            <Tooltip title={branchLabel}>
+              <Chip
+                label={branchChipLabel}
+                onClick={onOpenBranchSelector}
+                sx={{
+                  backgroundColor: "rgba(255, 255, 255, 0.95)",
+                  borderRadius: isMobile ? "10px" : "12px",
+                  fontWeight: 700,
+                  fontSize: `${isMobile ? 10 : 13}px !important`,
+                  height: `${isMobile ? 26 : 40}px !important`,
+                  px: isMobile ? "6px" : "14px",
+                  border: "2px solid #3b82f6",
+                  color: "#3b82f6",
+                  cursor: "pointer",
+                  boxShadow: "0 4px 14px rgba(59, 130, 246, 0.3)",
+                  transition: "all 0.3s ease",
+                  maxWidth: { xs: 120, sm: 240 },
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  "& .MuiChip-label": {
+                    padding: isMobile ? "0 4px" : "0 6px",
+                    fontSize: `${isMobile ? 10 : 13}px !important`,
+                    letterSpacing: isMobile ? "0.02em" : 0,
+                  },
+                  "&:hover": {
+                    transform: "translateY(-2px) scale(1.05)",
+                    backgroundColor: "#3b82f6",
+                    color: "#fff",
                   boxShadow: "0 6px 20px rgba(59, 130, 246, 0.5)",
                 },
               }}
@@ -574,9 +580,9 @@ const Header: React.FC<HeaderProps> = ({
             <IconButton
               sx={{
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
-                width: isMobile ? 30 : 40,
-                height: isMobile ? 30 : 40,
-                borderRadius: isMobile ? "10px" : "12px",
+                width: isMobile ? 26 : 40,
+                height: isMobile ? 26 : 40,
+                borderRadius: isMobile ? "8px" : "12px",
                 border: "2px solid #10b981",
                 color: "#10b981",
                 boxShadow: "0 4px 14px rgba(16, 185, 129, 0.25)",
@@ -612,9 +618,9 @@ const Header: React.FC<HeaderProps> = ({
               onClick={handleNotificationOpen}
               sx={{
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
-                width: isMobile ? 30 : 40,
-                height: isMobile ? 30 : 40,
-                borderRadius: isMobile ? "10px" : "12px",
+                width: isMobile ? 26 : 40,
+                height: isMobile ? 26 : 40,
+                borderRadius: isMobile ? "8px" : "12px",
                 border:
                   pendingCount > 0
                     ? "2px solid #ef4444"
@@ -680,9 +686,9 @@ const Header: React.FC<HeaderProps> = ({
               onClick={handleProfileMenuOpen}
               sx={{
                 backgroundColor: "rgba(255, 255, 255, 0.95)",
-                width: isMobile ? 34 : 40,
-                height: isMobile ? 34 : 40,
-                borderRadius: isMobile ? "10px" : "12px",
+                width: isMobile ? 30 : 40,
+                height: isMobile ? 30 : 40,
+                borderRadius: isMobile ? "8px" : "12px",
                 border: "2px solid #8b5cf6",
                 padding: 0,
                 boxShadow: "0 4px 14px rgba(139, 92, 246, 0.25)",
@@ -704,13 +710,13 @@ const Header: React.FC<HeaderProps> = ({
             >
               <Avatar
                 sx={{
-                  width: isMobile ? 28 : 32,
-                  height: isMobile ? 28 : 32,
+                  width: isMobile ? 24 : 32,
+                  height: isMobile ? 24 : 32,
                   border: "2px solid #3b82f6",
                   backgroundColor: "#3b82f6",
                   color: "#fff",
                   fontWeight: 700,
-                  fontSize: isMobile ? "12px" : "14px",
+                  fontSize: isMobile ? "11px" : "14px",
                   transition: "all 0.3s ease",
                 }}
               >

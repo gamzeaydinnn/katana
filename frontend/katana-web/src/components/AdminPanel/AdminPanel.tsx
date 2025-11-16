@@ -103,6 +103,21 @@ const AdminPanel: React.FC = () => {
     </Box>
   );
 
+  const overflowMenuItemSx = {
+    py: 1.2,
+    px: 2,
+    gap: 1.2,
+    alignItems: "center",
+    borderRadius: 1.5,
+    "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.12)" },
+  };
+
+  const overflowMenuTextSx = {
+    fontWeight: 600,
+    letterSpacing: "0.01em",
+    color: "text.primary",
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -462,6 +477,8 @@ const AdminPanel: React.FC = () => {
               minWidth: 200,
               boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
               borderRadius: 2,
+              backgroundColor: "rgba(255,255,255,0.98)",
+              backdropFilter: "blur(10px)",
             },
           }}
         >
@@ -473,14 +490,14 @@ const AdminPanel: React.FC = () => {
                   setActiveTab(2);
                   setMoreMenuAnchor(null);
                 }}
-                sx={{
-                  py: 1.5,
-                  px: 2,
-                  "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
-                }}
+                sx={overflowMenuItemSx}
               >
                 <ShoppingCart sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-                <Typography variant="body2" translate="no">
+                <Typography
+                  variant="body2"
+                  translate="no"
+                  sx={overflowMenuTextSx}
+                >
                   Katana Ürünleri
                 </Typography>
               </MenuItem>,
@@ -490,14 +507,14 @@ const AdminPanel: React.FC = () => {
                   setActiveTab(3);
                   setMoreMenuAnchor(null);
                 }}
-                sx={{
-                  py: 1.5,
-                  px: 2,
-                  "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
-                }}
+                sx={overflowMenuItemSx}
               >
                 <Inventory sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-                <Typography variant="body2" translate="no">
+                <Typography
+                  variant="body2"
+                  translate="no"
+                  sx={overflowMenuTextSx}
+                >
                   Luca Ürünleri
                 </Typography>
               </MenuItem>,
@@ -507,14 +524,14 @@ const AdminPanel: React.FC = () => {
                   setActiveTab(4);
                   setMoreMenuAnchor(null);
                 }}
-                sx={{
-                  py: 1.5,
-                  px: 2,
-                  "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
-                }}
+                sx={overflowMenuItemSx}
               >
                 <Warehouse sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-                <Typography variant="body2" translate="no">
+                <Typography
+                  variant="body2"
+                  translate="no"
+                  sx={overflowMenuTextSx}
+                >
                   Stok Yönetimi
                 </Typography>
               </MenuItem>,
@@ -525,14 +542,10 @@ const AdminPanel: React.FC = () => {
               setActiveTab(5);
               setMoreMenuAnchor(null);
             }}
-            sx={{
-              py: 1.5,
-              px: 2,
-              "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
-            }}
+            sx={overflowMenuItemSx}
           >
-            <ReportProblem sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-            <Typography variant="body2" translate="no">
+            <ReportProblem sx={{ mr: 1.5, fontSize: 20, color: "#f59e0b" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
               Hatalı Kayıtlar
             </Typography>
           </MenuItem>
@@ -541,16 +554,12 @@ const AdminPanel: React.FC = () => {
               setActiveTab(6);
               setMoreMenuAnchor(null);
             }}
-            sx={{
-              py: 1.5,
-              px: 2,
-              "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
-            }}
+            sx={overflowMenuItemSx}
           >
             <CompareArrowsIcon
-              sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }}
+              sx={{ mr: 1.5, fontSize: 20, color: "#10b981" }}
             />
-            <Typography variant="body2" translate="no">
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
               Veri Düzeltme
             </Typography>
           </MenuItem>
@@ -560,14 +569,10 @@ const AdminPanel: React.FC = () => {
               setActiveTab(7);
               setMoreMenuAnchor(null);
             }}
-            sx={{
-              py: 1.5,
-              px: 2,
-              "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
-            }}
+            sx={overflowMenuItemSx}
           >
-            <UsersIcon sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-            <Typography variant="body2" translate="no">
+            <UsersIcon sx={{ mr: 1.5, fontSize: 20, color: "#3b82f6" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
               Kullanıcılar
             </Typography>
           </MenuItem>
@@ -576,14 +581,10 @@ const AdminPanel: React.FC = () => {
               setActiveTab(8);
               setMoreMenuAnchor(null);
             }}
-            sx={{
-              py: 1.5,
-              px: 2,
-              "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
-            }}
+            sx={overflowMenuItemSx}
           >
-            <LogsIcon sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-            <Typography variant="body2" translate="no">
+            <LogsIcon sx={{ mr: 1.5, fontSize: 20, color: "#64748b" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
               Loglar
             </Typography>
           </MenuItem>
@@ -592,14 +593,10 @@ const AdminPanel: React.FC = () => {
               setActiveTab(9);
               setMoreMenuAnchor(null);
             }}
-            sx={{
-              py: 1.5,
-              px: 2,
-              "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.08)" },
-            }}
+            sx={overflowMenuItemSx}
           >
-            <SettingsIcon sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-            <Typography variant="body2" translate="no">
+            <SettingsIcon sx={{ mr: 1.5, fontSize: 20, color: "#0ea5e9" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
               Ayarlar
             </Typography>
           </MenuItem>

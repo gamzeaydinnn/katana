@@ -200,42 +200,101 @@ const StockManagement: React.FC = () => {
                       >
                         <Typography
                           variant="subtitle1"
-                          fontWeight={600}
+                          fontWeight={700}
                           sx={{
                             wordBreak: "break-word",
-                            fontSize: "1rem",
+                            fontSize: "1.05rem",
+                            color: "#0f172a",
+                            letterSpacing: "-0.01em",
                           }}
                         >
                           {product.name || "İsimsiz Ürün"}
                         </Typography>
                         <Typography
                           variant="body2"
-                          color="text.secondary"
-                          sx={{ mt: 0.25 }}
+                          sx={{
+                            mt: 0.35,
+                            color: "text.secondary",
+                            fontWeight: 600,
+                            letterSpacing: "0.01em",
+                          }}
                         >
-                          SKU: <strong>{product.sku || "-"}</strong>
+                          SKU:{" "}
+                          <Box component="span" sx={{ color: "#0f172a" }}>
+                            {product.sku || "-"}
+                          </Box>
                         </Typography>
 
                         <Box
                           sx={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: 1,
-                            mt: 1,
+                            display: "grid",
+                            gridTemplateColumns:
+                              "repeat(auto-fit, minmax(120px, 1fr))",
+                            gap: 0.75,
+                            mt: 1.1,
                           }}
                         >
-                          <Chip
-                            label={status.label}
-                            color={status.color}
-                            size="small"
-                            sx={{ fontSize: "0.75rem" }}
-                          />
-                          <Chip
-                            label={product.isActive ? "Aktif" : "Pasif"}
-                            color={product.isActive ? "success" : "default"}
-                            size="small"
-                            variant={product.isActive ? "filled" : "outlined"}
-                          />
+                          <Box
+                            sx={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              px: 1,
+                              py: 0.6,
+                              borderRadius: 2,
+                              backgroundColor: "rgba(15,23,42,0.03)",
+                              border: "1px solid",
+                              borderColor: "divider",
+                            }}
+                          >
+                            <Typography
+                              variant="caption"
+                              sx={{ fontWeight: 600, color: "text.secondary" }}
+                            >
+                              Durum
+                            </Typography>
+                            <Chip
+                              label={status.label}
+                              color={status.color}
+                              size="small"
+                              sx={{
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                                minWidth: 72,
+                              }}
+                            />
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              px: 1,
+                              py: 0.6,
+                              borderRadius: 2,
+                              backgroundColor: "rgba(15,23,42,0.03)",
+                              border: "1px solid",
+                              borderColor: "divider",
+                            }}
+                          >
+                            <Typography
+                              variant="caption"
+                              sx={{ fontWeight: 600, color: "text.secondary" }}
+                            >
+                              Aktif
+                            </Typography>
+                            <Chip
+                              label={product.isActive ? "Aktif" : "Pasif"}
+                              color={product.isActive ? "success" : "default"}
+                              size="small"
+                              variant={product.isActive ? "filled" : "outlined"}
+                              sx={{
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                                minWidth: 72,
+                              }}
+                            />
+                          </Box>
                         </Box>
 
                         <Box
@@ -251,22 +310,33 @@ const StockManagement: React.FC = () => {
                           <Box>
                             <Typography
                               variant="caption"
-                              color="text.secondary"
+                              sx={{
+                                color: "text.secondary",
+                                fontWeight: 600,
+                                letterSpacing: "0.01em",
+                              }}
                             >
                               Stok
                             </Typography>
-                            <Typography fontWeight={700}>
+                            <Typography
+                              fontWeight={700}
+                              sx={{ fontSize: "1.05rem", color: "#0f172a" }}
+                            >
                               {product.stock}
                             </Typography>
                           </Box>
                           <Box>
                             <Typography
                               variant="caption"
-                              color="text.secondary"
+                              sx={{
+                                color: "text.secondary",
+                                fontWeight: 600,
+                                letterSpacing: "0.01em",
+                              }}
                             >
                               Son Güncelleme
                             </Typography>
-                            <Typography fontWeight={500}>
+                            <Typography fontWeight={600}>
                               {updatedAtText}
                             </Typography>
                           </Box>

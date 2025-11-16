@@ -90,6 +90,29 @@ const LogsViewer: React.FC = () => {
   const [totalAudits, setTotalAudits] = useState(0);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const isMobile = useMediaQuery("(max-width:900px)");
+  const refreshButtonSx = {
+    my: 1,
+    height: isMobile ? 30 : 40,
+    minWidth: isMobile ? 64 : 140,
+    px: isMobile ? 0.75 : 2.5,
+    py: isMobile ? 0.25 : 1,
+    fontSize: isMobile ? "0.65rem" : "0.9rem",
+    borderRadius: 999,
+    color: "#fff",
+    fontWeight: 600,
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)",
+    "& .MuiButton-startIcon": {
+      marginRight: isMobile ? 0.25 : 0.5,
+      "& > *:first-of-type": {
+        fontSize: isMobile ? "0.95rem" : "1rem",
+      },
+    },
+    "&:hover": {
+      background: "linear-gradient(135deg, #5568d3 0%, #653a8e 100%)",
+      boxShadow: "0 6px 20px rgba(102, 126, 234, 0.6)",
+    },
+  };
 
   // Format date to Turkish timezone (UTC+3)
   const formatToTurkishTime = (dateString: string) => {
@@ -294,38 +317,60 @@ const LogsViewer: React.FC = () => {
             borderColor: "divider",
             display: "flex",
             justifyContent: "space-between",
+            alignItems: "center",
             px: 2,
+            gap: 1,
+            flexWrap: isMobile ? "wrap" : "nowrap",
           }}
         >
-          <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
-            <Tab label={`Hata Logları (${totalErrors})`} />
-            <Tab label={`Denetim Logları (${totalAudits})`} />
-          </Tabs>
-          <Button
-            variant="contained"
-            startIcon={<RefreshIcon fontSize="small" />}
-            onClick={handleRefresh}
-            size={isMobile ? "small" : "medium"}
+          <Tabs
+            value={tabValue}
+            onChange={(_, v) => setTabValue(v)}
+            variant={isMobile ? "fullWidth" : "standard"}
             sx={{
-              my: 1,
-              minWidth: isMobile ? 72 : 140,
-              px: isMobile ? 0.75 : 2.5,
-              py: isMobile ? 0.35 : 1,
-              fontSize: isMobile ? "0.68rem" : "0.9rem",
-              borderRadius: 999,
-              color: "#fff",
-              fontWeight: 600,
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)",
-              "&:hover": {
-                background: "linear-gradient(135deg, #5568d3 0%, #653a8e 100%)",
-                boxShadow: "0 6px 20px rgba(102, 126, 234, 0.6)",
+              flexGrow: 1,
+              "& .MuiTab-root": {
+                fontWeight: 600,
+                textTransform: "none",
               },
             }}
           >
-            Yenile
-          </Button>
+            <Tab label={`Hata Logları (${totalErrors})`} />
+            <Tab label={`Denetim Logları (${totalAudits})`} />
+          </Tabs>
+          {!isMobile && (
+            <Button
+              variant="contained"
+              startIcon={<RefreshIcon fontSize="small" />}
+              onClick={handleRefresh}
+              size="medium"
+              sx={refreshButtonSx}
+            >
+              Yenile
+            </Button>
+          )}
         </Box>
+
+        {isMobile && (
+          <Box
+            sx={{
+              px: 2,
+              pt: 1,
+              display: "flex",
+              justifyContent: "flex-end",
+            }}
+          >
+            <Button
+              variant="contained"
+              startIcon={<RefreshIcon fontSize="small" />}
+              onClick={handleRefresh}
+              size="small"
+              sx={refreshButtonSx}
+            >
+              Yenile
+            </Button>
+          </Box>
+        )}
 
         <CardContent>
           {/* Error Logs Tab */}
