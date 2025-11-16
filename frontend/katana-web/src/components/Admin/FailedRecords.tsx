@@ -210,11 +210,10 @@ const FailedRecords: React.FC = () => {
         <CardContent>
           <Box
             display="flex"
-            justifyContent="space-between"
-            alignItems={{ xs: "flex-start", md: "center" }}
-            flexDirection={{ xs: "column", md: "row" }}
-            gap={{ xs: 1.5, md: 0 }}
-            mb={2}
+            flexDirection="column"
+            alignItems="flex-start"
+            gap={1.5}
+            mb={3}
           >
             <Typography variant="h5">Hatalı Kayıtlar</Typography>
             <Box
@@ -222,10 +221,16 @@ const FailedRecords: React.FC = () => {
                 display: "flex",
                 flexWrap: "wrap",
                 gap: { xs: 1, sm: 2 },
-                width: { xs: "100%", md: "auto" },
+                width: "100%",
               }}
             >
-              <FormControl size="small" fullWidth sx={{ minWidth: { md: 150 } }}>
+              <FormControl
+                size="small"
+                sx={{
+                  flex: { xs: "1 1 100%", sm: "0 0 220px" },
+                  minWidth: { md: 200 },
+                }}
+              >
                 <InputLabel>Durum</InputLabel>
                 <Select
                   value={statusFilter}
@@ -239,7 +244,13 @@ const FailedRecords: React.FC = () => {
                   <MenuItem value="IGNORED">Göz Ardı Edildi</MenuItem>
                 </Select>
               </FormControl>
-              <FormControl size="small" fullWidth sx={{ minWidth: { md: 150 } }}>
+              <FormControl
+                size="small"
+                sx={{
+                  flex: { xs: "1 1 100%", sm: "0 0 220px" },
+                  minWidth: { md: 200 },
+                }}
+              >
                 <InputLabel>Kayıt Tipi</InputLabel>
                 <Select
                   value={recordTypeFilter}
@@ -250,10 +261,14 @@ const FailedRecords: React.FC = () => {
                   <MenuItem value="STOCK">Stok</MenuItem>
                   <MenuItem value="INVOICE">Fatura</MenuItem>
                   <MenuItem value="CUSTOMER">Müşteri</MenuItem>
-                  <MenuItem value="ORDER">Sipariş</MenuItem>
+                  <MenuItem value="ORDER">Siparişler</MenuItem>
                 </Select>
               </FormControl>
-              <IconButton onClick={fetchRecords} color="primary" sx={{ alignSelf: "center" }}>
+              <IconButton
+                onClick={fetchRecords}
+                color="primary"
+                sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
+              >
                 <Refresh />
               </IconButton>
             </Box>

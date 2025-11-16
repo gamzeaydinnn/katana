@@ -267,7 +267,7 @@ const StockManagement: React.FC = () => {
                           <Box
                             sx={{
                               display: "flex",
-                              justifyContent: "space-between",
+                              justifyContent: "center",
                               alignItems: "center",
                               px: 1,
                               py: 0.6,
@@ -277,12 +277,6 @@ const StockManagement: React.FC = () => {
                               borderColor: "divider",
                             }}
                           >
-                            <Typography
-                              variant="caption"
-                              sx={{ fontWeight: 600, color: "text.secondary" }}
-                            >
-                              Aktif
-                            </Typography>
                             <Chip
                               label={product.isActive ? "Aktif" : "Pasif"}
                               color={product.isActive ? "success" : "default"}

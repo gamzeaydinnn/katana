@@ -62,6 +62,11 @@ export const createAppTheme = (mode: ColorMode) => {
           },
         },
       },
+      MuiTypography: {
+        defaultProps: {
+          translate: "no",
+        },
+      },
       MuiPaper: {
         styleOverrides: {
           root: {

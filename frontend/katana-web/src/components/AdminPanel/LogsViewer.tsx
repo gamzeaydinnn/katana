@@ -506,12 +506,18 @@ const LogsViewer: React.FC = () => {
                           <>
                             <Button
                               size="small"
+                              variant="contained"
                               onClick={() =>
                                 setExpandedRow(
                                   expandedRow === log.id ? null : log.id
                                 )
                               }
-                              sx={{ mt: 1 }}
+                              sx={{
+                                mt: 1,
+                                borderRadius: 999,
+                                px: 1.5,
+                                color: "#fff",
+                              }}
                               startIcon={
                                 expandedRow === log.id ? (
                                   <ExpandLessIcon />

@@ -321,54 +321,6 @@ const Login: React.FC = () => {
               {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
             </Button>
 
-            <Box
-              sx={{
-                mt: 4,
-                p: 3,
-                backdropFilter: "blur(10px)",
-                background:
-                  theme.palette.mode === "dark"
-                    ? "rgba(30,41,59,0.5)"
-                    : "rgba(0,0,0,0.02)",
-                borderRadius: 3,
-                border:
-                  theme.palette.mode === "dark"
-                    ? "1px solid rgba(255,255,255,0.1)"
-                    : "1px solid rgba(0,0,0,0.05)",
-              }}
-            >
-              <Typography
-                variant="caption"
-                sx={{
-                  color: theme.palette.text.secondary,
-                  display: "block",
-                  fontWeight: 700,
-                  letterSpacing: "0.01em",
-                  mb: 1,
-                }}
-              >
-                Test Hesabı:
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  color: theme.palette.text.primary,
-                  fontWeight: 600,
-                  mb: 0.5,
-                }}
-              >
-                Kullanıcı Adı: <strong>admin</strong>
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  color: theme.palette.text.primary,
-                  fontWeight: 600,
-                }}
-              >
-                Şifre: <strong>Katana2025!</strong>
-              </Typography>
-            </Box>
           </form>
         </CardContent>
       </Card>
