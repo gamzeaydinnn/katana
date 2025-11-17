@@ -24,14 +24,15 @@ public class TransformerService : ITransformerService
 
         foreach (var dto in dtos)
         {
-            var entity = new Product
+                var entity = new Product
             {
                 SKU = dto.SKU,
                 Name = dto.Name,
                 Description = dto.Description ?? string.Empty,
                 CategoryId = dto.CategoryId,
                 Price = dto.Price,
-                Stock = dto.Stock,
+                    // Set snapshot when creating Product entities from DTOs
+                    StockSnapshot = dto.Stock,
                 MainImageUrl = dto.MainImageUrl,
                 IsActive = dto.IsActive,
                 CreatedAt = dto.CreatedAt,

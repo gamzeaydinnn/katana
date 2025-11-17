@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+using Katana.Core.Enums;
 
 namespace Katana.Core.Entities;
 
@@ -27,8 +28,46 @@ public class Product
     [NotMapped]
     public int Stock
     {
-        get => (StockMovements != null && StockMovements.Any()) ? StockMovements.Sum(x => x.ChangeQuantity) : StockSnapshot;
-        set => StockSnapshot = value;
+        get
+        {
+            return (StockMovements != null && StockMovements.Any())
+                ? StockMovements.Sum(x => x.ChangeQuantity)
+                : StockSnapshot;
+        }
+        set
+        {
+            // Current computed stock (prefer movements when present)
+            var current = (StockMovements != null && StockMovements.Any()) ? StockMovements.Sum(x => x.ChangeQuantity) : StockSnapshot;
+
+            // If there is no change, nothing to do
+            var delta = value - current;
+            if (delta == 0) return;
+
+            // If this is a brand-new entity (not yet persisted) and there are no movements,
+            // treat the assignment as initial snapshot set.
+            if (Id == 0 && (StockMovements == null || !StockMovements.Any()))
+            {
+                StockSnapshot = value;
+                return;
+            }
+
+            // Otherwise create a StockMovement representing the delta so that the
+            // Stock getter remains consistent (movements preferred over snapshot).
+            var movement = new StockMovement
+            {
+                ProductId = this.Id,
+                ProductSku = this.SKU,
+                ChangeQuantity = delta,
+                MovementType = delta > 0 ? MovementType.In : MovementType.Out,
+                SourceDocument = "AutoSet",
+                Timestamp = DateTime.UtcNow,
+                WarehouseCode = "MAIN",
+                IsSynced = false
+            };
+
+            StockMovements ??= new List<StockMovement>();
+            StockMovements.Add(movement);
+        }
     }
     
     public int CategoryId { get; set; }

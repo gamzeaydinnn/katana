@@ -274,16 +274,32 @@ public class ReportsController : ControllerBase
                     p.SKU.Contains(search));
             }
 
-            // Low stock filter (Stock < 10 varsayılan eşik)
+            // We'll compute balances from StockMovements and then apply lowStockOnly filtering in-memory
+            var initialProducts = await query.Select(p => new
+            {
+                p.Id,
+                p.Name,
+                p.SKU,
+                CategoryId = p.CategoryId,
+                Balance = _context.StockMovements.Where(sm => sm.ProductId == p.Id).Sum(sm => (int?)sm.ChangeQuantity) ?? p.StockSnapshot,
+                Price = p.Price,
+                IsActive = p.IsActive,
+                MainImageUrl = p.MainImageUrl,
+                Description = p.Description,
+                LastUpdated = p.UpdatedAt
+            }).ToListAsync();
+
+            // Apply low-stock filter if requested
             if (lowStockOnly)
             {
-                query = query.Where(p => p.Stock <= 10);
+                initialProducts = initialProducts.Where(p => p.Balance <= 10).ToList();
             }
 
-            var totalCount = await query.CountAsync();
-            
-            var stockData = await query
-                .OrderByDescending(p => p.Stock * p.Price)
+            var totalCount = initialProducts.Count;
+
+            var ordered = initialProducts.OrderByDescending(p => p.Balance * p.Price).ToList();
+
+            var stockData = ordered
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(p => new
@@ -292,17 +308,17 @@ public class ReportsController : ControllerBase
                     p.Name,
                     p.SKU,
                     CategoryId = p.CategoryId,
-                    Quantity = p.Stock,
+                    Quantity = Math.Max(p.Balance, 0),
                     Price = p.Price,
-                    StockValue = p.Stock * p.Price,
-                    IsLowStock = p.Stock <= 10,
-                    IsOutOfStock = p.Stock == 0,
+                    StockValue = p.Balance * p.Price,
+                    IsLowStock = p.Balance <= 10,
+                    IsOutOfStock = p.Balance == 0,
                     IsActive = p.IsActive,
                     MainImageUrl = p.MainImageUrl,
                     Description = p.Description,
-                    LastUpdated = p.UpdatedAt
+                    LastUpdated = p.LastUpdated
                 })
-                .ToListAsync();
+                .ToList();
 
             // Summary statistics
             var totalStockValue = stockData.Sum(s => s.StockValue);
