@@ -1,6 +1,7 @@
 ﻿using Katana.Business.DTOs;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
+using Katana.Core.Enums;
 
 namespace Katana.Core.Helpers;
 
@@ -140,6 +141,94 @@ public static class MappingHelper
             Address = customer.Address,
             City = customer.City,
             Country = customer.Country
+        };
+    }
+
+    public static LucaProductUpdateDto MapToLucaProduct(Product product)
+    {
+        return new LucaProductUpdateDto
+        {
+            ProductCode = product.SKU,
+            ProductName = product.Name,
+            Unit = "Adet",
+            Quantity = product.Stock,
+            UnitPrice = product.Price,
+            VatRate = 20
+        };
+    }
+
+    // Reverse mappings: Luca -> Katana entities
+    public static StockMovement MapFromLucaStock(LucaStockDto dto, int productId)
+    {
+        // Map movement type
+        var type = dto.MovementType?.ToUpperInvariant() ?? "ADJUSTMENT";
+        MovementType movementType = type switch
+        {
+            "IN" => MovementType.In,
+            "OUT" => MovementType.Out,
+            _ => MovementType.Adjustment
+        };
+
+        // ChangeQuantity: IN => +qty, OUT => -qty, otherwise 0 (caller may compute BALANCE delta)
+        var change = type switch
+        {
+            "IN" => Math.Abs(dto.Quantity),
+            "OUT" => -Math.Abs(dto.Quantity),
+            _ => 0
+        };
+
+        return new StockMovement
+        {
+            ProductId = productId,
+            ProductSku = dto.ProductCode,
+            ChangeQuantity = change,
+            MovementType = movementType,
+            SourceDocument = dto.Reference ?? "LUCA_SYNC",
+            Timestamp = dto.MovementDate == default ? DateTime.UtcNow : dto.MovementDate,
+            // Normalize warehouse code: prefer explicit WarehouseCode (take first token if contains spaces),
+            // then Entry/Exit codes; default to "001" (matches InventorySettings defaults).
+            WarehouseCode = !string.IsNullOrWhiteSpace(dto.WarehouseCode)
+                ? dto.WarehouseCode.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0].Trim()
+                : (dto.EntryWarehouseCode ?? dto.ExitWarehouseCode ?? "001"),
+            IsSynced = true,
+            SyncedAt = DateTime.UtcNow
+        };
+    }
+
+    public static Customer MapFromLucaCustomer(LucaCustomerDto dto)
+    {
+        return new Customer
+        {
+            TaxNo = dto.CustomerCode ?? dto.CustomerCode ?? string.Empty,
+            Title = dto.Title ?? string.Empty,
+            ContactPerson = dto.ContactPerson,
+            Phone = dto.Phone,
+            Email = dto.Email,
+            Address = dto.Address,
+            City = dto.City,
+            Country = dto.Country,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+    }
+
+    public static Invoice MapFromLucaInvoice(LucaInvoiceDto dto, int customerId)
+    {
+        return new Invoice
+        {
+            InvoiceNo = dto.DocumentNo,
+            CustomerId = customerId,
+            Amount = dto.NetAmount,
+            TaxAmount = dto.TaxAmount,
+            TotalAmount = dto.GrossAmount,
+            Status = "RECEIVED",
+            InvoiceDate = dto.DocumentDate,
+            DueDate = dto.DueDate,
+            Currency = dto.Currency ?? "TRY",
+            IsSynced = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
     }
 

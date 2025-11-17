@@ -9,6 +9,8 @@ public interface ILucaService
     Task<SyncResultDto> SendInvoicesAsync(List<LucaInvoiceDto> invoices);
     Task<SyncResultDto> SendStockMovementsAsync(List<LucaStockDto> stockMovements);
     Task<SyncResultDto> SendCustomersAsync(List<LucaCustomerDto> customers);
+    // Katana -> Luca: send product records (create/update)
+    Task<SyncResultDto> SendProductsAsync(List<LucaProductUpdateDto> products);
     
     // Luca → Katana (Pull)
     Task<List<LucaInvoiceDto>> FetchInvoicesAsync(DateTime? fromDate = null);

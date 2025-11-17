@@ -3,6 +3,7 @@ using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Core.Enums;
+using Katana.Core.Helpers;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -46,6 +47,15 @@ public class SyncService : ISyncService, IIntegrationService
             return BuildResult("STOCK", productDtos.Count, successful);
         });
 
+    public Task<SyncResultDto> SyncProductsAsync(DateTime? fromDate = null) =>
+        ExecuteSyncAsync("PRODUCT", async ct =>
+        {
+            var productDtos = await _extractorService.ExtractProductsAsync(fromDate, ct);
+            var products = await _transformerService.ToProductsAsync(productDtos);
+            var successful = await _loaderService.LoadProductsToLucaAsync(products, ct: ct);
+            return BuildResult("PRODUCT", productDtos.Count, successful);
+        });
+
     public Task<SyncResultDto> SyncInvoicesAsync(DateTime? fromDate = null) =>
         ExecuteSyncAsync("INVOICE", async ct =>
         {
@@ -70,7 +80,8 @@ public class SyncService : ISyncService, IIntegrationService
         {
             await SyncCustomersAsync(fromDate),
             await SyncStockAsync(fromDate),
-            await SyncInvoicesAsync(fromDate)
+            await SyncInvoicesAsync(fromDate),
+            await SyncProductsAsync(fromDate)
         };
 
         return new BatchSyncResultDto
@@ -218,22 +229,80 @@ public class SyncService : ISyncService, IIntegrationService
             
             // Fetch from Luca
             var lucaStockDtos = await _lucaService.FetchStockMovementsAsync(fromDate);
-            
-            // TODO: Transform Luca format → Katana format using TransformerService
-            // For now, basic transformation
+
             _logger.LogInformation("Fetched {Count} stock movements from Luca", lucaStockDtos.Count);
-            
+
+            var processed = lucaStockDtos.Count;
+            var successful = 0;
+            var errors = new List<string>();
+            var toInsert = new List<Katana.Core.Entities.StockMovement>();
+
+            foreach (var dto in lucaStockDtos)
+            {
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(dto.ProductCode))
+                    {
+                        errors.Add($"Skipped stock movement with empty ProductCode (Ref={dto.Reference})");
+                        continue;
+                    }
+
+                    var product = await _dbContext.Products.FirstOrDefaultAsync(p => p.SKU == dto.ProductCode);
+                    if (product == null)
+                    {
+                        errors.Add($"Product not found for SKU={dto.ProductCode}. Skipping stock movement.");
+                        continue;
+                    }
+
+                    // If Luca sent a BALANCE-type movement, compute the delta against current balance
+                    var movementTypeNormalized = dto.MovementType?.ToUpperInvariant() ?? string.Empty;
+                    int changeQuantity;
+                    if (movementTypeNormalized == "BALANCE")
+                    {
+                        var currentBalance = await _dbContext.StockMovements
+                            .Where(sm => sm.ProductId == product.Id)
+                            .SumAsync(sm => (int?)sm.ChangeQuantity) ?? product.StockSnapshot;
+
+                        changeQuantity = dto.Quantity - currentBalance;
+                    }
+                    else
+                    {
+                        changeQuantity = movementTypeNormalized == "OUT" ? -Math.Abs(dto.Quantity) : Math.Abs(dto.Quantity);
+                    }
+
+                    var movement = MappingHelper.MapFromLucaStock(dto, product.Id);
+                    // Override computed change from mapping if BALANCE computed a delta
+                    movement.ChangeQuantity = changeQuantity;
+
+                    toInsert.Add(movement);
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"Error processing SKU={dto.ProductCode}: {ex.Message}");
+                }
+            }
+
+            if (toInsert.Any())
+            {
+                await _dbContext.StockMovements.AddRangeAsync(toInsert);
+                await _dbContext.SaveChangesAsync();
+                successful = toInsert.Count;
+            }
+
             stopwatch.Stop();
-            await FinalizeOperationAsync(logEntry, "SUCCESS", lucaStockDtos.Count, lucaStockDtos.Count, 0, null);
-            
+
+            await FinalizeOperationAsync(logEntry, "SUCCESS", processed, successful, processed - successful, errors.Any() ? string.Join("; ", errors) : null);
+
             return new SyncResultDto
             {
                 SyncType = "LUCA_TO_KATANA_STOCK",
-                IsSuccess = true,
-                ProcessedRecords = lucaStockDtos.Count,
-                SuccessfulRecords = lucaStockDtos.Count,
-                Message = $"Luca'dan {lucaStockDtos.Count} stok hareketi alındı",
-                Duration = stopwatch.Elapsed
+                IsSuccess = successful == processed,
+                ProcessedRecords = processed,
+                SuccessfulRecords = successful,
+                FailedRecords = processed - successful,
+                Message = errors.Any() ? "Some records were skipped or failed; check logs." : $"Luca'dan {processed} stok hareketi alındı",
+                Duration = stopwatch.Elapsed,
+                Errors = { }
             };
         }
         catch (Exception ex)

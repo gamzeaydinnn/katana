@@ -258,6 +258,61 @@ public class LucaService : ILucaService
         return result;
     }
 
+    public async Task<SyncResultDto> SendProductsAsync(List<LucaProductUpdateDto> products)
+    {
+        var result = new SyncResultDto
+        {
+            SyncType = "PRODUCT",
+            ProcessedRecords = products.Count
+        };
+
+        var startTime = DateTime.UtcNow;
+
+        try
+        {
+            await EnsureAuthenticatedAsync();
+
+            _logger.LogInformation("Sending {Count} products to Luca", products.Count);
+
+            var json = JsonSerializer.Serialize(products, _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync(_settings.Endpoints.Products, content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                result.IsSuccess = true;
+                result.SuccessfulRecords = products.Count;
+                result.Message = "Products sent successfully to Luca";
+
+                _logger.LogInformation("Successfully sent {Count} products to Luca", products.Count);
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                result.IsSuccess = false;
+                result.FailedRecords = products.Count;
+                result.Message = $"Failed to send products to Luca: {response.StatusCode}";
+                result.Errors.Add(errorContent);
+
+                _logger.LogError("Failed to send products to Luca. Status: {StatusCode}, Error: {Error}",
+                    response.StatusCode, errorContent);
+            }
+        }
+        catch (Exception ex)
+        {
+            result.IsSuccess = false;
+            result.FailedRecords = products.Count;
+            result.Message = ex.Message;
+            result.Errors.Add(ex.ToString());
+
+            _logger.LogError(ex, "Error sending products to Luca");
+        }
+
+        result.Duration = DateTime.UtcNow - startTime;
+        return result;
+    }
+
     public async Task<bool> TestConnectionAsync()
     {
         try

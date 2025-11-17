@@ -1,5 +1,6 @@
 ﻿using Katana.Business.DTOs;
 using Katana.Business.Interfaces;
+using Katana.Core.DTOs;
 using Katana.Core.Enums;
 using Katana.Data.Context;
 using Katana.Business.Services;
@@ -19,6 +20,7 @@ public class AdminController : ControllerBase
 {
     private readonly IKatanaService _katanaService;
     private readonly IntegrationDbContext _context;
+    private readonly Katana.Business.Interfaces.IAdminService _adminService;
     private readonly ILogger<AdminController> _logger;
     private readonly ILoggingService _loggingService;
     private readonly Katana.Business.Interfaces.IPendingStockAdjustmentService _pendingService;
@@ -26,12 +28,14 @@ public class AdminController : ControllerBase
     public AdminController(
         IKatanaService katanaService,
         IntegrationDbContext context,
+        Katana.Business.Services.AdminService adminService,
         ILogger<AdminController> logger,
         ILoggingService loggingService,
         Katana.Business.Interfaces.IPendingStockAdjustmentService pendingService)
     {
         _katanaService = katanaService;
         _context = context;
+        _adminService = adminService;
         _logger = logger;
         _loggingService = loggingService;
         _pendingService = pendingService;
@@ -417,6 +421,22 @@ public class AdminController : ControllerBase
         catch (Exception)
         {
             return Ok(new { isHealthy = false });
+        }
+    }
+
+    [HttpPost("manual-sync")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ManualSync([FromBody] ManualSyncRequest request)
+    {
+        try
+        {
+            var ok = await _adminService.RunManualSyncAsync(request);
+            return Ok(new { ok });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Manual sync failed for {Integration}", request?.IntegrationName);
+            return StatusCode(500, new { error = "Manual sync failed", detail = ex.Message });
         }
     }
 

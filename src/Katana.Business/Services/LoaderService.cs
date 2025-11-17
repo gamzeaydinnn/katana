@@ -159,6 +159,26 @@ public class LoaderService : ILoaderService
         return result.SuccessfulRecords;
     }
 
+    public async Task<int> LoadProductsToLucaAsync(IEnumerable<Product> products, int batchSize = 100, CancellationToken ct = default)
+    {
+        var productList = products.ToList();
+        if (!productList.Any())
+        {
+            _logger.LogInformation("LoaderService => No products to push to Luca.");
+            return 0;
+        }
+
+        var lucaProducts = productList.Select(MappingHelper.MapToLucaProduct).ToList();
+
+        var result = await _lucaService.SendProductsAsync(lucaProducts);
+        await WriteIntegrationLogAsync("PRODUCT", result, ct);
+
+        _logger.LogInformation("LoaderService => Products pushed. Success={Success} Failed={Failed}",
+            result.SuccessfulRecords, result.FailedRecords);
+
+        return result.SuccessfulRecords;
+    }
+
     private async Task WriteIntegrationLogAsync(string syncType, SyncResultDto result, CancellationToken ct)
     {
         var log = new IntegrationLog

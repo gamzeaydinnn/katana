@@ -16,17 +16,20 @@ public class AdminService : IAdminService
     private readonly IntegrationDbContext _context;
     private readonly IKatanaService _katanaService;
     private readonly ILucaService _lucaService;
+    private readonly ISyncService _syncService;
     private readonly ILogger<AdminService> _logger;
 
     public AdminService(
         IntegrationDbContext context,
         IKatanaService katanaService,
         ILucaService lucaService,
+        ISyncService syncService,
         ILogger<AdminService> logger)
     {
         _context = context;
         _katanaService = katanaService;
         _lucaService = lucaService;
+        _syncService = syncService;
         _logger = logger;
     }
     public async Task<List<AdminSyncStatusDto>> GetSyncStatusesAsync()
@@ -110,8 +113,16 @@ public class AdminService : IAdminService
             }
             else if (request.IntegrationName.Equals("Luca", StringComparison.OrdinalIgnoreCase))
             {
-                // Luca manuel sync örnek stub
-                return true;
+                // Run both directions for Luca:
+                // 1) Push Katana products to Luca
+                // 2) Pull stock movements from Luca into Katana
+                var pushRes = await _syncService.SyncProductsAsync();
+                var pullRes = await _syncService.SyncStockFromLucaAsync();
+
+                var pushed = pushRes != null && pushRes.SuccessfulRecords > 0;
+                var pulled = pullRes != null && pullRes.SuccessfulRecords > 0;
+
+                return pushed || pulled;
             }
             return false;
         }
