@@ -73,7 +73,8 @@ public class StockMovement
 
     /// <summary>
     /// İlişkili ürün nesnesi (EF Core navigation)
+    /// Non-nullable: StockMovement her zaman bir Product ile ilişkili olmalıdır.
     /// </summary>
     [ForeignKey(nameof(ProductId))]
-    public Product? Product { get; set; }
+    public Product Product { get; set; } = null!;
 }

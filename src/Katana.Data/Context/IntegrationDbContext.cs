@@ -82,6 +82,12 @@ public class IntegrationDbContext : DbContext
             .WithOne(e => e.Product)
             .HasForeignKey(e => e.ProductId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Local Stocks (application-level stock records) relationship
+        entity.HasMany(e => e.Stocks)
+            .WithOne(s => s.Product)
+            .HasForeignKey(s => s.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
     });
 
 

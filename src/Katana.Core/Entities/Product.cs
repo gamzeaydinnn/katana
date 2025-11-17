@@ -1,4 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
 
 namespace Katana.Core.Entities;
 
@@ -16,7 +18,18 @@ public class Product
     
     public decimal Price { get; set; }
     
-    public int Stock { get; set; }
+    // Persisted legacy stock snapshot (kept for compatibility with existing migrations/usages)
+    [Column("Stock")]
+    public int StockSnapshot { get; set; }
+
+    // Exposed Stock property: prefer calculated value from StockMovements when present.
+    // Marked NotMapped so EF won't treat it as a separate column.
+    [NotMapped]
+    public int Stock
+    {
+        get => (StockMovements != null && StockMovements.Any()) ? StockMovements.Sum(x => x.ChangeQuantity) : StockSnapshot;
+        set => StockSnapshot = value;
+    }
     
     public int CategoryId { get; set; }
     
@@ -33,6 +46,9 @@ public class Product
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     
     // Navigation properties
-    public virtual ICollection<Stock> StockMovements { get; set; } = new List<Stock>();
+    public virtual ICollection<StockMovement> StockMovements { get; set; } = new List<StockMovement>();
+    
+    // Local stock snapshot/history entries (kept separate from StockMovement used for integration)
+    public virtual ICollection<Stock> Stocks { get; set; } = new List<Stock>();
 }
 

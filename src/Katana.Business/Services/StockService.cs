@@ -160,7 +160,7 @@ public class StockService : IStockService
         try
         {
             var products = await _context.Products
-                .Include(p => p.StockMovements)
+                .Include(p => p.Stocks)
                 .ToListAsync();
 
             var summaries = products.Select(p => new StockSummaryDto
@@ -169,11 +169,11 @@ public class StockService : IStockService
                 ProductName = p.Name,
                 ProductSKU = p.SKU,
                 TotalStock = p.Stock,
-                StockByLocation = p.StockMovements
+                StockByLocation = p.Stocks
                     .GroupBy(s => s.Location)
                     .ToDictionary(g => g.Key, g => g.Sum(s => s.Type == "IN" ? s.Quantity : -s.Quantity)),
-                LastMovement = p.StockMovements.Any() 
-                    ? p.StockMovements.Max(s => s.Timestamp) 
+                LastMovement = p.Stocks.Any()
+                    ? p.Stocks.Max(s => s.Timestamp)
                     : DateTime.MinValue
             }).ToList();
 
@@ -191,7 +191,7 @@ public class StockService : IStockService
         try
         {
             var product = await _context.Products
-                .Include(p => p.StockMovements)
+                .Include(p => p.Stocks)
                 .FirstOrDefaultAsync(p => p.Id == productId);
 
             if (product == null)
@@ -205,11 +205,11 @@ public class StockService : IStockService
                 ProductName = product.Name,
                 ProductSKU = product.SKU,
                 TotalStock = product.Stock,
-                StockByLocation = product.StockMovements
+                StockByLocation = product.Stocks
                     .GroupBy(s => s.Location)
                     .ToDictionary(g => g.Key, g => g.Sum(s => s.Type == "IN" ? s.Quantity : -s.Quantity)),
-                LastMovement = product.StockMovements.Any() 
-                    ? product.StockMovements.Max(s => s.Timestamp) 
+                LastMovement = product.Stocks.Any()
+                    ? product.Stocks.Max(s => s.Timestamp)
                     : DateTime.MinValue
             };
         }
