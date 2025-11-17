@@ -258,6 +258,91 @@ public class AdminController : ControllerBase
         }
     }
 
+    // Anonymous helper to read recent sync logs (for local testing)
+    [HttpGet("sync-logs-anon")]
+    [AllowAnonymous]
+    public IActionResult GetSyncLogsAnonymous([FromQuery] int take = 20)
+    {
+        try
+        {
+            var logs = _context.SyncOperationLogs
+                .OrderByDescending(l => l.StartTime)
+                .Take(take)
+                .Select(l => new { l.Id, l.SyncType, l.Status, l.StartTime, l.EndTime, l.Details })
+                .ToList();
+
+            return Ok(new { total = logs.Count, logs });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get anonymous sync logs");
+            return StatusCode(500, new { error = "Failed to get sync logs", detail = ex.Message });
+        }
+    }
+
+    // Anonymous helper to read LOCATION_WAREHOUSE mapping table entries
+    [HttpGet("mapping-table-anon")]
+    [AllowAnonymous]
+    public IActionResult GetMappingTableAnonymous([FromQuery] string mappingType = "LOCATION_WAREHOUSE")
+    {
+        try
+        {
+            var entries = _context.MappingTables
+                .Where(m => m.MappingType == mappingType)
+                .OrderBy(m => m.SourceValue)
+                .Select(m => new { m.Id, m.SourceValue, m.TargetValue, m.Description, m.IsActive })
+                .ToList();
+
+            return Ok(new { total = entries.Count, entries });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get anonymous mapping table");
+            return StatusCode(500, new { error = "Failed to get mapping table", detail = ex.Message });
+        }
+    }
+
+    // Set default LOCATION_WAREHOUSE mapping target to '001' (for testing)
+    [HttpPost("mapping-table-anon/set-default")]
+    [AllowAnonymous]
+    public async Task<IActionResult> SetMappingDefaultTo001()
+    {
+        try
+        {
+            var mapping = await _context.MappingTables
+                .FirstOrDefaultAsync(m => m.MappingType == "LOCATION_WAREHOUSE" && m.SourceValue == "DEFAULT");
+
+            if (mapping == null)
+            {
+                mapping = new Katana.Data.Models.MappingTable
+                {
+                    MappingType = "LOCATION_WAREHOUSE",
+                    SourceValue = "DEFAULT",
+                    TargetValue = "001",
+                    Description = "Default warehouse code for unmapped locations (test)",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _context.MappingTables.Add(mapping);
+            }
+            else
+            {
+                mapping.TargetValue = "001";
+                mapping.UpdatedAt = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { ok = true, mappingId = mapping.Id, targetValue = mapping.TargetValue });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to set mapping default");
+            return StatusCode(500, new { error = "Failed to set mapping default", detail = ex.Message });
+        }
+    }
+
     [HttpGet("db-check")]
     public async Task<IActionResult> GetDatabaseCheck()
     {
@@ -393,6 +478,69 @@ public class AdminController : ControllerBase
         }
     }
 
+    // Anonymous test endpoint to create a product + pending adjustment for local testing
+    [HttpPost("pending-adjustments/test-create-anon")]
+    [AllowAnonymous]
+    public async Task<IActionResult> CreateTestPendingAdjustmentAnonymous()
+    {
+        try
+        {
+            // Create or find a test product
+            var sku = "TEST-SKU-ANON-001";
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.SKU == sku);
+            if (product == null)
+            {
+                // Ensure there's at least one category to satisfy FK
+                var category = await _context.Categories.FirstOrDefaultAsync();
+                if (category == null)
+                {
+                    category = new Katana.Core.Entities.Category {
+                        Name = "Uncategorized",
+                        Description = "Auto-created test category",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.Categories.Add(category);
+                    await _context.SaveChangesAsync();
+                }
+
+                product = new Katana.Core.Entities.Product
+                {
+                    Name = "Test Product (Anon)",
+                    SKU = sku,
+                    Price = 1.0m,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Stock = 10,
+                    CategoryId = category.Id
+                };
+                _context.Products.Add(product);
+                await _context.SaveChangesAsync();
+            }
+
+            var pending = new Katana.Data.Models.PendingStockAdjustment
+            {
+                ExternalOrderId = $"TEST-ANON-{Guid.NewGuid():N}",
+                ProductId = product.Id,
+                Sku = product.SKU,
+                Quantity = 2,
+                RequestedBy = "anon-test",
+                RequestedAt = DateTimeOffset.UtcNow,
+                Status = "Pending"
+            };
+
+            var created = await _pendingService.CreateAsync(pending);
+
+            return Ok(new { ok = true, pendingId = created.Id, productId = product.Id, sku = product.SKU });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create anonymous test pending adjustment");
+            return StatusCode(500, new { error = "Failed to create test pending adjustment", detail = ex.Message });
+        }
+    }
+
     [HttpGet("product-stock/{id:int}")]
     public async Task<IActionResult> GetProductStock(int id)
     {
@@ -490,6 +638,54 @@ public class AdminController : ControllerBase
         {
             _logger.LogError(ex, "Failed to get failed sync records");
             return StatusCode(500, new { error = "Failed to get failed sync records" });
+        }
+    }
+
+    // Anonymous view of recent failed sync records (for debugging)
+    [HttpGet("failed-records-anon")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetFailedSyncRecordsAnonymous([FromQuery] int take = 50)
+    {
+        try
+        {
+            var items = await _context.FailedSyncRecords
+                .OrderByDescending(f => f.FailedAt)
+                .Take(take)
+                .Select(f => new { f.Id, f.RecordType, f.RecordId, f.ErrorMessage, f.FailedAt, f.Status })
+                .ToListAsync();
+
+            return Ok(new { total = items.Count, items });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get anonymous failed sync records");
+            return StatusCode(500, new { error = "Failed to get failed records", detail = ex.Message });
+        }
+    }
+
+    // Trigger a direct push of local DB products to Luca (for testing).
+    [HttpPost("test-push-products-anon")]
+    [AllowAnonymous]
+    public async Task<IActionResult> TestPushProductsAnonymous([FromQuery] int take = 10)
+    {
+        try
+        {
+            var products = await _context.Products
+                .OrderByDescending(p => p.UpdatedAt)
+                .Take(take)
+                .ToListAsync();
+
+            var lucaService = HttpContext.RequestServices.GetRequiredService<Katana.Business.Interfaces.ILucaService>();
+
+            var lucaProducts = products.Select(Katana.Core.Helpers.MappingHelper.MapToLucaProduct).ToList();
+            var result = await lucaService.SendProductsAsync(lucaProducts);
+
+            return Ok(new { ok = true, processed = result.ProcessedRecords, success = result.SuccessfulRecords, failed = result.FailedRecords, message = result.Message, errors = result.Errors });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to push products to Luca in test endpoint");
+            return StatusCode(500, new { error = "Failed to push products", detail = ex.Message });
         }
     }
 

@@ -4,6 +4,7 @@ using Katana.Core.DTOs;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace Katana.Business.Services;
 
@@ -71,8 +72,87 @@ public class ExtractorService : IExtractorService
             }
             else
             {
-                _logger.LogWarning("ExtractorService => Product skipped. SKU={SKU}; Reasons={Reasons}",
-                    dto.SKU, string.Join("; ", validationErrors));
+                // If category is missing/invalid (or not provided), try to assign a default category and re-validate
+                var missingCategory = validationErrors.Any(e => e.Contains("Geçerli bir kategori"));
+                var categoryNotProvided = dto.CategoryId == 0;
+                if (categoryNotProvided || missingCategory)
+                {
+                    try
+                    {
+                        // Find existing default category by name or create one
+                        var defaultCat = await _dbContext.Categories
+                            .FirstOrDefaultAsync(c => c.Name == "Default" || c.Name == "Uncategorized", ct);
+
+                        if (defaultCat == null)
+                        {
+                            defaultCat = new Katana.Core.Entities.Category
+                            {
+                                Name = "Uncategorized",
+                                Description = "Automatically created default category",
+                                IsActive = true,
+                                CreatedAt = DateTime.UtcNow,
+                                UpdatedAt = DateTime.UtcNow
+                            };
+                            _dbContext.Categories.Add(defaultCat);
+                            await _dbContext.SaveChangesAsync(ct);
+                        }
+
+                        dto.CategoryId = defaultCat.Id;
+
+                        // Re-validate after assigning
+                        validationErrors = ProductValidator.ValidateUpdate(new UpdateProductDto
+                        {
+                            SKU = dto.SKU,
+                            Name = dto.Name,
+                            Price = dto.Price,
+                            CategoryId = dto.CategoryId,
+                            Description = dto.Description,
+                            MainImageUrl = dto.MainImageUrl,
+                            Stock = dto.Stock,
+                            IsActive = dto.IsActive
+                        });
+
+                        if (validationErrors.Count == 0)
+                        {
+                            _logger.LogInformation("ExtractorService => Assigned default category (Id={CategoryId}) to SKU={SKU} and accepted product.", dto.CategoryId, dto.SKU);
+                            result.Add(dto);
+                            continue;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "ExtractorService => Failed to assign default category for SKU={SKU}", dto.SKU);
+                    }
+                }
+
+                // Try to resolve category name for better diagnostics
+                string? categoryName = null;
+                try
+                {
+                    if (dto.CategoryId != 0)
+                    {
+                        categoryName = await _dbContext.Categories.AsNoTracking()
+                            .Where(c => c.Id == dto.CategoryId)
+                            .Select(c => c.Name)
+                            .FirstOrDefaultAsync(ct);
+                    }
+                }
+                catch
+                {
+                    // ignore category lookup failures for logging
+                }
+
+                var payload = JsonSerializer.Serialize(new
+                {
+                    dto.SKU,
+                    dto.Name,
+                    dto.Price,
+                    dto.IsActive,
+                    dto.CategoryId
+                });
+
+                _logger.LogWarning("ExtractorService => Product skipped. SKU={SKU}; CategoryId={CategoryId}; CategoryName={CategoryName}; Reasons={Reasons}; Payload={Payload}",
+                    dto.SKU, dto.CategoryId, categoryName ?? "-", string.Join("; ", validationErrors), payload);
             }
         }
 

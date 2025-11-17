@@ -1,0 +1,7 @@
+<!-- Project removed: mock server not needed. -->
+<!-- If you want to restore the mock server, replace this file with a valid .csproj. -->
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+</Project>

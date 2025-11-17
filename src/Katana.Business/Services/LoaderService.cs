@@ -8,6 +8,7 @@ using Katana.Data.Context;
 using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 
 namespace Katana.Business.Services;
@@ -80,11 +81,29 @@ public class LoaderService : ILoaderService
             Reference = "SYNC"
         }).ToList();
 
+        // Diagnostic logging: count and sample SKUs
+        try
+        {
+            var sampleSkus = string.Join(',', lucaStocks.Take(8).Select(s => s.ProductCode));
+            var samplePayload = JsonSerializer.Serialize(lucaStocks.Take(5).Select(s => new { s.ProductCode, s.Quantity, s.WarehouseCode }));
+            _logger.LogInformation("LoaderService => Preparing {Count} stock movements. SampleSKUs={SampleSkus}; SamplePayload={SamplePayload}", lucaStocks.Count, sampleSkus, samplePayload);
+        }
+        catch { /* ignore logging errors */ }
+
         var result = await _lucaService.SendStockMovementsAsync(lucaStocks);
         await WriteIntegrationLogAsync("STOCK", result, ct);
 
         _logger.LogInformation("LoaderService => Products synced. Success={Success} Failed={Failed}",
             result.SuccessfulRecords, result.FailedRecords);
+
+        if (result.FailedRecords > 0)
+        {
+            try
+            {
+                _logger.LogWarning("LoaderService => Some stock movements failed. FailedCount={Failed}. Errors={Errors}", result.FailedRecords, string.Join(";", result.Errors ?? new List<string>()));
+            }
+            catch { }
+        }
 
         return result.SuccessfulRecords;
     }
@@ -170,11 +189,29 @@ public class LoaderService : ILoaderService
 
         var lucaProducts = productList.Select(MappingHelper.MapToLucaProduct).ToList();
 
+        // Diagnostic logging for product push
+        try
+        {
+            var skus = string.Join(',', lucaProducts.Take(12).Select(p => p.ProductCode));
+            var sample = JsonSerializer.Serialize(lucaProducts.Take(6).Select(p => new { p.ProductCode, p.ProductName }));
+            _logger.LogInformation("LoaderService => Preparing {Count} products to push. SKUs={SKUs}; Sample={Sample}", lucaProducts.Count, skus, sample);
+        }
+        catch { }
+
         var result = await _lucaService.SendProductsAsync(lucaProducts);
         await WriteIntegrationLogAsync("PRODUCT", result, ct);
 
         _logger.LogInformation("LoaderService => Products pushed. Success={Success} Failed={Failed}",
             result.SuccessfulRecords, result.FailedRecords);
+
+        if (result.FailedRecords > 0)
+        {
+            try
+            {
+                _logger.LogWarning("LoaderService => Some products failed to push. FailedCount={Failed}. Errors={Errors}", result.FailedRecords, string.Join(";", result.Errors ?? new List<string>()));
+            }
+            catch { }
+        }
 
         return result.SuccessfulRecords;
     }
@@ -191,8 +228,9 @@ public class LoaderService : ILoaderService
             ProcessedRecords = result.ProcessedRecords,
             SuccessfulRecords = result.SuccessfulRecords,
             FailedRecordsCount = result.FailedRecords,
-            ErrorMessage = result.IsSuccess ? null : string.Join(Environment.NewLine, result.Errors ?? new List<string>()),
-            Details = result.Message
+            // Truncate messages to fit DB column sizes to avoid SaveChanges truncation errors
+            ErrorMessage = result.IsSuccess ? null : Truncate(result.Errors is null ? null : string.Join(Environment.NewLine, result.Errors), 1900),
+            Details = Truncate(result.Message, 4000)
         };
 
         _dbContext.IntegrationLogs.Add(log);
@@ -206,7 +244,7 @@ public class LoaderService : ILoaderService
                     IntegrationLog = log,
                     RecordType = syncType,
                     RecordId = Guid.NewGuid().ToString(),
-                    ErrorMessage = error,
+                    ErrorMessage = Truncate(error, 1900),
                     FailedAt = DateTime.UtcNow,
                     Status = "FAILED"
                 });
@@ -214,5 +252,12 @@ public class LoaderService : ILoaderService
         }
 
         await _dbContext.SaveChangesAsync(ct);
+    }
+
+    private static string? Truncate(string? value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value)) return value;
+        if (maxLength <= 0) return null;
+        return value.Length <= maxLength ? value : value.Substring(0, maxLength);
     }
 }
