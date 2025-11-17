@@ -37,6 +37,8 @@ public class IntegrationTestService : IIntegrationTestService
                     var luca = MappingHelper.MapToLucaStock(stock, stock.Product!, mapping);
                     if (string.IsNullOrWhiteSpace(luca.ProductCode)) detail.Errors.Add("SKU boş");
                     if (string.IsNullOrWhiteSpace(luca.WarehouseCode)) detail.Warnings.Add($"Depo yok: {stock.Location}");
+                    if (string.IsNullOrWhiteSpace(luca.EntryWarehouseCode)) detail.Warnings.Add("Giriş deposu yok");
+                    if (string.IsNullOrWhiteSpace(luca.ExitWarehouseCode)) detail.Warnings.Add("Çıkış deposu yok");
                     detail.IsValid = !detail.Errors.Any();
                     if (detail.IsValid) result.RecordsPassed++; else result.RecordsFailed++;
                 }

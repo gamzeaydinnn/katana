@@ -32,6 +32,7 @@ interface SettingsState {
   autoSync: boolean;
   syncInterval: number;
   showApiKey: boolean;
+  hideZeroStockProducts: boolean;
 }
 
 const Settings: React.FC = () => {
@@ -41,6 +42,7 @@ const Settings: React.FC = () => {
     autoSync: true,
     syncInterval: 60,
     showApiKey: false,
+    hideZeroStockProducts: false,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -63,6 +65,7 @@ const Settings: React.FC = () => {
         autoSync: data.autoSync ?? true,
         syncInterval: data.syncInterval || 60,
         showApiKey: false,
+        hideZeroStockProducts: data.hideZeroStockProducts ?? false,
       });
     } catch (err: any) {
       console.error("Settings load error:", err);
@@ -73,6 +76,7 @@ const Settings: React.FC = () => {
         autoSync: true,
         syncInterval: 60,
         showApiKey: false,
+        hideZeroStockProducts: false,
       });
       // Hata mesajını gösterme, sadece log'la
     } finally {
@@ -89,6 +93,7 @@ const Settings: React.FC = () => {
         lucaApiKey: settings.lucaApiKey,
         autoSync: settings.autoSync,
         syncInterval: settings.syncInterval,
+        hideZeroStockProducts: settings.hideZeroStockProducts,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -268,6 +273,22 @@ const Settings: React.FC = () => {
                       </InputAdornment>
                     ),
                   }}
+                />
+
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.hideZeroStockProducts}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          hideZeroStockProducts: e.target.checked,
+                        })
+                      }
+                    />
+                  }
+                  label="Stokta olmayan ürünleri müşteri kataloğunda gizle"
+                  sx={{ mt: 3 }}
                 />
               </CardContent>
             </Card>

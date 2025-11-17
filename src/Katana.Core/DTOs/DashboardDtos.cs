@@ -7,6 +7,7 @@ public class DashboardStatsDto
     public int TotalStock { get; set; }
     public int CriticalStock { get; set; }
     public int PendingSync { get; set; }
+    public decimal TotalSales { get; set; }
 }
 public class ActivityLogDto
 {

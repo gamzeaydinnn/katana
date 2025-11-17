@@ -83,13 +83,24 @@ public class SyncController : ControllerBase
         try
         {
             var user = User?.Identity?.Name ?? "System";
-            _logger.LogInformation("Senkronizasyon başlatılıyor: {SyncType}", request.SyncType);
-            _loggingService.LogInfo($"Senkronizasyon başlatıldı: {request.SyncType}", user, "StartSync", LogCategory.Sync);
+            var normalizedType = (request.SyncType ?? string.Empty).Trim();
+            var syncKey = normalizedType.ToUpperInvariant();
+            syncKey = syncKey switch
+            {
+                "FATURA" or "FATURA SENKRONIZASYONU" or "FATURA SENKRONİZASYONU" => "INVOICE",
+                "STOK" or "STOK SENKRONIZASYONU" or "STOK SENKRONİZASYONU" => "STOCK",
+                "MUSTERI" or "MÜŞTERI" or "MÜŞTERİ" or "MÜŞTERI SENKRONIZASYONU" or "MÜŞTERİ SENKRONİZASYONU" => "CUSTOMER",
+                "TÜMÜ" or "TUMU" or "TÜM SENKRONIZASYON" or "TÜM SENKRONİZASYON" => "ALL",
+                _ => syncKey
+            };
+
+            _logger.LogInformation("Senkronizasyon başlatılıyor: {SyncType}", normalizedType);
+            _loggingService.LogInfo($"Senkronizasyon başlatıldı: {normalizedType}", user, "StartSync", LogCategory.Sync);
             
-            // Audit log: Sync ba�lat�ld�
-            _auditService.LogSync(request.SyncType ?? "UNKNOWN", user, $"Manuel senkronizasyon başlatıldı");
+            // Audit log: Sync başlatıldı
+            _auditService.LogSync(string.IsNullOrEmpty(normalizedType) ? "UNKNOWN" : normalizedType, user, $"Manuel senkronizasyon başlatıldı");
             
-            var result = request.SyncType?.ToUpper() switch
+            var result = syncKey switch
             {
                 "STOCK" => await _syncService.SyncStockAsync(null),
                 "INVOICE" => await _syncService.SyncInvoicesAsync(null),

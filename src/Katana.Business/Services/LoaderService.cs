@@ -3,10 +3,12 @@ using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Core.Enums;
 using Katana.Core.Helpers;
+using Katana.Data.Configuration;
 using Katana.Data.Context;
 using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Katana.Business.Services;
 
@@ -18,14 +20,17 @@ public class LoaderService : ILoaderService
     private readonly ILucaService _lucaService;
     private readonly IntegrationDbContext _dbContext;
     private readonly ILogger<LoaderService> _logger;
+    private readonly InventorySettings _inventorySettings;
 
     public LoaderService(
         ILucaService lucaService,
         IntegrationDbContext dbContext,
+        IOptions<InventorySettings> inventoryOptions,
         ILogger<LoaderService> logger)
     {
         _lucaService = lucaService;
         _dbContext = dbContext;
+        _inventorySettings = inventoryOptions.Value;
         _logger = logger;
     }
 
@@ -38,11 +43,23 @@ public class LoaderService : ILoaderService
             return 0;
         }
 
+        var defaultWarehouseCode = string.IsNullOrWhiteSpace(_inventorySettings?.DefaultWarehouseCode)
+            ? "MAIN"
+            : _inventorySettings.DefaultWarehouseCode.Trim();
+        var entryWarehouseCode = string.IsNullOrWhiteSpace(_inventorySettings?.DefaultEntryWarehouseCode)
+            ? defaultWarehouseCode
+            : _inventorySettings.DefaultEntryWarehouseCode.Trim();
+        var exitWarehouseCode = string.IsNullOrWhiteSpace(_inventorySettings?.DefaultExitWarehouseCode)
+            ? entryWarehouseCode
+            : _inventorySettings.DefaultExitWarehouseCode.Trim();
+
         var lucaStocks = productList.Select(product => new LucaStockDto
         {
             ProductCode = product.SKU,
             ProductName = product.Name,
-            WarehouseCode = "MAIN",
+            WarehouseCode = entryWarehouseCode,
+            EntryWarehouseCode = entryWarehouseCode,
+            ExitWarehouseCode = exitWarehouseCode,
             Quantity = Math.Max(product.Stock, 0),
             MovementType = "BALANCE",
             MovementDate = DateTime.UtcNow,

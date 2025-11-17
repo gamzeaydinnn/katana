@@ -150,6 +150,8 @@ builder.Services.AddDbContext<IntegrationDbContext>(options =>
 builder.Services.Configure<KatanaApiSettings>(builder.Configuration.GetSection("KatanaApi"));
 builder.Services.Configure<LucaApiSettings>(builder.Configuration.GetSection("LucaApi"));
 builder.Services.Configure<SyncSettings>(builder.Configuration.GetSection(SyncSettings.SectionName));
+builder.Services.Configure<InventorySettings>(builder.Configuration.GetSection(InventorySettings.SectionName));
+builder.Services.Configure<CatalogVisibilitySettings>(builder.Configuration.GetSection(CatalogVisibilitySettings.SectionName));
 builder.Services.AddAuthorization();
 
 // -----------------------------
@@ -346,6 +348,8 @@ if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<IntegrationDbContext>();
+    var inventoryOptions = scope.ServiceProvider.GetRequiredService<IOptions<InventorySettings>>();
+    var defaultWarehouseCode = inventoryOptions.Value.DefaultWarehouseCode ?? "MAIN";
     try
     {
         db.Database.Migrate();
@@ -366,13 +370,40 @@ if (app.Environment.IsDevelopment())
             {
                 MappingType = "LOCATION_WAREHOUSE",
                 SourceValue = "DEFAULT",
-                TargetValue = "MAIN",
+                TargetValue = defaultWarehouseCode,
                 Description = "Default warehouse code for unmapped locations",
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             });
             db.SaveChanges();
+        }
+        else
+        {
+            var defaultWarehouse = db.MappingTables.FirstOrDefault(m =>
+                m.MappingType == "LOCATION_WAREHOUSE" &&
+                m.SourceValue == "DEFAULT");
+            if (defaultWarehouse == null)
+            {
+                db.MappingTables.Add(new Katana.Data.Models.MappingTable
+                {
+                    MappingType = "LOCATION_WAREHOUSE",
+                    SourceValue = "DEFAULT",
+                    TargetValue = defaultWarehouseCode,
+                    Description = "Default warehouse code for unmapped locations",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+                db.SaveChanges();
+            }
+            else if (string.IsNullOrWhiteSpace(defaultWarehouse.TargetValue))
+            {
+                defaultWarehouse.TargetValue = defaultWarehouseCode;
+                defaultWarehouse.Description ??= "Default warehouse code for unmapped locations";
+                defaultWarehouse.UpdatedAt = DateTime.UtcNow;
+                db.SaveChanges();
+            }
         }
     }
     catch (Exception ex)

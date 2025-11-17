@@ -108,13 +108,17 @@ public static class MappingHelper
 
     public static LucaStockDto MapToLucaStock(Stock stock, Product product, Dictionary<string, string> locationMapping)
     {
+        var warehouseCode = locationMapping.TryGetValue(stock.Location, out var wh)
+            ? wh
+            : (locationMapping.TryGetValue("DEFAULT", out var defWh) ? defWh : "001");
+
         return new LucaStockDto
         {
             ProductCode = product.SKU,
             ProductName = product.Name,
-            WarehouseCode = locationMapping.TryGetValue(stock.Location, out var wh)
-                ? wh
-                : (locationMapping.TryGetValue("DEFAULT", out var defWh) ? defWh : "MAIN"),
+            WarehouseCode = warehouseCode,
+            EntryWarehouseCode = warehouseCode,
+            ExitWarehouseCode = warehouseCode,
             Quantity = Math.Abs(stock.Quantity),
             MovementType = stock.Type == "IN" ? "IN" : "OUT",
             MovementDate = stock.Timestamp,

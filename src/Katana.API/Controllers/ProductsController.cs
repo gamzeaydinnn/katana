@@ -2,8 +2,10 @@ using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Core.Enums;
 using Katana.Core.Interfaces;
+using Katana.Data.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Katana.API.Controllers;
 
@@ -21,11 +23,13 @@ public class ProductsController : ControllerBase
     private readonly ILogger<ProductsController> _logger;
     private readonly ILoggingService _loggingService;
     private readonly IAuditService _auditService;
+    private readonly IOptionsSnapshot<CatalogVisibilitySettings> _catalogVisibility;
 
     public ProductsController(
         IKatanaService katanaService,
         IProductService productService,
         ICategoryService categoryService,
+        IOptionsSnapshot<CatalogVisibilitySettings> catalogVisibility,
         ILogger<ProductsController> logger,
         ILoggingService loggingService,
         IAuditService auditService)
@@ -33,6 +37,7 @@ public class ProductsController : ControllerBase
         _katanaService = katanaService;
         _productService = productService;
         _categoryService = categoryService;
+        _catalogVisibility = catalogVisibility;
         _logger = logger;
         _loggingService = loggingService;
         _auditService = auditService;
@@ -305,6 +310,55 @@ public class ProductsController : ControllerBase
         _loggingService.LogInfo("Products listed", User?.Identity?.Name, null, LogCategory.UserAction);
         var products = await _productService.GetAllProductsAsync();
         return Ok(products);
+    }
+
+    /// <summary>
+    /// Returns only the products that are eligible for the public/customer catalog.
+    /// Applies category, status and stock validations.
+    /// </summary>
+    [HttpGet("catalog")]
+    [AllowAnonymous]
+    public async Task<ActionResult<CustomerCatalogResponse>> GetCustomerCatalog([FromQuery] bool? hideZeroStockProducts = null)
+    {
+        var products = (await _productService.GetAllProductsAsync()).ToList();
+        var categories = (await _categoryService.GetAllAsync())?.ToList() ?? new List<CategoryDto>();
+        var publishedCategoryIds = new HashSet<int>(categories.Where(c => c.IsActive).Select(c => c.Id));
+
+        var appliedHideZeroFlag = hideZeroStockProducts
+            ?? SettingsController.GetCachedSettings()?.HideZeroStockProducts
+            ?? _catalogVisibility.Value.HideZeroStockProducts;
+
+        var visibleProducts = new List<ProductDto>();
+        var hiddenCount = 0;
+
+        foreach (var product in products)
+        {
+            var visibility = EvaluateCatalogVisibility(product, publishedCategoryIds, appliedHideZeroFlag);
+            if (visibility.isVisible)
+            {
+                visibleProducts.Add(product);
+            }
+            else
+            {
+                hiddenCount++;
+                _logger.LogDebug("Customer catalog skipped SKU {Sku}: {Reasons}", product.SKU, string.Join(", ", visibility.reasons));
+            }
+        }
+
+        var response = new CustomerCatalogResponse
+        {
+            Data = visibleProducts,
+            Total = visibleProducts.Count,
+            HiddenCount = hiddenCount,
+            Filters = new CatalogFilterMetadata
+            {
+                HideZeroStockProducts = appliedHideZeroFlag,
+                RequirePublishedCategory = true,
+                RequireActiveStatus = true
+            }
+        };
+
+        return Ok(response);
     }
 
     [HttpGet("active")]
@@ -694,4 +748,44 @@ public class ProductsController : ControllerBase
         var stats = await _productService.GetProductStatisticsAsync();
         return Ok(stats);
     }
+
+    private static (bool isVisible, List<string> reasons) EvaluateCatalogVisibility(
+        ProductDto product,
+        HashSet<int> publishedCategoryIds,
+        bool hideZeroStockProducts)
+    {
+        var reasons = new List<string>();
+
+        if (product.CategoryId <= 0 || !publishedCategoryIds.Contains(product.CategoryId))
+        {
+            reasons.Add("CATEGORY_NOT_PUBLISHED");
+        }
+
+        if (!product.IsActive)
+        {
+            reasons.Add("INACTIVE_STATUS");
+        }
+
+        if (hideZeroStockProducts && product.Stock <= 0)
+        {
+            reasons.Add("ZERO_STOCK");
+        }
+
+        return (reasons.Count == 0, reasons);
+    }
+}
+
+public class CustomerCatalogResponse
+{
+    public List<ProductDto> Data { get; set; } = new();
+    public int Total { get; set; }
+    public int HiddenCount { get; set; }
+    public CatalogFilterMetadata Filters { get; set; } = new();
+}
+
+public class CatalogFilterMetadata
+{
+    public bool HideZeroStockProducts { get; set; }
+    public bool RequirePublishedCategory { get; set; }
+    public bool RequireActiveStatus { get; set; }
 }

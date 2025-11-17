@@ -28,13 +28,17 @@ public class DashboardService
         var totalStock = await _context.Products.Where(p => p.IsActive).SumAsync(p => p.Stock);
         var criticalStock = await _context.Products.CountAsync(p => p.Stock <= 5 && p.IsActive);
         var pendingSync = await _context.PendingStockAdjustments.CountAsync(p => p.Status == "Pending");
+        var totalSales = await _context.Invoices
+            .Where(i => i.Status == "PAID")
+            .SumAsync(i => (decimal?)i.TotalAmount) ?? 0m;
 
         return new DashboardStatsDto
         {
             TotalProducts = totalProducts,
             TotalStock = totalStock,
             CriticalStock = criticalStock,
-            PendingSync = pendingSync
+            PendingSync = pendingSync,
+            TotalSales = totalSales
         };
     }
 }

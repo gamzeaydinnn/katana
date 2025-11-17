@@ -1,11 +1,14 @@
+using System.Linq;
 using FluentAssertions;
 using Katana.API.Controllers;
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Core.Enums;
 using Katana.Core.Interfaces;
+using Katana.Data.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
@@ -15,22 +18,29 @@ public class ProductsControllerTests
 {
     private readonly Mock<IKatanaService> _mockKatanaService;
     private readonly Mock<IProductService> _mockProductService;
+    private readonly Mock<ICategoryService> _mockCategoryService;
     private readonly Mock<ILogger<ProductsController>> _mockLogger;
     private readonly Mock<ILoggingService> _mockLoggingService;
     private readonly Mock<IAuditService> _mockAuditService;
+    private readonly Mock<IOptionsSnapshot<CatalogVisibilitySettings>> _mockCatalogVisibility;
     private readonly ProductsController _controller;
 
     public ProductsControllerTests()
     {
         _mockKatanaService = new Mock<IKatanaService>();
         _mockProductService = new Mock<IProductService>();
+        _mockCategoryService = new Mock<ICategoryService>();
         _mockLogger = new Mock<ILogger<ProductsController>>();
         _mockLoggingService = new Mock<ILoggingService>();
         _mockAuditService = new Mock<IAuditService>();
+        _mockCatalogVisibility = new Mock<IOptionsSnapshot<CatalogVisibilitySettings>>();
+        _mockCatalogVisibility.Setup(o => o.Value).Returns(new CatalogVisibilitySettings());
         
         _controller = new ProductsController(
             _mockKatanaService.Object,
             _mockProductService.Object,
+            _mockCategoryService.Object,
+            _mockCatalogVisibility.Object,
             _mockLogger.Object,
             _mockLoggingService.Object,
             _mockAuditService.Object);
@@ -54,6 +64,38 @@ public class ProductsControllerTests
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var data = okResult.Value.Should().BeAssignableTo<IEnumerable<ProductDto>>().Subject;
         data.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task GetCustomerCatalog_FiltersInvalidProducts()
+    {
+        // Arrange
+        var categories = new List<CategoryDto>
+        {
+            new() { Id = 1, Name = "Yayınlanan", IsActive = true },
+            new() { Id = 2, Name = "Pasif", IsActive = false }
+        };
+        _mockCategoryService.Setup(c => c.GetAllAsync()).ReturnsAsync(categories);
+
+        var products = new List<ProductDto>
+        {
+            new() { Id = 1, SKU = "VISIBLE", Name = "Visible", CategoryId = 1, Stock = 5, IsActive = true },
+            new() { Id = 2, SKU = "ZERO", Name = "Zero", CategoryId = 1, Stock = 0, IsActive = true },
+            new() { Id = 3, SKU = "PASSIVE", Name = "Passive", CategoryId = 1, Stock = 5, IsActive = false },
+            new() { Id = 4, SKU = "NO_CAT", Name = "No Category", CategoryId = 0, Stock = 5, IsActive = true }
+        };
+        _mockProductService.Setup(s => s.GetAllProductsAsync()).ReturnsAsync(products);
+
+        // Act
+        var result = await _controller.GetCustomerCatalog(true);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var payload = okResult.Value.Should().BeOfType<CustomerCatalogResponse>().Subject;
+        payload.Data.Should().HaveCount(1);
+        payload.Data.First().SKU.Should().Be("VISIBLE");
+        payload.HiddenCount.Should().Be(3);
+        payload.Filters.HideZeroStockProducts.Should().BeTrue();
     }
 
     [Fact]

@@ -37,6 +37,8 @@ public class LucaStockDto
     public string ProductCode { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
     public string WarehouseCode { get; set; } = string.Empty;
+    public string EntryWarehouseCode { get; set; } = string.Empty;
+    public string ExitWarehouseCode { get; set; } = string.Empty;
     public decimal Quantity { get; set; }
     public string MovementType { get; set; } = string.Empty; // IN, OUT
     public DateTime MovementDate { get; set; }

@@ -11,6 +11,7 @@ public class SettingsController : ControllerBase
     private readonly IOptionsSnapshot<SyncSettings> _syncSettings;
     private readonly IOptionsSnapshot<KatanaApiSettings> _katanaSettings;
     private readonly IOptionsSnapshot<LucaApiSettings> _lucaSettings;
+    private readonly IOptionsSnapshot<CatalogVisibilitySettings> _catalogVisibility;
     private readonly ILogger<SettingsController> _logger;
     private static SettingsDto? _cachedSettings;
 
@@ -20,11 +21,13 @@ public class SettingsController : ControllerBase
         IOptionsSnapshot<SyncSettings> syncSettings,
         IOptionsSnapshot<KatanaApiSettings> katanaSettings,
         IOptionsSnapshot<LucaApiSettings> lucaSettings,
+        IOptionsSnapshot<CatalogVisibilitySettings> catalogVisibility,
         ILogger<SettingsController> logger)
     {
         _syncSettings = syncSettings;
         _katanaSettings = katanaSettings;
         _lucaSettings = lucaSettings;
+        _catalogVisibility = catalogVisibility;
         _logger = logger;
     }
 
@@ -44,7 +47,8 @@ public class SettingsController : ControllerBase
                 KatanaApiKey = _katanaSettings.Value.ApiKey ?? "",
                 LucaApiKey = _lucaSettings.Value.ApiKey ?? "",
                 AutoSync = sync.EnableAutoSync,
-                SyncInterval = sync.Stock.SyncIntervalMinutes
+                SyncInterval = sync.Stock.SyncIntervalMinutes,
+                HideZeroStockProducts = _catalogVisibility.Value.HideZeroStockProducts
             };
 
             return Ok(settings);
@@ -81,4 +85,5 @@ public class SettingsDto
     public string LucaApiKey { get; set; } = "";
     public bool AutoSync { get; set; }
     public int SyncInterval { get; set; }
+    public bool HideZeroStockProducts { get; set; } = true;
 }

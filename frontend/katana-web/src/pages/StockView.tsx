@@ -11,6 +11,7 @@ import {
   Box,
   Card,
   CardContent,
+  Button,
   Chip,
   CircularProgress,
   IconButton,
@@ -30,6 +31,7 @@ import {
   useTheme,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 interface Product {
@@ -49,9 +51,21 @@ interface StockStats {
   totalInventoryValue: number;
 }
 
+interface CatalogResponse {
+  data: Product[];
+  total: number;
+  hiddenCount?: number;
+  filters?: {
+    hideZeroStockProducts?: boolean;
+    requirePublishedCategory?: boolean;
+    requireActiveStatus?: boolean;
+  };
+}
+
 const StockView: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [stats, setStats] = useState<StockStats | null>(null);
@@ -59,22 +73,51 @@ const StockView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [lowStockThreshold] = useState(10);
+  const [hideZeroStockFlag, setHideZeroStockFlag] = useState(false);
+  const [hiddenCount, setHiddenCount] = useState(0);
+  const [hiddenReason, setHiddenReason] = useState<string | null>(null);
+  const actionButtonSx = {
+    width: { xs: "100%", md: 200 },
+    height: 40,
+    fontWeight: 600,
+    borderRadius: 999,
+  };
 
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [productsRes, statsRes] = await Promise.all([
-        api.get<any>("/Products"),
+      const [catalogRes, statsRes] = await Promise.all([
+        api.get<CatalogResponse>("/Products/catalog"),
         api.get<StockStats>("/Products/statistics"),
       ]);
 
-      const productData = Array.isArray(productsRes.data)
-        ? productsRes.data
-        : productsRes.data?.data || [];
+      const catalogData = catalogRes.data;
+      const productData = Array.isArray(catalogData?.data)
+        ? catalogData.data
+        : [];
+      const hideZero =
+        catalogData?.filters?.hideZeroStockProducts ?? hideZeroStockFlag;
 
-      setProducts(productData);
-      setFilteredProducts(productData);
+      let visibleProducts = productData.filter((p) => p.isActive !== false);
+      if (hideZero) {
+        visibleProducts = visibleProducts.filter((p) => p.stock > 0);
+      }
+
+      setHideZeroStockFlag(hideZero);
+      const hiddenFromResponse = catalogData?.hiddenCount ?? 0;
+      setHiddenCount(hiddenFromResponse);
+      if (hiddenFromResponse > 0) {
+        setHiddenReason(
+          hideZero
+            ? "Sıfır stoklu ürünler gizlendi."
+            : "Kategori veya ürün pasif olduğu için gizlenen kayıtlar var."
+        );
+      } else {
+        setHiddenReason(null);
+      }
+      setProducts(visibleProducts);
+      setFilteredProducts(visibleProducts);
       setStats(statsRes.data || null);
     } catch (err: any) {
       setError(err.response?.data?.error || "Veri yüklenemedi");
@@ -115,6 +158,11 @@ const StockView: React.FC = () => {
     (p) => p.stock > 0 && p.stock <= lowStockThreshold
   );
   const criticalProducts = products.filter((p) => p.stock === 0);
+
+  const handleAdminRedirect = (product: Product) => {
+    if (product.stock === 0) return;
+    navigate(`/admin/orders?sku=${encodeURIComponent(product.sku)}`);
+  };
 
   return (
     <Box
@@ -175,6 +223,12 @@ const StockView: React.FC = () => {
           </IconButton>
         </Tooltip>
       </Stack>
+
+      {hiddenCount > 0 && hiddenReason && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {hiddenCount} ürün gizlendi. {hiddenReason}
+        </Alert>
+      )}
 
       {/* Statistics Cards */}
       {!loading && stats && (
@@ -438,6 +492,10 @@ const StockView: React.FC = () => {
                       {filteredProducts.map((product) => {
                         const status = getStockStatus(product.stock);
                         const totalValue = product.stock * product.price;
+                        const isOutOfStock = product.stock === 0;
+                        const isLowStock =
+                          product.stock > 0 &&
+                          product.stock <= lowStockThreshold;
                         return (
                           <Paper
                             key={product.id}
@@ -446,7 +504,7 @@ const StockView: React.FC = () => {
                               p: 1.5,
                               borderRadius: 2,
                               bgcolor:
-                                product.stock === 0
+                                isOutOfStock
                                   ? "rgba(244, 67, 54, 0.05)"
                                   : product.stock <= lowStockThreshold
                                   ? "rgba(255, 152, 0, 0.05)"
@@ -489,6 +547,13 @@ const StockView: React.FC = () => {
                                     fontSize: "0.7rem",
                                     height: 24,
                                     flexShrink: 0,
+                                    fontWeight: 700,
+                                    bgcolor: isOutOfStock
+                                      ? "error.main"
+                                      : undefined,
+                                    color: isOutOfStock
+                                      ? "common.white"
+                                      : undefined,
                                   }}
                                 />
                               </Stack>
@@ -518,13 +583,26 @@ const StockView: React.FC = () => {
                                       color:
                                         product.stock === 0
                                           ? "error.main"
-                                          : product.stock <= lowStockThreshold
+                                          : isLowStock
                                           ? "warning.main"
                                           : "success.main",
                                     }}
                                   >
                                     {product.stock}
                                   </Typography>
+                                  {isOutOfStock && (
+                                    <Chip
+                                      label="Stokta Yok"
+                                      color="error"
+                                      size="small"
+                                      variant="outlined"
+                                      sx={{
+                                        mt: 0.4,
+                                        fontSize: "0.65rem",
+                                        fontWeight: 700,
+                                      }}
+                                    />
+                                  )}
                                 </Box>
                                 <Box sx={{ textAlign: "right" }}>
                                   <Typography
@@ -556,7 +634,7 @@ const StockView: React.FC = () => {
                                     sx={{
                                       fontSize: "0.85rem",
                                       color:
-                                        product.stock === 0
+                                        isOutOfStock
                                           ? "text.disabled"
                                           : "primary.main",
                                     }}
@@ -569,6 +647,18 @@ const StockView: React.FC = () => {
                                   </Typography>
                                 </Box>
                               </Stack>
+                              <Button
+                                variant="contained"
+                                color="primary"
+                                size="small"
+                                disabled={isOutOfStock}
+                                onClick={() => handleAdminRedirect(product)}
+                                sx={{ ...actionButtonSx, mt: 1 }}
+                              >
+                                {isOutOfStock
+                                  ? "Stokta olmadığı için pasif"
+                                  : "Admin panelinden kontrol"}
+                              </Button>
                             </Stack>
                           </Paper>
                         );
@@ -602,6 +692,7 @@ const StockView: React.FC = () => {
                           { label: "Birim Fiyat", align: "right" },
                           { label: "Durum", align: "center" },
                           { label: "Toplam Değer", align: "right" },
+                          { label: "İşlem", align: "center" },
                         ].map((col) => (
                           <TableCell
                             key={col.label}
@@ -620,7 +711,7 @@ const StockView: React.FC = () => {
                     <TableBody>
                       {filteredProducts.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} align="center">
+                          <TableCell colSpan={7} align="center">
                             <Typography color="textSecondary">
                               Ürün bulunamadı
                             </Typography>
@@ -630,6 +721,10 @@ const StockView: React.FC = () => {
                         filteredProducts.map((product) => {
                           const status = getStockStatus(product.stock);
                           const totalValue = product.stock * product.price;
+                          const isOutOfStock = product.stock === 0;
+                          const isLowStock =
+                            product.stock > 0 &&
+                            product.stock <= lowStockThreshold;
 
                           return (
                             <TableRow
@@ -637,9 +732,9 @@ const StockView: React.FC = () => {
                               hover
                               sx={{
                                 bgcolor:
-                                  product.stock === 0
+                                  isOutOfStock
                                     ? "rgba(244, 67, 54, 0.05)"
-                                    : product.stock <= lowStockThreshold
+                                    : isLowStock
                                     ? "rgba(255, 152, 0, 0.05)"
                                     : "inherit",
                               }}
@@ -658,19 +753,33 @@ const StockView: React.FC = () => {
                                 </Typography>
                               </TableCell>
                               <TableCell align="center">
-                                <Typography
-                                  variant="h6"
-                                  fontWeight="bold"
-                                  color={
-                                    product.stock === 0
-                                      ? "error.main"
-                                      : product.stock <= lowStockThreshold
-                                      ? "warning.main"
-                                      : "success.main"
-                                  }
-                                >
-                                  {product.stock}
-                                </Typography>
+                                <Stack alignItems="center" spacing={0.5}>
+                                  <Typography
+                                    variant="h6"
+                                    fontWeight="bold"
+                                    color={
+                                      isOutOfStock
+                                        ? "error.main"
+                                        : isLowStock
+                                        ? "warning.main"
+                                        : "success.main"
+                                    }
+                                  >
+                                    {product.stock}
+                                  </Typography>
+                                  {isOutOfStock && (
+                                    <Chip
+                                      label="Stokta Yok"
+                                      color="error"
+                                      size="small"
+                                      variant="outlined"
+                                      sx={{
+                                        fontSize: "0.65rem",
+                                        fontWeight: 700,
+                                      }}
+                                    />
+                                  )}
+                                </Stack>
                               </TableCell>
                               <TableCell align="right">
                                 <Typography variant="body2">
@@ -696,7 +805,7 @@ const StockView: React.FC = () => {
                                   variant="body2"
                                   fontWeight="bold"
                                   color={
-                                    product.stock === 0
+                                    isOutOfStock
                                       ? "text.disabled"
                                       : "text.primary"
                                   }
@@ -707,6 +816,20 @@ const StockView: React.FC = () => {
                                     maximumFractionDigits: 2,
                                   })}
                                 </Typography>
+                              </TableCell>
+                              <TableCell align="center">
+                                <Button
+                                  variant="contained"
+                                  color="primary"
+                                  size="small"
+                                  disabled={isOutOfStock}
+                                  sx={actionButtonSx}
+                                  onClick={() => handleAdminRedirect(product)}
+                                >
+                                  {isOutOfStock
+                                    ? "Stokta olmadığı için pasif"
+                                    : "Admin panelinden kontrol"}
+                                </Button>
                               </TableCell>
                             </TableRow>
                           );
@@ -735,11 +858,12 @@ const StockView: React.FC = () => {
               <strong>Not:</strong> Stok bilgileri 30 saniyede bir otomatik
               güncellenir. Stok düzenlemeleri için admin panelini kullanın.
             </Typography>
-          </Box>
-        </CardContent>
-      </Card>
-    </Box>
-  );
+        </Box>
+      </CardContent>
+    </Card>
+
+  </Box>
+);
 };
 
 export default StockView;
