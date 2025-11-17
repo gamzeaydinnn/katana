@@ -53,6 +53,18 @@ public class LoaderService : ILoaderService
             ? entryWarehouseCode
             : _inventorySettings.DefaultExitWarehouseCode.Trim();
 
+        // Precompute stock per product from StockMovements to avoid relying on navigation being loaded
+        var productIds = productList.Select(p => p.Id).Where(id => id > 0).Distinct().ToList();
+        var movementSums = new Dictionary<int, int>();
+        if (productIds.Any())
+        {
+            movementSums = await _dbContext.StockMovements
+                .Where(sm => productIds.Contains(sm.ProductId))
+                .GroupBy(sm => sm.ProductId)
+                .Select(g => new { ProductId = g.Key, Sum = g.Sum(x => x.ChangeQuantity) })
+                .ToDictionaryAsync(x => x.ProductId, x => x.Sum);
+        }
+
         var lucaStocks = productList.Select(product => new LucaStockDto
         {
             ProductCode = product.SKU,
@@ -60,7 +72,8 @@ public class LoaderService : ILoaderService
             WarehouseCode = entryWarehouseCode,
             EntryWarehouseCode = entryWarehouseCode,
             ExitWarehouseCode = exitWarehouseCode,
-            Quantity = Math.Max(product.Stock, 0),
+            // Always compute balance from DB movements; fallback to product.StockSnapshot if no movements present
+            Quantity = Math.Max(movementSums.GetValueOrDefault(product.Id, product.StockSnapshot), 0),
             MovementType = "BALANCE",
             MovementDate = DateTime.UtcNow,
             Description = $"Inventory sync for {product.Name}",

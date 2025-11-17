@@ -161,6 +161,7 @@ public class StockService : IStockService
         {
             var products = await _context.Products
                 .Include(p => p.Stocks)
+                .Include(p => p.StockMovements)
                 .ToListAsync();
 
             var summaries = products.Select(p => new StockSummaryDto
@@ -192,6 +193,7 @@ public class StockService : IStockService
         {
             var product = await _context.Products
                 .Include(p => p.Stocks)
+                .Include(p => p.StockMovements)
                 .FirstOrDefaultAsync(p => p.Id == productId);
 
             if (product == null)

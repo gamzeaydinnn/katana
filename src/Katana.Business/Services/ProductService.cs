@@ -18,6 +18,7 @@ public class ProductService : IProductService
     public async Task<IEnumerable<ProductDto>> GetAllProductsAsync()
     {
         var products = await _context.Products
+            .Include(p => p.StockMovements)
             .OrderBy(p => p.Name)
             .ToListAsync();
 
@@ -27,6 +28,7 @@ public class ProductService : IProductService
     public async Task<IEnumerable<ProductSummaryDto>> GetActiveProductsAsync()
     {
         var products = await _context.Products
+            .Include(p => p.StockMovements)
             .Where(p => p.IsActive)
             .OrderBy(p => p.Name)
             .ToListAsync();
@@ -36,13 +38,16 @@ public class ProductService : IProductService
 
     public async Task<ProductDto?> GetProductByIdAsync(int id)
     {
-        var product = await _context.Products.FindAsync(id);
+        var product = await _context.Products
+            .Include(p => p.StockMovements)
+            .FirstOrDefaultAsync(p => p.Id == id);
         return product == null ? null : MapToDto(product);
     }
 
     public async Task<ProductDto?> GetProductBySkuAsync(string sku)
     {
         var product = await _context.Products
+            .Include(p => p.StockMovements)
             .FirstOrDefaultAsync(p => p.SKU == sku);
         return product == null ? null : MapToDto(product);
     }
@@ -50,6 +55,7 @@ public class ProductService : IProductService
     public async Task<IEnumerable<ProductDto>> GetProductsByCategoryAsync(int categoryId)
     {
         var products = await _context.Products
+            .Include(p => p.StockMovements)
             .Where(p => p.CategoryId == categoryId)
             .OrderBy(p => p.Name)
             .ToListAsync();
@@ -61,6 +67,7 @@ public class ProductService : IProductService
     public async Task<IEnumerable<ProductDto>> SearchProductsAsync(string searchTerm)
     {
         var products = await _context.Products
+            .Include(p => p.StockMovements)
             .Where(p => p.Name.Contains(searchTerm) ||
                        p.SKU.Contains(searchTerm) ||
                        (p.Description != null && p.Description.Contains(searchTerm)))
@@ -72,10 +79,13 @@ public class ProductService : IProductService
 
     public async Task<IEnumerable<ProductDto>> GetLowStockProductsAsync(int threshold = 10)
     {
+        // Ensure StockMovements are included so Product.Stock reflects movements rather than snapshot
         var products = await _context.Products
-            .Where(p => p.IsActive && p.Stock > 0 && p.Stock <= threshold)
-            .OrderBy(p => p.Stock)
+            .Include(p => p.StockMovements)
+            .Where(p => p.IsActive)
             .ToListAsync();
+
+        products = products.Where(p => p.Stock > 0 && p.Stock <= threshold).OrderBy(p => p.Stock).ToList();
 
         return products.Select(MapToDto);
     }
@@ -83,9 +93,11 @@ public class ProductService : IProductService
     public async Task<IEnumerable<ProductDto>> GetOutOfStockProductsAsync()
     {
         var products = await _context.Products
-            .Where(p => p.IsActive && p.Stock == 0)
-            .OrderBy(p => p.Name)
+            .Include(p => p.StockMovements)
+            .Where(p => p.IsActive)
             .ToListAsync();
+
+        products = products.Where(p => p.Stock == 0).OrderBy(p => p.Name).ToList();
 
         return products.Select(MapToDto);
     }
@@ -103,7 +115,8 @@ public class ProductService : IProductService
             Name = dto.Name,
             SKU = dto.SKU,
             Price = dto.Price,
-            Stock = dto.Stock,
+            // Initial creation should set the snapshot value instead of triggering movements
+            StockSnapshot = dto.Stock,
             CategoryId = dto.CategoryId,
             MainImageUrl = dto.MainImageUrl,
             Description = dto.Description,
@@ -134,7 +147,23 @@ public class ProductService : IProductService
             product.Name = dto.Name;
             product.SKU = dto.SKU;
             product.Price = dto.Price;
-            product.Stock = dto.Stock;
+            // Treat full product updates coming from UI as metadata changes. If stock changed, create a StockMovement
+            if (dto.Stock != product.Stock)
+            {
+                var delta = dto.Stock - product.Stock;
+                var movement = new StockMovement
+                {
+                    ProductId = product.Id,
+                    ProductSku = product.SKU,
+                    ChangeQuantity = delta,
+                    MovementType = delta == 0 ? Katana.Core.Enums.MovementType.Adjustment : (delta > 0 ? Katana.Core.Enums.MovementType.In : Katana.Core.Enums.MovementType.Out),
+                    SourceDocument = "ProductUpdate",
+                    Timestamp = DateTime.UtcNow,
+                    WarehouseCode = "MAIN",
+                    IsSynced = false
+                };
+                _context.StockMovements.Add(movement);
+            }
             product.CategoryId = dto.CategoryId;
             product.MainImageUrl = dto.MainImageUrl;
             product.Description = dto.Description;
@@ -158,9 +187,29 @@ public class ProductService : IProductService
         if (product == null)
             return false;
 
-        product.Stock = quantity;
-        product.UpdatedAt = DateTime.UtcNow;
+        // Create a StockMovement representing the delta
+        var delta = quantity - product.Stock;
+        if (delta == 0)
+        {
+            product.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return true;
+        }
 
+        var movement = new StockMovement
+        {
+            ProductId = product.Id,
+            ProductSku = product.SKU,
+            ChangeQuantity = delta,
+            MovementType = delta > 0 ? Katana.Core.Enums.MovementType.In : Katana.Core.Enums.MovementType.Out,
+            SourceDocument = "ManualStockUpdate",
+            Timestamp = DateTime.UtcNow,
+            WarehouseCode = "MAIN",
+            IsSynced = false
+        };
+
+        _context.StockMovements.Add(movement);
+        product.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
         return true;
     }
@@ -171,10 +220,11 @@ public class ProductService : IProductService
         if (product == null)
             return false;
 
-        var hasStockMovements = await _context.Stocks
-            .AnyAsync(s => s.ProductId == id);
+        var hasStockActivity =
+            await _context.Stocks.AnyAsync(s => s.ProductId == id)
+         || await _context.StockMovements.AnyAsync(m => m.ProductId == id);
 
-        if (hasStockMovements)
+        if (hasStockActivity)
             throw new InvalidOperationException("Stok hareketi olan ürün silinemez. Önce ürünü pasif yapın.");
 
         _context.Products.Remove(product);
@@ -208,7 +258,9 @@ public class ProductService : IProductService
 
     public async Task<ProductStatisticsDto> GetProductStatisticsAsync()
     {
-        var allProducts = await _context.Products.ToListAsync();
+        var allProducts = await _context.Products
+            .Include(p => p.StockMovements)
+            .ToListAsync();
 
         return new ProductStatisticsDto
         {
@@ -265,7 +317,8 @@ public class ProductService : IProductService
                     // Update existing product
                     existingProduct.Name = productDto.Name;
                     existingProduct.Price = productDto.Price;
-                    existingProduct.Stock = productDto.Stock;
+                    // Update snapshot to reflect external system state instead of creating movements for bulk sync
+                    existingProduct.StockSnapshot = productDto.Stock;
                     existingProduct.CategoryId = productDto.CategoryId;
                     existingProduct.MainImageUrl = productDto.MainImageUrl;
                     existingProduct.Description = productDto.Description;
@@ -280,7 +333,7 @@ public class ProductService : IProductService
                         Name = productDto.Name,
                         SKU = productDto.SKU,
                         Price = productDto.Price,
-                        Stock = productDto.Stock,
+                        StockSnapshot = productDto.Stock,
                         CategoryId = productDto.CategoryId,
                         MainImageUrl = productDto.MainImageUrl,
                         Description = productDto.Description,

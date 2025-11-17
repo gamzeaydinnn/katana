@@ -86,9 +86,21 @@ namespace Katana.Business.Services
                         return false;
                     }
 
-                    product.Stock += item.Quantity;
-                    product.UpdatedAt = DateTime.UtcNow;
+                    // Create StockMovement to represent the adjustment so Product.Stock getter stays consistent
+                    var movement = new Katana.Core.Entities.StockMovement
+                    {
+                        ProductId = item.ProductId,
+                        ProductSku = item.Sku ?? string.Empty,
+                        ChangeQuantity = item.Quantity,
+                        MovementType = item.Quantity == 0 ? Katana.Core.Enums.MovementType.Adjustment : (item.Quantity > 0 ? Katana.Core.Enums.MovementType.In : Katana.Core.Enums.MovementType.Out),
+                        SourceDocument = item.ExternalOrderId ?? "PendingAdjustment",
+                        Timestamp = DateTime.UtcNow,
+                        WarehouseCode = "MAIN",
+                        IsSynced = false
+                    };
+                    _context.StockMovements.Add(movement);
 
+                    // Mirror into Stocks table for admin reporting
                     var stockEntry = new Stock
                     {
                         ProductId = item.ProductId,
@@ -182,10 +194,22 @@ namespace Katana.Business.Services
                     }
 
                     // Apply adjustment. Quantity may be negative for sales.
-                    product.Stock += item.Quantity;
-                    product.UpdatedAt = DateTime.UtcNow;
+                    var movementRel = new Katana.Core.Entities.StockMovement
+                    {
+                        ProductId = item.ProductId,
+                        ProductSku = item.Sku ?? string.Empty,
+                        ChangeQuantity = item.Quantity,
+                        MovementType = item.Quantity == 0
+                            ? Katana.Core.Enums.MovementType.Adjustment
+                            : item.Quantity > 0 ? Katana.Core.Enums.MovementType.In : Katana.Core.Enums.MovementType.Out,
+                        SourceDocument = item.ExternalOrderId ?? "PendingAdjustment",
+                        Timestamp = DateTime.UtcNow,
+                        WarehouseCode = "MAIN",
+                        IsSynced = false
+                    };
+                    _context.StockMovements.Add(movementRel);
 
-                    // Mirror the adjustment into the Stocks table so admin stock movement reports stay accurate
+                    // Mirror into Stocks table so admin stock movement reports stay accurate
                     var stockEntryRel = new Stock
                     {
                         ProductId = item.ProductId,
