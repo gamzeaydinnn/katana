@@ -22,7 +22,7 @@ public class StockMovement
     public int Id { get; set; }
     public string ProductName { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
-    public decimal Quantity { get; set; }
+    public int Quantity { get; set; }
     public DateTime Date { get; set; }
     public string? Notes { get; set; }
 }

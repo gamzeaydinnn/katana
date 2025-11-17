@@ -27,7 +27,7 @@ public class StockMovementDto
     /// <summary>
     /// Miktar (pozitif ya da negatif olabilir)
     /// </summary>
-    public decimal Quantity { get; set; }
+    public int Quantity { get; set; }
 
     /// <summary>
     /// Birim fiyat
@@ -73,7 +73,7 @@ public class LucaStockMovementDto
     public string SKU { get; set; } = string.Empty;
     public string AccountCode { get; set; } = string.Empty;
     public string MovementType { get; set; } = string.Empty;
-    public decimal Quantity { get; set; }
+        public int Quantity { get; set; }
     public decimal TotalAmount { get; set; }
     public DateTime MovementDate { get; set; } = DateTime.UtcNow;
     public string Warehouse { get; set; } = string.Empty;
