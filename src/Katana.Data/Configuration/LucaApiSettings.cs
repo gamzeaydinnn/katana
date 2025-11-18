@@ -8,6 +8,7 @@ public class LucaApiSettings
     public string ApiKey { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+    public string MemberNumber { get; set; } = string.Empty;
     public int TimeoutSeconds { get; set; } = 30;
     public int MaxRetryAttempts { get; set; } = 3;
     public bool UseTokenAuth { get; set; } = true;
@@ -18,11 +19,14 @@ public class LucaApiSettings
 
 public class LucaEndpoints
 {
-    public string Invoices { get; set; } = "/api/documents/invoices";
-    public string Stock { get; set; } = "/api/inventory/movements";
-    public string Customers { get; set; } = "/api/customers";
-    public string Auth { get; set; } = "/api/auth/token";
-    public string Health { get; set; } = "/api/health";
+    public string Invoices { get; set; } = "api/documents/invoices";
+    public string Stock { get; set; } = "api/inventory/movements";
+    public string Customers { get; set; } = "api/customers";
+    public string Auth { get; set; } = "api/auth/token";
+    public string Health { get; set; } = "api/health";
     // Optional products endpoint (some Luca installations expose product API)
-    public string Products { get; set; } = "/api/products";
+    public string Products { get; set; } = "api/products";
+    // Koza-specific endpoints
+    public string Branches { get; set; } = "YdlUserResponsibilityOrgSs.do";
+    public string ChangeBranch { get; set; } = "GuncelleYtkSirketSubeDegistir.do";
 }

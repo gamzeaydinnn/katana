@@ -199,9 +199,15 @@ public class SyncService : ISyncService, IIntegrationService
         log.SuccessfulRecords = successful;
         log.FailedRecords = failed;
         log.EndTime = DateTime.UtcNow;
-        log.ErrorMessage = errorMessage;
+        log.ErrorMessage = Truncate(errorMessage, 2000);
 
         await _dbContext.SaveChangesAsync();
+    }
+
+    private static string? Truncate(string? value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value)) return value;
+        return value.Length <= maxLength ? value : value.Substring(0, maxLength);
     }
 
     private static SyncResultDto BuildResult(string syncType, int processed, int successful) =>

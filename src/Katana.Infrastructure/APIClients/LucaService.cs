@@ -23,6 +23,10 @@ public class LucaService : ILucaService
     private readonly JsonSerializerOptions _jsonOptions;
     private string? _authToken;
     private DateTime? _tokenExpiry;
+    // Cookie-based auth support for Koza
+    private System.Net.CookieContainer? _cookieContainer;
+    private HttpClient? _cookieHttpClient;
+    private bool _isCookieAuthenticated = false;
 
     public LucaService(HttpClient httpClient, IOptions<LucaApiSettings> settings, ILogger<LucaService> logger)
     {
@@ -39,11 +43,109 @@ public class LucaService : ILucaService
 
     private async Task EnsureAuthenticatedAsync()
     {
-        if (!_settings.UseTokenAuth) return;
-
-        if (_authToken == null || _tokenExpiry == null || DateTime.UtcNow >= _tokenExpiry)
+        if (_settings.UseTokenAuth)
         {
-            await AuthenticateAsync();
+            if (_authToken == null || _tokenExpiry == null || DateTime.UtcNow >= _tokenExpiry)
+            {
+                await AuthenticateAsync();
+            }
+            return;
+        }
+
+        // Use cookie-based auth (Koza) when UseTokenAuth == false
+        if (!_isCookieAuthenticated)
+        {
+            await AuthenticateWithCookieAsync();
+        }
+    }
+
+    private async Task AuthenticateWithCookieAsync()
+    {
+        try
+        {
+            _logger.LogInformation("Authenticating (cookie) with Koza Luca API");
+
+            _cookieContainer = new System.Net.CookieContainer();
+            var handler = new HttpClientHandler { CookieContainer = _cookieContainer, UseCookies = true, AllowAutoRedirect = true };
+            _cookieHttpClient = new HttpClient(handler)
+            {
+                BaseAddress = new Uri(_settings.BaseUrl)
+            };
+
+            var authRequest = new
+            {
+                orgCode = _settings.MemberNumber,
+                userName = _settings.Username,
+                userPassword = _settings.Password
+            };
+
+            var json = JsonSerializer.Serialize(authRequest, _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _cookieHttpClient.PostAsync(_settings.Endpoints.Auth, content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("Koza auth failed (status): {Status}", response.StatusCode);
+                throw new UnauthorizedAccessException("Koza auth failed");
+            }
+
+            var respStr = await response.Content.ReadAsStringAsync();
+            try
+            {
+                var doc = JsonSerializer.Deserialize<JsonElement>(respStr);
+                if (doc.ValueKind == JsonValueKind.Object && doc.TryGetProperty("code", out var codeProp))
+                {
+                    var code = codeProp.GetInt32();
+                    if (code != 0)
+                    {
+                        var msg = doc.TryGetProperty("message", out var m) ? m.GetString() : respStr;
+                        _logger.LogError("Koza auth response code !=0: {Code} {Message}", code, msg);
+                        throw new UnauthorizedAccessException("Koza auth response unsuccessful: " + msg);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // ignore parsing error and assume success if status code was success
+            }
+
+            // Now select branch: call branches endpoint (empty JSON body)
+            var branchesResp = await _cookieHttpClient.PostAsync(_settings.Endpoints.Branches, new StringContent("{}", Encoding.UTF8, "application/json"));
+            if (branchesResp.IsSuccessStatusCode)
+            {
+                var branchesJson = await branchesResp.Content.ReadAsStringAsync();
+                try
+                {
+                    var arr = JsonSerializer.Deserialize<JsonElement>(branchesJson);
+                    if (arr.ValueKind == JsonValueKind.Array && arr.GetArrayLength() > 0)
+                    {
+                        var first = arr[0];
+                        if (first.TryGetProperty("id", out var idProp) && idProp.TryGetInt64(out var id))
+                        {
+                            var changeBody = new { orgSirketSubeId = id };
+                            var changeJson = JsonSerializer.Serialize(changeBody, _jsonOptions);
+                            var changeResp = await _cookieHttpClient.PostAsync(_settings.Endpoints.ChangeBranch, new StringContent(changeJson, Encoding.UTF8, "application/json"));
+                            if (!changeResp.IsSuccessStatusCode)
+                            {
+                                _logger.LogWarning("Failed to change branch in Koza (status {Status})", changeResp.StatusCode);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse branches response");
+                }
+            }
+
+            _isCookieAuthenticated = true;
+            _logger.LogInformation("Authenticated with Koza (cookie) and branch selected");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error authenticating with Koza (cookie)");
+            throw;
         }
     }
 
@@ -109,7 +211,8 @@ public class LucaService : ILucaService
             var json = JsonSerializer.Serialize(invoices, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync(_settings.Endpoints.Invoices, content);
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            var response = await client.PostAsync(_settings.Endpoints.Invoices, content);
 
             if (response.IsSuccessStatusCode)
             {
@@ -167,7 +270,8 @@ public class LucaService : ILucaService
             var json = JsonSerializer.Serialize(stockMovements, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync(_settings.Endpoints.Stock, content);
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            var response = await client.PostAsync(_settings.Endpoints.Stock, content);
 
             if (response.IsSuccessStatusCode)
             {
@@ -222,7 +326,8 @@ public class LucaService : ILucaService
             var json = JsonSerializer.Serialize(customers, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync(_settings.Endpoints.Customers, content);
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            var response = await client.PostAsync(_settings.Endpoints.Customers, content);
 
             if (response.IsSuccessStatusCode)
             {
@@ -277,7 +382,8 @@ public class LucaService : ILucaService
             var json = JsonSerializer.Serialize(products, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync(_settings.Endpoints.Products, content);
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            var response = await client.PostAsync(_settings.Endpoints.Products, content);
 
             if (response.IsSuccessStatusCode)
             {
@@ -319,7 +425,8 @@ public class LucaService : ILucaService
         {
             _logger.LogInformation("Testing connection to Luca API");
 
-            var response = await _httpClient.GetAsync(_settings.Endpoints.Health);
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            var response = await client.GetAsync(_settings.Endpoints.Health);
             var isConnected = response.IsSuccessStatusCode;
 
             _logger.LogInformation("Luca API connection test result: {IsConnected}", isConnected);
@@ -344,7 +451,8 @@ public class LucaService : ILucaService
 
             _logger.LogInformation("Fetching invoices from Luca since {Date}", queryDate);
 
-            var response = await _httpClient.GetAsync(endpoint);
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            var response = await client.GetAsync(endpoint);
 
             if (response.IsSuccessStatusCode)
             {
@@ -378,7 +486,8 @@ public class LucaService : ILucaService
 
             _logger.LogInformation("Fetching stock movements from Luca since {Date}", queryDate);
 
-            var response = await _httpClient.GetAsync(endpoint);
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            var response = await client.GetAsync(endpoint);
 
             if (response.IsSuccessStatusCode)
             {
@@ -412,7 +521,8 @@ public class LucaService : ILucaService
 
             _logger.LogInformation("Fetching customers from Luca since {Date}", queryDate);
 
-            var response = await _httpClient.GetAsync(endpoint);
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            var response = await client.GetAsync(endpoint);
 
             if (response.IsSuccessStatusCode)
             {

@@ -146,6 +146,7 @@ public static class MappingHelper
 
     public static LucaProductUpdateDto MapToLucaProduct(Product product)
     {
+        // Map Katana Product to Koza's expected EkleStkWsSkart.do payload
         return new LucaProductUpdateDto
         {
             ProductCode = product.SKU,
@@ -153,7 +154,19 @@ public static class MappingHelper
             Unit = "Adet",
             Quantity = product.Stock,
             UnitPrice = product.Price,
-            VatRate = 20
+            VatRate = 20,
+
+            // Koza fields
+            KartAdi = product.Name,
+            // 1 => Stok Kartı per docs
+            KartTuru = 1,
+            // Try to map unit to an id; fallback to 1
+            OlcumBirimiId = 1,
+            // Use SKU as kartKodu (Koza will create new card if not exists)
+            KartKodu = product.SKU,
+            // Use category name or default code
+            KategoriAgacKod = product.CategoryId > 0 ? product.CategoryId.ToString() : "",
+            UzunAdi = product.Name
         };
     }
 

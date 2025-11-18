@@ -78,5 +78,24 @@ public class LucaProductUpdateDto
     
     [JsonPropertyName("vatRate")]
     public int? VatRate { get; set; }
+
+    // Koza (EkleStkWsSkart.do) specific fields
+    [JsonPropertyName("kartAdi")]
+    public string? KartAdi { get; set; }
+
+    [JsonPropertyName("kartTuru")]
+    public long? KartTuru { get; set; }
+
+    [JsonPropertyName("olcumBirimiId")]
+    public long? OlcumBirimiId { get; set; }
+
+    [JsonPropertyName("kartKodu")]
+    public string? KartKodu { get; set; }
+
+    [JsonPropertyName("kategoriAgacKod")]
+    public string? KategoriAgacKod { get; set; }
+
+    [JsonPropertyName("uzunAdi")]
+    public string? UzunAdi { get; set; }
 }
 
