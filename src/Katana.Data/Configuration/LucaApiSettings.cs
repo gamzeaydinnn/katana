@@ -29,4 +29,29 @@ public class LucaEndpoints
     // Koza-specific endpoints
     public string Branches { get; set; } = "YdlUserResponsibilityOrgSs.do";
     public string ChangeBranch { get; set; } = "GuncelleYtkSirketSubeDegistir.do";
+
+    // Koza stok kartı listeleme endpoint'leri
+    public string StockCards { get; set; } = "ListeleStkSkart.do";
+    public string StockCardPriceLists { get; set; } = "ListeleStkSkartFiyatListeleri.do";
+    public string StockCardAltUnits { get; set; } = "ListeleStkSkartAlternatifOb.do";
+    public string StockCardAltStocks { get; set; } = "ListeleStkSkartAlternatif.do";
+    public string StockCardCosts { get; set; } = "ListeleStkSkartMaliyet.do";
+    public string StockCategories { get; set; } = "ListeleStkSkartKategoriAgac.do";
+
+    // Koza fatura endpoint'leri
+    public string InvoiceList { get; set; } = "ListeleFtrSsFaturaBaslik.do";
+    public string InvoiceClose { get; set; } = "EkleFtrWsFaturaKapama.do";
+    public string InvoiceDelete { get; set; } = "SilFtrWsFaturaBaslik.do";
+
+    // Koza cari / finansal nesne endpoint'leri
+    public string CustomerAddresses { get; set; } = "ListeleWSGnlSsAdres.do";
+    public string CustomerWorkingConditions { get; set; } = "GetirFinCalismaKosul.do";
+    public string CustomerAuthorizedPersons { get; set; } = "ListeleFinFinansalNesneYetkili.do";
+    public string CustomerRisk { get; set; } = "GetirFinRisk.do";
+    public string CustomerTransaction { get; set; } = "EkleFinCariHareketBaslikWS.do";
+
+    // Koza irsaliye endpoint'leri
+    public string IrsaliyeList { get; set; } = "ListeleStkSsIrsaliyeBaslik.do";
+    public string IrsaliyeCreate { get; set; } = "EkleStkWsIrsaliyeBaslik.do";
+    public string IrsaliyeDelete { get; set; } = "SilStkWsIrsaliyeBaslik.do";
 }

@@ -677,8 +677,12 @@ public class AdminController : ControllerBase
 
             var lucaService = HttpContext.RequestServices.GetRequiredService<Katana.Business.Interfaces.ILucaService>();
 
-            var lucaProducts = products.Select(Katana.Core.Helpers.MappingHelper.MapToLucaProduct).ToList();
-            var result = await lucaService.SendProductsAsync(lucaProducts);
+            // Katana ürünlerini Koza stok kartı DTO'suna map et ve Luca'ya gönder
+            var lucaStockCards = products
+                .Select(Katana.Core.Helpers.MappingHelper.MapToLucaStockCard)
+                .ToList();
+
+            var result = await lucaService.SendStockCardsAsync(lucaStockCards);
 
             return Ok(new { ok = true, processed = result.ProcessedRecords, success = result.SuccessfulRecords, failed = result.FailedRecords, message = result.Message, errors = result.Errors });
         }

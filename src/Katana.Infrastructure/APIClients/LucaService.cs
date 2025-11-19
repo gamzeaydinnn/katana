@@ -419,6 +419,390 @@ public class LucaService : ILucaService
         return result;
     }
 
+    public async Task<JsonElement> ListStockCardsAsync(LucaListStockCardsRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request ?? new LucaListStockCardsRequest(), _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCards)
+        {
+            Content = content
+        };
+        httpRequest.Headers.Add("No-Paging", "true");
+
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListStockCardPriceListsAsync(LucaListStockCardPriceListsRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCardPriceLists)
+        {
+            Content = content
+        };
+        httpRequest.Headers.Add("No-Paging", "true");
+
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListStockCardAltUnitsAsync(LucaStockCardByIdRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCardAltUnits)
+        {
+            Content = content
+        };
+        httpRequest.Headers.Add("No-Paging", "true");
+
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListStockCardAltStocksAsync(LucaStockCardByIdRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCardAltStocks)
+        {
+            Content = content
+        };
+        httpRequest.Headers.Add("No-Paging", "true");
+
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListStockCardCostsAsync(LucaStockCardByIdRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCardCosts)
+        {
+            Content = content
+        };
+        httpRequest.Headers.Add("No-Paging", "true");
+
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListStockCategoriesAsync(LucaListStockCategoriesRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCategories)
+        {
+            Content = content
+        };
+        httpRequest.Headers.Add("No-Paging", "true");
+
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+    public async Task<SyncResultDto> SendStockCardsAsync(List<LucaCreateStokKartiRequest> stockCards)
+    {
+        var result = new SyncResultDto
+        {
+            SyncType = "PRODUCT_STOCK_CARD",
+            ProcessedRecords = stockCards.Count
+        };
+
+        var startTime = DateTime.UtcNow;
+
+        try
+        {
+            await EnsureAuthenticatedAsync();
+
+            _logger.LogInformation("Sending {Count} stock cards to Luca (Koza)", stockCards.Count);
+
+            var json = JsonSerializer.Serialize(stockCards, _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            var response = await client.PostAsync(_settings.Endpoints.Products, content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                result.IsSuccess = true;
+                result.SuccessfulRecords = stockCards.Count;
+                result.Message = "Stock cards sent successfully to Luca (Koza)";
+
+                _logger.LogInformation("Successfully sent {Count} stock cards to Luca (Koza)", stockCards.Count);
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                result.IsSuccess = false;
+                result.FailedRecords = stockCards.Count;
+                result.Message = $"Failed to send stock cards to Luca (Koza): {response.StatusCode}";
+                result.Errors.Add(errorContent);
+
+                _logger.LogError("Failed to send stock cards to Luca (Koza). Status: {StatusCode}, Error: {Error}",
+                    response.StatusCode, errorContent);
+            }
+        }
+        catch (Exception ex)
+        {
+            result.IsSuccess = false;
+            result.FailedRecords = stockCards.Count;
+            result.Message = ex.Message;
+            result.Errors.Add(ex.ToString());
+
+            _logger.LogError(ex, "Error sending stock cards to Luca (Koza)");
+        }
+
+        result.Duration = DateTime.UtcNow - startTime;
+        return result;
+    }
+
+    public async Task<JsonElement> ListInvoicesAsync(LucaListInvoicesRequest request, bool detayliListe = false)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request ?? new LucaListInvoicesRequest(), _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var url = _settings.Endpoints.InvoiceList + (detayliListe ? "?detayliListe=true" : string.Empty);
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = content
+        };
+        httpRequest.Headers.Add("No-Paging", "true");
+
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> CreateInvoiceRawAsync(LucaCreateInvoiceHeaderRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var response = await client.PostAsync(_settings.Endpoints.Invoices, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> CloseInvoiceAsync(LucaCloseInvoiceRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var response = await client.PostAsync(_settings.Endpoints.InvoiceClose, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> DeleteInvoiceAsync(LucaDeleteInvoiceRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var response = await client.PostAsync(_settings.Endpoints.InvoiceDelete, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListCustomerAddressesAsync(LucaListCustomerAddressesRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.CustomerAddresses)
+        {
+            Content = content
+        };
+        httpRequest.Headers.Add("No-Paging", "true");
+
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> GetCustomerWorkingConditionsAsync(LucaGetCustomerWorkingConditionsRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var response = await client.PostAsync(_settings.Endpoints.CustomerWorkingConditions, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListCustomerAuthorizedPersonsAsync(LucaListCustomerAuthorizedPersonsRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.CustomerAuthorizedPersons)
+        {
+            Content = content
+        };
+        httpRequest.Headers.Add("No-Paging", "true");
+
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> GetCustomerRiskAsync(long finansalNesneId)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var url = $"{_settings.Endpoints.CustomerRisk}?gnlFinansalNesne.finansalNesneId={finansalNesneId}";
+        var response = await client.GetAsync(url);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> CreateCustomerTransactionAsync(LucaCreateCariHareketRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var response = await client.PostAsync(_settings.Endpoints.CustomerTransaction, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListDeliveryNotesAsync(bool detayliListe = false)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var url = _settings.Endpoints.IrsaliyeList + (detayliListe ? "?detayliListe=true" : string.Empty);
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent("{}", Encoding.UTF8, "application/json")
+        };
+        httpRequest.Headers.Add("No-Paging", "true");
+
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> CreateDeliveryNoteAsync(LucaCreateIrsaliyeBaslikRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var response = await client.PostAsync(_settings.Endpoints.IrsaliyeCreate, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> DeleteDeliveryNoteAsync(LucaDeleteIrsaliyeRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var response = await client.PostAsync(_settings.Endpoints.IrsaliyeDelete, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
     public async Task<bool> TestConnectionAsync()
     {
         try
