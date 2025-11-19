@@ -340,16 +340,87 @@ public class SyncService : ISyncService, IIntegrationService
             var lucaInvoiceDtos = await _lucaService.FetchInvoicesAsync(fromDate);
             _logger.LogInformation("Fetched {Count} invoices from Luca", lucaInvoiceDtos.Count);
             
+            var processed = lucaInvoiceDtos.Count;
+            var successful = 0;
+            var errors = new List<string>();
+
+            foreach (var dto in lucaInvoiceDtos)
+            {
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(dto.DocumentNo))
+                    {
+                        errors.Add("Skipped invoice with empty DocumentNo");
+                        continue;
+                    }
+
+                    // Ensure customer exists (prefer TaxNo)
+                    var taxNo = dto.CustomerTaxNo ?? dto.CustomerCode ?? string.Empty;
+                    Customer? customer = null;
+                    if (!string.IsNullOrWhiteSpace(taxNo))
+                    {
+                        customer = await _dbContext.Customers.FirstOrDefaultAsync(c => c.TaxNo == taxNo);
+                    }
+
+                    if (customer == null)
+                    {
+                        // Create a customer from invoice header info
+                        var custDto = new LucaCustomerDto
+                        {
+                            CustomerCode = dto.CustomerCode ?? taxNo,
+                            Title = dto.CustomerTitle ?? dto.CustomerCode ?? "",
+                            TaxNo = taxNo
+                        };
+
+                        var newCustomer = MappingHelper.MapFromLucaCustomer(custDto);
+                        _dbContext.Customers.Add(newCustomer);
+                        await _dbContext.SaveChangesAsync();
+                        customer = newCustomer;
+                    }
+
+                    // Check existing invoice by invoice no
+                    var existing = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.InvoiceNo == dto.DocumentNo);
+                    if (existing == null)
+                    {
+                        var invoiceEntity = MappingHelper.MapFromLucaInvoice(dto, customer.Id);
+                        _dbContext.Invoices.Add(invoiceEntity);
+                    }
+                    else
+                    {
+                        // Update minimal fields
+                        existing.Amount = dto.NetAmount;
+                        existing.TaxAmount = dto.TaxAmount;
+                        existing.TotalAmount = dto.GrossAmount;
+                        existing.InvoiceDate = dto.DocumentDate;
+                        existing.DueDate = dto.DueDate;
+                        existing.Currency = dto.Currency ?? existing.Currency;
+                        existing.UpdatedAt = DateTime.UtcNow;
+                    }
+
+                    successful++;
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"Error processing invoice {dto.DocumentNo}: {ex.Message}");
+                }
+            }
+
+            if (processed > 0)
+            {
+                await _dbContext.SaveChangesAsync();
+            }
+
             stopwatch.Stop();
-            await FinalizeOperationAsync(logEntry, "SUCCESS", lucaInvoiceDtos.Count, lucaInvoiceDtos.Count, 0, null);
-            
+            await FinalizeOperationAsync(logEntry, "SUCCESS", processed, successful, processed - successful, errors.Any() ? string.Join("; ", errors) : null);
+
             return new SyncResultDto
             {
                 SyncType = "LUCA_TO_KATANA_INVOICE",
-                IsSuccess = true,
-                ProcessedRecords = lucaInvoiceDtos.Count,
-                SuccessfulRecords = lucaInvoiceDtos.Count,
-                Message = $"Luca'dan {lucaInvoiceDtos.Count} fatura alındı",
+                IsSuccess = errors.Count == 0,
+                ProcessedRecords = processed,
+                SuccessfulRecords = successful,
+                FailedRecords = errors.Count,
+                Message = errors.Any() ? "Bazı faturalar atlandı veya hata aldı." : $"Luca'dan {successful} fatura alındı",
                 Duration = stopwatch.Elapsed
             };
         }
@@ -381,17 +452,62 @@ public class SyncService : ISyncService, IIntegrationService
             
             var lucaCustomerDtos = await _lucaService.FetchCustomersAsync(fromDate);
             _logger.LogInformation("Fetched {Count} customers from Luca", lucaCustomerDtos.Count);
-            
+            var processed = lucaCustomerDtos.Count;
+            var successful = 0;
+            var errors = new List<string>();
+
+            foreach (var dto in lucaCustomerDtos)
+            {
+                try
+                {
+                    var taxNo = dto.TaxNo ?? dto.CustomerCode ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(taxNo))
+                    {
+                        errors.Add($"Skipped customer with empty TaxNo/Code (Title={dto.Title})");
+                        continue;
+                    }
+
+                    var existing = await _dbContext.Customers.FirstOrDefaultAsync(c => c.TaxNo == taxNo);
+                    if (existing == null)
+                    {
+                        var customerEntity = MappingHelper.MapFromLucaCustomer(dto);
+                        _dbContext.Customers.Add(customerEntity);
+                    }
+                    else
+                    {
+                        existing.Title = dto.Title ?? existing.Title;
+                        existing.Phone = dto.Phone ?? existing.Phone;
+                        existing.Email = dto.Email ?? existing.Email;
+                        existing.Address = dto.Address ?? existing.Address;
+                        existing.City = dto.City ?? existing.City;
+                        existing.Country = dto.Country ?? existing.Country;
+                        existing.UpdatedAt = DateTime.UtcNow;
+                    }
+
+                    successful++;
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"Error processing customer {dto.CustomerCode ?? dto.TaxNo}: {ex.Message}");
+                }
+            }
+
+            if (processed > 0)
+            {
+                await _dbContext.SaveChangesAsync();
+            }
+
             stopwatch.Stop();
-            await FinalizeOperationAsync(logEntry, "SUCCESS", lucaCustomerDtos.Count, lucaCustomerDtos.Count, 0, null);
-            
+            await FinalizeOperationAsync(logEntry, "SUCCESS", processed, successful, processed - successful, errors.Any() ? string.Join("; ", errors) : null);
+
             return new SyncResultDto
             {
                 SyncType = "LUCA_TO_KATANA_CUSTOMER",
-                IsSuccess = true,
-                ProcessedRecords = lucaCustomerDtos.Count,
-                SuccessfulRecords = lucaCustomerDtos.Count,
-                Message = $"Luca'dan {lucaCustomerDtos.Count} müşteri alındı",
+                IsSuccess = errors.Count == 0,
+                ProcessedRecords = processed,
+                SuccessfulRecords = successful,
+                FailedRecords = errors.Count,
+                Message = errors.Any() ? "Bazı müşteriler atlandı veya hata aldı." : $"Luca'dan {successful} müşteri alındı",
                 Duration = stopwatch.Elapsed
             };
         }
@@ -419,6 +535,8 @@ public class SyncService : ISyncService, IIntegrationService
             await SyncCustomersFromLucaAsync(fromDate),
             await SyncStockFromLucaAsync(fromDate),
             await SyncInvoicesFromLucaAsync(fromDate)
+            ,
+            await SyncProductsFromLucaAsync(fromDate)
         };
 
         return new BatchSyncResultDto
@@ -426,5 +544,86 @@ public class SyncService : ISyncService, IIntegrationService
             Results = results,
             BatchTime = DateTime.UtcNow
         };
+    }
+
+    public async Task<SyncResultDto> SyncProductsFromLucaAsync(DateTime? fromDate = null)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var logEntry = await StartOperationLogAsync("LUCA_TO_KATANA_PRODUCT");
+
+        try
+        {
+            _logger.LogInformation("Starting Luca → Katana PRODUCT sync");
+
+            var lucaProducts = await _lucaService.FetchProductsAsync(fromDate);
+            _logger.LogInformation("Fetched {Count} products from Luca", lucaProducts.Count);
+
+            var successful = 0;
+            var errors = new List<string>();
+
+            foreach (var lucaDto in lucaProducts)
+            {
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(lucaDto.ProductCode))
+                    {
+                        errors.Add($"Skipped product with empty code (LucaId={lucaDto.SkartId})");
+                        continue;
+                    }
+
+                    var sku = lucaDto.ProductCode;
+                    var existing = await _dbContext.Products.FirstOrDefaultAsync(p => p.SKU == sku);
+
+                    if (existing == null)
+                    {
+                        var newProduct = MappingHelper.MapFromLucaProduct(lucaDto);
+                        _dbContext.Products.Add(newProduct);
+                    }
+                    else
+                    {
+                        existing.Name = lucaDto.ProductName;
+                        existing.UpdatedAt = DateTime.UtcNow;
+                        existing.IsActive = true;
+                    }
+
+                    successful++;
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"Error syncing product {lucaDto.ProductCode}: {ex.Message}");
+                }
+            }
+
+            await _dbContext.SaveChangesAsync();
+            stopwatch.Stop();
+
+            await FinalizeOperationAsync(logEntry, "SUCCESS", lucaProducts.Count, successful, lucaProducts.Count - successful, errors.Any() ? string.Join("; ", errors) : null);
+
+            return new SyncResultDto
+            {
+                SyncType = "LUCA_TO_KATANA_PRODUCT",
+                IsSuccess = errors.Count == 0,
+                ProcessedRecords = lucaProducts.Count,
+                SuccessfulRecords = successful,
+                FailedRecords = errors.Count,
+                Message = errors.Any() ? "Bazı kayıtlar atlandı veya hata aldı." : $"Luca'dan {successful} ürün başarıyla aktarıldı.",
+                Duration = stopwatch.Elapsed
+            };
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            await FinalizeOperationAsync(logEntry, "FAILED", 0, 0, 0, ex.Message);
+            _logger.LogError(ex, "Luca → Katana product sync failed");
+
+            return new SyncResultDto
+            {
+                SyncType = "LUCA_TO_KATANA_PRODUCT",
+                IsSuccess = false,
+                Message = ex.Message,
+                Duration = stopwatch.Elapsed,
+                Errors = { ex.ToString() }
+            };
+        }
     }
 }

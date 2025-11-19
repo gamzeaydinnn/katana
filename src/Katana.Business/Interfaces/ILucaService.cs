@@ -18,6 +18,7 @@ public interface ILucaService
     Task<List<LucaInvoiceDto>> FetchInvoicesAsync(DateTime? fromDate = null);
     Task<List<LucaStockDto>> FetchStockMovementsAsync(DateTime? fromDate = null);
     Task<List<LucaCustomerDto>> FetchCustomersAsync(DateTime? fromDate = null);
+    Task<List<LucaProductDto>> FetchProductsAsync(DateTime? fromDate = null);
 
     // Luca → Katana (Pull) - Koza stok kartı ve ilgili listeler (ham JSON döner)
     Task<System.Text.Json.JsonElement> ListStockCardsAsync(LucaListStockCardsRequest request);

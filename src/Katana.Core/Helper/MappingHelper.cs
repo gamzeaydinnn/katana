@@ -353,6 +353,24 @@ public static class MappingHelper
         };
     }
 
+    public static Product MapFromLucaProduct(LucaProductDto dto)
+    {
+        var sku = NormalizeSku(dto.ProductCode ?? string.Empty);
+        var name = TrimAndTruncate(dto.ProductName, 200) ?? dto.ProductCode ?? sku;
+
+        return new Product
+        {
+            SKU = sku,
+            Name = name,
+            Description = $"Luca ID: {dto.SkartId}",
+            Price = 0m,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            CategoryId = 0
+        };
+    }
+
     // Helper methods
     private static string MapStockMovementType(string katanaType)
     {

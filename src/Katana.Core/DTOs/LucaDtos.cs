@@ -570,6 +570,35 @@ public class LucaProductUpdateDto
     public string? UzunAdi { get; set; }
 }
 
+/// <summary>
+/// Luca stok kartı / ürün DTO (ListeleStkSkart.do response için)
+/// </summary>
+public class LucaProductDto
+{
+    [JsonPropertyName("skartId")]
+    public long SkartId { get; set; }
+
+    [JsonPropertyName("stokKartKodu")]
+    public string ProductCode { get; set; } = string.Empty;
+
+    [JsonPropertyName("stokKartAdi")]
+    public string ProductName { get; set; } = string.Empty;
+
+    [JsonPropertyName("barkod")]
+    public string? Barcode { get; set; }
+
+    [JsonPropertyName("olcumBirimi")]
+    public string? Unit { get; set; }
+
+    [JsonPropertyName("kartAlisKdvOran")]
+    public double? PurchaseVatRate { get; set; }
+
+    [JsonPropertyName("kartSatisKdvOran")]
+    public double? SalesVatRate { get; set; }
+
+    // Ek alanlar gerektiğinde genişletilebilir: rafOmru, detayAciklama vb.
+}
+
 // --- Cari / Finansal Nesne yardımcı DTO'lar ---
 
 /// <summary>

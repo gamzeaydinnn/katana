@@ -929,5 +929,79 @@ public class LucaService : ILucaService
         }
     }
 
+    public async Task<List<LucaProductDto>> FetchProductsAsync(DateTime? fromDate = null)
+    {
+        try
+        {
+            await EnsureAuthenticatedAsync();
+
+            _logger.LogInformation("Fetching products (stock cards) from Luca (Koza)...");
+
+            // Koza / Luca stok kartları listeleme endpoint'ine POST ile boş filtre gönderebiliriz.
+            var json = JsonSerializer.Serialize(new { }, _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCards)
+            {
+                Content = content
+            };
+            httpRequest.Headers.Add("No-Paging", "true");
+
+            var response = await client.SendAsync(httpRequest);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("Failed to fetch products from Luca. Status: {Status}", response.StatusCode);
+                return new List<LucaProductDto>();
+            }
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            try
+            {
+                using var doc = JsonDocument.Parse(responseContent);
+
+                // Olası kapsayıcı alan adlarını kontrol et
+                if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    if (doc.RootElement.TryGetProperty("list", out var listEl) && listEl.ValueKind == JsonValueKind.Array)
+                    {
+                        return JsonSerializer.Deserialize<List<LucaProductDto>>(listEl.GetRawText(), _jsonOptions) ?? new List<LucaProductDto>();
+                    }
+
+                    if (doc.RootElement.TryGetProperty("stkSkartList", out var skartList) && skartList.ValueKind == JsonValueKind.Array)
+                    {
+                        return JsonSerializer.Deserialize<List<LucaProductDto>>(skartList.GetRawText(), _jsonOptions) ?? new List<LucaProductDto>();
+                    }
+
+                    if (doc.RootElement.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
+                    {
+                        return JsonSerializer.Deserialize<List<LucaProductDto>>(dataEl.GetRawText(), _jsonOptions) ?? new List<LucaProductDto>();
+                    }
+                }
+
+                // Eğer root array döndüyse direkt deserialize et
+                if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    return JsonSerializer.Deserialize<List<LucaProductDto>>(responseContent, _jsonOptions) ?? new List<LucaProductDto>();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse products response from Luca; attempting generic deserialize");
+            }
+
+            // Fallback: doğrudan array olarak deserialize etmeye çalış
+            return JsonSerializer.Deserialize<List<LucaProductDto>>(responseContent, _jsonOptions) ?? new List<LucaProductDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching products from Luca");
+            return new List<LucaProductDto>();
+        }
+    }
+
 
 }
