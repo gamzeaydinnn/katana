@@ -52,7 +52,7 @@ const SyncManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
   // Note: we use global toast for errors instead of rendering a persistent Alert banner
   const [openDialog, setOpenDialog] = useState(false);
-  const [syncType, setSyncType] = useState("Stock");
+  const [syncType, setSyncType] = useState("CurrentStock");
   const [syncing, setSyncing] = useState(false);
   const isMobile = useMediaQuery("(max-width:900px)");
 
@@ -473,7 +473,9 @@ const SyncManagement: React.FC = () => {
               label="Senkronizasyon Tipi"
               onChange={(e) => setSyncType(e.target.value)}
             >
+              <MenuItem value="CurrentStock">Cari Stok Senkronizasyonu</MenuItem>
               <MenuItem value="Stock">Stok Senkronizasyonu</MenuItem>
+              <MenuItem value="Product">Ürün Senkronizasyonu</MenuItem>
               <MenuItem value="Invoice">Fatura Senkronizasyonu</MenuItem>
               <MenuItem value="Customer">Müşteri Senkronizasyonu</MenuItem>
               <MenuItem value="All">Tümü</MenuItem>

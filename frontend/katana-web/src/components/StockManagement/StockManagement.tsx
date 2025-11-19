@@ -19,7 +19,7 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import { Search, Refresh, Inventory } from "@mui/icons-material";
-import { stockAPI } from "../../services/api";
+import api, { stockAPI } from "../../services/api";
 
 interface Product {
   id: string;
@@ -41,9 +41,9 @@ const StockManagement: React.FC = () => {
     try {
       setLoading(true);
       setError("");
-      const res: any = await stockAPI.getKatanaProducts();
+      const res: any = await api.get("/Products/catalog");
       // Normalize possible response shapes: { products: [...] } or { data: [...] } or plain array
-      const raw = res?.products ?? res?.data ?? res ?? [];
+      const raw = res?.data?.data ?? res?.data ?? res ?? [];
 
       const normalized = (Array.isArray(raw) ? raw : []) as any[];
 
