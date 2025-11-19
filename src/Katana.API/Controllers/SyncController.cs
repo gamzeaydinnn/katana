@@ -105,6 +105,7 @@ public class SyncController : ControllerBase
                 "STOCK" => await _syncService.SyncStockAsync(null),
                 "INVOICE" => await _syncService.SyncInvoicesAsync(null),
                 "CUSTOMER" => await _syncService.SyncCustomersAsync(null),
+                "DESPATCH" => await _syncService.SyncDespatchFromLucaAsync(null),
                 "ALL" => await ConvertBatchResult(await _syncService.SyncAllAsync(null)),
                 _ => throw new ArgumentException("Ge�ersiz sync tipi")
             };
@@ -337,6 +338,26 @@ public class SyncController : ControllerBase
         {
             _logger.LogError(ex, "Luca → Katana customer sync failed");
             return StatusCode(500, new { error = "Sunucu hata verdi: Luca'dan müşteri senkronizasyonu sırasında" });
+        }
+    }
+
+    /// <summary>
+    /// POST /api/Sync/from-luca/despatch - Luca'dan irsaliyeleri çeker
+    /// </summary>
+    [HttpPost("from-luca/despatch")]
+    public async Task<ActionResult<SyncResultDto>> SyncDespatchFromLuca([FromQuery] DateTime? fromDate = null)
+    {
+        try
+        {
+            _logger.LogInformation("Luca → Katana despatch (irsaliye) sync triggered via API");
+            var result = await _syncService.SyncDespatchFromLucaAsync(fromDate);
+
+            return result.IsSuccess ? Ok(result) : BadRequest(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Luca → Katana despatch sync failed");
+            return StatusCode(500, new { error = "Sunucu hata verdi: Luca'dan irsaliye senkronizasyonu sırasında" });
         }
     }
 

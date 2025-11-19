@@ -45,6 +45,7 @@ public interface ILucaService
     Task<System.Text.Json.JsonElement> ListDeliveryNotesAsync(bool detayliListe = false);
     Task<System.Text.Json.JsonElement> CreateDeliveryNoteAsync(LucaCreateIrsaliyeBaslikRequest request);
     Task<System.Text.Json.JsonElement> DeleteDeliveryNoteAsync(LucaDeleteIrsaliyeRequest request);
+    Task<List<LucaDespatchDto>> FetchDeliveryNotesAsync(DateTime? fromDate = null);
     
     Task<bool> TestConnectionAsync();
 }

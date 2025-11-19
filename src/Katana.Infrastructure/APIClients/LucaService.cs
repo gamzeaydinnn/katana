@@ -1003,5 +1003,104 @@ public class LucaService : ILucaService
         }
     }
 
+    public async Task<List<LucaDespatchDto>> FetchDeliveryNotesAsync(DateTime? fromDate = null)
+    {
+        try
+        {
+            await EnsureAuthenticatedAsync();
+
+            _logger.LogInformation("Fetching delivery notes (irsaliye) from Luca");
+            var element = await ListDeliveryNotesAsync(true);
+
+            var results = new List<LucaDespatchDto>();
+
+            // Try to locate array payload in common wrapper fields
+            JsonElement arrayEl = default;
+            if (element.ValueKind == JsonValueKind.Array)
+            {
+                arrayEl = element;
+            }
+            else if (element.ValueKind == JsonValueKind.Object)
+            {
+                if (element.TryGetProperty("list", out var list) && list.ValueKind == JsonValueKind.Array)
+                    arrayEl = list;
+                else if (element.TryGetProperty("irsaliyeList", out var il) && il.ValueKind == JsonValueKind.Array)
+                    arrayEl = il;
+                else if (element.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+                    arrayEl = data;
+            }
+
+            if (arrayEl.ValueKind != JsonValueKind.Array)
+            {
+                _logger.LogWarning("Delivery notes response did not contain an array; returning empty list");
+                return results;
+            }
+
+            foreach (var item in arrayEl.EnumerateArray())
+            {
+                try
+                {
+                    var dto = new LucaDespatchDto();
+
+                    if (item.TryGetProperty("belgeNo", out var bno))
+                        dto.DocumentNo = bno.GetString() ?? string.Empty;
+
+                    if (item.TryGetProperty("belgeTarihi", out var bdt))
+                    {
+                        if (bdt.ValueKind == JsonValueKind.String && DateTime.TryParse(bdt.GetString(), out var dt))
+                            dto.DocumentDate = dt;
+                        else if (bdt.ValueKind == JsonValueKind.Number && bdt.TryGetInt64(out var unix))
+                            dto.DocumentDate = DateTimeOffset.FromUnixTimeSeconds(unix).UtcDateTime;
+                    }
+
+                    if (item.TryGetProperty("cariKodu", out var ck))
+                        dto.CustomerCode = ck.GetString();
+
+                    if (item.TryGetProperty("cariTanim", out var ct))
+                        dto.CustomerTitle = ct.GetString();
+
+                    // Lines
+                    if (item.TryGetProperty("detayList", out var detay) && detay.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var line in detay.EnumerateArray())
+                        {
+                            try
+                            {
+                                var li = new LucaDespatchItemDto();
+                                if (line.TryGetProperty("kartKodu", out var pk))
+                                    li.ProductCode = pk.GetString() ?? string.Empty;
+                                if (line.TryGetProperty("kartAdi", out var pn))
+                                    li.ProductName = pn.GetString();
+                                if (line.TryGetProperty("miktar", out var mq) && mq.ValueKind == JsonValueKind.Number)
+                                    li.Quantity = mq.GetDecimal();
+                                if (line.TryGetProperty("birimFiyat", out var up) && up.ValueKind == JsonValueKind.Number)
+                                    li.UnitPrice = up.GetDecimal();
+                                if (line.TryGetProperty("kdvOran", out var tr) && tr.ValueKind == JsonValueKind.Number)
+                                    li.TaxRate = tr.GetDouble();
+
+                                dto.Lines.Add(li);
+                            }
+                            catch (Exception) { /* ignore line parse errors */ }
+                        }
+                    }
+
+                    results.Add(dto);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse one delivery note item");
+                }
+            }
+
+            _logger.LogInformation("Parsed {Count} delivery notes from Luca", results.Count);
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching delivery notes from Luca");
+            return new List<LucaDespatchDto>();
+        }
+    }
+
 
 }

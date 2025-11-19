@@ -821,6 +821,45 @@ public class LucaDeleteIrsaliyeRequest
     public long SsIrsaliyeBaslikId { get; set; }
 }
 
+/// <summary>
+/// Basit İrsaliye (Delivery Note) DTO - Luca'dan gelen listeyi parse edip kullanmak için özet alanlar.
+/// </summary>
+public class LucaDespatchItemDto
+{
+    [JsonPropertyName("kartKodu")]
+    public string ProductCode { get; set; } = string.Empty;
+
+    [JsonPropertyName("kartAdi")]
+    public string? ProductName { get; set; }
+
+    [JsonPropertyName("miktar")]
+    public decimal Quantity { get; set; }
+
+    [JsonPropertyName("birimFiyat")]
+    public decimal? UnitPrice { get; set; }
+
+    [JsonPropertyName("kdvOran")]
+    public double? TaxRate { get; set; }
+}
+
+public class LucaDespatchDto
+{
+    [JsonPropertyName("belgeNo")]
+    public string DocumentNo { get; set; } = string.Empty;
+
+    [JsonPropertyName("belgeTarihi")]
+    public DateTime DocumentDate { get; set; }
+
+    [JsonPropertyName("cariKodu")]
+    public string? CustomerCode { get; set; }
+
+    [JsonPropertyName("cariTanim")]
+    public string? CustomerTitle { get; set; }
+
+    [JsonPropertyName("detayList")]
+    public List<LucaDespatchItemDto> Lines { get; set; } = new();
+}
+
 // --- Basit fatura ve cari DTO'ları (özet kullanımlar için) ---
 
 /// <summary>

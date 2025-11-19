@@ -7,7 +7,6 @@ import {
   Sync,
 } from "@mui/icons-material";
 import {
-  Alert,
   Box,
   Button,
   Chip,
@@ -29,11 +28,11 @@ import {
   TableHead,
   TableRow,
   Typography,
-  useMediaQuery,
+  useMediaQuery
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
-import { stockAPI } from "../../services/api";
 import { showGlobalToast } from "../../providers/FeedbackProvider";
+import { stockAPI } from "../../services/api";
 
 interface SyncHistory {
   id: number;
@@ -482,7 +481,7 @@ const SyncManagement: React.FC = () => {
               
               {/* Henüz backend'de tam olarak entegre edilmemiş veya istenen diğer tipler */}
               <MenuItem value="CurrentStock" disabled>Cari Stok Senkronizasyonu (yakında)</MenuItem>
-              <MenuItem value="DespatchAdvice" disabled>İrsaliye Senkronizasyonu (yakında)</MenuItem>
+              <MenuItem value="DESPATCH">İrsaliye Senkronizasyonu</MenuItem>
               <MenuItem value="Order" disabled>Sipariş Senkronizasyonu (yakında)</MenuItem>
               <MenuItem value="Supplier" disabled>Tedarikçi Senkronizasyonu (yakında)</MenuItem>
               <MenuItem value="BankAccount" disabled>Banka Hesabı Senkronizasyonu (yakında)</MenuItem>

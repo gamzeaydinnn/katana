@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Katana.Business.Interfaces;
+using System.Linq;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Core.Enums;
@@ -441,6 +442,196 @@ public class SyncService : ISyncService, IIntegrationService
         }
     }
 
+    public async Task<SyncResultDto> SyncDespatchFromLucaAsync(DateTime? fromDate = null)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var logEntry = await StartOperationLogAsync("LUCA_TO_KATANA_DESPATCH");
+
+        try
+        {
+            _logger.LogInformation("Starting Luca → Katana despatch (irsaliye) sync");
+
+            var despatchDtos = await _lucaService.FetchDeliveryNotesAsync(fromDate);
+            _logger.LogInformation("Fetched {Count} delivery notes from Luca", despatchDtos.Count);
+
+            var processed = despatchDtos.Count;
+            var successful = 0;
+            var errors = new List<string>();
+
+            foreach (var dto in despatchDtos)
+            {
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(dto.DocumentNo))
+                    {
+                        errors.Add("Skipped despatch with empty DocumentNo");
+                        continue;
+                    }
+
+                    // Ensure customer exists (prefer CustomerCode)
+                    var customerCode = dto.CustomerCode ?? dto.CustomerTitle ?? string.Empty;
+                    Customer? customer = null;
+                    if (!string.IsNullOrWhiteSpace(customerCode))
+                    {
+                        customer = await _dbContext.Customers.FirstOrDefaultAsync(c => c.TaxNo == customerCode || c.Title == customerCode);
+                    }
+
+                    if (customer == null)
+                    {
+                        var custDto = new LucaCustomerDto
+                        {
+                            CustomerCode = dto.CustomerCode ?? dto.CustomerTitle ?? string.Empty,
+                            Title = dto.CustomerTitle ?? dto.CustomerCode ?? string.Empty,
+                            TaxNo = dto.CustomerCode ?? string.Empty
+                        };
+
+                        var newCustomer = MappingHelper.MapFromLucaCustomer(custDto);
+                        _dbContext.Customers.Add(newCustomer);
+                        await _dbContext.SaveChangesAsync();
+                        customer = newCustomer;
+                    }
+
+                    // Check existing invoice/despatch by document no
+                    var existing = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.InvoiceNo == dto.DocumentNo);
+                    if (existing == null)
+                    {
+                        // Compute totals from lines
+                        decimal net = 0m, tax = 0m, gross = 0m;
+                        var invoiceEntity = new Invoice
+                        {
+                            InvoiceNo = dto.DocumentNo,
+                            CustomerId = customer.Id,
+                            Status = "DESPATCH",
+                            InvoiceDate = dto.DocumentDate == default ? DateTime.UtcNow : dto.DocumentDate,
+                            Currency = "TRY",
+                            IsSynced = true,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+
+                        // Add invoice first to get its Id after SaveChanges
+                        _dbContext.Invoices.Add(invoiceEntity);
+                        await _dbContext.SaveChangesAsync();
+
+                        var items = new List<InvoiceItem>();
+                        foreach (var line in dto.Lines)
+                        {
+                            try
+                            {
+                                var rawSku = line.ProductCode ?? string.Empty;
+                                var allowedChars = rawSku.Trim().Where(c => char.IsLetterOrDigit(c) || c == '-' || c == '_').ToArray();
+                                var sku = new string(allowedChars).ToUpperInvariant();
+                                Product? product = null;
+                                if (!string.IsNullOrWhiteSpace(sku))
+                                {
+                                    product = await _dbContext.Products.FirstOrDefaultAsync(p => p.SKU == sku);
+                                }
+
+                                if (product == null)
+                                {
+                                    // create placeholder product
+                                    var p = new Product
+                                    {
+                                        SKU = sku,
+                                        Name = line.ProductName ?? sku,
+                                        Description = "Created from Luca despatch",
+                                        Price = line.UnitPrice ?? 0m,
+                                        IsActive = true,
+                                        CreatedAt = DateTime.UtcNow,
+                                        UpdatedAt = DateTime.UtcNow
+                                    };
+                                    _dbContext.Products.Add(p);
+                                    await _dbContext.SaveChangesAsync();
+                                    product = p;
+                                }
+
+                                var qty = (int)Math.Round(line.Quantity);
+                                var unitPrice = line.UnitPrice ?? 0m;
+                                var lineNet = unitPrice * qty;
+                                var lineTax = (decimal)((line.TaxRate ?? 0.0) / 100.0) * lineNet;
+                                var lineGross = lineNet + lineTax;
+
+                                items.Add(new InvoiceItem
+                                {
+                                    InvoiceId = invoiceEntity.Id,
+                                    ProductId = product.Id,
+                                    ProductName = product.Name,
+                                    ProductSKU = product.SKU,
+                                    Quantity = qty,
+                                    UnitPrice = unitPrice,
+                                    TaxRate = (decimal?)((line.TaxRate ?? 0.0) / 100.0) ?? 0.0m,
+                                    TaxAmount = lineTax,
+                                    TotalAmount = lineGross,
+                                    Unit = "ADET"
+                                });
+
+                                net += lineNet;
+                                tax += lineTax;
+                                gross += lineGross;
+                            }
+                            catch (Exception ex)
+                            {
+                                errors.Add($"Error processing line for despatch {dto.DocumentNo}: {ex.Message}");
+                            }
+                        }
+
+                        if (items.Any())
+                        {
+                            await _dbContext.InvoiceItems.AddRangeAsync(items);
+                        }
+
+                        // Update invoice totals
+                        invoiceEntity.Amount = net;
+                        invoiceEntity.TaxAmount = tax;
+                        invoiceEntity.TotalAmount = gross;
+
+                        await _dbContext.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        // Update existing - minimal
+                        existing.UpdatedAt = DateTime.UtcNow;
+                    }
+
+                    successful++;
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"Error processing despatch {dto.DocumentNo}: {ex.Message}");
+                }
+            }
+
+            stopwatch.Stop();
+            await FinalizeOperationAsync(logEntry, "SUCCESS", processed, successful, processed - successful, errors.Any() ? string.Join("; ", errors) : null);
+
+            return new SyncResultDto
+            {
+                SyncType = "LUCA_TO_KATANA_DESPATCH",
+                IsSuccess = errors.Count == 0,
+                ProcessedRecords = processed,
+                SuccessfulRecords = successful,
+                FailedRecords = errors.Count,
+                Message = errors.Any() ? "Bazı irsaliyeler atlandı veya hata aldı." : $"Luca'dan {successful} irsaliye alındı",
+                Duration = stopwatch.Elapsed
+            };
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            await FinalizeOperationAsync(logEntry, "FAILED", 0, 0, 0, ex.Message);
+            _logger.LogError(ex, "Luca → Katana despatch sync failed");
+
+            return new SyncResultDto
+            {
+                SyncType = "LUCA_TO_KATANA_DESPATCH",
+                IsSuccess = false,
+                Message = ex.Message,
+                Duration = stopwatch.Elapsed,
+                Errors = { ex.ToString() }
+            };
+        }
+    }
+
     public async Task<SyncResultDto> SyncCustomersFromLucaAsync(DateTime? fromDate = null)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -534,8 +725,8 @@ public class SyncService : ISyncService, IIntegrationService
         {
             await SyncCustomersFromLucaAsync(fromDate),
             await SyncStockFromLucaAsync(fromDate),
-            await SyncInvoicesFromLucaAsync(fromDate)
-            ,
+            await SyncInvoicesFromLucaAsync(fromDate),
+            await SyncDespatchFromLucaAsync(fromDate),
             await SyncProductsFromLucaAsync(fromDate)
         };
 

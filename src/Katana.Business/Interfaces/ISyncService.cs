@@ -15,6 +15,7 @@ public interface ISyncService
     Task<SyncResultDto> SyncStockFromLucaAsync(DateTime? fromDate = null);
     Task<SyncResultDto> SyncInvoicesFromLucaAsync(DateTime? fromDate = null);
     Task<SyncResultDto> SyncCustomersFromLucaAsync(DateTime? fromDate = null);
+    Task<SyncResultDto> SyncDespatchFromLucaAsync(DateTime? fromDate = null);
     Task<BatchSyncResultDto> SyncAllFromLucaAsync(DateTime? fromDate = null);
     
     Task<List<SyncStatusDto>> GetSyncStatusAsync();
