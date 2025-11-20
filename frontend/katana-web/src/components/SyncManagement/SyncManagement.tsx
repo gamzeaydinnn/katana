@@ -468,22 +468,21 @@ const SyncManagement: React.FC = () => {
           <FormControl fullWidth>
             <InputLabel>Senkronizasyon Tipi</InputLabel>
             <Select
-              value={syncType}
-              label="Senkronizasyon Tipi"
-              onChange={(e) => setSyncType(e.target.value)}
-            >
-              {/* Mevcut ve backend'de karşılığı olan senkronizasyonlar */}
-              <MenuItem value="STOCK">Stok Senkronizasyonu</MenuItem>
-              <MenuItem value="PRODUCT">Ürün Senkronizasyonu</MenuItem>
-              <MenuItem value="INVOICE">Fatura Senkronizasyonu</MenuItem>
-              <MenuItem value="CUSTOMER">Müşteri Senkronizasyonu</MenuItem>
-              <MenuItem value="ALL">Tümünü Senkronize Et</MenuItem>
-              
-              {/* Henüz backend'de tam olarak entegre edilmemiş veya istenen diğer tipler */}
-              <MenuItem value="CurrentStock" disabled>Cari Stok Senkronizasyonu (yakında)</MenuItem>
-              <MenuItem value="DESPATCH">İrsaliye Senkronizasyonu</MenuItem>
-              <MenuItem value="Order" disabled>Sipariş Senkronizasyonu (yakında)</MenuItem>
-              <MenuItem value="Supplier" disabled>Tedarikçi Senkronizasyonu (yakında)</MenuItem>
+            value={syncType}
+            label="Senkronizasyon Tipi"
+            onChange={(e) => setSyncType(e.target.value)}
+          >
+            {/* Mevcut ve backend'de karşılığı olan senkronizasyonlar */}
+            <MenuItem value="STOCK">Stok Senkronizasyonu</MenuItem>
+            <MenuItem value="INVOICE">Fatura Senkronizasyonu</MenuItem>
+            <MenuItem value="CUSTOMER">Müşteri Senkronizasyonu</MenuItem>
+            <MenuItem value="DESPATCH">İrsaliye Senkronizasyonu</MenuItem>
+            <MenuItem value="ALL">Tümünü Senkronize Et</MenuItem>
+            
+            {/* Henüz backend'de tam olarak entegre edilmemiş veya istenen diğer tipler */}
+            <MenuItem value="CurrentStock" disabled>Cari Stok Senkronizasyonu (yakında)</MenuItem>
+            <MenuItem value="Order" disabled>Sipariş Senkronizasyonu (yakında)</MenuItem>
+            <MenuItem value="Supplier" disabled>Tedarikçi Senkronizasyonu (yakında)</MenuItem>
               <MenuItem value="BankAccount" disabled>Banka Hesabı Senkronizasyonu (yakında)</MenuItem>
               <MenuItem value="Warehouse" disabled>Depo Senkronizasyonu (yakında)</MenuItem>
               <MenuItem value="Price" disabled>Fiyat Senkronizasyonu (yakında)</MenuItem>

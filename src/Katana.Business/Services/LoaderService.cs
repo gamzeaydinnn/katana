@@ -187,18 +187,18 @@ public class LoaderService : ILoaderService
             return 0;
         }
 
-        var lucaProducts = productList.Select(MappingHelper.MapToLucaProduct).ToList();
+        var lucaStockCards = productList.Select(MappingHelper.MapToLucaStockCard).ToList();
 
         // Diagnostic logging for product push
         try
         {
-            var skus = string.Join(',', lucaProducts.Take(12).Select(p => p.ProductCode));
-            var sample = JsonSerializer.Serialize(lucaProducts.Take(6).Select(p => new { p.ProductCode, p.ProductName }));
-            _logger.LogInformation("LoaderService => Preparing {Count} products to push. SKUs={SKUs}; Sample={Sample}", lucaProducts.Count, skus, sample);
+            var skus = string.Join(',', lucaStockCards.Take(12).Select(p => p.KartKodu));
+            var sample = JsonSerializer.Serialize(lucaStockCards.Take(6).Select(p => new { p.KartKodu, p.KartAdi }));
+            _logger.LogInformation("LoaderService => Preparing {Count} products to push. SKUs={SKUs}; Sample={Sample}", lucaStockCards.Count, skus, sample);
         }
         catch { }
 
-        var result = await _lucaService.SendProductsAsync(lucaProducts);
+        var result = await _lucaService.SendStockCardsAsync(lucaStockCards);
         await WriteIntegrationLogAsync("PRODUCT", result, ct);
 
         _logger.LogInformation("LoaderService => Products pushed. Success={Success} Failed={Failed}",

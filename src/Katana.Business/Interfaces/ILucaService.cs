@@ -1,10 +1,14 @@
 ﻿using Katana.Business.DTOs;
 using Katana.Core.DTOs;
+using System.Text.Json;
 
 namespace Katana.Business.Interfaces;
 
 public interface ILucaService
 {
+    // Authentication
+    Task<bool> TestConnectionAsync();
+
     // Katana → Luca (Push)
     Task<SyncResultDto> SendInvoicesAsync(List<LucaInvoiceDto> invoices);
     Task<SyncResultDto> SendStockMovementsAsync(List<LucaStockDto> stockMovements);
@@ -46,8 +50,26 @@ public interface ILucaService
     Task<System.Text.Json.JsonElement> CreateDeliveryNoteAsync(LucaCreateIrsaliyeBaslikRequest request);
     Task<System.Text.Json.JsonElement> DeleteDeliveryNoteAsync(LucaDeleteIrsaliyeRequest request);
     Task<List<LucaDespatchDto>> FetchDeliveryNotesAsync(DateTime? fromDate = null);
-    
-    Task<bool> TestConnectionAsync();
+
+    // NEW: Additional Methods from API Documentation
+    // 3.2.1 Vergi Dairesi Listesi
+    Task<JsonElement> ListTaxOfficesAsync(LucaListTaxOfficesRequest? request = null);
+    // 3.2.2 Ölçü Birimi Listesi
+    Task<JsonElement> ListMeasurementUnitsAsync(LucaListMeasurementUnitsRequest? request = null);
+    // 3.2.3 Müşteri Listesi
+    Task<JsonElement> ListCustomersAsync(LucaListCustomersRequest? request = null);
+    // 3.2.4 Tedarikçi Listesi
+    Task<JsonElement> ListSuppliersAsync(LucaListSuppliersRequest? request = null);
+    // 3.2.16 Depo Listesi
+    Task<JsonElement> ListWarehousesAsync(LucaListWarehousesRequest? request = null);
+    // 3.2.29 Cari Kart Ekle
+    Task<JsonElement> CreateCustomerAsync(LucaCreateCustomerRequest request);
+    // 3.2.30 Tedarikçi Kart Ekle
+    Task<JsonElement> CreateSupplierAsync(LucaCreateSupplierRequest request);
+    // 3.2.33 Stok Kartı Ekle (birincil ürün oluşturma endpoint'i)
+    Task<JsonElement> CreateStockCardAsync(LucaCreateStokKartiRequest request);
+    // 3.2.40 Diğer Stok Hareketi (stok düzeltmeleri için)
+    Task<JsonElement> CreateOtherStockMovementAsync(LucaCreateDshBaslikRequest request);
 }
 
 

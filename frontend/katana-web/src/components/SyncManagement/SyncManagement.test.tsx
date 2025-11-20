@@ -108,7 +108,7 @@ describe("SyncManagement Component", () => {
     }
 
     await waitFor(() => {
-      expect(api.stockAPI.startSync).toHaveBeenCalledWith("Stock");
+      expect(api.stockAPI.startSync).toHaveBeenCalledWith("STOCK");
     });
   });
 

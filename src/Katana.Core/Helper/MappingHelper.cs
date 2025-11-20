@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using Katana.Business.DTOs;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
@@ -151,7 +152,7 @@ public static class MappingHelper
         var baseName = string.IsNullOrWhiteSpace(product.Name) ? normalizedSku : product.Name;
         var kartAdi = TrimAndTruncate(baseName, 255) ?? normalizedSku;
         var uzunAdi = TrimAndTruncate(!string.IsNullOrWhiteSpace(product.Description) ? product.Description : baseName, 500) ?? kartAdi;
-        var kategoriKod = TrimAndTruncate(product.CategoryId > 0 ? product.CategoryId.ToString() : "0000", 50) ?? "0000";
+        var kategoriKod = TrimAndTruncate(product.CategoryId > 0 ? product.CategoryId.ToString() : string.Empty, 50) ?? string.Empty;
         var barkod = normalizedSku;
         var detayAciklama = TrimAndTruncate(product.Description, 1000) ?? string.Empty;
 
@@ -165,7 +166,8 @@ public static class MappingHelper
             BaslangicTarihi = null,
             // Dokümana göre "Adet" için 5 tipik ID; gerekirse konfigürasyona taşınabilir.
             OlcumBirimiId = 5,
-            KartKodu = normalizedSku,
+            // kartKodu boş gönderildiğinde Koza otomatik kod üretir
+            KartKodu = string.IsNullOrWhiteSpace(product.SKU) ? string.Empty : normalizedSku,
             MaliyetHesaplanacakFlag = true,
             KartTipi = 1,
             KategoriAgacKod = kategoriKod,
@@ -242,6 +244,86 @@ public static class MappingHelper
         };
     }
 
+    public static LucaCreateCustomerRequest MapToLucaCustomerCreate(Customer customer, long? vergiDairesiId = null, string? kategoriKod = null)
+    {
+        var title = TrimAndTruncate(customer.Title, 200) ?? GenerateCustomerCode(customer.TaxNo);
+        var address = TrimAndTruncate(customer.Address, 500);
+        var code = string.IsNullOrWhiteSpace(customer.TaxNo) ? GenerateCustomerCode(customer.Id.ToString()) : customer.TaxNo;
+
+        return new LucaCreateCustomerRequest
+        {
+            CariTipId = 1,
+            Tanim = title,
+            KartKod = string.Empty, // boş gönderildiğinde Koza kod üretir
+            KategoriKod = kategoriKod,
+            ParaBirimKod = "TRY",
+            VergiNo = string.IsNullOrWhiteSpace(customer.TaxNo) ? null : customer.TaxNo,
+            KisaAd = TrimAndTruncate(title, 50),
+            YasalUnvan = title,
+            TcKimlikNo = customer.TaxNo?.Length == 11 ? customer.TaxNo : null,
+            Ad = title,
+            Soyad = null,
+            VergiDairesiId = vergiDairesiId,
+            Ulke = string.IsNullOrWhiteSpace(customer.Country) ? "TURKIYE" : customer.Country,
+            Il = customer.City,
+            AdresSerbest = address,
+            IletisimTanim = customer.Phone ?? customer.Email,
+            EfaturaTuru = null,
+            TakipNoFlag = true,
+            MutabakatMektubuGonderilecek = null
+        };
+    }
+
+    public static LucaCreateSupplierRequest MapToLucaSupplierCreate(Supplier supplier, long? vergiDairesiId = null, string? kategoriKod = null)
+    {
+        var name = TrimAndTruncate(supplier.Name, 200) ?? "TEDARIKCI";
+        var address = TrimAndTruncate(supplier.Address, 300);
+
+        return new LucaCreateSupplierRequest
+        {
+            CariTipId = 2,
+            Tanim = name,
+            KartKod = string.Empty,
+            KategoriKod = kategoriKod,
+            ParaBirimKod = "TRY",
+            YasalUnvan = name,
+            KisaAd = TrimAndTruncate(name, 50),
+            AdresSerbest = address,
+            IletisimTanim = supplier.Phone ?? supplier.Email,
+            Ulke = "TURKIYE",
+            Il = null,
+            Ilce = null,
+            VergiDairesiId = vergiDairesiId
+        };
+    }
+
+    public static LucaCreateDshBaslikRequest MapToLucaDshBaslik(Stock stock, Product product, long belgeTurDetayId, string? depoKodu = null)
+    {
+        var warehouseCode = NormalizeWarehouseCode(depoKodu ?? stock.Location);
+        var hareketYonu = (stock.Type ?? string.Empty).ToUpperInvariant() == "IN" ? "GIRIS" : "CIKIS";
+
+        return new LucaCreateDshBaslikRequest
+        {
+            BelgeTurDetayId = belgeTurDetayId,
+            BelgeTarihi = stock.Timestamp == default ? DateTime.UtcNow : stock.Timestamp,
+            DepoKodu = warehouseCode,
+            HareketYonu = hareketYonu,
+            DetayList = new List<LucaCreateDshDetayRequest>
+            {
+                new LucaCreateDshDetayRequest
+                {
+                    KartKodu = NormalizeSku(product.SKU),
+                    DepoKodu = warehouseCode,
+                    Miktar = Math.Abs(stock.Quantity),
+                    BirimFiyat = (double?)product.Price,
+                    KdvOran = 0.18,
+                    Aciklama = TrimAndTruncate(stock.Reason ?? stock.Reference, 250)
+                }
+            }
+        };
+    }
+
+    [Obsolete("Use MapToLucaStockCard for Koza stock card creation")]
     public static LucaProductUpdateDto MapToLucaProduct(Product product)
     {
         // Map Katana Product to Koza's expected EkleStkWsSkart.do payload

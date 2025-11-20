@@ -30,6 +30,13 @@ public class LucaEndpoints
     public string Branches { get; set; } = "YdlUserResponsibilityOrgSs.do";
     public string ChangeBranch { get; set; } = "GuncelleYtkSirketSubeDegistir.do";
 
+    // Koza listeleme endpoint'leri
+    public string TaxOffices { get; set; } = "ListeleGnlVergiDairesi.do";
+    public string MeasurementUnits { get; set; } = "ListeleGnlOlcumBirimi.do";
+    public string CustomerList { get; set; } = "ListeleFinMusteri.do";
+    public string SupplierList { get; set; } = "ListeleFinTedarikci.do";
+    public string Warehouses { get; set; } = "ListeleStkDepo.do";
+
     // Koza stok kartı listeleme endpoint'leri
     public string StockCards { get; set; } = "ListeleStkSkart.do";
     public string StockCardPriceLists { get; set; } = "ListeleStkSkartFiyatListeleri.do";
@@ -50,8 +57,15 @@ public class LucaEndpoints
     public string CustomerRisk { get; set; } = "GetirFinRisk.do";
     public string CustomerTransaction { get; set; } = "EkleFinCariHareketBaslikWS.do";
 
+    // Koza cari/tedarikçi ekleme endpoint'leri
+    public string CustomerCreate { get; set; } = "EkleFinMusteriWS.do";
+    public string SupplierCreate { get; set; } = "EkleFinTedarikciWS.do";
+
     // Koza irsaliye endpoint'leri
     public string IrsaliyeList { get; set; } = "ListeleStkSsIrsaliyeBaslik.do";
     public string IrsaliyeCreate { get; set; } = "EkleStkWsIrsaliyeBaslik.do";
     public string IrsaliyeDelete { get; set; } = "SilStkWsIrsaliyeBaslik.do";
+
+    // Koza stok hareket endpoint'i (Diğer stok hareketi)
+    public string OtherStockMovement { get; set; } = "EkleStkWsDshBaslik.do";
 }

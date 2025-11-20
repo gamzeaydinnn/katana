@@ -59,6 +59,91 @@ public class LucaCustomerDto
     public string? Country { get; set; }
 }
 
+// --- Ortak listeleme filtreleri ---
+
+public class LucaCodeRangeFilter
+{
+    [JsonPropertyName("kodBas")]
+    public string? KodBas { get; set; }
+
+    [JsonPropertyName("kodBit")]
+    public string? KodBit { get; set; }
+
+    [JsonPropertyName("kodOp")]
+    public string? KodOp { get; set; }
+}
+
+// --- 3.2.1 Vergi Dairesi Listesi ---
+
+public class LucaTaxOfficeFilter
+{
+    [JsonPropertyName("tanim")]
+    public string? Tanim { get; set; }
+
+    [JsonPropertyName("kod")]
+    public string? Kod { get; set; }
+}
+
+public class LucaListTaxOfficesRequest
+{
+    [JsonPropertyName("gnlVergiDairesi")]
+    public LucaTaxOfficeFilter? GnlVergiDairesi { get; set; }
+}
+
+// --- 3.2.2 Ölçü Birimi Listesi ---
+
+public class LucaMeasurementUnitFilter
+{
+    [JsonPropertyName("tanim")]
+    public string? Tanim { get; set; }
+}
+
+public class LucaListMeasurementUnitsRequest
+{
+    [JsonPropertyName("gnlOlcumBirimi")]
+    public LucaMeasurementUnitFilter? GnlOlcumBirimi { get; set; }
+}
+
+// --- 3.2.3 / 3.2.4 Cari ve Tedarikçi Listesi ---
+
+public class LucaFinancialObjectFilter
+{
+    [JsonPropertyName("gnlFinansalNesne")]
+    public LucaCodeRangeFilter? GnlFinansalNesne { get; set; }
+}
+
+public class LucaListCustomersRequest
+{
+    [JsonPropertyName("finMusteri")]
+    public LucaFinancialObjectFilter? FinMusteri { get; set; }
+}
+
+public class LucaListSuppliersRequest
+{
+    [JsonPropertyName("finTedarikci")]
+    public LucaFinancialObjectFilter? FinTedarikci { get; set; }
+}
+
+// --- 3.2.16 Depo Listesi ---
+
+public class LucaWarehouseFilter
+{
+    [JsonPropertyName("kodOp")]
+    public string? KodOp { get; set; }
+
+    [JsonPropertyName("kodBas")]
+    public string? KodBas { get; set; }
+
+    [JsonPropertyName("kodBit")]
+    public string? KodBit { get; set; }
+}
+
+public class LucaListWarehousesRequest
+{
+    [JsonPropertyName("stkDepo")]
+    public LucaWarehouseFilter? StkDepo { get; set; }
+}
+
 // --- Koza / Luca stok kartı listeleme ve yardımcı DTO'lar ---
 
 public class LucaStockCardCodeFilter
@@ -697,6 +782,151 @@ public class LucaCreateCariHareketRequest
 
     [JsonPropertyName("detayList")]
     public List<LucaCreateCariHareketDetayRequest> DetayList { get; set; } = new();
+}
+
+// --- 3.2.29 / 3.2.30 Cari ve Tedarikçi Kart Ekleme ---
+
+public class LucaCreateCustomerRequest
+{
+    [JsonPropertyName("tip")]
+    public int Tip { get; set; } = 1;
+
+    [JsonPropertyName("cariTipId")]
+    public long CariTipId { get; set; } = 1;
+
+    [JsonPropertyName("takipNoFlag")]
+    public bool? TakipNoFlag { get; set; }
+
+    [JsonPropertyName("efaturaTuru")]
+    public int? EfaturaTuru { get; set; }
+
+    [JsonPropertyName("kategoriKod")]
+    public string? KategoriKod { get; set; }
+
+    [JsonPropertyName("kartKod")]
+    public string? KartKod { get; set; }
+
+    [JsonPropertyName("tanim")]
+    public string Tanim { get; set; } = string.Empty;
+
+    [JsonPropertyName("mutabakatMektubuGonderilecek")]
+    public bool? MutabakatMektubuGonderilecek { get; set; }
+
+    [JsonPropertyName("paraBirimKod")]
+    public string ParaBirimKod { get; set; } = "TRY";
+
+    [JsonPropertyName("vergiNo")]
+    public string? VergiNo { get; set; }
+
+    [JsonPropertyName("kisaAd")]
+    public string? KisaAd { get; set; }
+
+    [JsonPropertyName("yasalUnvan")]
+    public string? YasalUnvan { get; set; }
+
+    [JsonPropertyName("tcKimlikNo")]
+    public string? TcKimlikNo { get; set; }
+
+    [JsonPropertyName("ad")]
+    public string? Ad { get; set; }
+
+    [JsonPropertyName("soyad")]
+    public string? Soyad { get; set; }
+
+    [JsonPropertyName("dogumTarihi")]
+    public string? DogumTarihi { get; set; }
+
+    [JsonPropertyName("mustahsil")]
+    public bool? Mustahsil { get; set; }
+
+    [JsonPropertyName("tcUyruklu")]
+    public bool? TcUyruklu { get; set; }
+
+    [JsonPropertyName("vergiDairesiId")]
+    public long? VergiDairesiId { get; set; }
+
+    [JsonPropertyName("adresTipId")]
+    public long? AdresTipId { get; set; }
+
+    [JsonPropertyName("ulke")]
+    public string? Ulke { get; set; }
+
+    [JsonPropertyName("il")]
+    public string? Il { get; set; }
+
+    [JsonPropertyName("ilce")]
+    public string? Ilce { get; set; }
+
+    [JsonPropertyName("adresSerbest")]
+    public string? AdresSerbest { get; set; }
+
+    [JsonPropertyName("iletisimTipId")]
+    public long? IletisimTipId { get; set; }
+
+    [JsonPropertyName("iletisimTanim")]
+    public string? IletisimTanim { get; set; }
+}
+
+public class LucaCreateSupplierRequest : LucaCreateCustomerRequest
+{
+    public LucaCreateSupplierRequest()
+    {
+        // 2 genellikle tedarikçi kart tipini temsil eder
+        CariTipId = 2;
+    }
+}
+
+// --- 3.2.40 Diğer Stok Hareketi (Dsh) ---
+
+public class LucaCreateDshDetayRequest
+{
+    [JsonPropertyName("kartKodu")]
+    public string KartKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("depoKodu")]
+    public string? DepoKodu { get; set; }
+
+    [JsonPropertyName("miktar")]
+    public double Miktar { get; set; }
+
+    [JsonPropertyName("birimFiyat")]
+    public double? BirimFiyat { get; set; }
+
+    [JsonPropertyName("kdvOran")]
+    public double? KdvOran { get; set; }
+
+    [JsonPropertyName("aciklama")]
+    public string? Aciklama { get; set; }
+}
+
+public class LucaCreateDshBaslikRequest
+{
+    [JsonPropertyName("belgeSeri")]
+    public string? BelgeSeri { get; set; }
+
+    [JsonPropertyName("belgeNo")]
+    public long? BelgeNo { get; set; }
+
+    [JsonPropertyName("belgeTarihi")]
+    public DateTime BelgeTarihi { get; set; } = DateTime.UtcNow;
+
+    [JsonPropertyName("belgeAciklama")]
+    public string? BelgeAciklama { get; set; }
+
+    [JsonPropertyName("belgeTurDetayId")]
+    public long BelgeTurDetayId { get; set; }
+
+    [JsonPropertyName("depoKodu")]
+    public string? DepoKodu { get; set; }
+
+    /// <summary>
+    /// Giriş/çıkış yönü: "GIRIS" veya "CIKIS" (dokümandaki alt belge türüne göre de belirlenebilir)
+    /// </summary>
+    [JsonPropertyName("hareketYonu")]
+    public string? HareketYonu { get; set; }
+
+    [JsonPropertyName("detayList")]
+    public List<LucaCreateDshDetayRequest> DetayList { get; set; } = new();
 }
 
 // --- İrsaliye DTO'ları ---
