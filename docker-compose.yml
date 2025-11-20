@@ -9,9 +9,7 @@ services:
       - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__SqlServerConnection=Server=db;Database=KatanaLucaIntegration;User Id=sa;Password=Admin00!S;TrustServerCertificate=true;
-    depends_on:
-      - db
+      - ConnectionStrings__SqlServerConnection=Server=db,1433;Database=KatanaDB;User Id=sa;Password=Admin00!S;TrustServerCertificate=True;
     networks:
       - katana-network
     volumes:
@@ -29,6 +27,24 @@ services:
       - katana-network
     volumes:
       - sqlserver-data:/var/opt/mssql
+
+  # one-shot initializer: waits for SQL Server and ensures the database exists
+  db-init:
+    image: mcr.microsoft.com/mssql-tools
+    depends_on:
+      - db
+    entrypoint: ["/bin/bash", "-c"]
+    command: |
+      for i in $(seq 1 60); do
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P 'Admin00!S' -Q "SELECT 1" && break
+        echo "waiting for sqlserver..."
+        sleep 2
+      done
+      echo "Creating database KatanaDB if not exists..."
+      /opt/mssql-tools/bin/sqlcmd -S db -U sa -P 'Admin00!S' -Q "IF DB_ID('KatanaDB') IS NULL CREATE DATABASE KatanaDB;"
+    networks:
+      - katana-network
+    restart: "no"
 
 networks:
   katana-network:

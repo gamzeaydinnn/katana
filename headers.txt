@@ -1,0 +1,6 @@
+HTTP/1.1 200 OK
+Date: Thu, 20 Nov 2025 15:17:56 GMT
+Content-Length: 3576
+Content-Type: text/html; charset=UTF-8
+Set-Cookie: JSESSIONID=JlWh1_UDUj2rHv40FjEllQDwJPvH0zRm1OlBPa7mTbafquu379dF!747321702; path=/; HttpOnly
+

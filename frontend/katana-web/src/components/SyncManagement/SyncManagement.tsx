@@ -88,9 +88,22 @@ const SyncManagement: React.FC = () => {
       await stockAPI.startSync(syncType);
       setOpenDialog(false);
       await loadHistory();
-      alert("Senkronizasyon başlatıldı!");
+      showGlobalToast({
+        message: "Senkronizasyon başlatıldı.",
+        severity: "success",
+        durationMs: 4000,
+      });
     } catch (err: any) {
-      alert("Hata: " + (err.message || "Senkronizasyon başlatılamadı"));
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Senkronizasyon başlatılamadı";
+      showGlobalToast({
+        message: `Sync başlatılamadı: ${msg}`,
+        severity: "error",
+        durationMs: 6000,
+      });
     } finally {
       setSyncing(false);
     }
@@ -472,24 +485,24 @@ const SyncManagement: React.FC = () => {
             label="Senkronizasyon Tipi"
             onChange={(e) => setSyncType(e.target.value)}
           >
-            {/* Mevcut ve backend'de karşılığı olan senkronizasyonlar */}
-            <MenuItem value="STOCK">Stok Senkronizasyonu</MenuItem>
-            <MenuItem value="INVOICE">Fatura Senkronizasyonu</MenuItem>
-            <MenuItem value="CUSTOMER">Müşteri Senkronizasyonu</MenuItem>
-            <MenuItem value="DESPATCH">İrsaliye Senkronizasyonu</MenuItem>
-            <MenuItem value="ALL">Tümünü Senkronize Et</MenuItem>
-            
-            {/* Henüz backend'de tam olarak entegre edilmemiş veya istenen diğer tipler */}
-            <MenuItem value="CurrentStock" disabled>Cari Stok Senkronizasyonu (yakında)</MenuItem>
-            <MenuItem value="Order" disabled>Sipariş Senkronizasyonu (yakında)</MenuItem>
-            <MenuItem value="Supplier" disabled>Tedarikçi Senkronizasyonu (yakında)</MenuItem>
-              <MenuItem value="BankAccount" disabled>Banka Hesabı Senkronizasyonu (yakında)</MenuItem>
-              <MenuItem value="Warehouse" disabled>Depo Senkronizasyonu (yakında)</MenuItem>
-              <MenuItem value="Price" disabled>Fiyat Senkronizasyonu (yakında)</MenuItem>
-              <MenuItem value="Cost" disabled>Maliyet Senkronizasyonu (yakında)</MenuItem>
-              <MenuItem value="Category" disabled>Kategori Senkronizasyonu (yakında)</MenuItem>
-              <MenuItem value="Transaction" disabled>Cari Hareket Senkronizasyonu (yakında)</MenuItem>
-            </Select>
+            {/* Mevcut backend senkronizasyonları */}
+            <MenuItem value="STOCK">Stok</MenuItem>
+            <MenuItem value="INVOICE">Fatura</MenuItem>
+            <MenuItem value="CUSTOMER">Müşteri</MenuItem>
+            <MenuItem value="DESPATCH">İrsaliye</MenuItem>
+            <MenuItem value="ALL">Tümü</MenuItem>
+
+            {/* Luca genişletilmiş işlevler */}
+            <MenuItem value="SUPPLIER">Tedarikçi (Luca)</MenuItem>
+            <MenuItem value="STOCK_CARD">Stok Kartları (Luca)</MenuItem>
+            <MenuItem value="CUSTOMER_TRANSACTION">Cari Hareketler (Luca)</MenuItem>
+            <MenuItem value="CREDIT_CARD">Kredi Kartı Girişi (Luca)</MenuItem>
+            <MenuItem value="SALES_ORDER">Satış Siparişi (Luca)</MenuItem>
+            <MenuItem value="PURCHASE_ORDER">Satınalma Siparişi (Luca)</MenuItem>
+            <MenuItem value="WAREHOUSE_TRANSFER">Depo Transferi (Luca)</MenuItem>
+            <MenuItem value="WAREHOUSE">Depo Kartı (Luca)</MenuItem>
+            <MenuItem value="BANK">Banka Kartları (Luca)</MenuItem>
+          </Select>
           </FormControl>
         </DialogContent>
         <DialogActions>

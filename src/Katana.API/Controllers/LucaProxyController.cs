@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Katana.Core.Interfaces;
+using Microsoft.Extensions.Options;
 using System;
 using Microsoft.Extensions.Logging;
 
@@ -14,15 +15,20 @@ namespace Katana.API.Controllers
     [Route("api/luca")]
     public class LucaProxyController : ControllerBase
     {
-        private const string LucaApiBaseUrl = "https://akozas.luca.com.tr/Yetki";
+        private readonly string _lucaBaseUrl;
         private const string SessionCookieName = "LucaProxySession";
         private readonly ILucaCookieJarStore _cookieJarStore;
         private readonly ILogger<LucaProxyController> _logger;
+        private readonly Katana.Data.Configuration.LucaApiSettings _settings;
 
-        public LucaProxyController(ILucaCookieJarStore cookieJarStore, ILogger<LucaProxyController> logger)
+        public LucaProxyController(ILucaCookieJarStore cookieJarStore, IOptions<Katana.Data.Configuration.LucaApiSettings> settings, ILogger<LucaProxyController> logger)
         {
             _cookieJarStore = cookieJarStore;
             _logger = logger;
+            _settings = settings.Value;
+            _lucaBaseUrl = (_settings.BaseUrl ?? string.Empty).TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(_lucaBaseUrl))
+                _lucaBaseUrl = "https://akozas.luca.com.tr/Yetki"; // fallback
         }
 
         // Luca'dan gelen Set-Cookie'leri frontend'e forward eden yardımcı
@@ -88,16 +94,61 @@ namespace Katana.API.Controllers
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
             };
             var client = new HttpClient(handler);
-            var request = new HttpRequestMessage(HttpMethod.Post, $"{LucaApiBaseUrl}/Giris.do");
-            request.Content = new StringContent(body.ToString(), Encoding.UTF8, "application/json");
+            // If caller didn't provide expected fields, use configured credentials
+            string payloadJson;
+            try
+            {
+                // Check for expected Koza/Luca fields: orgCode, userName, userPassword (case-insensitive)
+                bool hasOrg = false, hasUser = false, hasPass = false;
+                if (body.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var prop in body.EnumerateObject())
+                    {
+                        var name = prop.Name.ToLowerInvariant();
+                        if (name == "orgcode") hasOrg = true;
+                        if (name == "username" || name == "userName" || name == "user_name") hasUser = true;
+                        if (name == "userpassword" || name == "userPassword" || name == "user_password") hasPass = true;
+                    }
+                }
+
+                if (hasOrg && hasUser && hasPass)
+                {
+                    payloadJson = body.ToString();
+                }
+                else
+                {
+                    var defaultPayload = new
+                    {
+                        orgCode = string.IsNullOrWhiteSpace(_settings.MemberNumber) ? (object)"" : _settings.MemberNumber,
+                        userName = string.IsNullOrWhiteSpace(_settings.Username) ? (object)"" : _settings.Username,
+                        userPassword = string.IsNullOrWhiteSpace(_settings.Password) ? (object)"" : _settings.Password
+                    };
+                    payloadJson = JsonSerializer.Serialize(defaultPayload);
+                }
+            }
+            catch
+            {
+                payloadJson = body.ToString();
+            }
+
+            var requestUrl = $"{_lucaBaseUrl}/{_settings.Endpoints.Auth}";
+            var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
+            request.Content = new StringContent(payloadJson, Encoding.UTF8, "application/json");
+
+            _logger.LogDebug("LucaProxy: Sending login request to {Url}. Payload preview: {PayloadPreview}", requestUrl, payloadJson?.Length > 1000 ? payloadJson.Substring(0, 1000) + "..." : payloadJson);
+
             var response = await client.SendAsync(request);
             var responseContent = await response.Content.ReadAsStringAsync();
+
+            var respPreview = responseContent != null && responseContent.Length > 1000 ? responseContent.Substring(0, 1000) + "..." : responseContent;
+            _logger.LogDebug("LucaProxy: Received response from {Url}. Status: {Status}. Body preview: {Preview}", requestUrl, response.StatusCode, respPreview);
 
             // Try to deserialize the remote response for convenience
             object? parsed = null;
             try
             {
-                parsed = JsonSerializer.Deserialize<object>(responseContent);
+                if (!string.IsNullOrEmpty(responseContent))
+                    parsed = JsonSerializer.Deserialize<object>(responseContent);
             }
             catch { /* ignore */ }
 
@@ -126,10 +177,17 @@ namespace Katana.API.Controllers
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
             };
             var client = new HttpClient(handler);
-            var request = new HttpRequestMessage(HttpMethod.Post, $"{LucaApiBaseUrl}/YdlUserResponsibilityOrgSs.do");
+            var requestUrl = $"{_lucaBaseUrl}/{_settings.Endpoints.Branches}";
+            var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
             request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
+
+            _logger.LogDebug("LucaProxy: Sending branches request to {Url}", requestUrl);
+
             var response = await client.SendAsync(request);
             var responseContent = await response.Content.ReadAsStringAsync();
+
+            var respPreview = responseContent != null && responseContent.Length > 1000 ? responseContent.Substring(0, 1000) + "..." : responseContent;
+            _logger.LogDebug("LucaProxy: Branches response from {Url}. Status: {Status}. Body preview: {Preview}", requestUrl, response.StatusCode, respPreview);
 
             _logger.LogInformation("Luca /branches raw response: {Length} chars, status: {Status}", responseContent?.Length ?? 0, response.StatusCode);
             
@@ -162,7 +220,7 @@ namespace Katana.API.Controllers
                     // Materialize the found array into a standalone object so we don't
                     // return a JsonElement that references the disposed JsonDocument.
                     var branchesObj = JsonSerializer.Deserialize<object>(foundArray.Value.GetRawText());
-                    var rawObj = JsonSerializer.Deserialize<object>(responseContent);
+                    var rawObj = JsonSerializer.Deserialize<object>(responseContent ?? "null");
                     return Ok(new { branches = branchesObj, raw = rawObj });
                 }
             }
@@ -191,9 +249,18 @@ namespace Katana.API.Controllers
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
             };
             var client = new HttpClient(handler);
-            var request = new HttpRequestMessage(HttpMethod.Post, $"{LucaApiBaseUrl}/GuncelleYtkSirketSubeDegistir.do");
-            request.Content = new StringContent(body.ToString(), Encoding.UTF8, "application/json");
+            var requestUrl = $"{_lucaBaseUrl}/{_settings.Endpoints.ChangeBranch}";
+            var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
+            var bodyStr = body.ToString();
+            request.Content = new StringContent(bodyStr, Encoding.UTF8, "application/json");
+
+            _logger.LogDebug("LucaProxy: Sending select-branch request to {Url}. Payload preview: {PayloadPreview}", requestUrl, bodyStr?.Length > 1000 ? bodyStr.Substring(0, 1000) + "..." : bodyStr);
+
             var response = await client.SendAsync(request);
+            var responseContent = await response.Content.ReadAsStringAsync();
+            var respPreview = responseContent != null && responseContent.Length > 1000 ? responseContent.Substring(0, 1000) + "..." : responseContent;
+            _logger.LogDebug("LucaProxy: Select-branch response from {Url}. Status: {Status}. Body preview: {Preview}", requestUrl, response.StatusCode, respPreview);
+
             return await ForwardResponse(response);
         }
     }

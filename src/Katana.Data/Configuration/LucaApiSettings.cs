@@ -44,6 +44,8 @@ public class LucaEndpoints
     public string StockCardAltStocks { get; set; } = "ListeleStkSkartAlternatif.do";
     public string StockCardCosts { get; set; } = "ListeleStkSkartMaliyet.do";
     public string StockCategories { get; set; } = "ListeleStkSkartKategoriAgac.do";
+    public string StockCardSuppliers { get; set; } = "ListeleStkSkartTeminYeri.do";
+    public string StockCardPurchaseTerms { get; set; } = "ListeleStkSkartAlimSart.do";
 
     // Koza fatura endpoint'leri
     public string InvoiceList { get; set; } = "ListeleFtrSsFaturaBaslik.do";
@@ -56,6 +58,8 @@ public class LucaEndpoints
     public string CustomerAuthorizedPersons { get; set; } = "ListeleFinFinansalNesneYetkili.do";
     public string CustomerRisk { get; set; } = "GetirFinRisk.do";
     public string CustomerTransaction { get; set; } = "EkleFinCariHareketBaslikWS.do";
+    public string CustomerContacts { get; set; } = "ListeleWSGnlSsIletisim.do";
+    public string BankList { get; set; } = "ListeleFinSsBanka.do";
 
     // Koza cari/tedarikçi ekleme endpoint'leri
     public string CustomerCreate { get; set; } = "EkleFinMusteriWS.do";
@@ -68,4 +72,18 @@ public class LucaEndpoints
 
     // Koza stok hareket endpoint'i (Diğer stok hareketi)
     public string OtherStockMovement { get; set; } = "EkleStkWsDshBaslik.do";
+
+    // Stok / sipariş / depo ek uçlar
+    public string WarehouseStockQuantity { get; set; } = "ListeleStkSsEldekiMiktar.do";
+    public string SalesOrderList { get; set; } = "ListeleStsSsSiparisBaslik.do";
+    public string SalesOrder { get; set; } = "EkleStsWsSiparisBaslik.do";
+    public string SalesOrderDelete { get; set; } = "SilStsWsSiparisBaslik.do";
+    public string SalesOrderDetailDelete { get; set; } = "SilDetayStsWsSiparisBaslik.do";
+    public string PurchaseOrder { get; set; } = "EkleStnWsSiparisBaslik.do";
+    public string PurchaseOrderDelete { get; set; } = "SilStnWsSiparisBaslik.do";
+    public string PurchaseOrderDetailDelete { get; set; } = "SilDetayStnWsSiparisBaslik.do";
+    public string WarehouseTransfer { get; set; } = "EkleStkWsDtransferBaslik.do";
+    public string StockCountResult { get; set; } = "EkleStkWsSayimBaslik.do";
+    public string Warehouse { get; set; } = "EkleStkWsDepo.do";
+    public string CreditCardEntry { get; set; } = "EkleFinKrediKartiWS.do";
 }

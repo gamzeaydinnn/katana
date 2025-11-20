@@ -23,6 +23,7 @@ using Katana.Core.Interfaces;
 using Katana.Core.Entities;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
 using Katana.API.Workers;
 using Katana.API.Services;
 
@@ -417,7 +418,68 @@ else
     app.UseHttpsRedirection();
 }
 
+await EnsureDefaultAdminUserAsync(app.Services, app.Configuration, app.Logger);
+
 app.Run();
+
+static async Task EnsureDefaultAdminUserAsync(
+    IServiceProvider services,
+    IConfiguration configuration,
+    Microsoft.Extensions.Logging.ILogger logger)
+{
+    var username = configuration["AuthSettings:AdminUsername"]?.Trim();
+    var password = configuration["AuthSettings:AdminPassword"];
+
+    if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+    {
+        logger.LogWarning("AuthSettings:AdminUsername or AdminPassword is not configured; default admin user not ensured.");
+        return;
+    }
+
+    try
+    {
+        using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IntegrationDbContext>();
+
+        var passwordHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(password)));
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username);
+
+        if (user == null)
+        {
+            db.Users.Add(new User
+            {
+                Username = username,
+                PasswordHash = passwordHash,
+                Role = "Admin",
+                Email = string.IsNullOrWhiteSpace(username) ? string.Empty : $"{username}@katana.local",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+            logger.LogInformation("Default admin user '{Username}' created from AuthSettings.", username);
+            return;
+        }
+
+        var requiresUpdate = user.PasswordHash != passwordHash || !user.IsActive || string.IsNullOrWhiteSpace(user.Role);
+        if (requiresUpdate)
+        {
+            user.PasswordHash = passwordHash;
+            user.IsActive = true;
+            if (string.IsNullOrWhiteSpace(user.Role))
+            {
+                user.Role = "Admin";
+            }
+            user.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            logger.LogInformation("Default admin user '{Username}' synchronized with AuthSettings.", username);
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to ensure default admin user exists.");
+    }
+}
 
 // Make Program class accessible to WebApplicationFactory in integration tests
 public partial class Program { }

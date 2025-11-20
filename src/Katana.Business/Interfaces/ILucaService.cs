@@ -70,6 +70,33 @@ public interface ILucaService
     Task<JsonElement> CreateStockCardAsync(LucaCreateStokKartiRequest request);
     // 3.2.40 Diğer Stok Hareketi (stok düzeltmeleri için)
     Task<JsonElement> CreateOtherStockMovementAsync(LucaCreateDshBaslikRequest request);
+    // Satış siparişi işlemleri
+    Task<JsonElement> CreateSalesOrderAsync(LucaCreateSalesOrderRequest request);
+    Task<JsonElement> DeleteSalesOrderAsync(LucaDeleteSalesOrderRequest request);
+    Task<JsonElement> DeleteSalesOrderDetailAsync(LucaDeleteSalesOrderDetailRequest request);
+    // Satın alma siparişi işlemleri
+    Task<JsonElement> CreatePurchaseOrderAsync(LucaCreatePurchaseOrderRequest request);
+    Task<JsonElement> DeletePurchaseOrderAsync(LucaDeletePurchaseOrderRequest request);
+    Task<JsonElement> DeletePurchaseOrderDetailAsync(LucaDeletePurchaseOrderDetailRequest request);
+    // Depo ve diğer stok operasyonları
+    Task<JsonElement> CreateWarehouseTransferAsync(LucaCreateWarehouseTransferRequest request);
+    Task<JsonElement> CreateStockCountResultAsync(LucaCreateStockCountRequest request);
+    Task<JsonElement> CreateWarehouseAsync(LucaCreateWarehouseRequest request);
+    Task<JsonElement> CreateCreditCardEntryAsync(LucaCreateCreditCardEntryRequest request);
+
+    // --- Eksik kalan listeleme/çekme uçları ---
+    // 3.2.7 Stok Kartı Temin Yerleri
+    Task<JsonElement> ListStockCardSuppliersAsync(LucaStockCardByIdRequest request);
+    // 3.2.8 Cari İletişim Listesi
+    Task<JsonElement> ListCustomerContactsAsync(LucaListCustomerContactsRequest request);
+    // 3.2.12 Banka Kartları Listesi
+    Task<JsonElement> ListBanksAsync(LucaListBanksRequest? request = null);
+    // 3.2.17 Depo Eldeki Miktar
+    Task<JsonElement> GetWarehouseStockQuantityAsync(long depoId);
+    // 3.2.20 Stok Kartı Alım Şartları
+    Task<JsonElement> ListStockCardPurchaseTermsAsync(LucaStockCardByIdRequest request);
+    // 3.2.22 Satış Sipariş Listesi
+    Task<JsonElement> ListSalesOrdersAsync(bool detayliListe = false);
 }
 
 

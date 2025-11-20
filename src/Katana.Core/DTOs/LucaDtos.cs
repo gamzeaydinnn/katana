@@ -212,6 +212,62 @@ public class LucaListStockCategoriesRequest
     public long KartTuru { get; set; }
 }
 
+// --- 3.2.7 Stok Kartı Temin Yerleri (Tedarikçi) ---
+
+public class LucaStockCardSuppliersRequest
+{
+    [JsonPropertyName("stkSkart")]
+    public LucaStockCardKey StkSkart { get; set; } = new();
+}
+
+// --- 3.2.8 Cari İletişim Listesi ---
+
+public class LucaListCustomerContactsRequest
+{
+    [JsonPropertyName("finansalNesneId")]
+    public long FinansalNesneId { get; set; }
+}
+
+// --- 3.2.12 Banka Kartları Listesi ---
+
+public class LucaBankFilter
+{
+    [JsonPropertyName("gnlFinansalNesne")]
+    public LucaCodeRangeFilter? GnlFinansalNesne { get; set; }
+}
+
+public class LucaListBanksRequest
+{
+    [JsonPropertyName("finSsBanka")]
+    public LucaBankFilter? FinSsBanka { get; set; }
+}
+
+// --- 3.2.17 Depo Eldeki Miktar ---
+
+public class LucaGetWarehouseStockRequest
+{
+    [JsonPropertyName("depoId")]
+    public long DepoId { get; set; }
+}
+
+// --- 3.2.20 Stok Kartı Alım Şartları ---
+
+public class LucaListStockCardPurchaseTermsRequest
+{
+    [JsonPropertyName("stkSkart")]
+    public LucaStockCardKey StkSkart { get; set; } = new();
+}
+
+// --- 3.2.22 Satış Sipariş Listesi ---
+
+public class LucaListSalesOrdersRequest
+{
+    /// <summary>
+    /// Tarih aralığı veya kod aralığı gibi opsiyonel alanlar gerekirse genişletilebilir.
+    /// Şimdilik boş gövde ile çağrı yapılabiliyor.
+    /// </summary>
+}
+
 // --- Koza / Luca fatura listeleme ve ekleme DTO'ları ---
 
 public class LucaInvoiceBelgeFilter
@@ -874,6 +930,555 @@ public class LucaCreateSupplierRequest : LucaCreateCustomerRequest
         // 2 genellikle tedarikçi kart tipini temsil eder
         CariTipId = 2;
     }
+}
+
+// --- 3.2.35 / 3.2.36 Satış / Satın Alma Siparişi ---
+
+/// <summary>
+/// 3.2.35 Satış veya 3.2.36 Satınalma siparişi detay satırı.
+/// </summary>
+public class LucaCreateOrderDetailRequest
+{
+    [JsonPropertyName("kartTuru")]
+    public int KartTuru { get; set; } = 1;
+
+    [JsonPropertyName("kartKodu")]
+    public string KartKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("kartAdi")]
+    public string? KartAdi { get; set; }
+
+    [JsonPropertyName("kartTipi")]
+    public long? KartTipi { get; set; }
+
+    [JsonPropertyName("barkod")]
+    public string? Barkod { get; set; }
+
+    [JsonPropertyName("olcuBirimi")]
+    public long? OlcuBirimi { get; set; }
+
+    [JsonPropertyName("kdvOran")]
+    public double KdvOran { get; set; }
+
+    [JsonPropertyName("kartSatisKdvOran")]
+    public double? KartSatisKdvOran { get; set; }
+
+    [JsonPropertyName("depoKodu")]
+    public string? DepoKodu { get; set; }
+
+    [JsonPropertyName("birimFiyat")]
+    public double BirimFiyat { get; set; }
+
+    [JsonPropertyName("miktar")]
+    public double Miktar { get; set; }
+
+    [JsonPropertyName("tutar")]
+    public double? Tutar { get; set; }
+
+    [JsonPropertyName("iskontoOran1")]
+    public double? IskontoOran1 { get; set; }
+    [JsonPropertyName("iskontoOran2")]
+    public double? IskontoOran2 { get; set; }
+    [JsonPropertyName("iskontoOran3")]
+    public double? IskontoOran3 { get; set; }
+    [JsonPropertyName("iskontoOran4")]
+    public double? IskontoOran4 { get; set; }
+    [JsonPropertyName("iskontoOran5")]
+    public double? IskontoOran5 { get; set; }
+    [JsonPropertyName("iskontoOran6")]
+    public double? IskontoOran6 { get; set; }
+    [JsonPropertyName("iskontoOran7")]
+    public double? IskontoOran7 { get; set; }
+    [JsonPropertyName("iskontoOran8")]
+    public double? IskontoOran8 { get; set; }
+    [JsonPropertyName("iskontoOran9")]
+    public double? IskontoOran9 { get; set; }
+    [JsonPropertyName("iskontoOran10")]
+    public double? IskontoOran10 { get; set; }
+
+    [JsonPropertyName("otvOran")]
+    public double? OtvOran { get; set; }
+
+    [JsonPropertyName("stopajOran")]
+    public double? StopajOran { get; set; }
+
+    [JsonPropertyName("lotNo")]
+    public string? LotNo { get; set; }
+
+    [JsonPropertyName("aciklama")]
+    public string? Aciklama { get; set; }
+
+    [JsonPropertyName("shAttribute1Deger")]
+    public string? ShAttribute1Deger { get; set; }
+    [JsonPropertyName("shAttribute1Ack")]
+    public string? ShAttribute1Ack { get; set; }
+    [JsonPropertyName("shAttribute2Deger")]
+    public string? ShAttribute2Deger { get; set; }
+    [JsonPropertyName("shAttribute2Ack")]
+    public string? ShAttribute2Ack { get; set; }
+    [JsonPropertyName("shAttribute3Deger")]
+    public string? ShAttribute3Deger { get; set; }
+    [JsonPropertyName("shAttribute3Ack")]
+    public string? ShAttribute3Ack { get; set; }
+    [JsonPropertyName("shAttribute4Deger")]
+    public string? ShAttribute4Deger { get; set; }
+    [JsonPropertyName("shAttribute4Ack")]
+    public string? ShAttribute4Ack { get; set; }
+    [JsonPropertyName("shAttribute5Deger")]
+    public string? ShAttribute5Deger { get; set; }
+    [JsonPropertyName("shAttribute5Ack")]
+    public string? ShAttribute5Ack { get; set; }
+}
+
+/// <summary>
+/// 3.2.35 / 3.2.36 sipariş başlık DTO'su.
+/// </summary>
+public class LucaCreateOrderHeaderRequest
+{
+    [JsonPropertyName("belgeSeri")]
+    public string? BelgeSeri { get; set; }
+
+    [JsonPropertyName("belgeNo")]
+    public int? BelgeNo { get; set; }
+
+    [JsonPropertyName("belgeTarihi")]
+    public DateTime BelgeTarihi { get; set; }
+
+    [JsonPropertyName("duzenlemeSaati")]
+    public string? DuzenlemeSaati { get; set; }
+
+    [JsonPropertyName("vadeTarihi")]
+    public DateTime? VadeTarihi { get; set; }
+
+    [JsonPropertyName("belgeTakipNo")]
+    public string? BelgeTakipNo { get; set; }
+
+    [JsonPropertyName("belgeAciklama")]
+    public string? BelgeAciklama { get; set; }
+
+    [JsonPropertyName("belgeTurDetayId")]
+    public long BelgeTurDetayId { get; set; }
+
+    [JsonPropertyName("teklifSiparisTur")]
+    public int TeklifSiparisTur { get; set; } = 1;
+
+    [JsonPropertyName("paraBirimKod")]
+    public string ParaBirimKod { get; set; } = "TRY";
+
+    [JsonPropertyName("kurBedeli")]
+    public double KurBedeli { get; set; } = 1.0;
+
+    [JsonPropertyName("kdvFlag")]
+    public bool KdvFlag { get; set; } = true;
+
+    [JsonPropertyName("opsiyonTarihiFlag")]
+    public bool? OpsiyonTarihiFlag { get; set; }
+
+    [JsonPropertyName("opsiyonTarihi")]
+    public DateTime? OpsiyonTarihi { get; set; }
+
+    [JsonPropertyName("teslimTarihiFlag")]
+    public bool? TeslimTarihiFlag { get; set; }
+
+    [JsonPropertyName("teslimTarihi")]
+    public DateTime? TeslimTarihi { get; set; }
+
+    [JsonPropertyName("onayFlag")]
+    public bool? OnayFlag { get; set; }
+
+    [JsonPropertyName("onayTarihi")]
+    public DateTime? OnayTarihi { get; set; }
+
+    [JsonPropertyName("onayAciklama")]
+    public string? OnayAciklama { get; set; }
+
+    [JsonPropertyName("saticiNotu")]
+    public string? SaticiNotu { get; set; }
+
+    [JsonPropertyName("finansmanNotu")]
+    public string? FinansmanNotu { get; set; }
+
+    [JsonPropertyName("nakliyeBedeliTuru")]
+    public int? NakliyeBedeliTuru { get; set; }
+
+    [JsonPropertyName("perakendeKdvFlag")]
+    public bool? PerakendeKdvFlag { get; set; }
+
+    [JsonPropertyName("referansNo")]
+    public string? ReferansNo { get; set; }
+
+    [JsonPropertyName("tevkifatOran")]
+    public string? TevkifatOran { get; set; }
+
+    [JsonPropertyName("cariKodu")]
+    public string CariKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("cariTanim")]
+    public string? CariTanim { get; set; }
+
+    [JsonPropertyName("cariTip")]
+    public int? CariTip { get; set; }
+
+    [JsonPropertyName("cariKisaAd")]
+    public string? CariKisaAd { get; set; }
+
+    [JsonPropertyName("cariYasalUnvan")]
+    public string? CariYasalUnvan { get; set; }
+
+    [JsonPropertyName("vergiNo")]
+    public string? VergiNo { get; set; }
+
+    [JsonPropertyName("vergiDairesi")]
+    public string? VergiDairesi { get; set; }
+
+    [JsonPropertyName("cariAd")]
+    public string? CariAd { get; set; }
+
+    [JsonPropertyName("cariSoyad")]
+    public string? CariSoyad { get; set; }
+
+    [JsonPropertyName("tcKimlikNo")]
+    public string? TcKimlikNo { get; set; }
+
+    [JsonPropertyName("il")]
+    public string? Il { get; set; }
+
+    [JsonPropertyName("ilce")]
+    public string? Ilce { get; set; }
+
+    [JsonPropertyName("mahalle")]
+    public string? Mahalle { get; set; }
+
+    [JsonPropertyName("cadde")]
+    public string? Cadde { get; set; }
+
+    [JsonPropertyName("disKapiNo")]
+    public string? DisKapiNo { get; set; }
+
+    [JsonPropertyName("icKapiNo")]
+    public string? IcKapiNo { get; set; }
+
+    [JsonPropertyName("postaKodu")]
+    public string? PostaKodu { get; set; }
+
+    [JsonPropertyName("adresSerbest")]
+    public string? AdresSerbest { get; set; }
+
+    [JsonPropertyName("telefon")]
+    public string? Telefon { get; set; }
+
+    [JsonPropertyName("email")]
+    public string? Email { get; set; }
+
+    [JsonPropertyName("detayList")]
+    public List<LucaCreateOrderDetailRequest> DetayList { get; set; } = new();
+}
+
+/// <summary>
+/// 3.2.38 sipariş silme isteği.
+/// </summary>
+public class LucaDeleteOrderRequest
+{
+    [JsonPropertyName("ssSiparisBaslikId")]
+    public long SsSiparisBaslikId { get; set; }
+}
+
+/// <summary>
+/// 3.2.38 sipariş detay silme isteği.
+/// </summary>
+public class LucaDeleteOrderDetailRequest
+{
+    [JsonPropertyName("detayList")]
+    public List<LucaOrderDetailToDelete> DetayList { get; set; } = new();
+}
+
+public class LucaOrderDetailToDelete
+{
+    [JsonPropertyName("detayId")]
+    public long DetayId { get; set; }
+}
+
+// --- Mevcut sipariş DTO'ları (basitleştirilmiş) ---
+
+public class LucaCreateSalesOrderRequest
+{
+    [JsonPropertyName("belgeSeri")]
+    public string? BelgeSeri { get; set; }
+
+    [JsonPropertyName("belgeNo")]
+    public string? BelgeNo { get; set; }
+
+    [JsonPropertyName("belgeTarihi")]
+    public DateTime BelgeTarihi { get; set; }
+
+    [JsonPropertyName("belgeTurDetayId")]
+    public long BelgeTurDetayId { get; set; }
+
+    [JsonPropertyName("cariKodu")]
+    public string CariKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("paraBirimKod")]
+    public string ParaBirimKod { get; set; } = "TRY";
+
+    [JsonPropertyName("kdvFlag")]
+    public bool KdvFlag { get; set; } = true;
+
+    [JsonPropertyName("detayList")]
+    public List<LucaSalesOrderDetailRequest> DetayList { get; set; } = new();
+}
+
+public class LucaSalesOrderDetailRequest
+{
+    [JsonPropertyName("kartTuru")]
+    public int KartTuru { get; set; }
+
+    [JsonPropertyName("kartKodu")]
+    public string KartKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("miktar")]
+    public decimal Miktar { get; set; }
+
+    [JsonPropertyName("birimFiyat")]
+    public decimal BirimFiyat { get; set; }
+
+    [JsonPropertyName("kdvOran")]
+    public double KdvOran { get; set; }
+}
+
+public class LucaDeleteSalesOrderRequest
+{
+    [JsonPropertyName("ssSiparisBaslikId")]
+    public long SsSiparisBaslikId { get; set; }
+}
+
+public class LucaDeleteSalesOrderDetailRequest
+{
+    [JsonPropertyName("ssSiparisDetayId")]
+    public long SsSiparisDetayId { get; set; }
+}
+
+public class LucaCreatePurchaseOrderRequest
+{
+    [JsonPropertyName("belgeSeri")]
+    public string? BelgeSeri { get; set; }
+
+    [JsonPropertyName("belgeNo")]
+    public string? BelgeNo { get; set; }
+
+    [JsonPropertyName("belgeTarihi")]
+    public DateTime BelgeTarihi { get; set; }
+
+    [JsonPropertyName("belgeTurDetayId")]
+    public long BelgeTurDetayId { get; set; }
+
+    [JsonPropertyName("cariKodu")]
+    public string CariKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("paraBirimKod")]
+    public string ParaBirimKod { get; set; } = "TRY";
+
+    [JsonPropertyName("kdvFlag")]
+    public bool KdvFlag { get; set; } = true;
+
+    [JsonPropertyName("detayList")]
+    public List<LucaPurchaseOrderDetailRequest> DetayList { get; set; } = new();
+}
+
+public class LucaPurchaseOrderDetailRequest
+{
+    [JsonPropertyName("kartTuru")]
+    public int KartTuru { get; set; }
+
+    [JsonPropertyName("kartKodu")]
+    public string KartKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("miktar")]
+    public decimal Miktar { get; set; }
+
+    [JsonPropertyName("birimFiyat")]
+    public decimal BirimFiyat { get; set; }
+
+    [JsonPropertyName("kdvOran")]
+    public double KdvOran { get; set; }
+}
+
+public class LucaDeletePurchaseOrderRequest
+{
+    [JsonPropertyName("ssSiparisBaslikId")]
+    public long SsSiparisBaslikId { get; set; }
+}
+
+public class LucaDeletePurchaseOrderDetailRequest
+{
+    [JsonPropertyName("ssSiparisDetayId")]
+    public long SsSiparisDetayId { get; set; }
+}
+
+// --- Depo hareket / sayım ve kredi kartı ---
+
+public class LucaCreateWarehouseTransferRequest
+{
+    [JsonPropertyName("belgeTurDetayId")]
+    public long BelgeTurDetayId { get; set; }
+
+    [JsonPropertyName("belgeSeri")]
+    public string? BelgeSeri { get; set; }
+
+    [JsonPropertyName("belgeNo")]
+    public long? BelgeNo { get; set; }
+
+    [JsonPropertyName("belgeTarihi")]
+    public DateTime BelgeTarihi { get; set; }
+
+    [JsonPropertyName("belgeTakipNo")]
+    public string? BelgeTakipNo { get; set; }
+
+    [JsonPropertyName("belgeAciklama")]
+    public string? BelgeAciklama { get; set; }
+
+    [JsonPropertyName("girisDepoKodu")]
+    public string GirisDepoKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("cikisDepoKodu")]
+    public string CikisDepoKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("detayList")]
+    public List<LucaWarehouseTransferDetailRequest> DetayList { get; set; } = new();
+}
+
+public class LucaWarehouseTransferDetailRequest
+{
+    [JsonPropertyName("kartKodu")]
+    public string KartKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("miktar")]
+    public decimal Miktar { get; set; }
+
+    [JsonPropertyName("olcuBirimi")]
+    public long? OlcuBirimi { get; set; }
+
+    [JsonPropertyName("aciklama")]
+    public string? Aciklama { get; set; }
+
+    [JsonPropertyName("shAttribute1Deger")]
+    public string? ShAttribute1Deger { get; set; }
+    [JsonPropertyName("shAttribute1Ack")]
+    public string? ShAttribute1Ack { get; set; }
+    [JsonPropertyName("shAttribute2Deger")]
+    public string? ShAttribute2Deger { get; set; }
+    [JsonPropertyName("shAttribute2Ack")]
+    public string? ShAttribute2Ack { get; set; }
+    [JsonPropertyName("shAttribute3Deger")]
+    public string? ShAttribute3Deger { get; set; }
+    [JsonPropertyName("shAttribute3Ack")]
+    public string? ShAttribute3Ack { get; set; }
+    [JsonPropertyName("shAttribute4Deger")]
+    public string? ShAttribute4Deger { get; set; }
+    [JsonPropertyName("shAttribute4Ack")]
+    public string? ShAttribute4Ack { get; set; }
+    [JsonPropertyName("shAttribute5Deger")]
+    public string? ShAttribute5Deger { get; set; }
+    [JsonPropertyName("shAttribute5Ack")]
+    public string? ShAttribute5Ack { get; set; }
+}
+
+public class LucaCreateStockCountRequest
+{
+    [JsonPropertyName("belgeTurDetayId")]
+    public long BelgeTurDetayId { get; set; }
+
+    [JsonPropertyName("belgeTarihi")]
+    public DateTime BelgeTarihi { get; set; }
+
+    [JsonPropertyName("depoKodu")]
+    public string DepoKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("detayList")]
+    public List<LucaStockCountDetailRequest> DetayList { get; set; } = new();
+}
+
+public class LucaStockCountDetailRequest
+{
+    [JsonPropertyName("kartKodu")]
+    public string KartKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("sayimMiktari")]
+    public decimal SayimMiktari { get; set; }
+}
+
+public class LucaCreateWarehouseRequest
+{
+    [JsonPropertyName("kod")]
+    public string Kod { get; set; } = string.Empty;
+
+    [JsonPropertyName("tanim")]
+    public string Tanim { get; set; } = string.Empty;
+
+    [JsonPropertyName("kategoriKod")]
+    public string? KategoriKod { get; set; }
+
+    [JsonPropertyName("ulke")]
+    public string? Ulke { get; set; }
+
+    [JsonPropertyName("il")]
+    public string? Il { get; set; }
+
+    [JsonPropertyName("ilce")]
+    public string? Ilce { get; set; }
+
+    [JsonPropertyName("adresSerbest")]
+    public string? AdresSerbest { get; set; }
+}
+
+public class LucaCreateCreditCardEntryRequest
+{
+    [JsonPropertyName("belgeSeri")]
+    public string? BelgeSeri { get; set; }
+
+    [JsonPropertyName("belgeNo")]
+    public string? BelgeNo { get; set; }
+
+    [JsonPropertyName("belgeTarihi")]
+    public DateTime BelgeTarihi { get; set; }
+
+    [JsonPropertyName("duzenlemeSaati")]
+    public string? DuzenlemeSaati { get; set; }
+
+    [JsonPropertyName("vadeTarihi")]
+    public DateTime? VadeTarihi { get; set; }
+
+    [JsonPropertyName("belgeTakipNo")]
+    public string? BelgeTakipNo { get; set; }
+
+    [JsonPropertyName("belgeAciklama")]
+    public string? BelgeAciklama { get; set; }
+
+    [JsonPropertyName("cariKodu")]
+    public string CariKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("detayList")]
+    public List<LucaCreditCardEntryDetailRequest> DetayList { get; set; } = new();
+}
+
+public class LucaCreditCardEntryDetailRequest
+{
+    [JsonPropertyName("kartTuru")]
+    public int KartTuru { get; set; }
+
+    [JsonPropertyName("kartKodu")]
+    public string KartKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("avansFlag")]
+    public bool? AvansFlag { get; set; }
+
+    [JsonPropertyName("tutar")]
+    public decimal Tutar { get; set; }
+
+    [JsonPropertyName("vadeTarihi")]
+    public DateTime? VadeTarihi { get; set; }
+
+    [JsonPropertyName("aciklama")]
+    public string? Aciklama { get; set; }
 }
 
 // --- 3.2.40 Diğer Stok Hareketi (Dsh) ---
