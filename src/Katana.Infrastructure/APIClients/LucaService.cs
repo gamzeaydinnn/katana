@@ -125,19 +125,141 @@ public class LucaService : ILucaService
                 var branchesJson = await branchesResp.Content.ReadAsStringAsync();
                 try
                 {
-                    var arr = JsonSerializer.Deserialize<JsonElement>(branchesJson);
-                    if (arr.ValueKind == JsonValueKind.Array && arr.GetArrayLength() > 0)
+                    using var doc = JsonDocument.Parse(branchesJson);
+
+                    JsonElement? listEl = null;
+
+                    // Common wrappers: root array, or { list: [...] }, or { branches: [...] }, or { data: [...] }
+                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
                     {
-                        var first = arr[0];
-                        if (first.TryGetProperty("id", out var idProp) && idProp.TryGetInt64(out var id))
+                        listEl = doc.RootElement;
+                    }
+                    else if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                    {
+                        if (doc.RootElement.TryGetProperty("list", out var l) && l.ValueKind == JsonValueKind.Array)
+                            listEl = l;
+                        else if (doc.RootElement.TryGetProperty("branches", out var b) && b.ValueKind == JsonValueKind.Array)
+                            listEl = b;
+                        else if (doc.RootElement.TryGetProperty("data", out var d) && d.ValueKind == JsonValueKind.Array)
+                            listEl = d;
+                        else if (doc.RootElement.TryGetProperty("list", out var alt) && alt.ValueKind == JsonValueKind.Object)
                         {
-                            var changeBody = new { orgSirketSubeId = id };
-                            var changeJson = JsonSerializer.Serialize(changeBody, _jsonOptions);
-                            var changeResp = await _cookieHttpClient.PostAsync(_settings.Endpoints.ChangeBranch, new StringContent(changeJson, Encoding.UTF8, "application/json"));
-                            if (!changeResp.IsSuccessStatusCode)
+                            // sometimes list may be wrapped differently; try to locate first array child
+                            foreach (var prop in alt.EnumerateObject())
                             {
-                                _logger.LogWarning("Failed to change branch in Koza (status {Status})", changeResp.StatusCode);
+                                if (prop.Value.ValueKind == JsonValueKind.Array)
+                                {
+                                    listEl = prop.Value;
+                                    break;
+                                }
                             }
+                        }
+                    }
+
+                    if (listEl.HasValue && listEl.Value.ValueKind == JsonValueKind.Array && listEl.Value.GetArrayLength() > 0)
+                    {
+                        var array = listEl.Value;
+
+                        // Save branches JSON to repo ./logs for debugging / reproducible tests
+                        try
+                        {
+                            var repoLogDir = Path.Combine(Directory.GetCurrentDirectory(), "logs");
+                            Directory.CreateDirectory(repoLogDir);
+                            var repoFile = Path.Combine(repoLogDir, "luca-branches.json");
+                            await File.WriteAllTextAsync(repoFile, array.GetRawText());
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to write luca-branches.json to repo logs");
+                        }
+
+                        JsonElement? chosen = null;
+                        long? chosenId = null;
+
+                        // Prefer an element with an explicit 'isDefault' boolean flag
+                        foreach (var el in array.EnumerateArray())
+                        {
+                            if (el.ValueKind != JsonValueKind.Object) continue;
+                            if (el.TryGetProperty("isDefault", out var isDef) && isDef.ValueKind == JsonValueKind.True)
+                            {
+                                chosen = el;
+                                break;
+                            }
+                            // Some providers may use localized or different flag names
+                            if (el.TryGetProperty("varsayilan", out var vs) && vs.ValueKind == JsonValueKind.True)
+                            {
+                                chosen = el;
+                                break;
+                            }
+                        }
+
+                        // If no explicit default found, pick the first element
+                        if (!chosen.HasValue)
+                        {
+                            var enumFirst = array.EnumerateArray().FirstOrDefault();
+                            if (enumFirst.ValueKind != JsonValueKind.Undefined)
+                                chosen = enumFirst;
+                        }
+
+                        // Extract possible id fields from chosen element
+                        if (chosen.HasValue)
+                        {
+                            var el = chosen.Value;
+                            long parsedId = 0;
+                            bool got = false;
+                            string[] idNames = new[] { "orgSirketSubeId", "orgSirketSubeID", "id", "subeId", "sirketSubeId", "orgSubeId" };
+                            foreach (var name in idNames)
+                            {
+                                if (el.TryGetProperty(name, out var p))
+                                {
+                                    if (p.ValueKind == JsonValueKind.Number && p.TryGetInt64(out parsedId))
+                                    {
+                                        got = true; break;
+                                    }
+                                    if (p.ValueKind == JsonValueKind.String && long.TryParse(p.GetString(), out parsedId))
+                                    {
+                                        got = true; break;
+                                    }
+                                }
+                            }
+
+                            if (!got)
+                            {
+                                // As a final fallback, check common 'id' as number or string
+                                if (el.TryGetProperty("id", out var anyid))
+                                {
+                                    if (anyid.ValueKind == JsonValueKind.Number && anyid.TryGetInt64(out parsedId)) got = true;
+                                    else if (anyid.ValueKind == JsonValueKind.String && long.TryParse(anyid.GetString(), out parsedId)) got = true;
+                                }
+                            }
+
+                            if (got)
+                            {
+                                chosenId = parsedId;
+                            }
+                        }
+
+                        if (chosenId.HasValue)
+                        {
+                            try
+                            {
+                                _logger.LogInformation("Selected Koza branch id {BranchId} and attempting ChangeBranch", chosenId.Value);
+                                var changeBody = new { orgSirketSubeId = chosenId.Value };
+                                var changeJson = JsonSerializer.Serialize(changeBody, _jsonOptions);
+                                var changeResp = await _cookieHttpClient.PostAsync(_settings.Endpoints.ChangeBranch, new StringContent(changeJson, Encoding.UTF8, "application/json"));
+                                if (!changeResp.IsSuccessStatusCode)
+                                {
+                                    _logger.LogWarning("Failed to change branch in Koza (status {Status})", changeResp.StatusCode);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "ChangeBranch call failed");
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Could not determine a branch id from Koza branches response; no ChangeBranch attempt made");
                         }
                     }
                 }
@@ -815,8 +937,41 @@ public class LucaService : ILucaService
                 };
 
                 var response = await client.SendAsync(httpRequest);
-                var responseContent = await response.Content.ReadAsStringAsync();
-                _logger.LogDebug("Koza stock card response. Status: {Status}; Body: {Body}", response.StatusCode, responseContent);
+                // Read raw bytes so we can attempt multiple decodings (Koza may return Windows-1254 encoded body)
+                var responseBytes = await response.Content.ReadAsByteArrayAsync();
+                string responseContentUtf8 = string.Empty;
+                string responseContent1254 = string.Empty;
+                try
+                {
+                    responseContentUtf8 = Encoding.UTF8.GetString(responseBytes);
+                }
+                catch { responseContentUtf8 = string.Empty; }
+                try
+                {
+                    responseContent1254 = Encoding.GetEncoding(1254).GetString(responseBytes);
+                }
+                catch { responseContent1254 = responseContentUtf8; }
+
+                // Choose which decoded content to log/parse. Prefer cp1254 if it contains a JSON 'code' field.
+                var responseContent = responseContentUtf8;
+                try
+                {
+                    if (!string.IsNullOrEmpty(responseContent1254))
+                    {
+                        var tmp = JsonSerializer.Deserialize<JsonElement>(responseContent1254);
+                        if (tmp.ValueKind == JsonValueKind.Object && tmp.TryGetProperty("code", out _))
+                        {
+                            responseContent = responseContent1254;
+                        }
+                    }
+                }
+                catch
+                {
+                    // ignore parsing error and stick with UTF8
+                }
+
+                _logger.LogDebug("Koza stock card response. Status: {Status}; Body (utf8): {BodyUtf8}", response.StatusCode, responseContentUtf8);
+                _logger.LogDebug("Koza stock card response. Body (cp1254): {Body1254}", responseContent1254);
 
                 // Append raw request/response to local diagnostic log for inspection
                 try
@@ -830,23 +985,68 @@ public class LucaService : ILucaService
                     _logger.LogWarning(ex, "Failed to write raw Luca log entry");
                 }
 
-                if (response.IsSuccessStatusCode)
+                // Koza sometimes returns HTTP 200 but includes an API-level "code" in the JSON body.
+                // Treat non-zero code values as failures.
+                try
                 {
-                    result.IsSuccess = true;
-                    result.SuccessfulRecords = stockCards.Count;
-                    result.Message = "Stock cards sent successfully to Luca (Koza)";
-
-                    _logger.LogInformation("Successfully sent {Count} stock cards to Luca (Koza)", stockCards.Count);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        try
+                        {
+                            var parsed = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                            if (parsed.ValueKind == JsonValueKind.Object && parsed.TryGetProperty("code", out var codeProp) && codeProp.ValueKind == JsonValueKind.Number)
+                            {
+                                var code = codeProp.GetInt32();
+                                if (code != 0)
+                                {
+                                    result.IsSuccess = false;
+                                    result.FailedRecords = stockCards.Count;
+                                    result.Message = $"Luca API returned code {code}";
+                                    result.Errors.Add(responseContent);
+                                    _logger.LogError("Luca returned code {Code} when sending stock cards: {Body}", code, responseContent);
+                                }
+                                else
+                                {
+                                    result.IsSuccess = true;
+                                    result.SuccessfulRecords = stockCards.Count;
+                                    result.Message = "Stock cards sent successfully to Luca (Koza)";
+                                    _logger.LogInformation("Successfully sent {Count} stock cards to Luca (Koza)", stockCards.Count);
+                                }
+                            }
+                            else
+                            {
+                                // No code field — fallback to HTTP status
+                                result.IsSuccess = true;
+                                result.SuccessfulRecords = stockCards.Count;
+                                result.Message = "Stock cards sent (no code returned)";
+                                _logger.LogInformation("Sent {Count} stock cards to Luca (Koza) — no code returned", stockCards.Count);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // Parsing failed — fallback to HTTP status
+                            _logger.LogWarning(ex, "Failed to parse Luca response JSON; using HTTP status to determine success");
+                            result.IsSuccess = true;
+                            result.SuccessfulRecords = stockCards.Count;
+                            result.Message = "Stock cards sent (response parsing failed)";
+                        }
+                    }
+                    else
+                    {
+                        result.IsSuccess = false;
+                        result.FailedRecords = stockCards.Count;
+                        result.Message = $"Failed to send stock cards to Luca (Koza): {response.StatusCode}";
+                        result.Errors.Add(responseContent);
+                        _logger.LogError("Failed to send stock cards to Luca (Koza). Status: {StatusCode}, Error: {Error}", response.StatusCode, responseContent);
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
+                    _logger.LogError(ex, "Unexpected error while handling Luca response");
                     result.IsSuccess = false;
                     result.FailedRecords = stockCards.Count;
-                    result.Message = $"Failed to send stock cards to Luca (Koza): {response.StatusCode}";
-                    result.Errors.Add(responseContent);
-
-                    _logger.LogError("Failed to send stock cards to Luca (Koza). Status: {StatusCode}, Error: {Error}",
-                        response.StatusCode, responseContent);
+                    result.Message = ex.Message;
+                    result.Errors.Add(ex.ToString());
                 }
             }
             catch (Exception ex)
@@ -1596,6 +1796,24 @@ public class LucaService : ILucaService
             sb.AppendLine("----");
 
             await File.AppendAllTextAsync(file, sb.ToString());
+
+            // Also try to write to repository root ./logs when running the API from source (dotnet run),
+            // so tests/scripts that expect ./logs/luca-raw.log can find it.
+            try
+            {
+                var cwd = Directory.GetCurrentDirectory();
+                var repoLogDir = Path.Combine(cwd, "logs");
+                if (!string.Equals(repoLogDir, logDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    Directory.CreateDirectory(repoLogDir);
+                    var repoFile = Path.Combine(repoLogDir, "luca-raw.log");
+                    await File.AppendAllTextAsync(repoFile, sb.ToString());
+                }
+            }
+            catch (Exception)
+            {
+                // ignore
+            }
         }
         catch (Exception ex)
         {

@@ -477,6 +477,17 @@ public class LucaDeleteInvoiceRequest
 }
 
 /// <summary>
+/// Luca fatura satır request'i (basit şekil).
+/// </summary>
+public class LucaInvoiceItemRequest
+{
+    public string stokKodu { get; set; } = string.Empty;
+    public decimal miktar { get; set; }
+    public decimal birimFiyat { get; set; }
+    public decimal kdvOrani { get; set; }
+}
+
+/// <summary>
 /// Koza / Luca stok kartı oluşturma isteği (EkleStkWsSkart.do).
 /// Tüm alanlar Luca tarafının beklediği JSON alan adlarıyla eşleştirilmiştir.
 /// </summary>

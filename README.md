@@ -298,6 +298,7 @@ See [IMPLEMENTATION_REPORT.md](IMPLEMENTATION_REPORT.md#-test-coverage) for deta
 
 - [API Dokümantasyonu](docs/api.md)
 - [Veri Mapping Kılavuzu](docs/mapping.md)
+- [Luca/Koza Kavram Eşleştirme ve Akış](docs/luca-mapping.md)
 
 ### Geliştirici Dokümantasyonu
 
