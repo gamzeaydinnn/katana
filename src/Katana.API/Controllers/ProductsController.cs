@@ -1,7 +1,10 @@
 using Katana.Business.Interfaces;
+using Katana.Business.DTOs;
 using Katana.Core.DTOs;
+using Katana.Core.Entities;
 using Katana.Core.Enums;
 using Katana.Core.Interfaces;
+using Katana.Core.Helpers;
 using Katana.Data.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,6 +23,7 @@ public class ProductsController : ControllerBase
     private readonly IKatanaService _katanaService;
     private readonly IProductService _productService;
     private readonly ICategoryService _categoryService;
+    private readonly ILucaService _lucaService;
     private readonly ILogger<ProductsController> _logger;
     private readonly ILoggingService _loggingService;
     private readonly IAuditService _auditService;
@@ -27,6 +31,7 @@ public class ProductsController : ControllerBase
 
     public ProductsController(
         IKatanaService katanaService,
+        ILucaService lucaService,
         IProductService productService,
         ICategoryService categoryService,
         IOptionsSnapshot<CatalogVisibilitySettings> catalogVisibility,
@@ -35,6 +40,7 @@ public class ProductsController : ControllerBase
         IAuditService auditService)
     {
         _katanaService = katanaService;
+        _lucaService = lucaService;
         _productService = productService;
         _categoryService = categoryService;
         _catalogVisibility = catalogVisibility;
@@ -717,6 +723,62 @@ public class ProductsController : ControllerBase
             _logger.LogError(ex, "Unexpected error updating Luca product {ProductId}. DTO: {@Dto}", id, dto);
             return StatusCode(500, new { error = "Ürün güncelleme sırasında bir hata oluştu", details = ex.Message });
         }
+    }
+
+    /// <summary>
+    /// Push a local product to Luca (Koza) using configured Luca API credentials.
+    /// </summary>
+    [HttpPost("luca/{id}/push")]
+    [Authorize(Roles = "Admin,StokYonetici")]
+    public async Task<ActionResult> PushProductToLuca(int id)
+    {
+        var productDto = await _productService.GetProductByIdAsync(id);
+        if (productDto == null)
+        {
+            return NotFound(new { error = $"Ürün bulunamadı: {id}" });
+        }
+
+        // Map local product to Luca DTO
+        var product = new Product
+        {
+            Id = productDto.Id,
+            SKU = productDto.SKU,
+            Name = productDto.Name,
+            CategoryId = productDto.CategoryId,
+            Description = productDto.Description,
+            Price = productDto.Price,
+            StockSnapshot = productDto.Stock,
+            MainImageUrl = productDto.MainImageUrl,
+            IsActive = productDto.IsActive,
+            CreatedAt = productDto.CreatedAt,
+            UpdatedAt = productDto.UpdatedAt ?? DateTime.UtcNow
+        };
+
+        var lucaStockCard = MappingHelper.MapToLucaStockCard(product);
+        var result = await _lucaService.SendStockCardsAsync(new List<LucaCreateStokKartiRequest> { lucaStockCard });
+
+        if (!result.IsSuccess)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway, new
+            {
+                error = "Luca'ya gönderim başarısız",
+                details = result.Errors,
+                processed = result.ProcessedRecords,
+                success = result.SuccessfulRecords,
+                failed = result.FailedRecords
+            });
+        }
+
+        _auditService.LogSync("LucaProductPush", User?.Identity?.Name ?? "system", $"SKU: {product.SKU}");
+        _loggingService.LogInfo($"Luca product push succeeded for {product.SKU}", User?.Identity?.Name, null, LogCategory.ExternalAPI);
+
+        return Ok(new
+        {
+            message = "Luca'ya gönderildi",
+            processed = result.ProcessedRecords,
+            success = result.SuccessfulRecords,
+            failed = result.FailedRecords
+        });
     }
 
     [HttpPut("{id}/activate")]

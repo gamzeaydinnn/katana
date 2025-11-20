@@ -261,17 +261,19 @@ builder.Services.AddAuthorization();
 builder.Services.AddCors(o =>
 {
     o.AddPolicy("AllowFrontend", p =>
-        p.SetIsOriginAllowed(origin =>
-            !string.IsNullOrEmpty(origin) &&
-            (origin.StartsWith("http://localhost") || 
-             origin.StartsWith("https://localhost") ||
-             origin.StartsWith("http://bfmmrp.com") ||
-             origin.StartsWith("https://bfmmrp.com")))
+        p.WithOrigins(
+                "http://localhost:3000",
+                "http://localhost:5055",
+                "http://localhost:5056",
+                "http://localhost:5057",
+                "https://localhost:3000",
+                "http://bfmmrp.com",
+                "http://bfmmrp.com:3000",
+                "https://bfmmrp.com")
          .AllowAnyHeader()
-         .WithExposedHeaders("Authorization")
          .AllowAnyMethod()
          .AllowCredentials()
-         .WithOrigins("http://localhost:3000", "http://localhost:5055", "http://bfmmrp.com:3000", "http://bfmmrp.com", "https://bfmmrp.com"));
+         .WithExposedHeaders("Authorization", "X-Luca-Session"));
 });
 
 // -----------------------------

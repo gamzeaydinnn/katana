@@ -244,7 +244,7 @@ public class LoaderService : ILoaderService
                     IntegrationLog = log,
                     RecordType = syncType,
                     RecordId = Guid.NewGuid().ToString(),
-                    ErrorMessage = Truncate(error, 1900),
+                    ErrorMessage = Truncate(error, 1900) ?? string.Empty,
                     FailedAt = DateTime.UtcNow,
                     Status = "FAILED"
                 });

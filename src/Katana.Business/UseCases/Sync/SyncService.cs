@@ -51,9 +51,17 @@ public class SyncService : ISyncService, IIntegrationService
     public Task<SyncResultDto> SyncProductsAsync(DateTime? fromDate = null) =>
         ExecuteSyncAsync("PRODUCT", async ct =>
         {
+            _logger.LogInformation("🔄 Starting PRODUCT sync: Katana → Luca");
+
             var productDtos = await _extractorService.ExtractProductsAsync(fromDate, ct);
+            _logger.LogInformation("📥 Extracted {Count} products from Katana", productDtos.Count);
+
             var products = await _transformerService.ToProductsAsync(productDtos);
+            _logger.LogInformation("🔀 Transformed {Count} products", products.Count());
+
             var successful = await _loaderService.LoadProductsToLucaAsync(products, ct: ct);
+            _logger.LogInformation("✅ Successfully sent {Successful}/{Total} products to Luca", successful, productDtos.Count);
+
             return BuildResult("PRODUCT", productDtos.Count, successful);
         });
 

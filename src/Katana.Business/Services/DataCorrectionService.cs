@@ -310,11 +310,11 @@ public class DataCorrectionService : IDataCorrectionService
         }
     }
 
-    public async Task<bool> ApplyCorrectionToKatanaAsync(int correctionId)
+    public Task<bool> ApplyCorrectionToKatanaAsync(int correctionId)
     {
         // NOTE: Katana API'ye write işlemi için endpoint olup olmadığını kontrol edin
         // Şimdilik placeholder
         _logger.LogWarning("Katana API write operations not implemented yet");
-        return false;
+        return Task.FromResult(false);
     }
 }

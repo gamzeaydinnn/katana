@@ -158,7 +158,7 @@ public class KozaInvoiceImportService : IKozaInvoiceImportService
         };
     }
 
-    private async Task<(Customer customer, Invoice? invoice)> MapKozaInvoiceAsync(JsonElement item)
+    private Task<(Customer customer, Invoice? invoice)> MapKozaInvoiceAsync(JsonElement item)
     {
         // Dokümandaki response alanları: belgeTarihi, vadeTarihi, belgeSeriNo, vergiKimlikNo, cariTanim, netTutar vb.
         // Burada temel alanlar okunup LucaInvoiceDto'ya çevrilir, sonra mevcut MapFromLucaInvoice kullanılır.
@@ -224,8 +224,8 @@ public class KozaInvoiceImportService : IKozaInvoiceImportService
             UpdatedAt = DateTime.UtcNow
         };
 
-        var invoice = MappingHelper.MapFromLucaInvoice(lucaDto, 0);
-        return (customer, invoice);
+        Invoice? invoice = MappingHelper.MapFromLucaInvoice(lucaDto, 0);
+        return Task.FromResult((customer, invoice));
     }
 }
 

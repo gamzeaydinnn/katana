@@ -94,42 +94,14 @@ namespace Katana.API.Controllers
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
             };
             var client = new HttpClient(handler);
-            // If caller didn't provide expected fields, use configured credentials
-            string payloadJson;
-            try
+            // Always use backend-configured Luca credentials to avoid mismatched front-end payloads
+            var defaultPayload = new
             {
-                // Check for expected Koza/Luca fields: orgCode, userName, userPassword (case-insensitive)
-                bool hasOrg = false, hasUser = false, hasPass = false;
-                if (body.ValueKind == JsonValueKind.Object)
-                {
-                    foreach (var prop in body.EnumerateObject())
-                    {
-                        var name = prop.Name.ToLowerInvariant();
-                        if (name == "orgcode") hasOrg = true;
-                        if (name == "username" || name == "userName" || name == "user_name") hasUser = true;
-                        if (name == "userpassword" || name == "userPassword" || name == "user_password") hasPass = true;
-                    }
-                }
-
-                if (hasOrg && hasUser && hasPass)
-                {
-                    payloadJson = body.ToString();
-                }
-                else
-                {
-                    var defaultPayload = new
-                    {
-                        orgCode = string.IsNullOrWhiteSpace(_settings.MemberNumber) ? (object)"" : _settings.MemberNumber,
-                        userName = string.IsNullOrWhiteSpace(_settings.Username) ? (object)"" : _settings.Username,
-                        userPassword = string.IsNullOrWhiteSpace(_settings.Password) ? (object)"" : _settings.Password
-                    };
-                    payloadJson = JsonSerializer.Serialize(defaultPayload);
-                }
-            }
-            catch
-            {
-                payloadJson = body.ToString();
-            }
+                orgCode = string.IsNullOrWhiteSpace(_settings.MemberNumber) ? (object)"" : _settings.MemberNumber,
+                userName = string.IsNullOrWhiteSpace(_settings.Username) ? (object)"" : _settings.Username,
+                userPassword = string.IsNullOrWhiteSpace(_settings.Password) ? (object)"" : _settings.Password
+            };
+            var payloadJson = JsonSerializer.Serialize(defaultPayload);
 
             var requestUrl = $"{_lucaBaseUrl}/{_settings.Endpoints.Auth}";
             var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
@@ -154,6 +126,21 @@ namespace Katana.API.Controllers
 
             // Return the remote response along with the server-side sessionId so the frontend
             // can persist it and send it back via X-Luca-Session header on subsequent calls.
+            // If Luca returns code != 0, treat as auth failure even if HTTP 200
+            try
+            {
+                if (parsed is JsonElement el && el.ValueKind == JsonValueKind.Object)
+                {
+                    if (el.TryGetProperty("code", out var codeProp) && codeProp.ValueKind == JsonValueKind.Number && codeProp.GetInt32() != 0)
+                    {
+                        var msg = el.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() : "Login failed";
+                        _logger.LogWarning("LucaProxy: Login returned code {Code}: {Message}", codeProp.GetInt32(), msg);
+                        return Unauthorized(new { raw = parsed, sessionId, message = msg });
+                    }
+                }
+            }
+            catch { }
+
             if (response.IsSuccessStatusCode)
                 return Ok(new { raw = parsed, sessionId });
 

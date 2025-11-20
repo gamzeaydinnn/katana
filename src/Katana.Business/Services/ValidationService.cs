@@ -45,7 +45,7 @@ public class ValidationService : IValidationService
         return result;
     }
 
-    public async Task<ValidationResultDto> ValidateInvoiceMappingAsync(Invoice invoice, Customer customer)
+    public Task<ValidationResultDto> ValidateInvoiceMappingAsync(Invoice invoice, Customer customer)
     {
         var result = new ValidationResultDto { ValidatedAt = DateTime.UtcNow };
 
@@ -84,7 +84,7 @@ public class ValidationService : IValidationService
             result.Warnings.Add(new ValidationWarning { Code = "INV006W", Field = "InvoiceDate", Message = "Fatura tarihi ileri tarihli" });
 
         result.IsValid = !result.Errors.Any();
-        return result;
+        return Task.FromResult(result);
     }
 
     public async Task<ValidationResultDto> ValidateCustomerMappingAsync(Customer customer)

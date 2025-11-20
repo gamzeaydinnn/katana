@@ -38,6 +38,10 @@ namespace Katana.Infrastructure.Workers
                             int flushed = 0;
                             while (_queue.TryDequeue(out var pending))
                             {
+                                if (pending is null)
+                                {
+                                    continue;
+                                }
                                 try
                                 {
                                     // Map PendingAuditInfo -> AuditLog entity

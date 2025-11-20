@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Text;
+using System.IO;
+using System.Linq;
 using System.Net.Http.Headers;
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
@@ -25,6 +27,7 @@ public class LucaService : ILucaService
     private DateTime? _tokenExpiry;
     // Cookie-based auth support for Koza
     private System.Net.CookieContainer? _cookieContainer;
+    private HttpClientHandler? _cookieHandler;
     private HttpClient? _cookieHttpClient;
     private bool _isCookieAuthenticated = false;
 
@@ -65,12 +68,17 @@ public class LucaService : ILucaService
         {
             _logger.LogInformation("Authenticating (cookie) with Koza Luca API");
 
-            _cookieContainer = new System.Net.CookieContainer();
-            var handler = new HttpClientHandler { CookieContainer = _cookieContainer, UseCookies = true, AllowAutoRedirect = true };
-            _cookieHttpClient = new HttpClient(handler)
+            _cookieContainer ??= new System.Net.CookieContainer();
+            _cookieHandler ??= new HttpClientHandler
             {
-                BaseAddress = new Uri(_settings.BaseUrl)
+                CookieContainer = _cookieContainer,
+                UseCookies = true,
+                AllowAutoRedirect = true
             };
+            _cookieHttpClient ??= new HttpClient(_cookieHandler);
+            _cookieHttpClient.BaseAddress = new Uri($"{_settings.BaseUrl.TrimEnd('/')}/");
+            _cookieHttpClient.DefaultRequestHeaders.Accept.Clear();
+            _cookieHttpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
             var authRequest = new
             {
@@ -775,51 +783,75 @@ public class LucaService : ILucaService
 
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
-    public async Task<SyncResultDto> SendStockCardsAsync(List<LucaCreateStokKartiRequest> stockCards)
-    {
-        var result = new SyncResultDto
+        public async Task<SyncResultDto> SendStockCardsAsync(List<LucaCreateStokKartiRequest> stockCards)
         {
-            SyncType = "PRODUCT_STOCK_CARD",
+            var result = new SyncResultDto
+            {
+                SyncType = "PRODUCT_STOCK_CARD",
             ProcessedRecords = stockCards.Count
         };
 
         var startTime = DateTime.UtcNow;
 
-        try
-        {
-            await EnsureAuthenticatedAsync();
-
-            _logger.LogInformation("Sending {Count} stock cards to Luca (Koza)", stockCards.Count);
-
-            var json = JsonSerializer.Serialize(stockCards, _jsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-            var response = await client.PostAsync(_settings.Endpoints.Products, content);
-
-            if (response.IsSuccessStatusCode)
+            try
             {
-                result.IsSuccess = true;
-                result.SuccessfulRecords = stockCards.Count;
-                result.Message = "Stock cards sent successfully to Luca (Koza)";
+                await EnsureAuthenticatedAsync();
 
-                _logger.LogInformation("Successfully sent {Count} stock cards to Luca (Koza)", stockCards.Count);
+                _logger.LogInformation("Sending {Count} stock cards to Luca (Koza)", stockCards.Count);
+
+                var json = JsonSerializer.Serialize(stockCards, _jsonOptions);
+                // Log a trimmed preview to help debug Koza tarafı
+                var preview = json.Length > 1200 ? json.Substring(0, 1200) + "...(truncated)" : json;
+                _logger.LogDebug("Koza stock card request payload (preview): {Preview}", preview);
+
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+                // Prefer SendAsync with explicit request so we can capture URL easily
+                var endpoint = _settings.Endpoints.Products;
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                {
+                    Content = content
+                };
+
+                var response = await client.SendAsync(httpRequest);
+                var responseContent = await response.Content.ReadAsStringAsync();
+                _logger.LogDebug("Koza stock card response. Status: {Status}; Body: {Body}", response.StatusCode, responseContent);
+
+                // Append raw request/response to local diagnostic log for inspection
+                try
+                {
+                    var baseUrl = client.BaseAddress?.ToString()?.TrimEnd('/') ?? _settings.BaseUrl?.TrimEnd('/') ?? string.Empty;
+                    var fullUrl = string.IsNullOrWhiteSpace(baseUrl) ? endpoint : (endpoint.StartsWith("http") ? endpoint : baseUrl + "/" + endpoint.TrimStart('/'));
+                    await AppendRawLogAsync("SEND_STOCK_CARDS", fullUrl, json, response.StatusCode, responseContent);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to write raw Luca log entry");
+                }
+
+                if (response.IsSuccessStatusCode)
+                {
+                    result.IsSuccess = true;
+                    result.SuccessfulRecords = stockCards.Count;
+                    result.Message = "Stock cards sent successfully to Luca (Koza)";
+
+                    _logger.LogInformation("Successfully sent {Count} stock cards to Luca (Koza)", stockCards.Count);
+                }
+                else
+                {
+                    result.IsSuccess = false;
+                    result.FailedRecords = stockCards.Count;
+                    result.Message = $"Failed to send stock cards to Luca (Koza): {response.StatusCode}";
+                    result.Errors.Add(responseContent);
+
+                    _logger.LogError("Failed to send stock cards to Luca (Koza). Status: {StatusCode}, Error: {Error}",
+                        response.StatusCode, responseContent);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
                 result.IsSuccess = false;
-                result.FailedRecords = stockCards.Count;
-                result.Message = $"Failed to send stock cards to Luca (Koza): {response.StatusCode}";
-                result.Errors.Add(errorContent);
-
-                _logger.LogError("Failed to send stock cards to Luca (Koza). Status: {StatusCode}, Error: {Error}",
-                    response.StatusCode, errorContent);
-            }
-        }
-        catch (Exception ex)
-        {
-            result.IsSuccess = false;
             result.FailedRecords = stockCards.Count;
             result.Message = ex.Message;
             result.Errors.Add(ex.ToString());
@@ -1540,6 +1572,34 @@ public class LucaService : ILucaService
         {
             _logger.LogError(ex, "Error fetching delivery notes from Luca");
             return new List<LucaDespatchDto>();
+        }
+    }
+
+    private async Task AppendRawLogAsync(string tag, string url, string requestBody, System.Net.HttpStatusCode? status, string responseBody)
+    {
+        try
+        {
+            var baseDir = AppContext.BaseDirectory ?? Directory.GetCurrentDirectory();
+            var logDir = Path.Combine(baseDir, "logs");
+            Directory.CreateDirectory(logDir);
+            var file = Path.Combine(logDir, "luca-raw.log");
+
+            var sb = new StringBuilder();
+            sb.AppendLine("----");
+            sb.AppendLine(DateTime.UtcNow.ToString("o") + " " + tag);
+            sb.AppendLine("URL: " + (url ?? string.Empty));
+            sb.AppendLine("Request:");
+            sb.AppendLine(requestBody ?? string.Empty);
+            sb.AppendLine("ResponseStatus: " + (status?.ToString() ?? "(null)"));
+            sb.AppendLine("Response:");
+            sb.AppendLine(responseBody ?? string.Empty);
+            sb.AppendLine("----");
+
+            await File.AppendAllTextAsync(file, sb.ToString());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to append raw Luca log");
         }
     }
 

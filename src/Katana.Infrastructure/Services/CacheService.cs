@@ -19,7 +19,7 @@ public class CacheService
 
     public T? Get<T>(string key)
     {
-        return _cache.TryGetValue(key, out T value) ? value : default;
+        return _cache.TryGetValue(key, out T? value) ? value : default;
     }
 
     public T GetOrAdd<T>(string key, Func<ICacheEntry, T> factory, TimeSpan ttl)
