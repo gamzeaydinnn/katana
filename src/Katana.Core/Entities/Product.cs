@@ -89,5 +89,7 @@ public class Product
     
     // Local stock snapshot/history entries (kept separate from StockMovement used for integration)
     public virtual ICollection<Stock> Stocks { get; set; } = new List<Stock>();
+    public virtual ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
+    public virtual ICollection<Batch> Batches { get; set; } = new List<Batch>();
+    public virtual ICollection<BillOfMaterials> BillOfMaterials { get; set; } = new List<BillOfMaterials>();
 }
-

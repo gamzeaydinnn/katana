@@ -545,4 +545,76 @@ public class KatanaService : IKatanaService
             return false;
         }
     }
+
+    public Task<List<KatanaPurchaseOrderDto>> GetPurchaseOrdersAsync(string? status = null, DateTime? fromDate = null)
+    {
+        _logger.LogInformation("GetPurchaseOrdersAsync called (status: {Status}, fromDate: {FromDate}), placeholder implementation returning empty list.", status, fromDate);
+        return Task.FromResult(new List<KatanaPurchaseOrderDto>());
+    }
+
+    public Task<KatanaPurchaseOrderDto?> GetPurchaseOrderByIdAsync(string id)
+    {
+        _logger.LogInformation("GetPurchaseOrderByIdAsync called for Id: {Id}, placeholder implementation returning null.", id);
+        return Task.FromResult<KatanaPurchaseOrderDto?>(null);
+    }
+
+    public Task<string?> ReceivePurchaseOrderAsync(string id)
+    {
+        _logger.LogInformation("ReceivePurchaseOrderAsync called for Id: {Id}, placeholder implementation returning null.", id);
+        return Task.FromResult<string?>(null);
+    }
+
+    public Task<List<KatanaSupplierDto>> GetSuppliersAsync()
+    {
+        _logger.LogInformation("GetSuppliersAsync called, but Katana endpoint mapping is not configured. Returning empty list.");
+        return Task.FromResult(new List<KatanaSupplierDto>());
+    }
+
+    public Task<KatanaSupplierDto?> GetSupplierByIdAsync(string id)
+    {
+        _logger.LogInformation("GetSupplierByIdAsync called for Id: {Id}, placeholder implementation returning null.", id);
+        return Task.FromResult<KatanaSupplierDto?>(null);
+    }
+
+    public Task<List<KatanaManufacturingOrderDto>> GetManufacturingOrdersAsync(string? status = null)
+    {
+        _logger.LogInformation("GetManufacturingOrdersAsync called (status: {Status}), placeholder implementation returning empty list.", status);
+        return Task.FromResult(new List<KatanaManufacturingOrderDto>());
+    }
+
+    public Task<KatanaManufacturingOrderDto?> GetManufacturingOrderByIdAsync(string id)
+    {
+        _logger.LogInformation("GetManufacturingOrderByIdAsync called for Id: {Id}, placeholder implementation returning null.", id);
+        return Task.FromResult<KatanaManufacturingOrderDto?>(null);
+    }
+
+    public Task<KatanaVariantDto?> GetVariantAsync(string variantId)
+    {
+        _logger.LogInformation("GetVariantAsync called for VariantId: {VariantId}, placeholder implementation returning null.", variantId);
+        return Task.FromResult<KatanaVariantDto?>(null);
+    }
+
+    public Task<List<KatanaVariantDto>> GetVariantsAsync(string? productId = null)
+    {
+        _logger.LogInformation("GetVariantsAsync called (productId: {ProductId}), placeholder implementation returning empty list.", productId);
+        return Task.FromResult(new List<KatanaVariantDto>());
+    }
+
+    public Task<List<KatanaBatchDto>> GetBatchesAsync(string? productId = null)
+    {
+        _logger.LogInformation("GetBatchesAsync called for ProductId: {ProductId}, placeholder implementation returning empty list.", productId);
+        return Task.FromResult(new List<KatanaBatchDto>());
+    }
+
+    public Task<List<KatanaStockTransferDto>> GetStockTransfersAsync(string? status = null)
+    {
+        _logger.LogInformation("GetStockTransfersAsync called (status: {Status}), placeholder implementation returning empty list.", status);
+        return Task.FromResult(new List<KatanaStockTransferDto>());
+    }
+
+    public Task<List<KatanaSalesReturnDto>> GetSalesReturnsAsync(DateTime? fromDate = null)
+    {
+        _logger.LogInformation("GetSalesReturnsAsync called (fromDate: {FromDate}), placeholder implementation returning empty list.", fromDate);
+        return Task.FromResult(new List<KatanaSalesReturnDto>());
+    }
 }

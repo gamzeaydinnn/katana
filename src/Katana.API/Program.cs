@@ -179,7 +179,10 @@ builder.Services.AddHttpClient<ILucaService, LucaService>((sp, client) =>
         new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
     if (!string.IsNullOrEmpty(s.ApiKey) && !s.UseTokenAuth)
         client.DefaultRequestHeaders.Add("X-API-Key", s.ApiKey);
-});
+})
+    .AddHttpDebugLogging();
+
+builder.Services.AddTransient<HttpDebugLoggingHandler>();
 
 builder.Services.AddSingleton<ILucaCookieJarStore, LucaCookieJarStore>();
 

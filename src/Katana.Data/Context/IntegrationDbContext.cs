@@ -27,6 +27,12 @@ public class IntegrationDbContext : DbContext
     public DbSet<Invoice> Invoices { get; set; } = null!;
     public DbSet<InvoiceItem> InvoiceItems { get; set; } = null!;
     public DbSet<AccountingRecord> AccountingRecords { get; set; } = null!;
+    public DbSet<ProductVariant> ProductVariants { get; set; } = null!;
+    public DbSet<Batch> Batches { get; set; } = null!;
+    public DbSet<ManufacturingOrder> ManufacturingOrders { get; set; } = null!;
+    public DbSet<BillOfMaterials> BillOfMaterials { get; set; } = null!;
+    public DbSet<StockTransfer> StockTransfers { get; set; } = null!;
+    public DbSet<Payment> Payments { get; set; } = null!;
 
     // Integration specific entities
     public DbSet<IntegrationLog> IntegrationLogs { get; set; } = null!;
@@ -87,6 +93,21 @@ public class IntegrationDbContext : DbContext
         entity.HasMany(e => e.Stocks)
             .WithOne(s => s.Product)
             .HasForeignKey(s => s.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        entity.HasMany(e => e.Variants)
+            .WithOne(v => v.Product)
+            .HasForeignKey(v => v.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        entity.HasMany(e => e.Batches)
+            .WithOne(b => b.Product)
+            .HasForeignKey(b => b.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        entity.HasMany(e => e.BillOfMaterials)
+            .WithOne(b => b.Product)
+            .HasForeignKey(b => b.ProductId)
             .OnDelete(DeleteBehavior.Cascade);
     });
 
@@ -269,6 +290,76 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
         });
 
+        modelBuilder.Entity<ProductVariant>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.SKU).IsUnique();
+            entity.Property(e => e.SKU).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Barcode).HasMaxLength(100);
+            entity.Property(e => e.Attributes).HasMaxLength(1000);
+            entity.Property(e => e.Price).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<Batch>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.ProductId, e.BatchNo }).IsUnique();
+            entity.Property(e => e.BatchNo).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Location).HasMaxLength(200);
+            entity.Property(e => e.Quantity).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<ManufacturingOrder>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.OrderNo).IsUnique();
+            entity.Property(e => e.OrderNo).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Quantity).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<BillOfMaterials>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.ProductId, e.MaterialId }).IsUnique();
+            entity.Property(e => e.Unit).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.Quantity).HasPrecision(18, 2);
+            entity.HasOne(e => e.Product)
+                .WithMany(p => p.BillOfMaterials)
+                .HasForeignKey(e => e.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Material)
+                .WithMany()
+                .HasForeignKey(e => e.MaterialId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StockTransfer>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FromWarehouse).HasMaxLength(50);
+            entity.Property(e => e.ToWarehouse).HasMaxLength(50);
+            entity.Property(e => e.Status).HasMaxLength(50);
+            entity.Property(e => e.Quantity).HasPrecision(18, 2);
+            entity.HasIndex(e => e.TransferDate);
+            entity.HasOne(e => e.Product)
+                .WithMany()
+                .HasForeignKey(e => e.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Payment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PaymentMethod).HasMaxLength(50);
+            entity.Property(e => e.Amount).HasPrecision(18, 2);
+            entity.HasIndex(e => e.PaymentDate);
+            entity.HasOne(e => e.Invoice)
+                .WithMany()
+                .HasForeignKey(e => e.InvoiceId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         // SupplierPrice relationships
         modelBuilder.Entity<SupplierPrice>(entity =>
         {
@@ -283,10 +374,21 @@ public class IntegrationDbContext : DbContext
         modelBuilder.Entity<PurchaseOrder>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.OrderNo).HasMaxLength(100);
+            entity.Property(e => e.SupplierCode).HasMaxLength(100);
+            entity.HasIndex(e => e.OrderNo);
             entity.HasOne(po => po.Supplier)
                 .WithMany()
                 .HasForeignKey(po => po.SupplierId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Order>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.OrderNo).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Currency).HasMaxLength(10);
+            entity.HasIndex(e => e.OrderNo);
         });
 
         modelBuilder.Entity<AccountingRecord>(entity =>

@@ -61,3 +61,87 @@ public class KatanaInvoiceItemDto
     public decimal TotalAmount { get; set; }
 }
 
+public class KatanaPurchaseOrderDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTime OrderDate { get; set; }
+    public string SupplierCode { get; set; } = string.Empty;
+    public List<KatanaPurchaseOrderItemDto> Items { get; set; } = new();
+}
+
+public class KatanaPurchaseOrderItemDto
+{
+    public string ProductSKU { get; set; } = string.Empty;
+    public int Quantity { get; set; }
+    public decimal UnitPrice { get; set; }
+    public decimal TotalAmount { get; set; }
+}
+
+public class KatanaManufacturingOrderDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string ProductSKU { get; set; } = string.Empty;
+    public decimal Quantity { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public DateTime DueDate { get; set; }
+}
+
+public class KatanaVariantDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string SKU { get; set; } = string.Empty;
+    public string? Barcode { get; set; }
+    public decimal Price { get; set; }
+    public string? ParentProductId { get; set; }
+}
+
+public class KatanaSupplierDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public string? TaxNo { get; set; }
+}
+
+public class KatanaBatchDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string ProductId { get; set; } = string.Empty;
+    public string BatchNo { get; set; } = string.Empty;
+    public DateTime? ExpiryDate { get; set; }
+    public decimal Quantity { get; set; }
+    public string? Location { get; set; }
+}
+
+public class KatanaStockTransferDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string FromLocationId { get; set; } = string.Empty;
+    public string ToLocationId { get; set; } = string.Empty;
+    public DateTime TransferDate { get; set; }
+    public List<KatanaStockTransferItemDto> Items { get; set; } = new();
+}
+
+public class KatanaStockTransferItemDto
+{
+    public string ProductSKU { get; set; } = string.Empty;
+    public decimal Quantity { get; set; }
+}
+
+public class KatanaSalesReturnDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string SalesOrderId { get; set; } = string.Empty;
+    public DateTime ReturnDate { get; set; }
+    public List<KatanaReturnRowDto> ReturnRows { get; set; } = new();
+}
+
+public class KatanaReturnRowDto
+{
+    public string ProductSKU { get; set; } = string.Empty;
+    public decimal Quantity { get; set; }
+    public decimal UnitPrice { get; set; }
+}
+

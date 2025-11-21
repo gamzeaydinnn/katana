@@ -6,8 +6,8 @@ namespace Katana.Core.Constants;
 public static class KozaBelgeTurleri
 {
     // Stok hareket türleri (Excel'den gelen ID'lerle doldurulacaksa burada güncellenir)
-    public const long DigerStokGiris = 123; // TODO: Excel'deki gerçek ID ile güncelle
-    public const long DigerStokCikis = 124; // TODO: Excel'deki gerçek ID ile güncelle
+    public const long DigerStokGiris = 150;
+    public const long DigerStokCikis = 151;
 
     // Fatura türleri
     public const long SatisFaturasi = 76;

@@ -17,6 +17,18 @@ public interface ILucaService
     Task<SyncResultDto> SendProductsAsync(List<LucaProductUpdateDto> products);
     // Katana -> Luca: Koza stok kartı oluşturma
     Task<SyncResultDto> SendStockCardsAsync(List<LucaCreateStokKartiRequest> stockCards);
+    Task<long> CreateIrsaliyeAsync(LucaIrsaliyeDto dto);
+    Task DeleteIrsaliyeAsync(long irsaliyeId);
+    Task<long> CreateSatinalmaSiparisAsync(LucaSatinalmaSiparisDto dto);
+    Task DeleteSatinalmaSiparisAsync(long siparisId);
+    Task<long> CreateDepoTransferAsync(LucaDepoTransferDto dto);
+    Task<List<LucaTedarikciDto>> GetTedarikciListAsync();
+    Task<long> CreateTedarikciAsync(LucaCreateSupplierRequest dto);
+    Task<long> CreateCariHareketAsync(LucaCariHareketDto dto);
+    Task<long> CreateFaturaKapamaAsync(LucaFaturaKapamaDto dto);
+    Task<List<LucaDepoDto>> GetDepoListAsync();
+    Task<List<LucaVergiDairesiDto>> GetVergiDairesiListAsync();
+    Task<List<LucaOlcumBirimiDto>> GetOlcumBirimiListAsync();
     
     // Luca → Katana (Pull)
     Task<List<LucaInvoiceDto>> FetchInvoicesAsync(DateTime? fromDate = null);

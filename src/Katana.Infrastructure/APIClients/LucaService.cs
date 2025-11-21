@@ -98,175 +98,10 @@ public class LucaService : ILucaService
                 throw new UnauthorizedAccessException("Koza auth failed");
             }
 
-            var respStr = await response.Content.ReadAsStringAsync();
-            try
+            var branchId = await SelectDefaultBranchAsync();
+            if (branchId.HasValue)
             {
-                var doc = JsonSerializer.Deserialize<JsonElement>(respStr);
-                if (doc.ValueKind == JsonValueKind.Object && doc.TryGetProperty("code", out var codeProp))
-                {
-                    var code = codeProp.GetInt32();
-                    if (code != 0)
-                    {
-                        var msg = doc.TryGetProperty("message", out var m) ? m.GetString() : respStr;
-                        _logger.LogError("Koza auth response code !=0: {Code} {Message}", code, msg);
-                        throw new UnauthorizedAccessException("Koza auth response unsuccessful: " + msg);
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                // ignore parsing error and assume success if status code was success
-            }
-
-            // Now select branch: call branches endpoint (empty JSON body)
-            var branchesResp = await _cookieHttpClient.PostAsync(_settings.Endpoints.Branches, new StringContent("{}", Encoding.UTF8, "application/json"));
-            if (branchesResp.IsSuccessStatusCode)
-            {
-                var branchesJson = await branchesResp.Content.ReadAsStringAsync();
-                try
-                {
-                    using var doc = JsonDocument.Parse(branchesJson);
-
-                    JsonElement? listEl = null;
-
-                    // Common wrappers: root array, or { list: [...] }, or { branches: [...] }, or { data: [...] }
-                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
-                    {
-                        listEl = doc.RootElement;
-                    }
-                    else if (doc.RootElement.ValueKind == JsonValueKind.Object)
-                    {
-                        if (doc.RootElement.TryGetProperty("list", out var l) && l.ValueKind == JsonValueKind.Array)
-                            listEl = l;
-                        else if (doc.RootElement.TryGetProperty("branches", out var b) && b.ValueKind == JsonValueKind.Array)
-                            listEl = b;
-                        else if (doc.RootElement.TryGetProperty("data", out var d) && d.ValueKind == JsonValueKind.Array)
-                            listEl = d;
-                        else if (doc.RootElement.TryGetProperty("list", out var alt) && alt.ValueKind == JsonValueKind.Object)
-                        {
-                            // sometimes list may be wrapped differently; try to locate first array child
-                            foreach (var prop in alt.EnumerateObject())
-                            {
-                                if (prop.Value.ValueKind == JsonValueKind.Array)
-                                {
-                                    listEl = prop.Value;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    if (listEl.HasValue && listEl.Value.ValueKind == JsonValueKind.Array && listEl.Value.GetArrayLength() > 0)
-                    {
-                        var array = listEl.Value;
-
-                        // Save branches JSON to repo ./logs for debugging / reproducible tests
-                        try
-                        {
-                            var repoLogDir = Path.Combine(Directory.GetCurrentDirectory(), "logs");
-                            Directory.CreateDirectory(repoLogDir);
-                            var repoFile = Path.Combine(repoLogDir, "luca-branches.json");
-                            await File.WriteAllTextAsync(repoFile, array.GetRawText());
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to write luca-branches.json to repo logs");
-                        }
-
-                        JsonElement? chosen = null;
-                        long? chosenId = null;
-
-                        // Prefer an element with an explicit 'isDefault' boolean flag
-                        foreach (var el in array.EnumerateArray())
-                        {
-                            if (el.ValueKind != JsonValueKind.Object) continue;
-                            if (el.TryGetProperty("isDefault", out var isDef) && isDef.ValueKind == JsonValueKind.True)
-                            {
-                                chosen = el;
-                                break;
-                            }
-                            // Some providers may use localized or different flag names
-                            if (el.TryGetProperty("varsayilan", out var vs) && vs.ValueKind == JsonValueKind.True)
-                            {
-                                chosen = el;
-                                break;
-                            }
-                        }
-
-                        // If no explicit default found, pick the first element
-                        if (!chosen.HasValue)
-                        {
-                            var enumFirst = array.EnumerateArray().FirstOrDefault();
-                            if (enumFirst.ValueKind != JsonValueKind.Undefined)
-                                chosen = enumFirst;
-                        }
-
-                        // Extract possible id fields from chosen element
-                        if (chosen.HasValue)
-                        {
-                            var el = chosen.Value;
-                            long parsedId = 0;
-                            bool got = false;
-                            string[] idNames = new[] { "orgSirketSubeId", "orgSirketSubeID", "id", "subeId", "sirketSubeId", "orgSubeId" };
-                            foreach (var name in idNames)
-                            {
-                                if (el.TryGetProperty(name, out var p))
-                                {
-                                    if (p.ValueKind == JsonValueKind.Number && p.TryGetInt64(out parsedId))
-                                    {
-                                        got = true; break;
-                                    }
-                                    if (p.ValueKind == JsonValueKind.String && long.TryParse(p.GetString(), out parsedId))
-                                    {
-                                        got = true; break;
-                                    }
-                                }
-                            }
-
-                            if (!got)
-                            {
-                                // As a final fallback, check common 'id' as number or string
-                                if (el.TryGetProperty("id", out var anyid))
-                                {
-                                    if (anyid.ValueKind == JsonValueKind.Number && anyid.TryGetInt64(out parsedId)) got = true;
-                                    else if (anyid.ValueKind == JsonValueKind.String && long.TryParse(anyid.GetString(), out parsedId)) got = true;
-                                }
-                            }
-
-                            if (got)
-                            {
-                                chosenId = parsedId;
-                            }
-                        }
-
-                        if (chosenId.HasValue)
-                        {
-                            try
-                            {
-                                _logger.LogInformation("Selected Koza branch id {BranchId} and attempting ChangeBranch", chosenId.Value);
-                                var changeBody = new { orgSirketSubeId = chosenId.Value };
-                                var changeJson = JsonSerializer.Serialize(changeBody, _jsonOptions);
-                                var changeResp = await _cookieHttpClient.PostAsync(_settings.Endpoints.ChangeBranch, new StringContent(changeJson, Encoding.UTF8, "application/json"));
-                                if (!changeResp.IsSuccessStatusCode)
-                                {
-                                    _logger.LogWarning("Failed to change branch in Koza (status {Status})", changeResp.StatusCode);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogWarning(ex, "ChangeBranch call failed");
-                            }
-                        }
-                        else
-                        {
-                            _logger.LogWarning("Could not determine a branch id from Koza branches response; no ChangeBranch attempt made");
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to parse branches response");
-                }
+                await ChangeBranchAsync(branchId.Value);
             }
 
             _isCookieAuthenticated = true;
@@ -276,6 +111,170 @@ public class LucaService : ILucaService
         {
             _logger.LogError(ex, "Error authenticating with Koza (cookie)");
             throw;
+        }
+    }
+
+    private async Task<long?> SelectDefaultBranchAsync()
+    {
+        try
+        {
+            var branchesResp = await _cookieHttpClient!.PostAsync(_settings.Endpoints.Branches, new StringContent("{}", Encoding.UTF8, "application/json"));
+            if (!branchesResp.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Branches request failed with status {Status}", branchesResp.StatusCode);
+                return null;
+            }
+
+            var branchesJson = await branchesResp.Content.ReadAsStringAsync();
+            // Append raw branches response for diagnostics
+            try
+            {
+                await AppendRawLogAsync("BRANCHES", _settings.Endpoints.Branches, "{}", branchesResp.StatusCode, branchesJson);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to append branches raw log");
+            }
+            using var doc = JsonDocument.Parse(branchesJson);
+            var root = doc.RootElement;
+
+            JsonElement? arrayEl = null;
+            if (root.ValueKind == JsonValueKind.Array)
+                arrayEl = root;
+            else if (root.ValueKind == JsonValueKind.Object)
+            {
+                if (root.TryGetProperty("list", out var l) && l.ValueKind == JsonValueKind.Array) arrayEl = l;
+                else if (root.TryGetProperty("branches", out var b) && b.ValueKind == JsonValueKind.Array) arrayEl = b;
+                else if (root.TryGetProperty("data", out var d) && d.ValueKind == JsonValueKind.Array) arrayEl = d;
+            }
+
+            if (!arrayEl.HasValue || arrayEl.Value.GetArrayLength() == 0) return null;
+
+            // pick default if flagged, otherwise first
+            var chosen = arrayEl.Value.EnumerateArray()
+                .FirstOrDefault(el =>
+                    (el.TryGetProperty("isDefault", out var isDef) && isDef.ValueKind == JsonValueKind.True) ||
+                    (el.TryGetProperty("varsayilan", out var vs) && vs.ValueKind == JsonValueKind.True));
+            if (chosen.ValueKind == JsonValueKind.Undefined)
+            {
+                chosen = arrayEl.Value.EnumerateArray().FirstOrDefault();
+            }
+
+            if (TryGetBranchId(chosen, out var id))
+            {
+                try
+                {
+                    Directory.CreateDirectory(Path.Combine(Directory.GetCurrentDirectory(), "logs"));
+                    await File.WriteAllTextAsync(Path.Combine("logs", "luca-branches.json"), arrayEl.Value.GetRawText());
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to write luca-branches.json to logs");
+                }
+                return id;
+            }
+
+            _logger.LogWarning("Could not determine branch id from Koza response");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to select Koza branch");
+            return null;
+        }
+    }
+
+    private bool TryGetBranchId(JsonElement element, out long id)
+    {
+        id = 0;
+        if (element.ValueKind != JsonValueKind.Object) return false;
+
+        string[] idFields = { "orgSirketSubeId", "orgSirketSubeID", "id", "subeId", "sirketSubeId", "orgSubeId" };
+        foreach (var field in idFields)
+        {
+            if (element.TryGetProperty(field, out var prop))
+            {
+                if (prop.ValueKind == JsonValueKind.Number && prop.TryGetInt64(out id)) return true;
+                if (prop.ValueKind == JsonValueKind.String && long.TryParse(prop.GetString(), out id)) return true;
+            }
+        }
+        return false;
+    }
+
+    private async Task ChangeBranchAsync(long branchId)
+    {
+        try
+        {
+            // Try several ChangeBranch payload formats and log responses for diagnosis.
+            var attempts = new List<(string desc, HttpContent content)>();
+
+            var jsonPayload = JsonSerializer.Serialize(new { orgSirketSubeId = branchId }, _jsonOptions);
+            attempts.Add(("JSON:orgSirketSubeId", new StringContent(jsonPayload, Encoding.UTF8, "application/json")));
+
+            // form-urlencoded fallback
+            attempts.Add(("FORM:orgSirketSubeId", new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>("orgSirketSubeId", branchId.ToString()) })));
+
+            // try alternate field naming
+            var jsonPayloadAlt = JsonSerializer.Serialize(new { orgSirketSubeID = branchId }, _jsonOptions);
+            attempts.Add(("JSON:orgSirketSubeID", new StringContent(jsonPayloadAlt, Encoding.UTF8, "application/json")));
+            attempts.Add(("FORM:orgSirketSubeID", new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>("orgSirketSubeID", branchId.ToString()) })));
+
+            attempts.Add(("JSON:id", new StringContent(JsonSerializer.Serialize(new { id = branchId }, _jsonOptions), Encoding.UTF8, "application/json")));
+
+            foreach (var (desc, content) in attempts)
+            {
+                try
+                {
+                    var resp = await _cookieHttpClient!.PostAsync(_settings.Endpoints.ChangeBranch, content);
+                    var body = await ReadResponseContentAsync(resp);
+                    await AppendRawLogAsync("CHANGE_BRANCH:" + desc, _settings.Endpoints.ChangeBranch, await (content is StringContent sc ? sc.ReadAsStringAsync() : content is FormUrlEncodedContent fc ? fc.ReadAsStringAsync() : Task.FromResult(string.Empty)), resp.StatusCode, body);
+
+                    if (resp.IsSuccessStatusCode)
+                    {
+                        // If Koza returns a JSON 'code' field, ensure it's 0 (success)
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(body);
+                            if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("code", out var codeProp) && codeProp.ValueKind == JsonValueKind.Number)
+                            {
+                                if (codeProp.GetInt32() == 0)
+                                {
+                                    _logger.LogInformation("ChangeBranch succeeded using {Desc}", desc);
+                                    return;
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("ChangeBranch attempt {Desc} returned code {Code}", desc, codeProp.GetInt32());
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogInformation("ChangeBranch succeeded (HTTP OK) using {Desc}", desc);
+                                return;
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            _logger.LogInformation("ChangeBranch HTTP OK with unparseable body using {Desc}", desc);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("ChangeBranch attempt {Desc} failed with status {Status}", desc, resp.StatusCode);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "ChangeBranch attempt {Desc} threw", desc);
+                }
+            }
+
+            _logger.LogWarning("All ChangeBranch attempts finished without success");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ChangeBranch call failed");
         }
     }
 
@@ -547,6 +546,165 @@ public class LucaService : ILucaService
 
         result.Duration = DateTime.UtcNow - startTime;
         return result;
+    }
+
+    public async Task<long> CreateIrsaliyeAsync(LucaIrsaliyeDto dto)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(dto, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+
+        var response = await client.PostAsync(_settings.Endpoints.IrsaliyeCreate, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("CreateIrsaliyeAsync failed with status {Status}: {Body}", response.StatusCode, responseContent);
+        }
+
+        return TryParseId(responseContent);
+    }
+
+    public async Task DeleteIrsaliyeAsync(long irsaliyeId)
+    {
+        await EnsureAuthenticatedAsync();
+        var payload = new LucaDeleteIrsaliyeRequest { SsIrsaliyeBaslikId = irsaliyeId };
+        var json = JsonSerializer.Serialize(payload, _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        await client.PostAsync(_settings.Endpoints.IrsaliyeDelete, new StringContent(json, Encoding.UTF8, "application/json"));
+    }
+
+    public async Task<long> CreateSatinalmaSiparisAsync(LucaSatinalmaSiparisDto dto)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(dto, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+
+        var response = await client.PostAsync(_settings.Endpoints.PurchaseOrder, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("CreateSatinalmaSiparisAsync failed with status {Status}: {Body}", response.StatusCode, responseContent);
+        }
+
+        return TryParseId(responseContent);
+    }
+
+    public async Task DeleteSatinalmaSiparisAsync(long siparisId)
+    {
+        await EnsureAuthenticatedAsync();
+        var payload = new LucaDeletePurchaseOrderRequest { SsSiparisBaslikId = siparisId };
+        var json = JsonSerializer.Serialize(payload, _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        await client.PostAsync(_settings.Endpoints.PurchaseOrderDelete, new StringContent(json, Encoding.UTF8, "application/json"));
+    }
+
+    public async Task<long> CreateDepoTransferAsync(LucaDepoTransferDto dto)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(dto, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+
+        var response = await client.PostAsync(_settings.Endpoints.WarehouseTransfer, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("CreateDepoTransferAsync failed with status {Status}: {Body}", response.StatusCode, responseContent);
+        }
+
+        return TryParseId(responseContent);
+    }
+
+    public async Task<List<LucaTedarikciDto>> GetTedarikciListAsync()
+    {
+        var result = new List<LucaTedarikciDto>();
+        var jsonElement = await ListSuppliersAsync();
+
+        if (jsonElement.ValueKind == JsonValueKind.Array)
+        {
+            result = JsonSerializer.Deserialize<List<LucaTedarikciDto>>(jsonElement.GetRawText(), _jsonOptions) ?? new List<LucaTedarikciDto>();
+        }
+        else if (jsonElement.ValueKind == JsonValueKind.Object)
+        {
+            if (jsonElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+            {
+                result = JsonSerializer.Deserialize<List<LucaTedarikciDto>>(data.GetRawText(), _jsonOptions) ?? new List<LucaTedarikciDto>();
+            }
+            else if (jsonElement.TryGetProperty("list", out var list) && list.ValueKind == JsonValueKind.Array)
+            {
+                result = JsonSerializer.Deserialize<List<LucaTedarikciDto>>(list.GetRawText(), _jsonOptions) ?? new List<LucaTedarikciDto>();
+            }
+        }
+
+        return result;
+    }
+
+    public async Task<long> CreateTedarikciAsync(LucaCreateSupplierRequest dto)
+    {
+        await EnsureAuthenticatedAsync();
+        var json = JsonSerializer.Serialize(dto, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+
+        var response = await client.PostAsync(_settings.Endpoints.SupplierCreate, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("CreateTedarikciAsync failed with status {Status}: {Body}", response.StatusCode, responseContent);
+        }
+
+        return TryParseId(responseContent);
+    }
+
+    public async Task<long> CreateCariHareketAsync(LucaCariHareketDto dto)
+    {
+        await EnsureAuthenticatedAsync();
+        var json = JsonSerializer.Serialize(dto, _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var response = await client.PostAsync(_settings.Endpoints.CustomerTransaction, new StringContent(json, Encoding.UTF8, "application/json"));
+        var responseContent = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("CreateCariHareketAsync failed with status {Status}: {Body}", response.StatusCode, responseContent);
+        }
+        return TryParseId(responseContent);
+    }
+
+    public async Task<long> CreateFaturaKapamaAsync(LucaFaturaKapamaDto dto)
+    {
+        await EnsureAuthenticatedAsync();
+        var json = JsonSerializer.Serialize(dto, _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var response = await client.PostAsync(_settings.Endpoints.InvoiceClose, new StringContent(json, Encoding.UTF8, "application/json"));
+        var responseContent = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("CreateFaturaKapamaAsync failed with status {Status}: {Body}", response.StatusCode, responseContent);
+        }
+        return TryParseId(responseContent);
+    }
+
+    public async Task<List<LucaDepoDto>> GetDepoListAsync()
+    {
+        var element = await ListWarehousesAsync();
+        return DeserializeList<LucaDepoDto>(element);
+    }
+
+    public async Task<List<LucaVergiDairesiDto>> GetVergiDairesiListAsync()
+    {
+        var element = await ListTaxOfficesAsync();
+        return DeserializeList<LucaVergiDairesiDto>(element);
+    }
+
+    public async Task<List<LucaOlcumBirimiDto>> GetOlcumBirimiListAsync()
+    {
+        var element = await ListMeasurementUnitsAsync();
+        return DeserializeList<LucaOlcumBirimiDto>(element);
     }
 
     public async Task<JsonElement> ListTaxOfficesAsync(LucaListTaxOfficesRequest? request = null)
@@ -937,41 +1095,7 @@ public class LucaService : ILucaService
                 };
 
                 var response = await client.SendAsync(httpRequest);
-                // Read raw bytes so we can attempt multiple decodings (Koza may return Windows-1254 encoded body)
-                var responseBytes = await response.Content.ReadAsByteArrayAsync();
-                string responseContentUtf8 = string.Empty;
-                string responseContent1254 = string.Empty;
-                try
-                {
-                    responseContentUtf8 = Encoding.UTF8.GetString(responseBytes);
-                }
-                catch { responseContentUtf8 = string.Empty; }
-                try
-                {
-                    responseContent1254 = Encoding.GetEncoding(1254).GetString(responseBytes);
-                }
-                catch { responseContent1254 = responseContentUtf8; }
-
-                // Choose which decoded content to log/parse. Prefer cp1254 if it contains a JSON 'code' field.
-                var responseContent = responseContentUtf8;
-                try
-                {
-                    if (!string.IsNullOrEmpty(responseContent1254))
-                    {
-                        var tmp = JsonSerializer.Deserialize<JsonElement>(responseContent1254);
-                        if (tmp.ValueKind == JsonValueKind.Object && tmp.TryGetProperty("code", out _))
-                        {
-                            responseContent = responseContent1254;
-                        }
-                    }
-                }
-                catch
-                {
-                    // ignore parsing error and stick with UTF8
-                }
-
-                _logger.LogDebug("Koza stock card response. Status: {Status}; Body (utf8): {BodyUtf8}", response.StatusCode, responseContentUtf8);
-                _logger.LogDebug("Koza stock card response. Body (cp1254): {Body1254}", responseContent1254);
+                var responseContent = await ReadResponseContentAsync(response);
 
                 // Append raw request/response to local diagnostic log for inspection
                 try
@@ -1821,5 +1945,81 @@ public class LucaService : ILucaService
         }
     }
 
+    private async Task<string> ReadResponseContentAsync(HttpResponseMessage response)
+    {
+        var charset = response.Content.Headers.ContentType?.CharSet?.Trim().ToLowerInvariant();
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+
+        // Prefer explicit charset if provided; Koza sometimes uses windows-1254/iso-8859-9
+        if (!string.IsNullOrWhiteSpace(charset))
+        {
+            if (charset.Contains("1254") || charset.Contains("iso-8859-9"))
+            {
+                try { return Encoding.GetEncoding(1254).GetString(bytes); } catch { /* fall back below */ }
+            }
+            if (charset.Contains("utf-8"))
+            {
+                try { return Encoding.UTF8.GetString(bytes); } catch { /* fall back */ }
+            }
+        }
+
+        // Fallback: try UTF-8, then cp1254
+        try { return Encoding.UTF8.GetString(bytes); } catch { /* ignore */ }
+        try { return Encoding.GetEncoding(1254).GetString(bytes); } catch { /* ignore */ }
+        return string.Empty;
+    }
+
+    private static long TryParseId(string responseContent)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(responseContent);
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Number && root.TryGetInt64(out var num))
+            {
+                return num;
+            }
+
+            string[] idKeys = { "id", "faturaId", "irsaliyeId", "ssIrsaliyeBaslikId", "ssSiparisBaslikId", "belgeId", "entityId" };
+            foreach (var key in idKeys)
+            {
+                if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty(key, out var prop))
+                {
+                    if (prop.ValueKind == JsonValueKind.Number && prop.TryGetInt64(out var parsed))
+                        return parsed;
+                    if (prop.ValueKind == JsonValueKind.String && long.TryParse(prop.GetString(), out var parsedStr))
+                        return parsedStr;
+                }
+            }
+        }
+        catch
+        {
+            // ignore parse errors
+        }
+
+        return 0;
+    }
+
+    private List<T> DeserializeList<T>(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            return JsonSerializer.Deserialize<List<T>>(element.GetRawText(), _jsonOptions) ?? new List<T>();
+        }
+
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            if (element.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+            {
+                return JsonSerializer.Deserialize<List<T>>(data.GetRawText(), _jsonOptions) ?? new List<T>();
+            }
+            if (element.TryGetProperty("list", out var list) && list.ValueKind == JsonValueKind.Array)
+            {
+                return JsonSerializer.Deserialize<List<T>>(list.GetRawText(), _jsonOptions) ?? new List<T>();
+            }
+        }
+
+        return new List<T>();
+    }
 
 }

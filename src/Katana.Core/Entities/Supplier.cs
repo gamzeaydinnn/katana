@@ -10,6 +10,12 @@ public class Supplier
     public string Name { get; set; } = string.Empty;
 
     [MaxLength(100)]
+    public string? Code { get; set; }
+
+    [MaxLength(50)]
+    public string? TaxNo { get; set; }
+
+    [MaxLength(100)]
     public string? ContactName { get; set; }
 
     [MaxLength(100)]

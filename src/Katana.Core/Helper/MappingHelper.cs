@@ -72,6 +72,110 @@ public static class MappingHelper
         };
     }
 
+    public static PurchaseOrder MapToPurchaseOrder(KatanaPurchaseOrderDto dto)
+    {
+        return new PurchaseOrder
+        {
+            OrderNo = dto.Id,
+            SupplierCode = dto.SupplierCode,
+            SupplierId = 0,
+            OrderDate = dto.OrderDate == default ? DateTime.UtcNow : dto.OrderDate,
+            Status = MapPurchaseOrderStatus(dto.Status),
+            TotalAmount = dto.Items?.Sum(x => x.TotalAmount) ?? 0,
+            IsSynced = false,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    public static Supplier MapToSupplier(KatanaSupplierDto dto)
+    {
+        return new Supplier
+        {
+            Code = dto.Id,
+            Name = dto.Name,
+            Email = dto.Email,
+            Phone = dto.Phone,
+            TaxNo = dto.TaxNo,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    public static ProductVariant MapToVariant(KatanaVariantDto dto, int productId)
+    {
+        return new ProductVariant
+        {
+            ProductId = productId,
+            SKU = NormalizeSku(dto.SKU),
+            Barcode = dto.Barcode,
+            Price = dto.Price,
+            Attributes = dto.ParentProductId,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    public static Batch MapToBatch(KatanaBatchDto dto, int productId)
+    {
+        return new Batch
+        {
+            ProductId = productId,
+            BatchNo = dto.BatchNo,
+            ExpiryDate = dto.ExpiryDate,
+            Quantity = dto.Quantity,
+            Location = dto.Location,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    public static ManufacturingOrder MapToManufacturingOrder(KatanaManufacturingOrderDto dto, int productId)
+    {
+        return new ManufacturingOrder
+        {
+            OrderNo = dto.Id,
+            ProductId = productId,
+            Quantity = dto.Quantity,
+            Status = dto.Status,
+            DueDate = dto.DueDate,
+            IsSynced = false,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    public static StockTransfer MapToStockTransfer(KatanaStockTransferDto dto, int productId)
+    {
+        return new StockTransfer
+        {
+            ProductId = productId,
+            FromWarehouse = NormalizeWarehouseCode(dto.FromLocationId),
+            ToWarehouse = NormalizeWarehouseCode(dto.ToLocationId),
+            Quantity = dto.Items?.Sum(i => i.Quantity) ?? 0,
+            TransferDate = dto.TransferDate == default ? DateTime.UtcNow : dto.TransferDate,
+            Status = "Pending"
+        };
+    }
+
+    public static Order MapToSalesReturn(KatanaSalesReturnDto dto, int customerId)
+    {
+        var items = dto.ReturnRows ?? new List<KatanaReturnRowDto>();
+        return new Order
+        {
+            OrderNo = dto.Id,
+            CustomerId = customerId,
+            Status = OrderStatus.Returned,
+            TotalAmount = items.Sum(x => x.UnitPrice * x.Quantity),
+            OrderDate = dto.ReturnDate == default ? DateTime.UtcNow : dto.ReturnDate,
+            IsSynced = false,
+            CreatedAt = DateTime.UtcNow,
+            Items = items.Select(i => new OrderItem
+            {
+                ProductId = 0,
+                Quantity = (int)i.Quantity,
+                UnitPrice = i.UnitPrice
+            }).ToList()
+        };
+    }
+
     // Core Entity -> Luca DTO mapping
     public static LucaInvoiceDto MapToLucaInvoice(Invoice invoice, Customer customer, List<InvoiceItem> items, Dictionary<string, string> skuToAccountMapping)
     {
@@ -113,6 +217,116 @@ public static class MappingHelper
         }).ToList();
 
         return lucaInvoice;
+    }
+
+    public static LucaIrsaliyeDto MapToLucaIrsaliye(Order order, Customer customer, List<OrderItem> items)
+    {
+        return new LucaIrsaliyeDto
+        {
+            BelgeSeri = "IRS",
+            BelgeNo = string.IsNullOrWhiteSpace(order.OrderNo) ? order.Id.ToString() : order.OrderNo,
+            BelgeTarihi = order.OrderDate == default ? order.CreatedAt : order.OrderDate,
+            CariKodu = GenerateCustomerCode(customer.TaxNo),
+            ParaBirimKod = string.IsNullOrWhiteSpace(order.Currency) ? "TRY" : order.Currency,
+            DetayList = items.Select(item => new LucaIrsaliyeDetayDto
+            {
+                KartKodu = NormalizeSku(item.Product?.SKU ?? string.Empty),
+                Miktar = item.Quantity,
+                BirimFiyat = (double)item.UnitPrice,
+                DepoKodu = "0001-0001"
+            }).ToList()
+        };
+    }
+
+    public static LucaSatinalmaSiparisDto MapToLucaPurchaseOrder(PurchaseOrder po, Supplier supplier, List<PurchaseOrderItem> items)
+    {
+        return new LucaSatinalmaSiparisDto
+        {
+            BelgeSeri = "SAT",
+            BelgeNo = string.IsNullOrWhiteSpace(po.OrderNo) ? po.Id.ToString() : po.OrderNo,
+            TeslimTarihi = po.ExpectedDate ?? DateTime.UtcNow.AddDays(7),
+            TedarikciKodu = string.IsNullOrWhiteSpace(supplier.Code) ? supplier.Id.ToString() : supplier.Code!,
+            TeklifSiparisTur = 1,
+            OnayFlag = 0,
+            DetayList = items.Select(item => new LucaSipariDetayDto
+            {
+                KartKodu = NormalizeSku(item.Product?.SKU ?? string.Empty),
+                Miktar = item.Quantity,
+                BirimFiyat = (double)item.UnitPrice
+            }).ToList()
+        };
+    }
+
+    public static LucaCreateSupplierRequest MapToLucaSupplierCreate(Supplier supplier)
+    {
+        return new LucaCreateSupplierRequest
+        {
+            CariTipId = 2,
+            Tanim = TrimAndTruncate(supplier.Name, 200) ?? supplier.Name,
+            KartKod = string.IsNullOrWhiteSpace(supplier.Code) ? null : supplier.Code,
+            VergiNo = supplier.TaxNo,
+            IletisimTanim = supplier.Phone ?? supplier.Email,
+            ParaBirimKod = "TRY"
+        };
+    }
+
+    public static LucaDepoTransferDto MapToLucaDepoTransfer(StockTransfer transfer)
+    {
+        return new LucaDepoTransferDto
+        {
+            GirisDepoKodu = NormalizeWarehouseCode(transfer.ToWarehouse),
+            CikisDepoKodu = NormalizeWarehouseCode(transfer.FromWarehouse),
+            BelgeTarihi = transfer.TransferDate,
+            DetayList = new List<LucaTransferDetayDto>
+            {
+                new LucaTransferDetayDto
+                {
+                    KartKodu = NormalizeSku(transfer.Product?.SKU ?? string.Empty),
+                    Miktar = (double)transfer.Quantity
+                }
+            }
+        };
+    }
+
+    public static LucaCreateStockCountRequest MapToLucaSayimFisi(Stock stock)
+    {
+        return new LucaCreateStockCountRequest
+        {
+            BelgeTurDetayId = 0,
+            BelgeTarihi = stock.Timestamp == default ? DateTime.UtcNow : stock.Timestamp,
+            DepoKodu = NormalizeWarehouseCode(stock.Location),
+            DetayList = new List<LucaStockCountDetailRequest>
+            {
+                new LucaStockCountDetailRequest
+                {
+                    KartKodu = NormalizeSku(stock.Product?.SKU ?? string.Empty),
+                    SayimMiktari = stock.Quantity
+                }
+            }
+        };
+    }
+
+    public static LucaCariHareketDto MapToLucaCariHareket(Payment payment, Customer customer)
+    {
+        return new LucaCariHareketDto
+        {
+            CariTuru = 1,
+            CariKodu = GenerateCustomerCode(customer.TaxNo),
+            Tutar = (double)payment.Amount,
+            BelgeTarihi = payment.PaymentDate
+        };
+    }
+
+    public static LucaFaturaKapamaDto MapToLucaFaturaKapama(Payment payment, long faturaId, int cariTur, string kasaBankaKod)
+    {
+        return new LucaFaturaKapamaDto
+        {
+            FaturaId = faturaId,
+            Tutar = (double)payment.Amount,
+            CariKod = kasaBankaKod,
+            CariTur = cariTur,
+            BelgeTarih = payment.PaymentDate
+        };
     }
 
     public static LucaStockDto MapToLucaStock(Stock stock, Product product, Dictionary<string, string> locationMapping)
@@ -468,6 +682,18 @@ public static class MappingHelper
     private static string GenerateCustomerCode(string taxNo)
     {
         return $"CUST_{taxNo}";
+    }
+
+    private static PurchaseOrderStatus MapPurchaseOrderStatus(string status)
+    {
+        return status?.ToUpperInvariant() switch
+        {
+            "RECEIVED" => PurchaseOrderStatus.Received,
+            "NOT_RECEIVED" => PurchaseOrderStatus.Pending,
+            "APPROVED" => PurchaseOrderStatus.Approved,
+            "CANCELLED" => PurchaseOrderStatus.Cancelled,
+            _ => PurchaseOrderStatus.Pending
+        };
     }
 
     private const int MaxSkuLength = 50;

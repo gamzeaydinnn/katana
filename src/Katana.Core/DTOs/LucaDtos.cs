@@ -59,6 +59,103 @@ public class LucaCustomerDto
     public string? Country { get; set; }
 }
 
+public class LucaDepoDto
+{
+    public string Kod { get; set; } = string.Empty;
+    public string Tanim { get; set; } = string.Empty;
+}
+
+public class LucaVergiDairesiDto
+{
+    public string Kod { get; set; } = string.Empty;
+    public string Tanim { get; set; } = string.Empty;
+}
+
+public class LucaOlcumBirimiDto
+{
+    public long Id { get; set; }
+    public string Tanim { get; set; } = string.Empty;
+}
+
+public class LucaCariHareketDto
+{
+    public int CariTuru { get; set; }
+    public string CariKodu { get; set; } = string.Empty;
+    public double Tutar { get; set; }
+    public DateTime BelgeTarihi { get; set; }
+}
+
+public class LucaFaturaKapamaDto
+{
+    public long FaturaId { get; set; }
+    public double Tutar { get; set; }
+    public string CariKod { get; set; } = string.Empty;
+    public int CariTur { get; set; }
+    public DateTime BelgeTarih { get; set; }
+}
+
+public class LucaIrsaliyeDto
+{
+    public string BelgeSeri { get; set; } = string.Empty;
+    public string BelgeNo { get; set; } = string.Empty;
+    public DateTime BelgeTarihi { get; set; }
+    public string CariKodu { get; set; } = string.Empty;
+    public string ParaBirimKod { get; set; } = "TRY";
+    public List<LucaIrsaliyeDetayDto> DetayList { get; set; } = new();
+    public string? TasiyiciPlaka { get; set; }
+    public string? SoforAd { get; set; }
+    public string? SoforTckn { get; set; }
+}
+
+public class LucaIrsaliyeDetayDto
+{
+    public string KartKodu { get; set; } = string.Empty;
+    public double Miktar { get; set; }
+    public double BirimFiyat { get; set; }
+    public string? DepoKodu { get; set; }
+}
+
+public class LucaSatinalmaSiparisDto
+{
+    public string BelgeSeri { get; set; } = string.Empty;
+    public string BelgeNo { get; set; } = string.Empty;
+    public DateTime TeslimTarihi { get; set; }
+    public string TedarikciKodu { get; set; } = string.Empty;
+    public int TeklifSiparisTur { get; set; } = 1;
+    public int OnayFlag { get; set; }
+    public List<LucaSipariDetayDto> DetayList { get; set; } = new();
+}
+
+public class LucaSipariDetayDto
+{
+    public string KartKodu { get; set; } = string.Empty;
+    public double Miktar { get; set; }
+    public double BirimFiyat { get; set; }
+}
+
+public class LucaDepoTransferDto
+{
+    public string GirisDepoKodu { get; set; } = string.Empty;
+    public string CikisDepoKodu { get; set; } = string.Empty;
+    public DateTime BelgeTarihi { get; set; }
+    public List<LucaTransferDetayDto> DetayList { get; set; } = new();
+}
+
+public class LucaTransferDetayDto
+{
+    public string KartKodu { get; set; } = string.Empty;
+    public double Miktar { get; set; }
+}
+
+public class LucaTedarikciDto
+{
+    public string Kod { get; set; } = string.Empty;
+    public string Tanim { get; set; } = string.Empty;
+    public string? VergiNo { get; set; }
+    public string? Email { get; set; }
+    public string? Telefon { get; set; }
+}
+
 // --- Ortak listeleme filtreleri ---
 
 public class LucaCodeRangeFilter
