@@ -80,17 +80,66 @@ public class LucaService : ILucaService
             _cookieHttpClient.DefaultRequestHeaders.Accept.Clear();
             _cookieHttpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-            var authRequest = new
+            // Koza login: try real HTML field names first, then alternates, then JSON
+            var loginAttempts = new List<(string desc, HttpContent content)>
             {
-                orgCode = _settings.MemberNumber,
-                userName = _settings.Username,
-                userPassword = _settings.Password
+                ("FORM:orgCode_user_girisForm.userPassword", new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    { "orgCode", _settings.MemberNumber },
+                    { "user", _settings.Username },
+                    { "girisForm.userPassword", _settings.Password },
+                    { "girisForm.captchaInput", string.Empty }
+                })),
+                ("FORM:orgCode_userName_userPassword", new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    { "orgCode", _settings.MemberNumber },
+                    { "userName", _settings.Username },
+                    { "userPassword", _settings.Password }
+                })),
+                ("JSON:orgCode_userName_userPassword", new StringContent(
+                    JsonSerializer.Serialize(new
+                    {
+                        orgCode = _settings.MemberNumber,
+                        userName = _settings.Username,
+                        userPassword = _settings.Password
+                    }, _jsonOptions), Encoding.UTF8, "application/json"))
             };
 
-            var json = JsonSerializer.Serialize(authRequest, _jsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            HttpResponseMessage? response = null;
+            string authBody = string.Empty;
+            bool loginOk = false;
 
-            var response = await _cookieHttpClient.PostAsync(_settings.Endpoints.Auth, content);
+            foreach (var (desc, payload) in loginAttempts)
+            {
+                try
+                {
+                    response = await _cookieHttpClient.PostAsync(_settings.Endpoints.Auth, payload);
+                    authBody = await ReadResponseContentAsync(response);
+                    var payloadText = payload switch
+                    {
+                        StringContent sc => await sc.ReadAsStringAsync(),
+                        FormUrlEncodedContent fc => await fc.ReadAsStringAsync(),
+                        _ => string.Empty
+                    };
+                    await AppendRawLogAsync($"AUTH_LOGIN:{desc}", _settings.Endpoints.Auth, payloadText, response.StatusCode, authBody);
+
+                    if (response.IsSuccessStatusCode && IsKozaLoginSuccess(authBody))
+                    {
+                        loginOk = true;
+                        break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Login attempt {Desc} failed", desc);
+                }
+            }
+
+            if (!loginOk || response == null)
+            {
+                _logger.LogError("Koza login failed; last response: {Body}", authBody);
+                throw new UnauthorizedAccessException("Koza login failed");
+            }
 
             if (!response.IsSuccessStatusCode)
             {
@@ -98,7 +147,7 @@ public class LucaService : ILucaService
                 throw new UnauthorizedAccessException("Koza auth failed");
             }
 
-            var branchId = await SelectDefaultBranchAsync();
+            var branchId = await SelectDefaultBranchAsync(authBody);
             if (branchId.HasValue)
             {
                 await ChangeBranchAsync(branchId.Value);
@@ -114,7 +163,7 @@ public class LucaService : ILucaService
         }
     }
 
-    private async Task<long?> SelectDefaultBranchAsync()
+    private async Task<long?> SelectDefaultBranchAsync(string? lastAuthBody = null)
     {
         try
         {
@@ -125,16 +174,8 @@ public class LucaService : ILucaService
                 return null;
             }
 
-            var branchesJson = await branchesResp.Content.ReadAsStringAsync();
-            // Append raw branches response for diagnostics
-            try
-            {
-                await AppendRawLogAsync("BRANCHES", _settings.Endpoints.Branches, "{}", branchesResp.StatusCode, branchesJson);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to append branches raw log");
-            }
+            var branchesJson = await ReadResponseContentAsync(branchesResp);
+            await AppendRawLogAsync("AUTH_BRANCHES", _settings.Endpoints.Branches, "{}", branchesResp.StatusCode, branchesJson);
             using var doc = JsonDocument.Parse(branchesJson);
             var root = doc.RootElement;
 
@@ -175,6 +216,14 @@ public class LucaService : ILucaService
             }
 
             _logger.LogWarning("Could not determine branch id from Koza response");
+            if (!string.IsNullOrWhiteSpace(branchesJson))
+            {
+                _logger.LogWarning("Branches raw (preview): {Branches}", branchesJson.Substring(0, Math.Min(500, branchesJson.Length)));
+            }
+            if (!string.IsNullOrWhiteSpace(lastAuthBody))
+            {
+                _logger.LogWarning("Last auth body (preview): {AuthBody}", lastAuthBody.Substring(0, Math.Min(300, lastAuthBody.Length)));
+            }
             return null;
         }
         catch (Exception ex)
@@ -227,7 +276,13 @@ public class LucaService : ILucaService
                 {
                     var resp = await _cookieHttpClient!.PostAsync(_settings.Endpoints.ChangeBranch, content);
                     var body = await ReadResponseContentAsync(resp);
-                    await AppendRawLogAsync("CHANGE_BRANCH:" + desc, _settings.Endpoints.ChangeBranch, await (content is StringContent sc ? sc.ReadAsStringAsync() : content is FormUrlEncodedContent fc ? fc.ReadAsStringAsync() : Task.FromResult(string.Empty)), resp.StatusCode, body);
+                    var payloadText = content switch
+                    {
+                        StringContent sc => await sc.ReadAsStringAsync(),
+                        FormUrlEncodedContent fc => await fc.ReadAsStringAsync(),
+                        _ => string.Empty
+                    };
+                    await AppendRawLogAsync("CHANGE_BRANCH:" + desc, _settings.Endpoints.ChangeBranch, payloadText, resp.StatusCode, body);
 
                     if (resp.IsSuccessStatusCode)
                     {
@@ -1063,126 +1118,94 @@ public class LucaService : ILucaService
 
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
-        public async Task<SyncResultDto> SendStockCardsAsync(List<LucaCreateStokKartiRequest> stockCards)
+    public async Task<SyncResultDto> SendStockCardsAsync(List<LucaCreateStokKartiRequest> stockCards)
+    {
+        var result = new SyncResultDto
         {
-            var result = new SyncResultDto
-            {
-                SyncType = "PRODUCT_STOCK_CARD",
+            SyncType = "PRODUCT_STOCK_CARD",
             ProcessedRecords = stockCards.Count
         };
 
         var startTime = DateTime.UtcNow;
+        var succeeded = 0;
+        var failed = 0;
 
-            try
+        try
+        {
+            await EnsureAuthenticatedAsync();
+            _logger.LogInformation("Sending {Count} stock cards to Luca (Koza) one by one (Koza does not accept arrays)", stockCards.Count);
+
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            var endpoint = _settings.Endpoints.Products;
+
+            foreach (var card in stockCards)
             {
-                await EnsureAuthenticatedAsync();
-
-                _logger.LogInformation("Sending {Count} stock cards to Luca (Koza)", stockCards.Count);
-
-                var json = JsonSerializer.Serialize(stockCards, _jsonOptions);
-                // Log a trimmed preview to help debug Koza tarafı
-                var preview = json.Length > 1200 ? json.Substring(0, 1200) + "...(truncated)" : json;
-                _logger.LogDebug("Koza stock card request payload (preview): {Preview}", preview);
-
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-                // Prefer SendAsync with explicit request so we can capture URL easily
-                var endpoint = _settings.Endpoints.Products;
-                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
-                {
-                    Content = content
-                };
-
-                var response = await client.SendAsync(httpRequest);
-                var responseContent = await ReadResponseContentAsync(response);
-
-                // Append raw request/response to local diagnostic log for inspection
                 try
                 {
-                    var baseUrl = client.BaseAddress?.ToString()?.TrimEnd('/') ?? _settings.BaseUrl?.TrimEnd('/') ?? string.Empty;
-                    var fullUrl = string.IsNullOrWhiteSpace(baseUrl) ? endpoint : (endpoint.StartsWith("http") ? endpoint : baseUrl + "/" + endpoint.TrimStart('/'));
-                    await AppendRawLogAsync("SEND_STOCK_CARDS", fullUrl, json, response.StatusCode, responseContent);
+                    var payload = JsonSerializer.Serialize(card, _jsonOptions);
+                    var response = await client.PostAsync(endpoint, new StringContent(payload, Encoding.UTF8, "application/json"));
+                    var responseContent = await ReadResponseContentAsync(response);
+
+                    await AppendRawLogAsync("SEND_STOCK_CARD", endpoint, payload, response.StatusCode, responseContent);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        failed++;
+                        var previewError = responseContent.Length > 300 ? responseContent.Substring(0, 300) + "...(truncated)" : responseContent;
+                        result.Errors.Add($"{card.KartKodu}: HTTP {response.StatusCode} - {previewError}");
+                        _logger.LogError("Stock card {Card} failed HTTP {Status}: {Body}", card.KartKodu, response.StatusCode, previewError);
+                        continue;
+                    }
+
+                    try
+                    {
+                        var parsed = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                        if (parsed.ValueKind == JsonValueKind.Object && parsed.TryGetProperty("code", out var codeProp))
+                        {
+                            var code = codeProp.GetInt32();
+                            if (code != 0)
+                            {
+                                failed++;
+                                var msg = parsed.TryGetProperty("message", out var m) ? m.GetString() : "Unknown error";
+                                result.Errors.Add($"{card.KartKodu}: code={code} message={msg}");
+                                _logger.LogError("Stock card {Card} failed with code {Code} message {Message}", card.KartKodu, code, msg);
+                                continue;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Stock card {Card} response could not be parsed; assuming success on HTTP OK", card.KartKodu);
+                    }
+
+                    succeeded++;
+                    _logger.LogInformation("Stock card created: {Card}", card.KartKodu);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to write raw Luca log entry");
+                    failed++;
+                    result.Errors.Add($"{card.KartKodu}: {ex.Message}");
+                    _logger.LogError(ex, "Error sending stock card {Card}", card.KartKodu);
                 }
 
-                // Koza sometimes returns HTTP 200 but includes an API-level "code" in the JSON body.
-                // Treat non-zero code values as failures.
-                try
-                {
-                    if (response.IsSuccessStatusCode)
-                    {
-                        try
-                        {
-                            var parsed = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                            if (parsed.ValueKind == JsonValueKind.Object && parsed.TryGetProperty("code", out var codeProp) && codeProp.ValueKind == JsonValueKind.Number)
-                            {
-                                var code = codeProp.GetInt32();
-                                if (code != 0)
-                                {
-                                    result.IsSuccess = false;
-                                    result.FailedRecords = stockCards.Count;
-                                    result.Message = $"Luca API returned code {code}";
-                                    result.Errors.Add(responseContent);
-                                    _logger.LogError("Luca returned code {Code} when sending stock cards: {Body}", code, responseContent);
-                                }
-                                else
-                                {
-                                    result.IsSuccess = true;
-                                    result.SuccessfulRecords = stockCards.Count;
-                                    result.Message = "Stock cards sent successfully to Luca (Koza)";
-                                    _logger.LogInformation("Successfully sent {Count} stock cards to Luca (Koza)", stockCards.Count);
-                                }
-                            }
-                            else
-                            {
-                                // No code field — fallback to HTTP status
-                                result.IsSuccess = true;
-                                result.SuccessfulRecords = stockCards.Count;
-                                result.Message = "Stock cards sent (no code returned)";
-                                _logger.LogInformation("Sent {Count} stock cards to Luca (Koza) — no code returned", stockCards.Count);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            // Parsing failed — fallback to HTTP status
-                            _logger.LogWarning(ex, "Failed to parse Luca response JSON; using HTTP status to determine success");
-                            result.IsSuccess = true;
-                            result.SuccessfulRecords = stockCards.Count;
-                            result.Message = "Stock cards sent (response parsing failed)";
-                        }
-                    }
-                    else
-                    {
-                        result.IsSuccess = false;
-                        result.FailedRecords = stockCards.Count;
-                        result.Message = $"Failed to send stock cards to Luca (Koza): {response.StatusCode}";
-                        result.Errors.Add(responseContent);
-                        _logger.LogError("Failed to send stock cards to Luca (Koza). Status: {StatusCode}, Error: {Error}", response.StatusCode, responseContent);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Unexpected error while handling Luca response");
-                    result.IsSuccess = false;
-                    result.FailedRecords = stockCards.Count;
-                    result.Message = ex.Message;
-                    result.Errors.Add(ex.ToString());
-                }
+                await Task.Delay(100);
             }
-            catch (Exception ex)
-            {
-                result.IsSuccess = false;
+        }
+        catch (Exception ex)
+        {
+            result.IsSuccess = false;
             result.FailedRecords = stockCards.Count;
             result.Message = ex.Message;
             result.Errors.Add(ex.ToString());
-
-            _logger.LogError(ex, "Error sending stock cards to Luca (Koza)");
+            _logger.LogError(ex, "Error sending stock cards to Luca");
+            result.Duration = DateTime.UtcNow - startTime;
+            return result;
         }
 
+        result.SuccessfulRecords = succeeded;
+        result.FailedRecords = failed;
+        result.IsSuccess = failed == 0;
+        result.Message = failed == 0 ? "All stock cards sent successfully (one by one)." : $"{succeeded} succeeded, {failed} failed.";
         result.Duration = DateTime.UtcNow - startTime;
         return result;
     }
