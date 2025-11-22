@@ -12,6 +12,12 @@ public class LucaApiSettings
     public int TimeoutSeconds { get; set; } = 30;
     public int MaxRetryAttempts { get; set; } = 3;
     public bool UseTokenAuth { get; set; } = true;
+    // Optional: pre-baked session cookie for Koza (e.g., "JSESSIONID=...") to bypass CAPTCHA
+    public string? ManualSessionCookie { get; set; } = string.Empty;
+    // Optional: force a specific branch id for Koza (orgSirketSubeId).
+    // When set, the client will use this branch id during cookie-based auth
+    // instead of attempting to auto-select from the branches response.
+    public long? ForcedBranchId { get; set; } = null;
 
     // API Endpoints
     public LucaEndpoints Endpoints { get; set; } = new();
@@ -39,6 +45,8 @@ public class LucaEndpoints
 
     // Koza stok kartı listeleme endpoint'leri
     public string StockCards { get; set; } = "ListeleStkSkart.do";
+    // Koza stok kartı ekleme endpoint'i (EkleStkWsSkart.do)
+    public string StockCardCreate { get; set; } = "EkleStkWsSkart.do";
     public string StockCardPriceLists { get; set; } = "ListeleStkSkartFiyatListeleri.do";
     public string StockCardAltUnits { get; set; } = "ListeleStkSkartAlternatifOb.do";
     public string StockCardAltStocks { get; set; } = "ListeleStkSkartAlternatif.do";
