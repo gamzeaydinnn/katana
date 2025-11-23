@@ -85,22 +85,49 @@ public class LucaService : ILucaService
             {
                 try
                 {
-                    var parts = _settings.ManualSessionCookie.Split(';', StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var part in parts)
+                    _logger.LogInformation("Using manual Koza session cookie (bypassing login + branch selection)");
+
+                    var cookieValue = _settings.ManualSessionCookie.Trim();
+                    if (cookieValue.StartsWith("JSESSIONID=", StringComparison.OrdinalIgnoreCase))
                     {
-                        var kvp = part.Split('=', 2, StringSplitOptions.TrimEntries);
-                        if (kvp.Length == 2 && !string.IsNullOrWhiteSpace(kvp[0]) && !string.IsNullOrWhiteSpace(kvp[1]))
+                        cookieValue = cookieValue.Substring("JSESSIONID=".Length);
+                    }
+                    var cookie = new System.Net.Cookie("JSESSIONID", cookieValue)
+                    {
+                        Domain = baseUri.Host,
+                        Path = "/"
+                    };
+                    _cookieContainer.Add(baseUri, cookie);
+
+                    _logger.LogInformation("Added manual cookie JSESSIONID={Preview}", cookieValue.Substring(0, Math.Min(20, cookieValue.Length)) + "...");
+
+                    // If a specific branch is required, attempt to switch before verification
+                    if (_settings.ForcedBranchId.HasValue)
+                    {
+                        try
                         {
-                            _cookieContainer.Add(new System.Net.Cookie(kvp[0], kvp[1], "/", baseUri.Host));
+                            await ChangeBranchAsync(_settings.ForcedBranchId.Value);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "ForcedBranchId {BranchId} could not be applied with manual cookie", _settings.ForcedBranchId.Value);
                         }
                     }
+
+                    var isValid = await VerifyManualSessionAsync();
+                    if (!isValid)
+                    {
+                        _logger.LogError("Manual session cookie is expired/invalid; fetch a new JSESSIONID after logging in and selecting branch in Koza");
+                        throw new UnauthorizedAccessException("Manual Koza session cookie invalid");
+                    }
+
                     _isCookieAuthenticated = true;
-                    _logger.LogWarning("Using manual Koza session cookie from configuration; login flow skipped.");
+                    _logger.LogInformation("Manual session verified; Koza requests will use browser cookie");
                     return;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to apply manual Koza session cookie; falling back to login flow");
+                    _logger.LogWarning(ex, "Failed to apply/verify manual Koza session cookie; falling back to login flow");
                 }
             }
 
@@ -187,6 +214,61 @@ public class LucaService : ILucaService
         }
     }
 
+    private async Task<bool> VerifyManualSessionAsync()
+    {
+        try
+        {
+            _logger.LogDebug("Verifying manual Koza session cookie...");
+
+            var testContent = new StringContent("{}", Encoding.UTF8, "application/json");
+            using var request = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.MeasurementUnits)
+            {
+                Content = testContent
+            };
+            request.Headers.Add("No-Paging", "true");
+
+            var response = await _cookieHttpClient!.SendAsync(request);
+            var responseContent = await ReadResponseContentAsync(response);
+
+            if (responseContent.Contains("Şirket Şube seçimi Yapılmalı", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogError("Manual cookie present but branch not selected in Koza session");
+                return false;
+            }
+
+            if (responseContent.Contains("Giriş", StringComparison.OrdinalIgnoreCase) ||
+                responseContent.Contains("<form", StringComparison.OrdinalIgnoreCase) ||
+                responseContent.TrimStart().StartsWith("<html>", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogError("Manual cookie invalid/expired - login page returned");
+                return false;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Manual cookie verification returned HTTP {Status}", response.StatusCode);
+                return false;
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(responseContent);
+                _logger.LogDebug("Manual cookie verification succeeded with JSON response");
+                return true;
+            }
+            catch
+            {
+                _logger.LogWarning("Manual cookie verification HTTP OK but response not JSON; assuming valid");
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Manual session verification failed");
+            return false;
+        }
+    }
+
     // Koza login responses vary (HTML or JSON). Detect success with best-effort heuristics.
     private bool IsKozaLoginSuccess(string? body)
     {
@@ -234,6 +316,12 @@ public class LucaService : ILucaService
     {
         try
         {
+            if (_settings.ForcedBranchId.HasValue)
+            {
+                _logger.LogInformation("ForcedBranchId configured; using branch {BranchId}", _settings.ForcedBranchId.Value);
+                return _settings.ForcedBranchId.Value;
+            }
+
             var branchesResp = await _cookieHttpClient!.PostAsync(_settings.Endpoints.Branches, new StringContent("{}", Encoding.UTF8, "application/json"));
             if (!branchesResp.IsSuccessStatusCode)
             {
@@ -550,6 +638,9 @@ public class LucaService : ILucaService
                 var failed = 0;
                 foreach (var movement in stockMovements)
                 {
+                    var movementLabel = !string.IsNullOrWhiteSpace(movement.Reference)
+                        ? movement.Reference
+                        : movement.ProductCode;
                     try
                     {
                         var payload = JsonSerializer.Serialize(movement, _jsonOptions);
@@ -560,8 +651,8 @@ public class LucaService : ILucaService
                         if (!response.IsSuccessStatusCode)
                         {
                             failed++;
-                            result.Errors.Add($"{movement.DocumentNumber}: HTTP {response.StatusCode} - {body}");
-                            _logger.LogError("Stock movement {Doc} failed HTTP {Status}: {Body}", movement.DocumentNumber, response.StatusCode, body);
+                            result.Errors.Add($"{movementLabel}: HTTP {response.StatusCode} - {body}");
+                            _logger.LogError("Stock movement {Doc} failed HTTP {Status}: {Body}", movementLabel, response.StatusCode, body);
                             continue;
                         }
 
@@ -576,8 +667,8 @@ public class LucaService : ILucaService
                                 {
                                     failed++;
                                     var msg = doc.RootElement.TryGetProperty("message", out var m) ? m.GetString() : "Unknown error";
-                                    result.Errors.Add($"{movement.DocumentNumber}: code={code} message={msg}");
-                                    _logger.LogError("Stock movement {Doc} failed with code {Code} message {Message}", movement.DocumentNumber, code, msg);
+                                    result.Errors.Add($"{movementLabel}: code={code} message={msg}");
+                                    _logger.LogError("Stock movement {Doc} failed with code {Code} message {Message}", movementLabel, code, msg);
                                     continue;
                                 }
                             }
@@ -588,13 +679,13 @@ public class LucaService : ILucaService
                         }
 
                         succeeded++;
-                        _logger.LogInformation("Stock movement sent: {Doc}", movement.DocumentNumber);
+                        _logger.LogInformation("Stock movement sent: {Doc}", movementLabel);
                     }
                     catch (Exception ex)
                     {
                         failed++;
-                        result.Errors.Add($"{movement.DocumentNumber}: {ex.Message}");
-                        _logger.LogError(ex, "Error sending stock movement {Doc}", movement.DocumentNumber);
+                        result.Errors.Add($"{movementLabel}: {ex.Message}");
+                        _logger.LogError(ex, "Error sending stock movement {Doc}", movementLabel);
                     }
 
                     await Task.Delay(100);
@@ -1256,8 +1347,8 @@ public class LucaService : ILucaService
         };
 
         var startTime = DateTime.UtcNow;
-        var succeeded = 0;
-        var failed = 0;
+        var successCount = 0;
+        var failedCount = 0;
 
         try
         {
@@ -1266,20 +1357,45 @@ public class LucaService : ILucaService
 
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
             var endpoint = _settings.UseTokenAuth ? _settings.Endpoints.Products : _settings.Endpoints.StockCardCreate;
+            var enc1254 = Encoding.GetEncoding(1254);
 
             foreach (var card in stockCards)
             {
                 try
                 {
                     var payload = JsonSerializer.Serialize(card, _jsonOptions);
-                    var response = await client.PostAsync(endpoint, new StringContent(payload, Encoding.UTF8, "application/json"));
-                    var responseContent = await ReadResponseContentAsync(response);
+                    var content = new ByteArrayContent(enc1254.GetBytes(payload));
+                    content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
+                    {
+                        CharSet = "windows-1254"
+                    };
 
-                    await AppendRawLogAsync("SEND_STOCK_CARD", endpoint, payload, response.StatusCode, responseContent);
+                    using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                    {
+                        Content = content
+                    };
+
+                    var response = await client.SendAsync(httpRequest);
+                    var responseBytes = await response.Content.ReadAsByteArrayAsync();
+                    string responseContent;
+                    try { responseContent = enc1254.GetString(responseBytes); } catch { responseContent = Encoding.UTF8.GetString(responseBytes); }
+
+                    var baseUrl = client.BaseAddress?.ToString()?.TrimEnd('/') ?? _settings.BaseUrl?.TrimEnd('/') ?? string.Empty;
+                    var fullUrl = string.IsNullOrWhiteSpace(baseUrl) ? endpoint : (endpoint.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? endpoint : baseUrl + "/" + endpoint.TrimStart('/'));
+                    await AppendRawLogAsync("SEND_STOCK_CARD", fullUrl, payload, response.StatusCode, responseContent);
+
+                    if (responseContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
+                    {
+                        failedCount++;
+                        var htmlPreview = responseContent.Length > 200 ? responseContent.Substring(0, 200) : responseContent;
+                        result.Errors.Add($"{card.KartKodu}: HTML response (likely session/captcha/branch issue): {htmlPreview}");
+                        _logger.LogError("Stock card {Card} returned HTML instead of JSON. Session likely expired/branch not selected.", card.KartKodu);
+                        continue;
+                    }
 
                     if (!response.IsSuccessStatusCode)
                     {
-                        failed++;
+                        failedCount++;
                         var previewError = responseContent.Length > 300 ? responseContent.Substring(0, 300) + "...(truncated)" : responseContent;
                         result.Errors.Add($"{card.KartKodu}: HTTP {response.StatusCode} - {previewError}");
                         _logger.LogError("Stock card {Card} failed HTTP {Status}: {Body}", card.KartKodu, response.StatusCode, previewError);
@@ -1292,9 +1408,21 @@ public class LucaService : ILucaService
                         if (parsed.ValueKind == JsonValueKind.Object && parsed.TryGetProperty("code", out var codeProp))
                         {
                             var code = codeProp.GetInt32();
-                            if (code != 0)
+                            if (code == 0)
                             {
-                                failed++;
+                                if (parsed.TryGetProperty("stkSkart", out var skartEl) && skartEl.ValueKind == JsonValueKind.Object && skartEl.TryGetProperty("skartId", out var idEl))
+                                {
+                                    _logger.LogInformation("Stock card {Card} created with ID {Id}", card.KartKodu, idEl.ToString());
+                                }
+                            }
+                            else if (code == 1003)
+                            {
+                                _logger.LogError("Stock card {Card} failed with code 1003 (branch selection required / session expired). Stopping.", card.KartKodu);
+                                throw new UnauthorizedAccessException("Session expired or branch not selected (code 1003). Renew manual session cookie.");
+                            }
+                            else
+                            {
+                                failedCount++;
                                 var msg = parsed.TryGetProperty("message", out var m) ? m.GetString() : "Unknown error";
                                 result.Errors.Add($"{card.KartKodu}: code={code} message={msg}");
                                 _logger.LogError("Stock card {Card} failed with code {Code} message {Message}", card.KartKodu, code, msg);
@@ -1307,17 +1435,17 @@ public class LucaService : ILucaService
                         _logger.LogWarning(ex, "Stock card {Card} response could not be parsed; assuming success on HTTP OK", card.KartKodu);
                     }
 
-                    succeeded++;
+                    successCount++;
                     _logger.LogInformation("Stock card created: {Card}", card.KartKodu);
                 }
                 catch (Exception ex)
                 {
-                    failed++;
+                    failedCount++;
                     result.Errors.Add($"{card.KartKodu}: {ex.Message}");
                     _logger.LogError(ex, "Error sending stock card {Card}", card.KartKodu);
                 }
 
-                await Task.Delay(100);
+                await Task.Delay(200);
             }
         }
         catch (Exception ex)
@@ -1327,14 +1455,12 @@ public class LucaService : ILucaService
             result.Message = ex.Message;
             result.Errors.Add(ex.ToString());
             _logger.LogError(ex, "Error sending stock cards to Luca");
-            result.Duration = DateTime.UtcNow - startTime;
-            return result;
         }
 
-        result.SuccessfulRecords = succeeded;
-        result.FailedRecords = failed;
-        result.IsSuccess = failed == 0;
-        result.Message = failed == 0 ? "All stock cards sent successfully (one by one)." : $"{succeeded} succeeded, {failed} failed.";
+        result.SuccessfulRecords = successCount;
+        result.FailedRecords = failedCount;
+        result.IsSuccess = successCount > 0 && failedCount == 0;
+        result.Message = $"{successCount} success, {failedCount} failed";
         result.Duration = DateTime.UtcNow - startTime;
         return result;
     }

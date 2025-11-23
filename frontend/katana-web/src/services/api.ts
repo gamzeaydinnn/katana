@@ -13,8 +13,8 @@ const getDefaultApiBase = () => {
   try {
     if (typeof window !== "undefined") {
       const { protocol, hostname, port } = window.location;
-      // Heuristic: if UI is on port 3000 (static serve), backend is on 5055
-      if (port === "3000") {
+      // Heuristic: if UI is on port 3000 or 3001 (static serve), backend is on 5055
+      if (port === "3000" || port === "3001") {
         return `${protocol}//${hostname}:5055/api`;
       }
     }
