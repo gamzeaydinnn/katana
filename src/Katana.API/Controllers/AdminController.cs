@@ -679,7 +679,7 @@ public class AdminController : ControllerBase
 
             // Katana ürünlerini Koza stok kartı DTO'suna map et ve Luca'ya gönder
             var lucaStockCards = products
-                .Select(Katana.Core.Helpers.MappingHelper.MapToLucaStockCard)
+                .Select(p => Katana.Core.Helpers.MappingHelper.MapToLucaStockCard(p))
                 .ToList();
 
             var result = await lucaService.SendStockCardsAsync(lucaStockCards);

@@ -1806,9 +1806,45 @@ public class LucaService : ILucaService
                     {
                         failedCount++;
                         var htmlPreview = responseContent.Length > 200 ? responseContent.Substring(0, 200) : responseContent;
-                        result.Errors.Add($"{card.KartKodu}: HTML response (likely session/captcha/branch issue): {htmlPreview}");
-                        _logger.LogError("Stock card {Card} returned HTML instead of JSON. Session likely expired/branch not selected.", card.KartKodu);
+                        result.Errors.Add($"{card.KartKodu}: HTML response (session/branch issue): {htmlPreview}");
+                        _logger.LogError("Stock card {Card} returned HTML. Session expired or branch not selected.", card.KartKodu);
                         continue;
+                    }
+
+                    JsonElement parsedResponse = default;
+                    var parsedSuccessfully = false;
+                    try
+                    {
+                        parsedResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                        parsedSuccessfully = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Stock card {Card} response could not be parsed; assuming success on HTTP OK", card.KartKodu);
+                    }
+
+                    if (parsedSuccessfully &&
+                        parsedResponse.ValueKind == JsonValueKind.Object &&
+                        parsedResponse.TryGetProperty("code", out var codeProp) &&
+                        codeProp.ValueKind == JsonValueKind.Number)
+                    {
+                        var code = codeProp.GetInt32();
+                        if (code == 1003)
+                        {
+                            _logger.LogError("Stock card {Card} failed with code 1003 (branch selection required / session expired). Stopping.", card.KartKodu);
+                            throw new UnauthorizedAccessException("Session expired or branch not selected (code 1003). Renew manual session cookie.");
+                        }
+
+                        if (code != 0)
+                        {
+                            failedCount++;
+                            var msg = parsedResponse.TryGetProperty("message", out var messageProp) && messageProp.ValueKind == JsonValueKind.String
+                                ? messageProp.GetString()
+                                : "Unknown error";
+                            result.Errors.Add($"{card.KartKodu}: code={code} message={msg}");
+                            _logger.LogError("Stock card {Card} failed with code {Code}: {Message}", card.KartKodu, code, msg);
+                            continue;
+                        }
                     }
 
                     if (!response.IsSuccessStatusCode)
@@ -1820,57 +1856,17 @@ public class LucaService : ILucaService
                         continue;
                     }
 
-                    var isSuccess = false;
-                    try
+                    if (parsedSuccessfully &&
+                        parsedResponse.ValueKind == JsonValueKind.Object &&
+                        parsedResponse.TryGetProperty("stkSkart", out var skartEl) &&
+                        skartEl.ValueKind == JsonValueKind.Object &&
+                        skartEl.TryGetProperty("skartId", out var idEl))
                     {
-                        var parsed = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                        if (parsed.ValueKind == JsonValueKind.Object && parsed.TryGetProperty("code", out var codeProp))
-                        {
-                            var code = codeProp.GetInt32();
-                            if (code == 0)
-                            {
-                                isSuccess = true;
-                                if (parsed.TryGetProperty("stkSkart", out var skartEl) && skartEl.ValueKind == JsonValueKind.Object && skartEl.TryGetProperty("skartId", out var idEl))
-                                {
-                                    _logger.LogInformation("Stock card {Card} created with ID {Id}", card.KartKodu, idEl.ToString());
-                                }
-                            }
-                            else if (code == 1003)
-                            {
-                                _logger.LogError("Stock card {Card} failed with code 1003 (branch selection required / session expired). Stopping.", card.KartKodu);
-                                throw new UnauthorizedAccessException("Session expired or branch not selected (code 1003). Renew manual session cookie.");
-                            }
-                            else
-                            {
-                                failedCount++;
-                                var msg = parsed.TryGetProperty("message", out var m) ? m.GetString() : "Unknown error";
-                                result.Errors.Add($"{card.KartKodu}: code={code} message={msg}");
-                                _logger.LogError("Stock card {Card} failed with code {Code} message {Message}", card.KartKodu, code, msg);
-                                continue;
-                            }
-                        }
-                        else
-                        {
-                            // No "code" field -> assume success on HTTP OK
-                            isSuccess = true;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Stock card {Card} response could not be parsed; assuming success on HTTP OK", card.KartKodu);
+                        _logger.LogInformation("Stock card {Card} created with ID {Id}", card.KartKodu, idEl.ToString());
                     }
 
-                    if (isSuccess)
-                    {
-                        successCount++;
-                        _logger.LogInformation("Stock card created: {Card}", card.KartKodu);
-                    }
-                    else
-                    {
-                        failedCount++;
-                        result.Errors.Add($"{card.KartKodu}: Unknown failure without code");
-                        _logger.LogError("Stock card {Card} failed with unknown response", card.KartKodu);
-                    }
+                    successCount++;
+                    _logger.LogInformation("Stock card created: {Card}", card.KartKodu);
                 }
                 catch (Exception ex)
                 {
