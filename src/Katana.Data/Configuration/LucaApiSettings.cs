@@ -18,6 +18,11 @@ public class LucaApiSettings
     // When set, the client will use this branch id during cookie-based auth
     // instead of attempting to auto-select from the branches response.
     public long? ForcedBranchId { get; set; } = null;
+    public string DefaultBelgeSeri { get; set; } = "A";
+    public double DefaultKdvOran { get; set; } = 0.20;
+    public long DefaultOlcumBirimiId { get; set; } = 5;
+    public long DefaultKartTipi { get; set; } = 4;
+    public string DefaultKategoriKodu { get; set; } = "001";
 
     // API Endpoints
     public LucaEndpoints Endpoints { get; set; } = new();

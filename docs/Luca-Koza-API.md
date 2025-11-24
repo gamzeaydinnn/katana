@@ -6,6 +6,34 @@ Not: Bu doküman, Katana ile Luca (Koza) arasındaki entegrasyonda kullanılacak
 
 LucaKOZA API, veri alım-satım işlemlerini JSON ile sağlamaktadır. Oturum yönetimi cookie/oturum nesneleri ile sağlanmaktadır. İstemci tarafı entegrasyon için cookie yönetimini gerçekleştirmelidir. LucaKOZA sisteminde oluşturulmuş olan organizasyona ait Admin kullanıcısı ile REST API üzerinde işlem sağlanacaktır.
 
+DTO referansı (src/Katana.Core/DTOs/LucaDtos.cs):
+- 3.2.1: LucaListTaxOfficesRequest
+- 3.2.2: LucaListMeasurementUnitsRequest
+- 3.2.3: LucaListCustomersRequest
+- 3.2.4: LucaListSuppliersRequest
+- 3.2.5: LucaListStockCardsRequest
+- 3.2.7: LucaStockCardSuppliersRequest (stkSkart.skartId)
+- 3.2.8: LucaListCustomerContactsRequest (finansalNesneId)
+- 3.2.9: LucaListStockCardPriceListsRequest (stkSkart.skartId + tip)
+- 3.2.10/11: LucaStockCardByIdRequest (alternatif OB / alternatif stok)
+- 3.2.12: LucaListBanksRequest
+- 3.2.13/14/15: LucaListCustomerAddressesRequest, LucaGetCustomerWorkingConditionsRequest, LucaListCustomerAuthorizedPersonsRequest
+- 3.2.16: LucaListWarehousesRequest
+- 3.2.17: LucaGetWarehouseStockRequest (cagirilanKart=depo, stkDepo.depoId)
+- 3.2.18/20: LucaStockCardByIdRequest (maliyet, alım şartları)
+- 3.2.19: LucaGetCustomerRiskRequest (gnlFinansalNesne.finansalNesneId) – servis varsayılanı query string
+- 3.2.21: LucaListIrsaliyeRequest
+- 3.2.22: Boş body + detayliListe query param (isteğe bağlı LucaListSalesOrdersRequest)
+- 3.2.23: LucaListStockCategoriesRequest
+- 3.2.24: LucaCreateInvoiceHeaderRequest + LucaCreateInvoiceDetailRequest
+- 3.2.25/26: LucaCloseInvoiceRequest, LucaDeleteInvoiceRequest
+- 3.2.27/28: LucaCreateIrsaliyeBaslikRequest, LucaDeleteIrsaliyeRequest
+- 3.2.29/30: LucaCreateCustomerRequest, LucaCreateSupplierRequest
+- 3.2.31: LucaCreateCariHareketRequest
+- 3.2.32: LucaCreateCreditCardEntryRequest
+- 3.2.33: LucaCreateStokKartiRequest
+- 3.2.40: LucaCreateDshBaslikRequest
+
 3.1 Authentication
 
 Method: POST
@@ -238,12 +266,23 @@ Fatura response alanları (özet): ssFaturaBaslikId, belgeTarihi, vadeTarihi, be
 - No-Paging: true
 - Örnek: API_URL/ListeleStkSsEldekiMiktar.do?cagirilanKart=depo&stkDepo.depoId=1451
 
+Body ile gönderim (LucaGetWarehouseStockRequest):
+{
+  "cagirilanKart": "depo",
+  "stkDepo": { "depoId": 1451 }
+}
+
 3.2.18 Stok Kartları Maliyet Bilgisi
 - Method: POST
 - URL: API_URL/ListeleStkSkartMaliyet.do
 - Headers: Content-Type: application/json
 - No-Paging: true
 - Parametre: "stkSkart": { "skartId": 65433 }
+- DTO: LucaStockCardByIdRequest
+- JSON örneği:
+{
+  "stkSkart": { "skartId": 65433 }
+}
 
 3.2.19 Cari Risk Bilgileri
 - Method: POST
@@ -251,6 +290,11 @@ Fatura response alanları (özet): ssFaturaBaslikId, belgeTarihi, vadeTarihi, be
 - Headers: Content-Type: application/json
 - No-Paging: true
 - Örnek: API_URL/GetirFinRisk.do?gnlFinansalNesne.finansalNesneId=137246
+- DTO: LucaGetCustomerRiskRequest (isteğe bağlı POST body kullanımı)
+- JSON örneği:
+{
+  "gnlFinansalNesne": { "finansalNesneId": 137246 }
+}
 
 3.2.20 Stok Kartı Alım Şartları
 - Method: POST
@@ -284,6 +328,7 @@ Fatura response alanları (özet): ssFaturaBaslikId, belgeTarihi, vadeTarihi, be
 - Method: POST
 - URL: API_URL/EkleFtrWsFaturaBaslik.do
 - Headers: Content-Type: application/json
+- DTO: LucaCreateInvoiceHeaderRequest (başlık) + LucaCreateInvoiceDetailRequest (detay)
 - Body: Fatura başlık ve detay bilgileri (çok sayıda alan; özet:
   - belgeSer, belgeNo, belgeTarihi, duzenlemeSaati, vadeTarihi, belgeTakipNo, belgeAciklama
   - belgeTurDetayId, belgeAttributeNDeger/Ack, faturaTur, paraBirimKod, kurBedeli, yuklemeTarihi
@@ -295,6 +340,7 @@ Fatura response alanları (özet): ssFaturaBaslikId, belgeTarihi, vadeTarihi, be
 Fatura detay alanları: kartTuru, kartKodu, kartAdi, kartTipi, barkod, olcuBirimi, KdvOran, kartSatisKdvOran,
 depoKodu, birimFiyat, miktar, tutar, kdvOran, iskontoOran*, otvOran, stopajOran, lotNo, aciklama, garantiSuresi,
 uretimTarihi, shAttributeNDeger/Ack, konaklamaVergiOran
+- Not: DTO'larda ExtraFields alanları, dokümandaki belgeAttribute*/fhAttribute* gibi ek başlık/satır alanlarını doğrudan JSON ile iletmek için tanımlıdır.
 
 3.2.25 Fatura Kapama
 - Method: POST

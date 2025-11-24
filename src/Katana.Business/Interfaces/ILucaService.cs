@@ -17,6 +17,8 @@ public interface ILucaService
     Task<SyncResultDto> SendProductsAsync(List<LucaProductUpdateDto> products);
     // Katana -> Luca: Koza stok kartı oluşturma
     Task<SyncResultDto> SendStockCardsAsync(List<LucaCreateStokKartiRequest> stockCards);
+    Task<SyncResultDto> SendStockCardAsync(LucaStockCardDto stockCard);
+    Task<SyncResultDto> SendInvoiceAsync(LucaInvoiceDto invoice);
     Task<long> CreateIrsaliyeAsync(LucaIrsaliyeDto dto);
     Task DeleteIrsaliyeAsync(long irsaliyeId);
     Task<long> CreateSatinalmaSiparisAsync(LucaSatinalmaSiparisDto dto);
@@ -54,7 +56,7 @@ public interface ILucaService
     Task<System.Text.Json.JsonElement> ListCustomerAddressesAsync(LucaListCustomerAddressesRequest request);
     Task<System.Text.Json.JsonElement> GetCustomerWorkingConditionsAsync(LucaGetCustomerWorkingConditionsRequest request);
     Task<System.Text.Json.JsonElement> ListCustomerAuthorizedPersonsAsync(LucaListCustomerAuthorizedPersonsRequest request);
-    Task<System.Text.Json.JsonElement> GetCustomerRiskAsync(long finansalNesneId);
+    Task<System.Text.Json.JsonElement> GetCustomerRiskAsync(LucaGetCustomerRiskRequest request);
     Task<System.Text.Json.JsonElement> CreateCustomerTransactionAsync(LucaCreateCariHareketRequest request);
 
     // Koza irsaliye işlemleri
@@ -95,6 +97,9 @@ public interface ILucaService
     Task<JsonElement> CreateStockCountResultAsync(LucaCreateStockCountRequest request);
     Task<JsonElement> CreateWarehouseAsync(LucaCreateWarehouseRequest request);
     Task<JsonElement> CreateCreditCardEntryAsync(LucaCreateCreditCardEntryRequest request);
+    Task<List<LucaBranchDto>> GetBranchesAsync();
+    Task<List<LucaWarehouseDto>> GetWarehousesAsync();
+    Task<List<LucaMeasurementUnitDto>> GetMeasurementUnitsAsync();
 
     // --- Eksik kalan listeleme/çekme uçları ---
     // 3.2.7 Stok Kartı Temin Yerleri
@@ -104,11 +109,11 @@ public interface ILucaService
     // 3.2.12 Banka Kartları Listesi
     Task<JsonElement> ListBanksAsync(LucaListBanksRequest? request = null);
     // 3.2.17 Depo Eldeki Miktar
-    Task<JsonElement> GetWarehouseStockQuantityAsync(long depoId);
+    Task<JsonElement> GetWarehouseStockQuantityAsync(LucaGetWarehouseStockRequest request);
     // 3.2.20 Stok Kartı Alım Şartları
     Task<JsonElement> ListStockCardPurchaseTermsAsync(LucaStockCardByIdRequest request);
     // 3.2.22 Satış Sipariş Listesi
-    Task<JsonElement> ListSalesOrdersAsync(bool detayliListe = false);
+    Task<JsonElement> ListSalesOrdersAsync(LucaListSalesOrdersRequest? request = null, bool detayliListe = false);
 }
 
 

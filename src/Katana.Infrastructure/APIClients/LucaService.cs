@@ -789,6 +789,99 @@ public class LucaService : ILucaService
         return result;
     }
 
+    public async Task<SyncResultDto> SendInvoiceAsync(LucaInvoiceDto invoice)
+    {
+        var result = new SyncResultDto
+        {
+            SyncType = "INVOICE",
+            ProcessedRecords = 1
+        };
+
+        var startTime = DateTime.UtcNow;
+
+        try
+        {
+            await EnsureAuthenticatedAsync();
+            if (!_settings.UseTokenAuth)
+            {
+                await EnsureBranchSelectedAsync();
+            }
+
+            _logger.LogInformation("Sending invoice {Serie}-{No} to Luca", invoice.GnlOrgSsBelge.BelgeSeri, invoice.GnlOrgSsBelge.BelgeNo);
+
+            var json = JsonSerializer.Serialize(invoice, _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            var response = await client.PostAsync(_settings.Endpoints.Invoices, content);
+
+            var responseBody = await ReadResponseContentAsync(response);
+
+            await AppendRawLogAsync("SEND_INVOICE", _settings.Endpoints.Invoices, json, response.StatusCode, responseBody);
+
+            if (response.IsSuccessStatusCode && !string.IsNullOrWhiteSpace(responseBody))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(responseBody);
+                    var root = doc.RootElement;
+
+                    if (root.TryGetProperty("code", out var code) && code.GetInt32() == 0)
+                    {
+                        result.IsSuccess = true;
+                        result.SuccessfulRecords = 1;
+                        result.Message = "Invoice sent successfully";
+
+                        if (root.TryGetProperty("faturaId", out var faturaId))
+                        {
+                            _logger.LogInformation("Invoice created with ID: {FaturaId}", faturaId.GetInt64());
+                        }
+                    }
+                    else
+                    {
+                        var errorMsg = root.TryGetProperty("message", out var msg)
+                            ? msg.GetString()
+                            : "Unknown error";
+
+                        result.IsSuccess = false;
+                        result.FailedRecords = 1;
+                        result.Message = $"Koza error: {errorMsg}";
+                        result.Errors.Add(responseBody);
+
+                        _logger.LogError("Invoice failed: {Error}", errorMsg);
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogError(ex, "Failed to parse invoice response");
+                    result.IsSuccess = false;
+                    result.FailedRecords = 1;
+                    result.Message = "Invalid JSON response";
+                    result.Errors.Add(responseBody);
+                }
+            }
+            else
+            {
+                result.IsSuccess = false;
+                result.FailedRecords = 1;
+                result.Message = $"HTTP {response.StatusCode}";
+                result.Errors.Add(responseBody);
+            }
+        }
+        catch (Exception ex)
+        {
+            result.IsSuccess = false;
+            result.FailedRecords = 1;
+            result.Message = ex.Message;
+            result.Errors.Add(ex.ToString());
+
+            _logger.LogError(ex, "Error sending invoice");
+        }
+
+        result.Duration = DateTime.UtcNow - startTime;
+        return result;
+    }
+
     public async Task<SyncResultDto> SendStockMovementsAsync(List<LucaStockDto> stockMovements)
     {
         var result = new SyncResultDto
@@ -1198,6 +1291,75 @@ public class LucaService : ILucaService
         return DeserializeList<LucaOlcumBirimiDto>(element);
     }
 
+    public async Task<List<LucaMeasurementUnitDto>> GetMeasurementUnitsAsync()
+    {
+        var element = await ListMeasurementUnitsAsync();
+        return DeserializeList<LucaMeasurementUnitDto>(element);
+    }
+
+    public async Task<List<LucaWarehouseDto>> GetWarehousesAsync()
+    {
+        var element = await ListWarehousesAsync();
+        return DeserializeList<LucaWarehouseDto>(element);
+    }
+
+    public async Task<List<LucaBranchDto>> GetBranchesAsync()
+    {
+        await EnsureAuthenticatedAsync();
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var response = await client.PostAsync(_settings.Endpoints.Branches, new StringContent("{}", Encoding.UTF8, "application/json"));
+        var body = await ReadResponseContentAsync(response);
+        await AppendRawLogAsync("LIST_BRANCHES", _settings.Endpoints.Branches, "{}", response.StatusCode, body);
+        response.EnsureSuccessStatusCode();
+
+        var branches = new List<LucaBranchDto>();
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            JsonElement arrayEl = default;
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                arrayEl = root;
+            }
+            else
+            {
+                foreach (var wrapper in new[] { "list", "data", "branches", "items", "sirketSubeList" })
+                {
+                    if (root.TryGetProperty(wrapper, out var prop) && prop.ValueKind == JsonValueKind.Array)
+                    {
+                        arrayEl = prop;
+                        break;
+                    }
+                }
+            }
+
+            if (arrayEl.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in arrayEl.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.Object) continue;
+                    if (TryExtractBranchId(item, out var id))
+                    {
+                        branches.Add(new LucaBranchDto
+                        {
+                            Id = id,
+                            Ack = TryGetProperty(item, "ack"),
+                            Tanim = TryGetProperty(item, "tanim", "name", "ad")
+                        });
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse branch list; returning empty list");
+        }
+
+        return branches;
+    }
+
     public async Task<JsonElement> ListTaxOfficesAsync(LucaListTaxOfficesRequest? request = null)
     {
         await EnsureAuthenticatedAsync();
@@ -1492,12 +1654,14 @@ public class LucaService : ILucaService
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
 
-    public async Task<JsonElement> GetWarehouseStockQuantityAsync(long depoId)
+    public async Task<JsonElement> GetWarehouseStockQuantityAsync(LucaGetWarehouseStockRequest request)
     {
         await EnsureAuthenticatedAsync();
 
-        var url = $"{_settings.Endpoints.WarehouseStockQuantity}?cagirilanKart=depo&stkDepo.depoId={depoId}";
-        var content = new StringContent("{}", Encoding.UTF8, "application/json");
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var url = _settings.Endpoints.WarehouseStockQuantity;
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
@@ -1513,12 +1677,13 @@ public class LucaService : ILucaService
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
 
-    public async Task<JsonElement> ListSalesOrdersAsync(bool detayliListe = false)
+    public async Task<JsonElement> ListSalesOrdersAsync(LucaListSalesOrdersRequest? request = null, bool detayliListe = false)
     {
         await EnsureAuthenticatedAsync();
 
         var url = _settings.Endpoints.SalesOrderList + (detayliListe ? "?detayliListe=true" : string.Empty);
-        var content = new StringContent("{}", Encoding.UTF8, "application/json");
+        var json = JsonSerializer.Serialize(request ?? new LucaListSalesOrdersRequest(), _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
@@ -1710,6 +1875,50 @@ public class LucaService : ILucaService
         return result;
     }
 
+    public async Task<SyncResultDto> SendStockCardAsync(LucaStockCardDto stockCard)
+    {
+        var createDto = new LucaCreateStokKartiRequest
+        {
+            KartAdi = stockCard.KartAdi,
+            KartTuru = stockCard.KartTuru,
+            KartKodu = stockCard.KartKodu ?? string.Empty,
+            OlcumBirimiId = stockCard.OlcumBirimiId,
+            BaslangicTarihi = stockCard.BaslangicTarihi,
+            KartAlisKdvOran = stockCard.KartAlisKdvOran,
+            KartSatisKdvOran = stockCard.KartSatisKdvOran,
+            KartToptanAlisKdvOran = stockCard.KartToptanAlisKdvOran ?? 0,
+            KartToptanSatisKdvOran = stockCard.KartToptanSatisKdvOran ?? 0,
+            KategoriAgacKod = stockCard.KategoriAgacKod ?? _settings.DefaultKategoriKodu,
+            KartTipi = stockCard.KartTipi ?? _settings.DefaultKartTipi,
+            Barkod = stockCard.Barkod ?? stockCard.KartKodu ?? string.Empty,
+            UzunAdi = stockCard.UzunAdi ?? stockCard.KartAdi,
+            BitisTarihi = stockCard.BitisTarihi,
+            MaliyetHesaplanacakFlag = stockCard.MaliyetHesaplanacakFlag,
+            GtipKodu = stockCard.GtipKodu ?? string.Empty,
+            GarantiSuresi = stockCard.GarantiSuresi ?? 0,
+            RafOmru = stockCard.RafOmru ?? 0,
+            AlisTevkifatOran = stockCard.AlisTevkifatOran ?? "0",
+            AlisTevkifatKod = stockCard.AlisTevkifatKod ?? 0,
+            SatisTevkifatOran = stockCard.SatisTevkifatOran ?? "0",
+            SatisTevkifatKod = stockCard.SatisTevkifatKod ?? 0,
+            MinStokKontrol = stockCard.MinStokKontrol ?? 0,
+            MinStokMiktari = stockCard.MinStokMiktari ?? 0,
+            MaxStokKontrol = stockCard.MaxStokKontrol ?? 0,
+            MaxStokMiktari = stockCard.MaxStokMiktari ?? 0,
+            AlisIskontoOran1 = stockCard.AlisIskontoOran1 ?? 0,
+            SatisIskontoOran1 = stockCard.SatisIskontoOran1 ?? 0,
+            SatilabilirFlag = stockCard.SatilabilirFlag,
+            SatinAlinabilirFlag = stockCard.SatinAlinabilirFlag,
+            SeriNoFlag = stockCard.SeriNoFlag,
+            LotNoFlag = stockCard.LotNoFlag,
+            DetayAciklama = stockCard.DetayAciklama ?? string.Empty,
+            PerakendeAlisBirimFiyat = 0,
+            PerakendeSatisBirimFiyat = 0
+        };
+
+        return await SendStockCardsAsync(new List<LucaCreateStokKartiRequest> { createDto });
+    }
+
     public async Task<JsonElement> ListInvoicesAsync(LucaListInvoicesRequest request, bool detayliListe = false)
     {
         await EnsureAuthenticatedAsync();
@@ -1835,13 +2044,21 @@ public class LucaService : ILucaService
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
 
-    public async Task<JsonElement> GetCustomerRiskAsync(long finansalNesneId)
+    public async Task<JsonElement> GetCustomerRiskAsync(LucaGetCustomerRiskRequest request)
     {
         await EnsureAuthenticatedAsync();
 
+        if (request is null)
+        {
+            throw new ArgumentNullException(nameof(request));
+        }
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-        var url = $"{_settings.Endpoints.CustomerRisk}?gnlFinansalNesne.finansalNesneId={finansalNesneId}";
-        var response = await client.GetAsync(url);
+        var url = $"{_settings.Endpoints.CustomerRisk}?gnlFinansalNesne.finansalNesneId={request.GnlFinansalNesne.FinansalNesneId}";
+        var response = await client.PostAsync(url, content);
         var responseContent = await response.Content.ReadAsStringAsync();
         response.EnsureSuccessStatusCode();
 
