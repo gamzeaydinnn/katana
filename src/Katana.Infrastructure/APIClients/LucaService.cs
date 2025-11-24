@@ -9,6 +9,7 @@ using System.Text;
 using System.IO;
 using System.Linq;
 using System.Net.Http.Headers;
+using System.Globalization;
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
@@ -34,6 +35,15 @@ public class LucaService : ILucaService
     private HttpClientHandler? _cookieHandler;
     private HttpClient? _cookieHttpClient;
     private bool _isCookieAuthenticated = false;
+    private static readonly Encoding Windows1254Encoding = InitializeWindows1254Encoding();
+    private static readonly Dictionary<long, (int ExpectedCariTur, string ErrorMessage)> FaturaKapamaCariRules =
+        new()
+        {
+            { 123, (5, "Tahsilat makbuzu için sadece Kasa Kartı kullanılabilir (cariTur=5)") },
+            { 124, (5, "Kredi kartı girişi için sadece Kasa Kartı kullanılabilir (cariTur=5)") },
+            { 125, (3, "Gelen havale için sadece Banka Kartı kullanılabilir (cariTur=3)") },
+            { 126, (5, "Tediye işlemleri için sadece Kasa Kartı kullanılabilir (cariTur=5)") }
+        };
 
     public LucaService(HttpClient httpClient, IOptions<LucaApiSettings> settings, ILogger<LucaService> logger)
     {
@@ -46,6 +56,20 @@ public class LucaService : ILucaService
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = false
         };
+    }
+
+    private static Encoding InitializeWindows1254Encoding()
+    {
+        try
+        {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        }
+        catch (Exception)
+        {
+            // Provider may already be registered; ignore.
+        }
+
+        return Encoding.GetEncoding(1254);
     }
 
     private async Task EnsureAuthenticatedAsync()
@@ -171,7 +195,7 @@ public class LucaService : ILucaService
             _logger.LogInformation("Calling YdlUserResponsibilityOrgSs.do to get branch list...");
 
             var branchesUrl = _settings.Endpoints.Branches;
-            var emptyBody = new StringContent("{}", Encoding.UTF8, "application/json");
+            var emptyBody = CreateKozaContent("{}");
 
             var branchesResponse = await _cookieHttpClient!.PostAsync(branchesUrl, emptyBody);
             var branchesContent = await branchesResponse.Content.ReadAsStringAsync();
@@ -258,7 +282,7 @@ public class LucaService : ILucaService
             var changeBranchUrl = _settings.Endpoints.ChangeBranch;
             var changeBranchPayload = new { orgSirketSubeId = selectedBranchId.Value };
             var changeBranchJson = JsonSerializer.Serialize(changeBranchPayload, _jsonOptions);
-            var changeBranchContent = new StringContent(changeBranchJson, Encoding.UTF8, "application/json");
+            var changeBranchContent = CreateKozaContent(changeBranchJson);
 
             _logger.LogDebug("ChangeBranch request: {Payload}", changeBranchJson);
 
@@ -377,13 +401,13 @@ public class LucaService : ILucaService
         // Koza login: prefer JSON to avoid captcha; keep form fallbacks as last resort
         var loginAttempts = new List<(string desc, HttpContent content)>
         {
-            ("JSON:orgCode_userName_userPassword", new StringContent(
+            ("JSON:orgCode_userName_userPassword", CreateKozaContent(
                 JsonSerializer.Serialize(new
                 {
                     orgCode = _settings.MemberNumber,
                     userName = _settings.Username,
                     userPassword = _settings.Password
-                }, _jsonOptions), Encoding.UTF8, "application/json")),
+                }, _jsonOptions))),
             ("FORM:orgCode_user_girisForm.userPassword", new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 { "orgCode", _settings.MemberNumber },
@@ -406,14 +430,9 @@ public class LucaService : ILucaService
         {
             try
             {
+                var payloadText = await ReadContentPreviewAsync(payload);
                 response = await _cookieHttpClient!.PostAsync(_settings.Endpoints.Auth, payload);
                 authBody = await ReadResponseContentAsync(response);
-                var payloadText = payload switch
-                {
-                    StringContent sc => await sc.ReadAsStringAsync(),
-                    FormUrlEncodedContent fc => await fc.ReadAsStringAsync(),
-                    _ => string.Empty
-                };
                 await AppendRawLogAsync($"AUTH_LOGIN:{desc}", _settings.Endpoints.Auth, payloadText, response.StatusCode, authBody);
 
                 if (response.IsSuccessStatusCode && IsKozaLoginSuccess(authBody))
@@ -489,7 +508,7 @@ public class LucaService : ILucaService
                 return _settings.ForcedBranchId.Value;
             }
 
-            var branchesResp = await _cookieHttpClient!.PostAsync(_settings.Endpoints.Branches, new StringContent("{}", Encoding.UTF8, "application/json"));
+            var branchesResp = await _cookieHttpClient!.PostAsync(_settings.Endpoints.Branches, CreateKozaContent("{}"));
             if (!branchesResp.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Branches request failed with status {Status}", branchesResp.StatusCode);
@@ -614,30 +633,25 @@ public class LucaService : ILucaService
             var attempts = new List<(string desc, HttpContent content)>();
 
             var jsonPayload = JsonSerializer.Serialize(new { orgSirketSubeId = branchId }, _jsonOptions);
-            attempts.Add(("JSON:orgSirketSubeId", new StringContent(jsonPayload, Encoding.UTF8, "application/json")));
+            attempts.Add(("JSON:orgSirketSubeId", CreateKozaContent(jsonPayload)));
 
             // form-urlencoded fallback
             attempts.Add(("FORM:orgSirketSubeId", new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>("orgSirketSubeId", branchId.ToString()) })));
 
             // try alternate field naming
             var jsonPayloadAlt = JsonSerializer.Serialize(new { orgSirketSubeID = branchId }, _jsonOptions);
-            attempts.Add(("JSON:orgSirketSubeID", new StringContent(jsonPayloadAlt, Encoding.UTF8, "application/json")));
+            attempts.Add(("JSON:orgSirketSubeID", CreateKozaContent(jsonPayloadAlt)));
             attempts.Add(("FORM:orgSirketSubeID", new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>("orgSirketSubeID", branchId.ToString()) })));
 
-            attempts.Add(("JSON:id", new StringContent(JsonSerializer.Serialize(new { id = branchId }, _jsonOptions), Encoding.UTF8, "application/json")));
+            attempts.Add(("JSON:id", CreateKozaContent(JsonSerializer.Serialize(new { id = branchId }, _jsonOptions))));
 
             foreach (var (desc, content) in attempts)
             {
                 try
                 {
+                    var payloadText = await ReadContentPreviewAsync(content);
                     var resp = await _cookieHttpClient!.PostAsync(_settings.Endpoints.ChangeBranch, content);
                     var body = await ReadResponseContentAsync(resp);
-                    var payloadText = content switch
-                    {
-                        StringContent sc => await sc.ReadAsStringAsync(),
-                        FormUrlEncodedContent fc => await fc.ReadAsStringAsync(),
-                        _ => string.Empty
-                    };
                     await AppendRawLogAsync("CHANGE_BRANCH:" + desc, _settings.Endpoints.ChangeBranch, payloadText, resp.StatusCode, body);
 
                     if (resp.IsSuccessStatusCode)
@@ -704,7 +718,7 @@ public class LucaService : ILucaService
             };
 
             var json = JsonSerializer.Serialize(authRequest, _jsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKozaContent(json);
 
             var response = await _httpClient.PostAsync(_settings.Endpoints.Auth, content);
 
@@ -753,7 +767,7 @@ public class LucaService : ILucaService
             EnsureInvoiceDefaults(invoices);
 
             var json = JsonSerializer.Serialize(invoices, _jsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKozaContent(json);
 
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
             var response = await client.PostAsync(_settings.Endpoints.Invoices, content);
@@ -818,7 +832,7 @@ public class LucaService : ILucaService
             _logger.LogInformation("Sending invoice {Serie}-{No} to Luca", invoice.GnlOrgSsBelge.BelgeSeri, invoice.GnlOrgSsBelge.BelgeNo);
 
             var json = JsonSerializer.Serialize(invoice, _jsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKozaContent(json);
 
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
             var response = await client.PostAsync(_settings.Endpoints.Invoices, content);
@@ -911,7 +925,7 @@ public class LucaService : ILucaService
             if (_settings.UseTokenAuth)
             {
                 var json = JsonSerializer.Serialize(stockMovements, _jsonOptions);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var content = CreateKozaContent(json);
                 var response = await client.PostAsync(_settings.Endpoints.Stock, content);
 
                 if (response.IsSuccessStatusCode)
@@ -944,7 +958,7 @@ public class LucaService : ILucaService
                     try
                     {
                         var payload = JsonSerializer.Serialize(movement, _jsonOptions);
-                        var response = await client.PostAsync(_settings.Endpoints.OtherStockMovement, new StringContent(payload, Encoding.UTF8, "application/json"));
+                        var response = await client.PostAsync(_settings.Endpoints.OtherStockMovement, CreateKozaContent(payload));
                         var body = await ReadResponseContentAsync(response);
                         await AppendRawLogAsync("SEND_STOCK_MOVEMENT", _settings.Endpoints.OtherStockMovement, payload, response.StatusCode, body);
 
@@ -1028,7 +1042,7 @@ public class LucaService : ILucaService
             _logger.LogInformation("Sending {Count} customers to Luca", customers.Count);
 
             var json = JsonSerializer.Serialize(customers, _jsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKozaContent(json);
 
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
             var response = await client.PostAsync(_settings.Endpoints.CustomerCreate, content);
@@ -1085,7 +1099,7 @@ public class LucaService : ILucaService
             _logger.LogInformation("Sending {Count} products to Luca", products.Count);
 
             var json = JsonSerializer.Serialize(products, _jsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKozaContent(json);
 
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
             var endpoint = _settings.Endpoints.Products;
@@ -1102,7 +1116,7 @@ public class LucaService : ILucaService
                 _isCookieAuthenticated = false;
                 await EnsureAuthenticatedAsync();
                 await EnsureBranchSelectedAsync();
-                response = await (_cookieHttpClient ?? client).PostAsync(endpoint, new StringContent(json, Encoding.UTF8, "application/json"));
+                response = await (_cookieHttpClient ?? client).PostAsync(endpoint, CreateKozaContent(json));
                 responseContent = await ReadResponseContentAsync(response);
                 await AppendRawLogAsync("SEND_PRODUCTS_RETRY", fullUrl, json, response.StatusCode, responseContent);
             }
@@ -1145,7 +1159,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(dto, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
 
         var response = await client.PostAsync(_settings.Endpoints.IrsaliyeCreate, content);
@@ -1164,7 +1178,7 @@ public class LucaService : ILucaService
         var payload = new LucaDeleteIrsaliyeRequest { SsIrsaliyeBaslikId = irsaliyeId };
         var json = JsonSerializer.Serialize(payload, _jsonOptions);
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-        await client.PostAsync(_settings.Endpoints.IrsaliyeDelete, new StringContent(json, Encoding.UTF8, "application/json"));
+        await client.PostAsync(_settings.Endpoints.IrsaliyeDelete, CreateKozaContent(json));
     }
 
     public async Task<long> CreateSatinalmaSiparisAsync(LucaSatinalmaSiparisDto dto)
@@ -1172,7 +1186,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(dto, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
 
         var response = await client.PostAsync(_settings.Endpoints.PurchaseOrder, content);
@@ -1191,7 +1205,7 @@ public class LucaService : ILucaService
         var payload = new LucaDeletePurchaseOrderRequest { SsSiparisBaslikId = siparisId };
         var json = JsonSerializer.Serialize(payload, _jsonOptions);
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-        await client.PostAsync(_settings.Endpoints.PurchaseOrderDelete, new StringContent(json, Encoding.UTF8, "application/json"));
+        await client.PostAsync(_settings.Endpoints.PurchaseOrderDelete, CreateKozaContent(json));
     }
 
     public async Task<long> CreateDepoTransferAsync(LucaDepoTransferDto dto)
@@ -1199,7 +1213,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(dto, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
 
         var response = await client.PostAsync(_settings.Endpoints.WarehouseTransfer, content);
@@ -1240,7 +1254,7 @@ public class LucaService : ILucaService
     {
         await EnsureAuthenticatedAsync();
         var json = JsonSerializer.Serialize(dto, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
 
         var response = await client.PostAsync(_settings.Endpoints.SupplierCreate, content);
@@ -1258,7 +1272,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
         var json = JsonSerializer.Serialize(dto, _jsonOptions);
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-        var response = await client.PostAsync(_settings.Endpoints.CustomerTransaction, new StringContent(json, Encoding.UTF8, "application/json"));
+        var response = await client.PostAsync(_settings.Endpoints.CustomerTransaction, CreateKozaContent(json));
         var responseContent = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
         {
@@ -1267,12 +1281,14 @@ public class LucaService : ILucaService
         return TryParseId(responseContent);
     }
 
-    public async Task<long> CreateFaturaKapamaAsync(LucaFaturaKapamaDto dto)
+    public async Task<long> CreateFaturaKapamaAsync(LucaFaturaKapamaDto dto, long belgeTurDetayId)
     {
         await EnsureAuthenticatedAsync();
+        ValidateFaturaKapama(dto, belgeTurDetayId);
+
         var json = JsonSerializer.Serialize(dto, _jsonOptions);
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-        var response = await client.PostAsync(_settings.Endpoints.InvoiceClose, new StringContent(json, Encoding.UTF8, "application/json"));
+        var response = await client.PostAsync(_settings.Endpoints.InvoiceClose, CreateKozaContent(json));
         var responseContent = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
         {
@@ -1316,7 +1332,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-        var response = await client.PostAsync(_settings.Endpoints.Branches, new StringContent("{}", Encoding.UTF8, "application/json"));
+        var response = await client.PostAsync(_settings.Endpoints.Branches, CreateKozaContent("{}"));
         var body = await ReadResponseContentAsync(response);
         await AppendRawLogAsync("LIST_BRANCHES", _settings.Endpoints.Branches, "{}", response.StatusCode, body);
         response.EnsureSuccessStatusCode();
@@ -1373,7 +1389,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request ?? new LucaListTaxOfficesRequest(), _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.TaxOffices)
@@ -1394,7 +1410,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request ?? new LucaListMeasurementUnitsRequest(), _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.MeasurementUnits)
@@ -1415,7 +1431,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request ?? new LucaListCustomersRequest(), _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.CustomerList)
@@ -1436,7 +1452,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request ?? new LucaListSuppliersRequest(), _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.SupplierList)
@@ -1457,7 +1473,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request ?? new LucaListWarehousesRequest(), _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.Warehouses)
@@ -1478,7 +1494,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request ?? new LucaListStockCardsRequest(), _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCards)
@@ -1499,7 +1515,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCardPriceLists)
@@ -1520,7 +1536,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCardAltUnits)
@@ -1541,7 +1557,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCardAltStocks)
@@ -1562,7 +1578,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCardCosts)
@@ -1583,7 +1599,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCardSuppliers)
@@ -1604,7 +1620,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCardPurchaseTerms)
@@ -1625,7 +1641,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.CustomerContacts)
@@ -1646,7 +1662,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request ?? new LucaListBanksRequest(), _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.BankList)
@@ -1667,7 +1683,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var url = _settings.Endpoints.WarehouseStockQuantity;
 
@@ -1691,7 +1707,7 @@ public class LucaService : ILucaService
 
         var url = _settings.Endpoints.SalesOrderList + (detayliListe ? "?detayliListe=true" : string.Empty);
         var json = JsonSerializer.Serialize(request ?? new LucaListSalesOrdersRequest(), _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
@@ -1712,7 +1728,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCategories)
@@ -1747,7 +1763,7 @@ public class LucaService : ILucaService
 
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
             var endpoint = _settings.UseTokenAuth ? _settings.Endpoints.Products : _settings.Endpoints.StockCardCreate;
-            var enc1254 = Encoding.GetEncoding(1254);
+            var enc1254 = Windows1254Encoding;
 
             foreach (var card in stockCards)
             {
@@ -1932,7 +1948,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request ?? new LucaListInvoicesRequest(), _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var url = _settings.Endpoints.InvoiceList + (detayliListe ? "?detayliListe=true" : string.Empty);
@@ -1955,7 +1971,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.Invoices, content);
@@ -1970,7 +1986,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.InvoiceClose, content);
@@ -1985,7 +2001,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.InvoiceDelete, content);
@@ -2000,7 +2016,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.CustomerAddresses)
@@ -2021,7 +2037,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.CustomerWorkingConditions, content);
@@ -2036,7 +2052,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.CustomerAuthorizedPersons)
@@ -2062,7 +2078,7 @@ public class LucaService : ILucaService
         }
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var url = $"{_settings.Endpoints.CustomerRisk}?gnlFinansalNesne.finansalNesneId={request.GnlFinansalNesne.FinansalNesneId}";
@@ -2078,7 +2094,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.CustomerTransaction, content);
@@ -2110,7 +2126,7 @@ public class LucaService : ILucaService
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
         {
-            Content = new StringContent("{}", Encoding.UTF8, "application/json")
+            Content = CreateKozaContent("{}")
         };
         httpRequest.Headers.Add("No-Paging", "true");
 
@@ -2126,7 +2142,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.IrsaliyeCreate, content);
@@ -2141,7 +2157,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.IrsaliyeDelete, content);
@@ -2156,7 +2172,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.CustomerCreate, content);
@@ -2171,7 +2187,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.SupplierCreate, content);
@@ -2186,7 +2202,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var endpoint = _settings.UseTokenAuth ? _settings.Endpoints.Products : _settings.Endpoints.StockCardCreate;
@@ -2202,7 +2218,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.OtherStockMovement, content);
@@ -2217,7 +2233,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.SalesOrder, content);
@@ -2232,7 +2248,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.SalesOrder, content);
@@ -2258,7 +2274,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.SalesOrderDelete, content);
@@ -2273,7 +2289,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.SalesOrderDetailDelete, content);
@@ -2288,7 +2304,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.PurchaseOrder, content);
@@ -2303,7 +2319,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.PurchaseOrder, content);
@@ -2329,7 +2345,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.PurchaseOrderDelete, content);
@@ -2344,7 +2360,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.PurchaseOrderDetailDelete, content);
@@ -2359,7 +2375,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.WarehouseTransfer, content);
@@ -2374,7 +2390,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.StockCountResult, content);
@@ -2389,7 +2405,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.Warehouse, content);
@@ -2404,7 +2420,7 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.CreditCardEntry, content);
@@ -2504,6 +2520,160 @@ public class LucaService : ILucaService
         {
             belge.BelgeAciklama = Truncate($"Invoice {invoice.DocumentNo}", 250);
         }
+
+        if (!invoice.FaturaTur.HasValue || invoice.FaturaTur.Value <= 0)
+        {
+            invoice.FaturaTur = 1;
+        }
+
+        if (!invoice.MusteriTedarikci.HasValue || invoice.MusteriTedarikci.Value <= 0)
+        {
+            invoice.MusteriTedarikci = 1;
+        }
+
+        if (string.IsNullOrWhiteSpace(invoice.ParaBirimKod))
+        {
+            invoice.ParaBirimKod = "TRY";
+        }
+
+        // KDV flag Koza tarafında zorunlu; null/varsayılan kalmasına izin vermeyin
+        if (!invoice.KdvFlag.HasValue)
+        {
+            invoice.KdvFlag = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(invoice.CariKodu))
+        {
+            throw new InvalidOperationException("CariKodu (müşteri kodu) zorunludur");
+        }
+
+        if (invoice.Lines == null || !invoice.Lines.Any())
+        {
+            throw new InvalidOperationException("Fatura detayları (Lines) zorunludur");
+        }
+
+        foreach (var line in invoice.Lines)
+        {
+            EnsureLineDefaults(line);
+        }
+
+        void EnsureLineDefaults(LucaInvoiceItemDto line)
+        {
+            if (line == null)
+            {
+                throw new InvalidOperationException("Fatura detay satırı boş olamaz");
+            }
+
+            SetNumericLineProperty(line, "KartTuru", 1);
+
+            if (string.IsNullOrWhiteSpace(line.Unit))
+            {
+                line.Unit = "ADET";
+            }
+
+            var measurementProperty = line.GetType().GetProperty("OlcuBirimi");
+            if (measurementProperty != null &&
+                measurementProperty.PropertyType == typeof(string))
+            {
+                var measurementValue = measurementProperty.GetValue(line) as string;
+                if (string.IsNullOrWhiteSpace(measurementValue))
+                {
+                    measurementProperty.SetValue(line, "ADET");
+                }
+            }
+            else if (!line.OlcuBirimi.HasValue || line.OlcuBirimi <= 0)
+            {
+                if (_settings.DefaultOlcumBirimiId > 0)
+                {
+                    line.OlcuBirimi = _settings.DefaultOlcumBirimiId;
+                }
+            }
+
+            var unitPrice = ReadDecimalProperty(line, "BirimFiyat", line.UnitPrice);
+            var quantity = ReadDecimalProperty(line, "Miktar", line.Quantity);
+
+            if (unitPrice <= 0 || quantity <= 0)
+            {
+                var code = ReadStringProperty(line, "KartKodu");
+                if (string.IsNullOrWhiteSpace(code))
+                {
+                    code = line.ProductCode;
+                }
+
+                throw new InvalidOperationException($"Satır için birim fiyat ve miktar zorunludur: {code}");
+            }
+        }
+
+        void SetNumericLineProperty(object lineItem, string propertyName, int defaultValue)
+        {
+            var property = lineItem.GetType().GetProperty(propertyName);
+            if (property == null || !property.CanRead || !property.CanWrite)
+            {
+                return;
+            }
+
+            var raw = property.GetValue(lineItem);
+            var numeric = ConvertToNullableLong(raw);
+            if (!numeric.HasValue || numeric.Value <= 0)
+            {
+                var targetType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+                var converted = Convert.ChangeType(defaultValue, targetType, CultureInfo.InvariantCulture);
+                property.SetValue(lineItem, converted);
+            }
+        }
+
+        decimal ReadDecimalProperty(object lineItem, string propertyName, decimal fallback)
+        {
+            var property = lineItem.GetType().GetProperty(propertyName);
+            if (property == null || !property.CanRead)
+            {
+                return fallback;
+            }
+
+            var raw = property.GetValue(lineItem);
+            if (raw == null)
+            {
+                return fallback;
+            }
+
+            try
+            {
+                return Convert.ToDecimal(raw, CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                return fallback;
+            }
+        }
+
+        string? ReadStringProperty(object lineItem, string propertyName)
+        {
+            var property = lineItem.GetType().GetProperty(propertyName);
+            if (property == null || !property.CanRead)
+            {
+                return null;
+            }
+
+            var raw = property.GetValue(lineItem);
+            return raw?.ToString();
+        }
+
+        long? ConvertToNullableLong(object? value)
+        {
+            if (value == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                return Convert.ToInt64(value, CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                return null;
+            }
+        }
     }
 
     private long? TryGetDefaultBelgeTurDetayId(string key)
@@ -2566,6 +2736,47 @@ public class LucaService : ILucaService
 
         var trimmed = value.Trim();
         return trimmed.Length <= maxLength ? trimmed : trimmed.Substring(0, maxLength);
+    }
+
+    private HttpContent CreateKozaContent(string json)
+    {
+        var payload = json ?? string.Empty;
+        var content = new ByteArrayContent(Windows1254Encoding.GetBytes(payload));
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
+        {
+            CharSet = "windows-1254"
+        };
+        return content;
+    }
+
+    private void ValidateFaturaKapama(LucaFaturaKapamaDto dto, long belgeTurDetayId)
+    {
+        if (dto == null)
+        {
+            throw new ArgumentNullException(nameof(dto));
+        }
+
+        if (FaturaKapamaCariRules.TryGetValue(belgeTurDetayId, out var rule) && dto.CariTur != rule.ExpectedCariTur)
+        {
+            throw new InvalidOperationException(rule.ErrorMessage);
+        }
+    }
+
+    private static async Task<string> ReadContentPreviewAsync(HttpContent content)
+    {
+        if (content == null)
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return await content.ReadAsStringAsync();
+        }
+        catch (Exception)
+        {
+            return string.Empty;
+        }
     }
 
     // Luca → Katana (Pull) implementations
@@ -2684,7 +2895,7 @@ public class LucaService : ILucaService
 
             // Koza / Luca stok kartları listeleme endpoint'ine POST ile boş filtre gönderebiliriz.
             var json = JsonSerializer.Serialize(new { }, _jsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKozaContent(json);
 
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
 
@@ -2917,7 +3128,7 @@ public class LucaService : ILucaService
         {
             if (charset.Contains("1254") || charset.Contains("iso-8859-9"))
             {
-                try { return Encoding.GetEncoding(1254).GetString(bytes); } catch { /* fall back below */ }
+                try { return Windows1254Encoding.GetString(bytes); } catch { /* fall back below */ }
             }
             if (charset.Contains("utf-8"))
             {
@@ -2927,7 +3138,7 @@ public class LucaService : ILucaService
 
         // Fallback: try UTF-8, then cp1254
         try { return Encoding.UTF8.GetString(bytes); } catch { /* ignore */ }
-        try { return Encoding.GetEncoding(1254).GetString(bytes); } catch { /* ignore */ }
+        try { return Windows1254Encoding.GetString(bytes); } catch { /* ignore */ }
         return string.Empty;
     }
 
