@@ -86,10 +86,12 @@ public interface ILucaService
     Task<JsonElement> CreateOtherStockMovementAsync(LucaCreateDshBaslikRequest request);
     // Satış siparişi işlemleri
     Task<JsonElement> CreateSalesOrderAsync(LucaCreateSalesOrderRequest request);
+    Task<JsonElement> CreateSalesOrderHeaderAsync(LucaCreateOrderHeaderRequest request);
     Task<JsonElement> DeleteSalesOrderAsync(LucaDeleteSalesOrderRequest request);
     Task<JsonElement> DeleteSalesOrderDetailAsync(LucaDeleteSalesOrderDetailRequest request);
     // Satın alma siparişi işlemleri
     Task<JsonElement> CreatePurchaseOrderAsync(LucaCreatePurchaseOrderRequest request);
+    Task<JsonElement> CreatePurchaseOrderHeaderAsync(LucaCreateOrderHeaderRequest request);
     Task<JsonElement> DeletePurchaseOrderAsync(LucaDeletePurchaseOrderRequest request);
     Task<JsonElement> DeletePurchaseOrderDetailAsync(LucaDeletePurchaseOrderDetailRequest request);
     // Depo ve diğer stok operasyonları
@@ -115,5 +117,4 @@ public interface ILucaService
     // 3.2.22 Satış Sipariş Listesi
     Task<JsonElement> ListSalesOrdersAsync(LucaListSalesOrdersRequest? request = null, bool detayliListe = false);
 }
-
 

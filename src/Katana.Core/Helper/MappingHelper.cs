@@ -238,6 +238,74 @@ public static class MappingHelper
         };
     }
 
+    public static LucaCreateOrderHeaderRequest MapToLucaSalesOrderHeader(
+        Order order,
+        Customer customer,
+        List<OrderItem> items,
+        long belgeTurDetayId,
+        string belgeSeri)
+    {
+        var cariKod = GenerateCustomerCode(customer.TaxNo);
+        var belgeTakipNo = string.IsNullOrWhiteSpace(order.OrderNo) ? order.Id.ToString() : order.OrderNo;
+
+        return new LucaCreateOrderHeaderRequest
+        {
+            BelgeSeri = belgeSeri,
+            BelgeNo = ParseDocumentNo(order.OrderNo, order.Id),
+            BelgeTakipNo = belgeTakipNo,
+            BelgeTarihi = order.OrderDate == default ? DateTime.UtcNow : order.OrderDate,
+            BelgeTurDetayId = belgeTurDetayId,
+            TeklifSiparisTur = 1,
+            ParaBirimKod = string.IsNullOrWhiteSpace(order.Currency) ? "TRY" : order.Currency,
+            KdvFlag = true,
+            CariKodu = cariKod,
+            CariTanim = customer.Title,
+            VergiNo = customer.TaxNo,
+            DetayList = items.Select(i => new LucaCreateOrderDetailRequest
+            {
+                KartTuru = 1,
+                KartKodu = NormalizeSku(i.Product?.SKU ?? string.Empty),
+                BirimFiyat = (double)i.UnitPrice,
+                Miktar = i.Quantity,
+                KdvOran = ResolveOrderItemKdvOran(i)
+            }).ToList()
+        };
+    }
+
+    public static LucaCreateOrderHeaderRequest MapToLucaPurchaseOrderHeader(
+        PurchaseOrder po,
+        Supplier supplier,
+        List<PurchaseOrderItem> items,
+        long belgeTurDetayId,
+        string belgeSeri)
+    {
+        var cariKod = string.IsNullOrWhiteSpace(supplier.Code) ? supplier.Id.ToString() : supplier.Code!;
+        var belgeTakipNo = string.IsNullOrWhiteSpace(po.OrderNo) ? po.Id.ToString() : po.OrderNo;
+
+        return new LucaCreateOrderHeaderRequest
+        {
+            BelgeSeri = belgeSeri,
+            BelgeNo = ParseDocumentNo(po.OrderNo, po.Id),
+            BelgeTakipNo = belgeTakipNo,
+            BelgeTarihi = po.OrderDate == default ? DateTime.UtcNow : po.OrderDate,
+            BelgeTurDetayId = belgeTurDetayId,
+            TeklifSiparisTur = 1,
+            ParaBirimKod = "TRY",
+            KdvFlag = true,
+            CariKodu = cariKod,
+            CariTanim = supplier.Name,
+            VergiNo = supplier.TaxNo,
+            DetayList = items.Select(i => new LucaCreateOrderDetailRequest
+            {
+                KartTuru = 2,
+                KartKodu = NormalizeSku(i.Product?.SKU ?? string.Empty),
+                BirimFiyat = (double)i.UnitPrice,
+                Miktar = i.Quantity,
+                KdvOran = ResolvePurchaseOrderItemKdvOran(i)
+            }).ToList()
+        };
+    }
+
     public static LucaSatinalmaSiparisDto MapToLucaPurchaseOrder(PurchaseOrder po, Supplier supplier, List<PurchaseOrderItem> items)
     {
         return new LucaSatinalmaSiparisDto
@@ -288,11 +356,42 @@ public static class MappingHelper
         };
     }
 
-    public static LucaCreateStockCountRequest MapToLucaSayimFisi(Stock stock)
+    public static LucaCreateWarehouseTransferRequest MapToLucaDepoTransferCreate(
+        StockTransfer transfer,
+        long belgeTurDetayId,
+        string belgeSeri)
+    {
+        var girisDepo = NormalizeWarehouseCode(transfer.ToWarehouse);
+        var cikisDepo = NormalizeWarehouseCode(transfer.FromWarehouse);
+
+        return new LucaCreateWarehouseTransferRequest
+        {
+            BelgeTurDetayId = belgeTurDetayId,
+            BelgeSeri = belgeSeri,
+            BelgeNo = null,
+            BelgeTarihi = transfer.TransferDate == default ? DateTime.UtcNow : transfer.TransferDate,
+            BelgeTakipNo = null,
+            BelgeAciklama = null,
+            GirisDepoKodu = girisDepo,
+            CikisDepoKodu = cikisDepo,
+            DetayList = new List<LucaWarehouseTransferDetailRequest>
+            {
+                new LucaWarehouseTransferDetailRequest
+                {
+                    KartKodu = NormalizeSku(transfer.Product?.SKU ?? string.Empty),
+                    Miktar = transfer.Quantity,
+                    OlcuBirimi = null,
+                    Aciklama = null
+                }
+            }
+        };
+    }
+
+    public static LucaCreateStockCountRequest MapToLucaSayimFisi(Stock stock, long belgeTurDetayId)
     {
         return new LucaCreateStockCountRequest
         {
-            BelgeTurDetayId = 0,
+            BelgeTurDetayId = belgeTurDetayId,
             BelgeTarihi = stock.Timestamp == default ? DateTime.UtcNow : stock.Timestamp,
             DepoKodu = NormalizeWarehouseCode(stock.Location),
             DetayList = new List<LucaStockCountDetailRequest>
@@ -314,6 +413,78 @@ public static class MappingHelper
             CariKodu = GenerateCustomerCode(customer.TaxNo),
             Tutar = (double)payment.Amount,
             BelgeTarihi = payment.PaymentDate
+        };
+    }
+
+    public static LucaCreateCariHareketRequest MapToLucaCariHareketCreate(
+        Payment payment,
+        Customer customer,
+        long belgeTurDetayId,
+        int cariTuru,
+        string belgeSeri,
+        bool avansFlag,
+        string? aciklama = null)
+    {
+        var cariKod = GenerateCustomerCode(customer.TaxNo);
+        var paraBirim = !string.IsNullOrWhiteSpace(payment.Invoice?.Currency)
+            ? payment.Invoice!.Currency
+            : "TRY";
+        var detayAciklama = aciklama ?? payment.PaymentMethod;
+
+        return new LucaCreateCariHareketRequest
+        {
+            BelgeSeri = belgeSeri,
+            BelgeNo = null,
+            BelgeTarihi = payment.PaymentDate,
+            BelgeTurDetayId = belgeTurDetayId,
+            BelgeAciklama = aciklama,
+            CariTuru = cariTuru,
+            ParaBirimKod = paraBirim,
+            CariKodu = cariKod,
+            DetayList = new List<LucaCreateCariHareketDetayRequest>
+            {
+                new LucaCreateCariHareketDetayRequest
+                {
+                    KartTuru = cariTuru,
+                    KartKodu = cariKod,
+                    AvansFlag = avansFlag,
+                    Tutar = (double)payment.Amount,
+                    Aciklama = detayAciklama
+                }
+            }
+        };
+    }
+
+    public static LucaCreateCreditCardEntryRequest MapToLucaKrediKartiGiris(
+        Payment payment,
+        Customer customer,
+        string belgeSeri,
+        string kasaCariKodu,
+        DateTime? vadeTarihi = null,
+        bool? avansFlag = null)
+    {
+        var cariKod = GenerateCustomerCode(customer.TaxNo);
+        var detayAciklama = payment.PaymentMethod;
+
+        return new LucaCreateCreditCardEntryRequest
+        {
+            BelgeSeri = belgeSeri,
+            BelgeTarihi = payment.PaymentDate,
+            VadeTarihi = vadeTarihi ?? payment.PaymentDate,
+            BelgeAciklama = $"Ödeme - {customer.Title}",
+            CariKodu = kasaCariKodu,
+            DetayList = new List<LucaCreditCardEntryDetailRequest>
+            {
+                new LucaCreditCardEntryDetailRequest
+                {
+                    KartTuru = 1,
+                    KartKodu = cariKod,
+                    AvansFlag = avansFlag,
+                    Tutar = (decimal)payment.Amount,
+                    VadeTarihi = vadeTarihi ?? payment.PaymentDate,
+                    Aciklama = detayAciklama
+                }
+            }
         };
     }
 
@@ -442,6 +613,17 @@ public static class MappingHelper
         };
     }
 
+    /// <summary>
+    /// Hizmet kartı (KartTuru = 2) için stok kartı DTO'su.
+    /// Temel alanları MapToLucaStockCard'dan devralır, sadece kart türünü günceller.
+    /// </summary>
+    public static LucaCreateStokKartiRequest MapToLucaServiceStockCard(Product product)
+    {
+        var dto = MapToLucaStockCard(product);
+        dto.KartTuru = 2;
+        return dto;
+    }
+
     public static LucaCustomerDto MapToLucaCustomer(Customer customer)
     {
         return new LucaCustomerDto
@@ -511,16 +693,27 @@ public static class MappingHelper
         };
     }
 
-    public static LucaCreateDshBaslikRequest MapToLucaDshBaslik(Stock stock, Product product, long belgeTurDetayId, string? depoKodu = null)
+    public static LucaCreateDshBaslikRequest MapToLucaDshBaslik(
+        Stock stock,
+        Product product,
+        long belgeTurDetayId,
+        string belgeSeri,
+        string? belgeAciklama = null,
+        string? paraBirimKod = null,
+        string? depoKodu = null)
     {
         var warehouseCode = NormalizeWarehouseCode(depoKodu ?? stock.Location);
         var hareketYonu = (stock.Type ?? string.Empty).ToUpperInvariant() == "IN" ? "GIRIS" : "CIKIS";
 
         return new LucaCreateDshBaslikRequest
         {
+            BelgeSeri = belgeSeri,
+            BelgeNo = null,
+            BelgeAciklama = belgeAciklama ?? TrimAndTruncate(stock.Reason ?? stock.Reference, 250),
             BelgeTurDetayId = belgeTurDetayId,
             BelgeTarihi = stock.Timestamp == default ? DateTime.UtcNow : stock.Timestamp,
             DepoKodu = warehouseCode,
+            ParaBirimKod = paraBirimKod ?? "TRY",
             HareketYonu = hareketYonu,
             DetayList = new List<LucaCreateDshDetayRequest>
             {
@@ -616,7 +809,7 @@ public static class MappingHelper
     {
         return new Customer
         {
-            TaxNo = dto.CustomerCode ?? dto.CustomerCode ?? string.Empty,
+            TaxNo = dto.TaxNo ?? string.Empty,
             Title = dto.Title ?? string.Empty,
             ContactPerson = dto.ContactPerson,
             Phone = dto.Phone,
@@ -697,6 +890,7 @@ public static class MappingHelper
     }
 
     private const int MaxSkuLength = 50;
+    private const double DefaultOrderKdvOran = 0.18;
 
     private static string NormalizeSku(string sku)
     {
@@ -717,6 +911,28 @@ public static class MappingHelper
         }
 
         return normalized.ToUpperInvariant();
+    }
+
+    private static double ResolveOrderItemKdvOran(OrderItem item)
+    {
+        // OrderItem entity does not persist tax info yet; default to standard KDV (18%)
+        return DefaultOrderKdvOran;
+    }
+
+    private static double ResolvePurchaseOrderItemKdvOran(PurchaseOrderItem item)
+    {
+        // PurchaseOrderItem entity also lacks tax data; default to standard KDV (18%)
+        return DefaultOrderKdvOran;
+    }
+
+    private static int? ParseDocumentNo(string? rawValue, int fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(rawValue) && int.TryParse(rawValue, out var parsed))
+        {
+            return parsed;
+        }
+
+        return fallback > 0 ? fallback : null;
     }
 
     private static string? TrimAndTruncate(string? value, int maxLength)

@@ -1,4 +1,6 @@
-﻿using Katana.Business.DTOs;
+﻿using System.Collections;
+using System.Collections.Generic;
+using Katana.Business.DTOs;
 using Katana.Data.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -9,6 +11,8 @@ using System.Linq;
 using System.Net.Http.Headers;
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
+using Katana.Core.Entities;
+using Katana.Core.Helpers;
 /*LucaService.cs (Genişletilecek): Luca Koza API'sına veri yazma operasyonlarını içerecek.
 Amacı: Sadece Luca'ya veri yazmaktan sorumlu olmak.
 Sorumlulukları (Yeni):
@@ -746,6 +750,8 @@ public class LucaService : ILucaService
 
             _logger.LogInformation("Sending {Count} invoices to Luca", invoices.Count);
 
+            EnsureInvoiceDefaults(invoices);
+
             var json = JsonSerializer.Serialize(invoices, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -806,6 +812,8 @@ public class LucaService : ILucaService
             {
                 await EnsureBranchSelectedAsync();
             }
+
+            EnsureInvoiceDefaults(invoice);
 
             _logger.LogInformation("Sending invoice {Serie}-{No} to Luca", invoice.GnlOrgSsBelge.BelgeSeri, invoice.GnlOrgSsBelge.BelgeNo);
 
@@ -2080,6 +2088,19 @@ public class LucaService : ILucaService
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
 
+    public async Task<JsonElement> CreateCustomerTransactionAsync(
+        Payment payment,
+        Customer customer,
+        long belgeTurDetayId,
+        int cariTuru,
+        string belgeSeri,
+        bool avansFlag,
+        string? aciklama = null)
+    {
+        var request = MappingHelper.MapToLucaCariHareketCreate(payment, customer, belgeTurDetayId, cariTuru, belgeSeri, avansFlag, aciklama);
+        return await CreateCustomerTransactionAsync(request);
+    }
+
     public async Task<JsonElement> ListDeliveryNotesAsync(bool detayliListe = false)
     {
         await EnsureAuthenticatedAsync();
@@ -2206,6 +2227,32 @@ public class LucaService : ILucaService
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
 
+    public async Task<JsonElement> CreateSalesOrderHeaderAsync(LucaCreateOrderHeaderRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var response = await client.PostAsync(_settings.Endpoints.SalesOrder, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> CreateSalesOrderHeaderAsync(
+        Order order,
+        Customer customer,
+        List<OrderItem> items,
+        long belgeTurDetayId,
+        string belgeSeri)
+    {
+        var request = MappingHelper.MapToLucaSalesOrderHeader(order, customer, items, belgeTurDetayId, belgeSeri);
+        return await CreateSalesOrderHeaderAsync(request);
+    }
+
     public async Task<JsonElement> DeleteSalesOrderAsync(LucaDeleteSalesOrderRequest request)
     {
         await EnsureAuthenticatedAsync();
@@ -2249,6 +2296,32 @@ public class LucaService : ILucaService
         response.EnsureSuccessStatusCode();
 
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> CreatePurchaseOrderHeaderAsync(LucaCreateOrderHeaderRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var response = await client.PostAsync(_settings.Endpoints.PurchaseOrder, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> CreatePurchaseOrderHeaderAsync(
+        PurchaseOrder purchaseOrder,
+        Supplier supplier,
+        List<PurchaseOrderItem> items,
+        long belgeTurDetayId,
+        string belgeSeri)
+    {
+        var request = MappingHelper.MapToLucaPurchaseOrderHeader(purchaseOrder, supplier, items, belgeTurDetayId, belgeSeri);
+        return await CreatePurchaseOrderHeaderAsync(request);
     }
 
     public async Task<JsonElement> DeletePurchaseOrderAsync(LucaDeletePurchaseOrderRequest request)
@@ -2341,6 +2414,18 @@ public class LucaService : ILucaService
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
 
+    public async Task<JsonElement> CreateCreditCardEntryAsync(
+        Payment payment,
+        Customer customer,
+        string belgeSeri,
+        string kasaCariKodu,
+        DateTime? vadeTarihi = null,
+        bool? avansFlag = null)
+    {
+        var request = MappingHelper.MapToLucaKrediKartiGiris(payment, customer, belgeSeri, kasaCariKodu, vadeTarihi, avansFlag);
+        return await CreateCreditCardEntryAsync(request);
+    }
+
     public async Task<bool> TestConnectionAsync()
     {
         try
@@ -2359,6 +2444,128 @@ public class LucaService : ILucaService
             _logger.LogError(ex, "Error testing connection to Luca API");
             return false;
         }
+    }
+
+    private void EnsureInvoiceDefaults(IEnumerable<LucaInvoiceDto> invoices)
+    {
+        if (invoices == null)
+        {
+            return;
+        }
+
+        foreach (var invoice in invoices)
+        {
+            EnsureInvoiceDefaults(invoice);
+        }
+    }
+
+    private void EnsureInvoiceDefaults(LucaInvoiceDto? invoice)
+    {
+        if (invoice == null)
+        {
+            return;
+        }
+
+        invoice.GnlOrgSsBelge ??= new LucaBelgeDto();
+        var belge = invoice.GnlOrgSsBelge;
+
+        if (string.IsNullOrWhiteSpace(belge.BelgeSeri))
+        {
+            belge.BelgeSeri = string.IsNullOrWhiteSpace(_settings.DefaultBelgeSeri)
+                ? "A"
+                : _settings.DefaultBelgeSeri;
+        }
+
+        if (belge.BelgeTurDetayId <= 0)
+        {
+            var defaultBelgeTurDetayId = TryGetDefaultBelgeTurDetayId("SalesInvoice");
+            if (defaultBelgeTurDetayId.HasValue)
+            {
+                belge.BelgeTurDetayId = defaultBelgeTurDetayId.Value;
+            }
+        }
+
+        if (belge.BelgeTarihi == default)
+        {
+            belge.BelgeTarihi = invoice.DocumentDate;
+        }
+
+        if (!belge.VadeTarihi.HasValue)
+        {
+            belge.VadeTarihi = invoice.DueDate;
+        }
+
+        if (!belge.BelgeNo.HasValue && int.TryParse(invoice.DocumentNo, out var parsedNo))
+        {
+            belge.BelgeNo = parsedNo;
+        }
+
+        if (string.IsNullOrWhiteSpace(belge.BelgeAciklama))
+        {
+            belge.BelgeAciklama = Truncate($"Invoice {invoice.DocumentNo}", 250);
+        }
+    }
+
+    private long? TryGetDefaultBelgeTurDetayId(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return null;
+        }
+
+        var defaultsProperty = _settings.GetType().GetProperty("DefaultBelgeTurDetayId");
+        if (defaultsProperty == null)
+        {
+            return null;
+        }
+
+        var defaults = defaultsProperty.GetValue(_settings);
+        if (defaults == null)
+        {
+            return null;
+        }
+
+        if (defaults is IDictionary<string, long> typedDict && typedDict.TryGetValue(key, out var typedValue))
+        {
+            return typedValue;
+        }
+
+        if (defaults is IDictionary dictionary)
+        {
+            if (dictionary.Contains(key))
+            {
+                return Convert.ToInt64(dictionary[key]);
+            }
+
+            var lowered = key.ToLowerInvariant();
+            if (dictionary.Contains(lowered))
+            {
+                return Convert.ToInt64(dictionary[lowered]);
+            }
+        }
+
+        var matchingProperty = defaults.GetType().GetProperty(key);
+        if (matchingProperty != null)
+        {
+            var propertyValue = matchingProperty.GetValue(defaults);
+            if (propertyValue != null && long.TryParse(propertyValue.ToString(), out var result))
+            {
+                return result;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? Truncate(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed.Substring(0, maxLength);
     }
 
     // Luca → Katana (Pull) implementations

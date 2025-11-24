@@ -57,6 +57,10 @@ namespace Katana.Core.Helper
         public static LucaCreateInvoiceHeaderRequest CreateSampleInvoiceHeader(
             DateTime? belgeTarihi = null,
             long belgeTurDetayId = 76,
+            string belgeSeri = "A",
+            int? belgeNo = null,
+            string? belgeTakipNo = null,
+            string? belgeAciklama = null,
             int faturaTur = 1,
             string cariKodu = "CUST_123",
             int musteriTedarikci = 1,
@@ -70,8 +74,12 @@ namespace Katana.Core.Helper
         {
             var header = new LucaCreateInvoiceHeaderRequest
             {
+                BelgeSeri = belgeSeri,
+                BelgeNo = belgeNo,
                 BelgeTarihi = belgeTarihi ?? DateTime.UtcNow,
                 BelgeTurDetayId = belgeTurDetayId,
+                BelgeTakipNo = belgeTakipNo,
+                BelgeAciklama = belgeAciklama ?? $"Sample invoice {Guid.NewGuid():N}",
                 FaturaTur = faturaTur,
                 CariKodu = cariKodu,
                 MusteriTedarikci = musteriTedarikci,
