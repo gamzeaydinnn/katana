@@ -39,7 +39,10 @@ public class SupplierService : ISupplierService
             ContactName = dto.ContactName,
             Email = dto.Email,
             Phone = dto.Phone,
-            Address = dto.Address
+            Address = dto.Address,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
 
         _context.Suppliers.Add(entity);
@@ -118,7 +121,9 @@ public class SupplierService : ISupplierService
             Email = s.Email,
             Phone = s.Phone,
             Address = s.Address,
-            IsActive = s.IsActive
+            IsActive = s.IsActive,
+            CreatedAt = s.CreatedAt,
+            UpdatedAt = s.UpdatedAt
         };
     }
 }
