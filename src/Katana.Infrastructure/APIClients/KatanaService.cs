@@ -183,6 +183,7 @@ public class KatanaService : IKatanaService
         dto.SKU = string.Empty;
         dto.Price = 0m;
         dto.IsActive = true;
+        dto.Currency = "TRY";
 
         // Determine active state from archived_at / deleted_at
         if (prodEl.TryGetProperty("archived_at", out var archived) && archived.ValueKind != JsonValueKind.Null)
@@ -226,10 +227,14 @@ public class KatanaService : IKatanaService
                 dto.Price = ReadDecimalProperty(firstVar, "sales_price");
                 dto.SalesPrice = ReadDecimalProperty(firstVar, "sales_price");
                 dto.CostPrice = ReadDecimalProperty(firstVar, "cost");
+                dto.PurchasePrice = dto.CostPrice;
 
                 // Unit
                 if (firstVar.TryGetProperty("unit", out var unitEl))
                     dto.Unit = unitEl.GetString();
+
+                if (firstVar.TryGetProperty("barcode", out var barcodeEl) && barcodeEl.ValueKind == JsonValueKind.String)
+                    dto.Barcode = barcodeEl.GetString();
 
                 // Stock levels - Katana API provides: in_stock, committed, available, on_hand
                 if (firstVar.TryGetProperty("in_stock", out var inStockEl) && inStockEl.ValueKind == JsonValueKind.Number)

@@ -20,18 +20,27 @@ public class KatanaProductDto
     public decimal Price { get; set; }
     public decimal? SalesPrice { get; set; }
     public decimal? CostPrice { get; set; }
+    public decimal? PurchasePrice { get; set; }
     public int CategoryId { get; set; }
     public string? Category { get; set; }
     public string? ImageUrl { get; set; }
     public string? Description { get; set; }
-    public bool IsActive { get; set; }
+    public bool IsActive { get; set; } = true;
     public string? Unit { get; set; }
+    public string? Barcode { get; set; }
+    public int? VatRate { get; set; }
+    public string? Currency { get; set; }
     
     // Stock levels
     public int? OnHand { get; set; }
     public int? Available { get; set; }
     public int? Committed { get; set; }
     public int? InStock { get; set; }
+
+    /// <summary>
+    /// Luca stok kartı için kullanılacak kod: SKU boşsa KAT-{Id}
+    /// </summary>
+    public string GetProductCode() => !string.IsNullOrWhiteSpace(SKU) ? SKU : $"KAT-{Id}";
 }
 
 public class KatanaInvoiceDto

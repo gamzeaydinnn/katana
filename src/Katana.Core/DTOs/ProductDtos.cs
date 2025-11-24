@@ -10,6 +10,7 @@ public class ProductDto
     [JsonPropertyName("sku")]
     public string SKU { get; set; } = string.Empty;
     // Alias for legacy code that used PascalCase Sku
+    [JsonIgnore]
     public string Sku
     {
         get => SKU;

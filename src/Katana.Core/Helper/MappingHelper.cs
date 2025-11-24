@@ -614,6 +614,61 @@ public static class MappingHelper
     }
 
     /// <summary>
+    /// KatanaProductDto (harici API) -> Koza stok kartı DTO'su.
+    /// SKU boşsa KAT-{Id} kodu kullanılır, KDV ve para birimi için güvenli varsayılanlar atanır.
+    /// </summary>
+    public static LucaCreateStokKartiRequest MapToLucaStockCard(KatanaProductDto product)
+    {
+        var sku = NormalizeSku(product.GetProductCode());
+        var name = !string.IsNullOrWhiteSpace(product.Name) ? product.Name : sku;
+        var desc = TrimAndTruncate(product.Description, 1000) ?? string.Empty;
+        var vatRate = product.VatRate.HasValue ? product.VatRate.Value / 100d : 0.20;
+
+        return new LucaCreateStokKartiRequest
+        {
+            KartAdi = TrimAndTruncate(name, 255) ?? sku,
+            KartTuru = 1,
+            BaslangicTarihi = null,
+            OlcumBirimiId = 5, // "Adet" varsayılanı
+            KartKodu = sku,
+            MaliyetHesaplanacakFlag = true,
+            KartTipi = 1,
+            KategoriAgacKod = product.Category ?? string.Empty,
+            KartAlisKdvOran = vatRate,
+            KartSatisKdvOran = vatRate,
+            Barkod = string.IsNullOrWhiteSpace(product.Barcode) ? sku : product.Barcode,
+            PerakendeAlisBirimFiyat = (double)(product.PurchasePrice ?? product.Price),
+            PerakendeSatisBirimFiyat = (double)(product.SalesPrice ?? product.Price),
+            SatilabilirFlag = product.IsActive,
+            SatinAlinabilirFlag = product.IsActive,
+            DetayAciklama = desc
+        };
+    }
+
+    /// <summary>
+    /// Luca stok kartı gönderimi öncesi minimum alan doğrulaması.
+    /// </summary>
+    public static (bool IsValid, List<string> Errors) ValidateLucaStockCard(LucaCreateStokKartiRequest stockCard)
+    {
+        var errors = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(stockCard.KartAdi))
+            errors.Add("kartAdi zorunlu");
+        if (string.IsNullOrWhiteSpace(stockCard.KartKodu))
+            errors.Add("kartKodu (SKU) zorunlu");
+        if (stockCard.OlcumBirimiId <= 0)
+            errors.Add("olcumBirimiId zorunlu");
+        if (stockCard.KartAlisKdvOran < 0)
+            errors.Add("KartAlisKdvOran geçersiz");
+        if (stockCard.KartSatisKdvOran < 0)
+            errors.Add("KartSatisKdvOran geçersiz");
+        if (stockCard.PerakendeAlisBirimFiyat < 0 || stockCard.PerakendeSatisBirimFiyat < 0)
+            errors.Add("Birim fiyatlar negatif olamaz");
+
+        return (!errors.Any(), errors);
+    }
+
+    /// <summary>
     /// Hizmet kartı (KartTuru = 2) için stok kartı DTO'su.
     /// Temel alanları MapToLucaStockCard'dan devralır, sadece kart türünü günceller.
     /// </summary>
