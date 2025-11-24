@@ -18,6 +18,7 @@ using Serilog;
 using System.Text;
 using Katana.Infrastructure.APIClients;
 using Katana.Business.UseCases.Sync;
+using Katana.Infrastructure.Utils;
 using Katana.Infrastructure.Notifications;
 using Katana.Core.Interfaces;
 using Katana.Core.Entities;
@@ -167,7 +168,8 @@ builder.Services.AddHttpClient<KatanaService>((sp, client) =>
         new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", s.ApiKey?.Trim());
     client.DefaultRequestHeaders.Accept.Add(
         new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-});
+})
+    .AddHttpMessageHandler<RateLimitHandler>();
 builder.Services.AddScoped<IKatanaService>(sp => sp.GetRequiredService<KatanaService>());
 
 builder.Services.AddHttpClient<ILucaService, LucaService>((sp, client) =>
@@ -180,9 +182,11 @@ builder.Services.AddHttpClient<ILucaService, LucaService>((sp, client) =>
     if (!string.IsNullOrEmpty(s.ApiKey) && !s.UseTokenAuth)
         client.DefaultRequestHeaders.Add("X-API-Key", s.ApiKey);
 })
+    .AddHttpMessageHandler<RateLimitHandler>()
     .AddHttpDebugLogging();
 
 builder.Services.AddTransient<HttpDebugLoggingHandler>();
+builder.Services.AddTransient<RateLimitHandler>();
 
 builder.Services.AddSingleton<ILucaCookieJarStore, LucaCookieJarStore>();
 

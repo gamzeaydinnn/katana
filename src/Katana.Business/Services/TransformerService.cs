@@ -23,21 +23,21 @@ public class TransformerService : ITransformerService
         var products = new List<Product>();
 
         foreach (var dto in dtos)
-        {
-                var entity = new Product
             {
-                SKU = dto.SKU,
-                Name = dto.Name,
-                Description = dto.Description ?? string.Empty,
-                CategoryId = dto.CategoryId,
-                Price = dto.Price,
+                var entity = new Product
+                {
+                    SKU = dto.SKU,
+                    Name = dto.Name,
+                    Description = dto.Description ?? string.Empty,
+                    CategoryId = dto.CategoryId,
+                    Price = dto.Price,
                     // Set snapshot when creating Product entities from DTOs
                     StockSnapshot = dto.Stock,
-                MainImageUrl = dto.MainImageUrl,
-                IsActive = dto.IsActive,
-                CreatedAt = dto.CreatedAt,
-                UpdatedAt = dto.UpdatedAt ?? DateTime.UtcNow
-            };
+                    MainImageUrl = dto.MainImageUrl,
+                    IsActive = dto.IsActive,
+                    CreatedAt = dto.CreatedAt ?? DateTime.UtcNow,
+                    UpdatedAt = dto.UpdatedAt ?? DateTime.UtcNow
+                };
 
             var validationErrors = ProductValidator.ValidateUpdate(new UpdateProductDto
             {

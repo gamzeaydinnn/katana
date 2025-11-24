@@ -750,7 +750,7 @@ public class ProductsController : ControllerBase
             StockSnapshot = productDto.Stock,
             MainImageUrl = productDto.MainImageUrl,
             IsActive = productDto.IsActive,
-            CreatedAt = productDto.CreatedAt,
+            CreatedAt = productDto.CreatedAt ?? DateTime.UtcNow,
             UpdatedAt = productDto.UpdatedAt ?? DateTime.UtcNow
         };
 
