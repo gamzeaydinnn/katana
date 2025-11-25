@@ -199,7 +199,6 @@ builder.Services.AddScoped<IExtractorService, ExtractorService>();
 builder.Services.AddScoped<ITransformerService, TransformerService>();
 builder.Services.AddScoped<ILoaderService, LoaderService>();
 builder.Services.AddScoped<ISyncService, SyncService>();
-builder.Services.AddScoped<IIntegrationService>(sp => (IIntegrationService)sp.GetRequiredService<ISyncService>());
 builder.Services.AddScoped<IStockService, StockService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IPendingStockAdjustmentService, PendingStockAdjustmentService>();

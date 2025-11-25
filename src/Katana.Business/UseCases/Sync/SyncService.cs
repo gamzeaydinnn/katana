@@ -14,7 +14,7 @@ namespace Katana.Business.UseCases.Sync;
 /// <summary>
 /// ETL bileşenlerini koordine ederek Katana ↔ Luca senkronizasyonunu gerçekleştirir.
 /// </summary>
-public class SyncService : ISyncService, IIntegrationService
+public class SyncService : ISyncService
 {
     private readonly IExtractorService _extractorService;
     private readonly ITransformerService _transformerService;
