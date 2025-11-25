@@ -16,7 +16,7 @@ Usage:
 param(
     [string]$BaseUrl = 'http://85.111.1.49:57005/Yetki/',
     [string]$CookieDomain = '85.111.1.49',
-    [string]$JSessionValue = 'ahi8kFgEr5Ky7kFP0q4vsHvjAojnpqBJQlnDZ81mgdwUDodkJ_vt!735453627',
+    [string]$JSessionValue = 'GPy8mq53VWit2ZmId5nNFOVMfIjPh6SjeEOIuVRbMyDPpkCmKPNp!735453627',
     [int]$ForcedBranchId = 854,
     [string]$ProductSKU = 'MY-SKU-1',
     [string]$ProductName = 'Test Product',
@@ -59,7 +59,11 @@ catch {
     Write-Warning "Could not add manual cookie: $_"
 }
 
+# Standard headers; we'll also add Cookie header so server receives JSESSIONID in headers
 $headers = @{ 'Accept' = 'application/json'; 'Content-Type' = 'application/json' }
+if ($JSessionValue -and -not [string]::IsNullOrWhiteSpace($JSessionValue)) {
+    $headers['Cookie'] = "JSESSIONID=$JSessionValue"
+}
 
 # Send helper that supports cp1254 encoding when needed
 function Send-HttpWithEncoding([string]$relative, [string]$bodyString, [string]$encodingName, [string]$contentType, [string]$outPrefix) {
@@ -87,6 +91,8 @@ function Send-HttpWithEncoding([string]$relative, [string]$bodyString, [string]$
         }
 
         $req.ContentLength = $bytes.Length
+        # Ensure cookie header sent for HttpWebRequest as well
+        try { $req.Headers['Cookie'] = "JSESSIONID=$JSessionValue" } catch { }
         $reqStream = $req.GetRequestStream()
         $reqStream.Write($bytes, 0, $bytes.Length)
         $reqStream.Close()
@@ -126,7 +132,7 @@ Write-Host "Using LogDir = $LogDir"
 # 1) Fetch branches
 Write-Host "[1] Fetch branches..."
 try {
-    $branchesResp = Invoke-WebRequest -Uri (Url 'YdlUserResponsibilityOrgSs.do') -Method Post -Body '{}' -WebSession $session -Headers $headers -UseBasicParsing -ErrorAction Stop
+    $branchesResp = Invoke-WebRequest -Uri (Url 'YdlUserResponsibilityOrgSs.do') -Method Get -WebSession $session -Headers $headers -UseBasicParsing -ErrorAction Stop
     Write-JsonFile (Join-Path $LogDir 'manual-branches.json') $branchesResp.Content
     Write-Host "Branches saved to $LogDir\manual-branches.json"
 }
@@ -161,7 +167,7 @@ if (-not $changed) { Write-Warning "All change-branch attempts failed." }
 # 3) Verify branch
 Write-Host "[3] Verify branch selection..."
 try {
-    $verifyResp = Invoke-WebRequest -Uri (Url 'YdlUserResponsibilityOrgSs.do') -Method Post -Body '{}' -WebSession $session -Headers $headers -UseBasicParsing -ErrorAction Stop
+    $verifyResp = Invoke-WebRequest -Uri (Url 'YdlUserResponsibilityOrgSs.do') -Method Get -WebSession $session -Headers $headers -UseBasicParsing -ErrorAction Stop
     Write-JsonFile (Join-Path $LogDir 'manual-branches-after-change.json') $verifyResp.Content
     Write-Host "Verify response saved to $LogDir\manual-branches-after-change.json"
 }
