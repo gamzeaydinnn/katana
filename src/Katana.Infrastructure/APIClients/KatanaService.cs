@@ -11,6 +11,7 @@ using Katana.Core.DTOs;
 using System.Linq;
 using System.Globalization;
 using Microsoft.Extensions.Caching.Memory;
+using System.Net;
 /*Katana API'sından veri okuma operasyonlarını içerecek.
 Amacı: Sadece Katana'dan veri okumaktan sorumlu olmak.
 Sorumlulukları (Yeni):
@@ -621,5 +622,174 @@ public class KatanaService : IKatanaService
     {
         _logger.LogInformation("GetSalesReturnsAsync called (fromDate: {FromDate}), placeholder implementation returning empty list.", fromDate);
         return Task.FromResult(new List<KatanaSalesReturnDto>());
+    }
+
+    public async Task<List<StockAdjustmentDto>> GetStockAdjustmentsAsync(DateTime? fromDate = null, DateTime? toDate = null)
+    {
+        var query = new List<string>();
+        if (fromDate.HasValue) query.Add($"fromDate={fromDate:yyyy-MM-dd}");
+        if (toDate.HasValue) query.Add($"toDate={toDate:yyyy-MM-dd}");
+        var url = _settings.Endpoints.StockAdjustments + (query.Count > 0 ? "?" + string.Join("&", query) : string.Empty);
+
+        _logger.LogInformation("Fetching stock adjustments from Katana: {Url}", url);
+        var resp = await _httpClient.GetAsync(url);
+        var content = await resp.Content.ReadAsStringAsync();
+        if (!resp.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("GetStockAdjustmentsAsync failed. Status {Status}, Body {Body}", resp.StatusCode, content);
+            resp.EnsureSuccessStatusCode();
+        }
+
+        return JsonSerializer.Deserialize<List<StockAdjustmentDto>>(content, _jsonOptions) ?? new List<StockAdjustmentDto>();
+    }
+
+    public async Task<StockAdjustmentDto?> CreateStockAdjustmentAsync(StockAdjustmentCreateRequest request)
+    {
+        _logger.LogInformation("Creating stock adjustment via Katana API");
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var resp = await _httpClient.PostAsync(_settings.Endpoints.StockAdjustments, new StringContent(json, Encoding.UTF8, "application/json"));
+        var content = await resp.Content.ReadAsStringAsync();
+
+        if (!resp.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("CreateStockAdjustmentAsync failed. Status {Status}, Body {Body}", resp.StatusCode, content);
+            resp.EnsureSuccessStatusCode();
+        }
+
+        return JsonSerializer.Deserialize<StockAdjustmentDto>(content, _jsonOptions);
+    }
+
+    public async Task<List<InventoryMovementDto>> GetInventoryMovementsAsync(DateTime? fromDate = null, DateTime? toDate = null)
+    {
+        var query = new List<string>();
+        if (fromDate.HasValue) query.Add($"fromDate={fromDate:yyyy-MM-dd}");
+        if (toDate.HasValue) query.Add($"toDate={toDate:yyyy-MM-dd}");
+        var url = _settings.Endpoints.Stocktakes + (query.Count > 0 ? "?" + string.Join("&", query) : string.Empty);
+
+        _logger.LogInformation("Fetching inventory movements from Katana: {Url}", url);
+        var resp = await _httpClient.GetAsync(url);
+        var content = await resp.Content.ReadAsStringAsync();
+        if (!resp.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("GetInventoryMovementsAsync failed. Status {Status}, Body {Body}", resp.StatusCode, content);
+            resp.EnsureSuccessStatusCode();
+        }
+
+        return JsonSerializer.Deserialize<List<InventoryMovementDto>>(content, _jsonOptions) ?? new List<InventoryMovementDto>();
+    }
+
+    public Task<List<SalesOrderDto>> GetSalesOrdersAsync(DateTime? fromDate = null)
+    {
+        var query = fromDate.HasValue ? $"?fromDate={fromDate:yyyy-MM-dd}" : string.Empty;
+        return GetListAsync<SalesOrderDto>(_settings.Endpoints.SalesOrders + query, "sales orders");
+    }
+
+    public async Task<SalesOrderDto?> CreateSalesOrderAsync(SalesOrderDto salesOrder)
+    {
+        _logger.LogInformation("CreateSalesOrderAsync called for OrderNo: {OrderNo}", salesOrder?.OrderNo);
+        var json = JsonSerializer.Serialize(salesOrder, _jsonOptions);
+        var resp = await _httpClient.PostAsync(_settings.Endpoints.SalesOrders, new StringContent(json, Encoding.UTF8, "application/json"));
+        var content = await resp.Content.ReadAsStringAsync();
+        if (!resp.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("CreateSalesOrderAsync failed. Status {Status}, Body {Body}", resp.StatusCode, content);
+            resp.EnsureSuccessStatusCode();
+        }
+        return JsonSerializer.Deserialize<SalesOrderDto>(content, _jsonOptions);
+    }
+
+    public async Task<SalesOrderDto?> UpdateSalesOrderAsync(SalesOrderDto salesOrder)
+    {
+        _logger.LogInformation("UpdateSalesOrderAsync called for OrderNo: {OrderNo}", salesOrder?.OrderNo);
+        var json = JsonSerializer.Serialize(salesOrder, _jsonOptions);
+        var resp = await _httpClient.PutAsync($"{_settings.Endpoints.SalesOrders}/{salesOrder?.Id}", new StringContent(json, Encoding.UTF8, "application/json"));
+        var content = await resp.Content.ReadAsStringAsync();
+        if (!resp.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("UpdateSalesOrderAsync failed. Status {Status}, Body {Body}", resp.StatusCode, content);
+            resp.EnsureSuccessStatusCode();
+        }
+        return JsonSerializer.Deserialize<SalesOrderDto>(content, _jsonOptions);
+    }
+
+    public Task<List<LocationDto>> GetLocationsAsync()
+    {
+        return GetListAsync<LocationDto>(_settings.Endpoints.Locations, "locations");
+    }
+
+    public Task<List<ServiceDto>> GetServicesAsync()
+    {
+        return GetListAsync<ServiceDto>("services", "services");
+    }
+
+    public Task<List<TaxRateDto>> GetTaxRatesAsync()
+    {
+        return GetListAsync<TaxRateDto>(_settings.Endpoints.TaxRates, "tax rates");
+    }
+
+    public Task<List<PriceListDto>> GetPriceListsAsync()
+    {
+        return GetListAsync<PriceListDto>(_settings.Endpoints.PriceLists, "price lists");
+    }
+
+    public Task<List<WebhookDto>> GetWebhooksAsync()
+    {
+        return GetListAsync<WebhookDto>("webhooks", "webhooks");
+    }
+
+    public Task<List<SerialNumberDto>> GetSerialNumbersAsync()
+    {
+        return GetListAsync<SerialNumberDto>("serial-numbers", "serial numbers");
+    }
+
+    public Task<List<UserDto>> GetUsersAsync()
+    {
+        return GetListAsync<UserDto>("users", "users");
+    }
+
+    public Task<List<BomRowDto>> GetBomRowsAsync()
+    {
+        return GetListAsync<BomRowDto>(_settings.Endpoints.BomRows, "bom rows");
+    }
+
+    public Task<List<MaterialDto>> GetMaterialsAsync()
+    {
+        return GetListAsync<MaterialDto>(_settings.Endpoints.Materials, "materials");
+    }
+
+    private async Task<List<T>> GetListAsync<T>(string endpoint, string logName)
+    {
+        try
+        {
+            _logger.LogInformation("Fetching {Name} from Katana: {Endpoint}", logName, endpoint);
+            var resp = await _httpClient.GetAsync(endpoint);
+            var content = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("{Name} fetch failed. Status {Status}, Body {Body}", logName, resp.StatusCode, content);
+                resp.EnsureSuccessStatusCode();
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(content);
+                var root = doc.RootElement;
+                if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
+                {
+                    return JsonSerializer.Deserialize<List<T>>(dataEl.GetRawText(), _jsonOptions) ?? new List<T>();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to unwrap data property for {Name}, falling back to direct deserialization.", logName);
+            }
+
+            return JsonSerializer.Deserialize<List<T>>(content, _jsonOptions) ?? new List<T>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching {Name} from Katana", logName);
+            throw;
+        }
     }
 }

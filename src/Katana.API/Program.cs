@@ -154,12 +154,13 @@ builder.Services.Configure<LucaApiSettings>(builder.Configuration.GetSection("Lu
 builder.Services.Configure<SyncSettings>(builder.Configuration.GetSection(SyncSettings.SectionName));
 builder.Services.Configure<InventorySettings>(builder.Configuration.GetSection(InventorySettings.SectionName));
 builder.Services.Configure<CatalogVisibilitySettings>(builder.Configuration.GetSection(CatalogVisibilitySettings.SectionName));
+builder.Services.Configure<KatanaMappingSettings>(builder.Configuration.GetSection("Mapping:Katana"));
 builder.Services.AddAuthorization();
 
 // -----------------------------
 // HTTP Clients
 // -----------------------------
-builder.Services.AddHttpClient<KatanaService>((sp, client) =>
+builder.Services.AddHttpClient<IKatanaService, KatanaService>((sp, client) =>
 {
     var s = sp.GetRequiredService<IOptions<KatanaApiSettings>>().Value;
     client.BaseAddress = new Uri(s.BaseUrl);
@@ -170,7 +171,8 @@ builder.Services.AddHttpClient<KatanaService>((sp, client) =>
         new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 })
     .AddHttpMessageHandler<RateLimitHandler>();
-builder.Services.AddScoped<IKatanaService>(sp => sp.GetRequiredService<KatanaService>());
+builder.Services.AddScoped<IKatanaApiClient, KatanaApiClient>();
+builder.Services.AddScoped<IKatanaStockService, KatanaStockService>();
 
 builder.Services.AddHttpClient<ILucaService, LucaService>((sp, client) =>
 {
