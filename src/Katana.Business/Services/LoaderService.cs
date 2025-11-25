@@ -22,16 +22,19 @@ public class LoaderService : ILoaderService
     private readonly IntegrationDbContext _dbContext;
     private readonly ILogger<LoaderService> _logger;
     private readonly InventorySettings _inventorySettings;
+    private readonly LucaApiSettings _lucaSettings;
 
     public LoaderService(
         ILucaService lucaService,
         IntegrationDbContext dbContext,
         IOptions<InventorySettings> inventoryOptions,
+        IOptions<LucaApiSettings> lucaOptions,
         ILogger<LoaderService> logger)
     {
         _lucaService = lucaService;
         _dbContext = dbContext;
         _inventorySettings = inventoryOptions.Value;
+        _lucaSettings = lucaOptions.Value;
         _logger = logger;
     }
 
@@ -187,7 +190,22 @@ public class LoaderService : ILoaderService
             return 0;
         }
 
-        var lucaStockCards = productList.Select(product => MappingHelper.MapToLucaStockCard(product)).ToList();
+        var lucaStockCards = productList
+            .Select(product => MappingHelper.MapToLucaStockCard(product, _lucaSettings.DefaultOlcumBirimiId, _lucaSettings.DefaultKdv))
+            .ToList();
+
+        // Basit doğrulama: kartKodu/kartAdi/olcumBirimiId dolu mu kontrol et; hatalıları atla
+        var validCards = new List<LucaCreateStokKartiRequest>();
+        foreach (var card in lucaStockCards)
+        {
+            var (isValid, errors) = MappingHelper.ValidateLucaStockCard(card);
+            if (!isValid)
+            {
+                _logger.LogWarning("LoaderService => Stock card validation failed for KartKodu={KartKodu}: {Errors}", card.KartKodu, string.Join(";", errors));
+                continue;
+            }
+            validCards.Add(card);
+        }
 
         // Diagnostic logging for product push
         try
@@ -198,7 +216,7 @@ public class LoaderService : ILoaderService
         }
         catch { }
 
-        var result = await _lucaService.SendStockCardsAsync(lucaStockCards);
+        var result = await _lucaService.SendStockCardsAsync(validCards);
         await WriteIntegrationLogAsync("PRODUCT", result, ct);
 
         _logger.LogInformation("LoaderService => Products pushed. Success={Success} Failed={Failed}",

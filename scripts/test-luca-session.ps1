@@ -23,20 +23,11 @@ param(
     [string]$OrgCode = '1422649',
     [string]$UserName = 'Admin',
     [string]$Password = 'WebServis',
-<<<<<<< HEAD
     [int]$ForcedBranchId = 854,
     [string]$ProductSKU = 'TEST-SKU-001',
     [string]$ProductName = 'Test Product From Script',
     [int]$OlcumBirimiId = 5,
-    [string]$LogDir = "$(Split-Path -Path $MyInvocation.MyCommand.Definition -Parent)\logs",
-    [string]$SessionCookie = ''  # optional: pass 'JSESSIONID=...!nnn' or just the id token
-=======
-    [int]$ForcedBranchId = 85,
-    [string]$ProductSKU = 'TEST-SKU-001',
-    [string]$ProductName = 'Test Product From Script',
-    [int]$OlcumBirimiId = 5,
     [string]$LogDir = "$(Split-Path -Path $MyInvocation.MyCommand.Definition -Parent)\logs"
->>>>>>> development
 )
 
 # Ensure base url ends with '/'
@@ -64,33 +55,10 @@ function Write-JsonFile($path, $obj) {
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $headers = @{ 'Accept' = 'application/json'; 'Content-Type' = 'application/json' }
 
-<<<<<<< HEAD
-# If caller provided a SessionCookie, parse and add it to the session before any requests
-if (-not [string]::IsNullOrWhiteSpace($SessionCookie)) {
-    $raw = $SessionCookie.Trim()
-    $sid = $null
-    if ($raw -match 'JSESSIONID=([^;\s]+)') { $sid = $matches[1] } else { $sid = $raw }
-    try {
-        $baseUri = [System.Uri] $BaseUrl
-        $cookie = New-Object System.Net.Cookie('JSESSIONID', $sid, '/', $baseUri.Host)
-        $session.Cookies.Add($cookie)
-        Write-Host "Session cookie injected: JSESSIONID=$sid"
-        # persist dump
-        $cookieDumpInit = @()
-        foreach ($c in $session.Cookies.GetCookies($baseUri)) { $cookieDumpInit += ([PSCustomObject]@{ Name=$c.Name; Value=$c.Value; Domain=$c.Domain; Path=$c.Path; Expires=$c.Expires; HttpOnly=$c.HttpOnly }) }
-        Write-JsonFile "$LogDir\cookies-initial.json" $cookieDumpInit
-    }
-    catch {
-        Write-Warning "Failed to inject session cookie: $_"
-    }
-}
-
-=======
->>>>>>> development
 # Helper: full URL
 function Url([string]$relative) { return ([string]::Format("{0}{1}",$BaseUrl,$relative)) }
 
-# 1) Login
+# 1) Login (always)
 $loginPayload = @{ orgCode = $OrgCode; userName = $UserName; userPassword = $Password } | ConvertTo-Json
 Write-Host "[1/4] POST Login -> $($BaseUrl)$($endpoints.Auth)"
 try {
@@ -122,7 +90,7 @@ Write-Host "Cookies after login saved to $LogDir/cookies-after-login.json"
 # 2) Get branches
 Write-Host "[2/4] Fetch branches -> $($BaseUrl)$($endpoints.Branches)"
 try {
-    $branchesResp = Invoke-WebRequest -Uri (Url $endpoints.Branches) -Method Post -Body '{}' -WebSession $session -Headers $headers -UseBasicParsing -ErrorAction Stop
+    $branchesResp = Invoke-WebRequest -Uri (Url $endpoints.Branches) -Method Get -WebSession $session -Headers $headers -UseBasicParsing -ErrorAction Stop
     $branchesContent = $branchesResp.Content
     Write-JsonFile "$LogDir\branches.json" $branchesContent
     Set-Content "$LogDir\http-branches-headers.txt" ($branchesResp.Headers | Out-String)
@@ -186,7 +154,7 @@ if ($branchId) {
     foreach ($p in $changePayloadCandidates) {
         $json = $p | ConvertTo-Json
         try {
-            $changeResp = Invoke-WebRequest -Uri (Url $endpoints.ChangeBranch) -Method Post -Body $json -WebSession $session -Headers $headers -UseBasicParsing -ErrorAction Stop
+            $changeResp = Invoke-WebRequest -Uri (Url $endpoints.ChangeBranch) -Method Post -Body $json -WebSession $session -Headers $headers -ContentType "application/json" -UseBasicParsing -ErrorAction Stop
             $changeContent = $changeResp.Content
             Write-JsonFile "$LogDir\change-branch-response.json" $changeContent
             Set-Content "$LogDir\http-change-branch-headers.txt" ($changeResp.Headers | Out-String)
@@ -210,27 +178,59 @@ if ($branchId) {
     Write-JsonFile "$LogDir\cookies-after-change-branch.json" $cookieDump2
     Set-Content "$LogDir\cookies.txt" ($cookieDump2 | ConvertTo-Json -Depth 3)
     Write-Host "Cookies after change-branch saved to $LogDir/cookies-after-change-branch.json"
+
+    # Verify branch selection after change
+    Write-Host "[3b] Verify branch selection -> $($BaseUrl)$($endpoints.Branches)"
+    try {
+        $branchesVerifyResp = Invoke-WebRequest -Uri (Url $endpoints.Branches) -Method Get -WebSession $session -Headers $headers -UseBasicParsing -ErrorAction Stop
+        $branchesVerifyContent = $branchesVerifyResp.Content
+        Write-JsonFile "$LogDir\\branches-after-change.json" $branchesVerifyContent
+
+        $selectedOk = $false
+        try {
+            $branchesObj = $branchesVerifyContent | ConvertFrom-Json -ErrorAction Stop
+            $selected = $null
+            if ($branchesObj -is [array]) {
+                $selected = $branchesObj | Where-Object { $_.orgSirketSubeId -eq $branchId -and ($_.selected -eq $true -or $_.isSelected -eq $true) }
+            }
+            elseif ($branchesObj.data -ne $null) {
+                $selected = $branchesObj.data | Where-Object { $_.orgSirketSubeId -eq $branchId -and ($_.selected -eq $true -or $_.isSelected -eq $true) }
+            }
+            $selectedOk = $selected -ne $null -and $selected.Count -gt 0
+        }
+        catch { Write-Warning "Branch verify JSON parse failed: $_" }
+
+        if (-not $selectedOk) {
+            Write-Warning "Branch selection verification failed; stock-create will be skipped."
+            return
+        }
+        Write-Host "Branch selection verified (Id=$branchId). Proceeding to stock-create."
+    }
+    catch {
+        Write-Warning "Branch verification request failed: $_"
+        return
+    }
 }
 else {
-    Write-Warning "Skipping change-branch because no branch id selected. Stock creation might fail with code 1003."
+    Write-Warning "Skipping change-branch because no branch id selected. Stock creation will be skipped."
+    return
 }
 
 # 4) Create stock card
 Write-Host "[4/4] Create stock card -> $($BaseUrl)$($endpoints.StockCreate)"
-<<<<<<< HEAD
+$effectiveName = $null
+if ([string]::IsNullOrWhiteSpace($ProductName)) { $effectiveName = $ProductSKU } else { $effectiveName = $ProductName }
+$today = (Get-Date).ToString('yyyy-MM-dd')
+# Use lower-cased field names to match Koza expectations (e.g. 'kartAdi', 'kartKodu', 'baslangicTarihi')
 $stockPayload = @{
-    KartAdi = $ProductName;
-=======
-$effectiveName = [string]::IsNullOrWhiteSpace($ProductName) ? $ProductSKU : $ProductName
-$stockPayload = @{
-    KartAdi = $effectiveName;
->>>>>>> development
-    KartTuru = 1;
-    OlcumBirimiId = $OlcumBirimiId;
-    KartKodu = $ProductSKU;
-    PerakendeSatisBirimFiyat = 100.0;
-    PerakendeAlisBirimFiyat = 80.0
-} | ConvertTo-Json
+    kartAdi = $effectiveName;
+    kartTuru = 1;
+    olcumBirimiId = $OlcumBirimiId;
+    kartKodu = $ProductSKU;
+    baslangicTarihi = $today; # Koza often requires a start date
+    perakendeSatisBirimFiyat = 100.0;
+    perakendeAlisBirimFiyat = 80.0
+} | ConvertTo-Json -Depth 10
 try {
     $stockResp = Invoke-WebRequest -Uri (Url $endpoints.StockCreate) -Method Post -Body $stockPayload -WebSession $session -Headers $headers -UseBasicParsing -ErrorAction Stop
     $stockContent = $stockResp.Content

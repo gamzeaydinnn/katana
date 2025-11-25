@@ -97,6 +97,20 @@ public class LucaService : ILucaService
         }
     }
 
+    private async Task VerifyBranchSelectionAsync()
+    {
+        try
+        {
+            var resp = await (_cookieHttpClient ?? _httpClient).PostAsync(_settings.Endpoints.Branches, CreateKozaContent("{}"));
+            var content = await resp.Content.ReadAsStringAsync();
+            await AppendRawLogAsync("BRANCH_VERIFY", _settings.Endpoints.Branches, "{}", resp.StatusCode, content);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Branch verification call failed; proceeding with current session.");
+        }
+    }
+
     private async Task AuthenticateWithCookieAsync()
     {
         try
@@ -1776,6 +1790,7 @@ public class LucaService : ILucaService
         {
             await EnsureAuthenticatedAsync();
             await EnsureBranchSelectedAsync();
+            await VerifyBranchSelectionAsync();
             _logger.LogInformation("Sending {Count} stock cards to Luca (Koza) one by one (Koza does not accept arrays)", stockCards.Count);
 
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
@@ -1816,6 +1831,7 @@ public class LucaService : ILucaService
                         _isCookieAuthenticated = false;
                         await EnsureAuthenticatedAsync();
                         await EnsureBranchSelectedAsync();
+                        await VerifyBranchSelectionAsync();
                         response = await (_cookieHttpClient ?? client).SendAsync(new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = new ByteArrayContent(enc1254.GetBytes(payload)) { Headers = { ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "windows-1254" } } } });
                         responseBytes = await response.Content.ReadAsByteArrayAsync();
                         try { responseContent = enc1254.GetString(responseBytes); } catch { responseContent = Encoding.UTF8.GetString(responseBytes); }
@@ -1825,6 +1841,7 @@ public class LucaService : ILucaService
                     if (responseContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
                     {
                         // HTML response — try additional fallbacks (UTF-8 JSON, then form-urlencoded)
+                        _logger.LogError("Stock card {Card} returned HTML. Snippet: {Snippet}", card.KartKodu, responseContent.Length > 200 ? responseContent.Substring(0, 200) : responseContent);
                         _logger.LogWarning("Stock card {Card} returned HTML. Will attempt UTF-8 JSON retry then form-encoded retry.", card.KartKodu);
                         await AppendRawLogAsync($"SEND_STOCK_CARD_HTML:{card.KartKodu}", fullUrl, payload, response.StatusCode, responseContent);
                         try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_HTML:{card.KartKodu}", null, response); } catch (Exception) { /* ignore */ }

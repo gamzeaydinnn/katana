@@ -562,35 +562,39 @@ public static class MappingHelper
     /// </summary>
     public static LucaCreateStokKartiRequest MapToLucaStockCard(Product product)
     {
-        return MapToLucaStockCard(product, null);
+        return MapToLucaStockCard(product, null, null);
     }
 
     /// <summary>
     /// Katana Product -> Koza stok kartı oluşturma DTO'su.
     /// Ölçü birimi ID'si farklı şube/kurulumlara göre değişebildiğinden parametre ile alınabilir.
     /// </summary>
-    public static LucaCreateStokKartiRequest MapToLucaStockCard(Product product, long? olcumBirimiId)
+    public static LucaCreateStokKartiRequest MapToLucaStockCard(Product product, long? olcumBirimiId, double? defaultVat)
     {
-        var normalizedSku = NormalizeSku(product.SKU);
+        var normalizedSku = NormalizeSkuPreserve(product.SKU);
+        if (string.IsNullOrWhiteSpace(normalizedSku))
+        {
+            normalizedSku = $"KAT-{(product.Id > 0 ? product.Id : Guid.NewGuid().ToString("N")[..8])}";
+        }
         var baseName = string.IsNullOrWhiteSpace(product.Name) ? normalizedSku : product.Name;
         var kartAdi = TrimAndTruncate(baseName, 255) ?? normalizedSku;
         var uzunAdi = TrimAndTruncate(!string.IsNullOrWhiteSpace(product.Description) ? product.Description : baseName, 500) ?? kartAdi;
         var kategoriKod = TrimAndTruncate(product.CategoryId > 0 ? product.CategoryId.ToString() : string.Empty, 50) ?? string.Empty;
         var barkod = normalizedSku;
         var detayAciklama = TrimAndTruncate(product.Description, 1000) ?? string.Empty;
+        var startDate = (product.CreatedAt == default ? DateTime.UtcNow : product.CreatedAt).Date;
 
         // Dokümana göre KDV oranları 0.18 formatında gönderilmeli (%18)
-        var vat = 0.18;
+        var vat = defaultVat ?? 0.18;
 
         return new LucaCreateStokKartiRequest
         {
             KartAdi = kartAdi,
             KartTuru = 1,
-            BaslangicTarihi = null,
+            BaslangicTarihi = startDate,
             // Dokümana göre "Adet" için 5 tipik ID; gerekirse dışarıdan sağlanır.
             OlcumBirimiId = olcumBirimiId ?? 5,
-            // kartKodu boş gönderildiğinde Koza otomatik kod üretir
-            KartKodu = string.IsNullOrWhiteSpace(product.SKU) ? string.Empty : normalizedSku,
+            KartKodu = normalizedSku,
             MaliyetHesaplanacakFlag = true,
             KartTipi = 1,
             KategoriAgacKod = kategoriKod,
@@ -655,19 +659,25 @@ public static class MappingHelper
     /// KatanaProductDto (harici API) -> Koza stok kartı DTO'su.
     /// SKU boşsa KAT-{Id} kodu kullanılır, KDV ve para birimi için güvenli varsayılanlar atanır.
     /// </summary>
-    public static LucaCreateStokKartiRequest MapToLucaStockCard(KatanaProductDto product)
+    public static LucaCreateStokKartiRequest MapToLucaStockCard(KatanaProductDto product, long? olcumBirimiId = null, double? defaultVat = null)
     {
-        var sku = NormalizeSku(product.GetProductCode());
+        var skuRaw = string.IsNullOrWhiteSpace(product.SKU) ? product.GetProductCode() : product.SKU;
+        var sku = NormalizeSkuPreserve(skuRaw);
+        if (string.IsNullOrWhiteSpace(sku))
+        {
+            sku = $"KAT-{(string.IsNullOrWhiteSpace(product.Id) ? Guid.NewGuid().ToString("N")[..8] : product.Id)}";
+        }
         var name = !string.IsNullOrWhiteSpace(product.Name) ? product.Name : sku;
         var desc = TrimAndTruncate(product.Description, 1000) ?? string.Empty;
-        var vatRate = product.VatRate.HasValue ? product.VatRate.Value / 100d : 0.20;
+        var vatRate = product.VatRate.HasValue ? product.VatRate.Value / 100d : (defaultVat ?? 0.20);
+        var startDate = DateTime.UtcNow.Date;
 
         return new LucaCreateStokKartiRequest
         {
             KartAdi = TrimAndTruncate(name, 255) ?? sku,
             KartTuru = 1,
-            BaslangicTarihi = null,
-            OlcumBirimiId = 5, // "Adet" varsayılanı
+            BaslangicTarihi = startDate,
+            OlcumBirimiId = olcumBirimiId ?? 5, // "Adet" varsayılanı
             KartKodu = sku,
             MaliyetHesaplanacakFlag = true,
             KartTipi = 1,
@@ -702,6 +712,10 @@ public static class MappingHelper
             errors.Add("KartSatisKdvOran geçersiz");
         if (stockCard.PerakendeAlisBirimFiyat < 0 || stockCard.PerakendeSatisBirimFiyat < 0)
             errors.Add("Birim fiyatlar negatif olamaz");
+        if (stockCard.KartSatisKdvOran < 0 || stockCard.KartSatisKdvOran > 1)
+            errors.Add("KartSatisKdvOran 0 ile 1 arasında olmalı");
+        if (stockCard.KartAlisKdvOran < 0 || stockCard.KartAlisKdvOran > 1)
+            errors.Add("KartAlisKdvOran 0 ile 1 arasında olmalı");
 
         return (!errors.Any(), errors);
     }
@@ -1348,6 +1362,12 @@ public static class MappingHelper
         }
 
         return normalized.ToUpperInvariant();
+    }
+
+    // For Luca stock card we prefer preserving case/format; only trim whitespace.
+    private static string NormalizeSkuPreserve(string sku)
+    {
+        return string.IsNullOrWhiteSpace(sku) ? string.Empty : sku.Trim();
     }
 
     private static double ResolveOrderItemKdvOran(OrderItem item)
