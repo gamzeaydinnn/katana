@@ -1,4 +1,5 @@
-﻿using Katana.Business.Interfaces;
+﻿using Katana.API.Controllers.DTOs;
+using Katana.Business.Interfaces;
 using Katana.Data.Context;
 using Katana.Data.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -286,12 +287,12 @@ public class MappingController : ControllerBase
 
             _context.MappingTables.Remove(mapping);
             await _context.SaveChangesAsync();
-            await _auditLogger.LogAsync("DELETE", "MappingTable", mapping.Id, 
-            $"Deleted mapping {mapping.SourceValue}", 
-            User.Identity?.Name ?? "API");
+            await _auditLogger.LogAsync("DELETE", "MappingTable", mapping.Id,
+                $"Deleted mapping {mapping.SourceValue}",
+                User.Identity?.Name ?? "API");
 
 
-            _logger.LogInformation("Deleted mapping {Id}: {SourceValue} -> {TargetValue}", 
+            _logger.LogInformation("Deleted mapping {Id}: {SourceValue} -> {TargetValue}",
                 id, mapping.SourceValue, mapping.TargetValue);
 
             return NoContent();
@@ -302,21 +303,4 @@ public class MappingController : ControllerBase
             return StatusCode(500, new { error = "Internal server error deleting mapping" });
         }
     }
-}
-
-public class CreateMappingRequest
-{
-    public string MappingType { get; set; } = string.Empty;
-    public string SourceValue { get; set; } = string.Empty;
-    public string TargetValue { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public bool? IsActive { get; set; }
-    
-}
-
-public class UpdateMappingRequest
-{
-    public string? TargetValue { get; set; }
-    public string? Description { get; set; }
-    public bool? IsActive { get; set; }
 }

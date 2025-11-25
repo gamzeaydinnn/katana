@@ -1,7 +1,11 @@
-﻿using Katana.Core.Enums;
+﻿using Katana.Business.Interfaces;
+using Katana.Business.Services;
+using Katana.Core.Enums;
+using Katana.Core.DTOs;
 using Katana.Data.Context;
 using Katana.Data.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,11 +18,19 @@ public class ReportsController : ControllerBase
 {
     private readonly IntegrationDbContext _context;
     private readonly ILogger<ReportsController> _logger;
+    private readonly IKatanaService _katanaService;
+    private readonly DashboardService _dashboardService;
 
-    public ReportsController(IntegrationDbContext context, ILogger<ReportsController> logger)
+    public ReportsController(
+        IntegrationDbContext context,
+        ILogger<ReportsController> logger,
+        IKatanaService katanaService,
+        DashboardService dashboardService)
     {
         _context = context;
         _logger = logger;
+        _katanaService = katanaService;
+        _dashboardService = dashboardService;
     }
 
     /// <summary>
@@ -255,6 +267,7 @@ public class ReportsController : ControllerBase
     /// Gets stock report with product details, quantities, and values
     /// </summary>
     [HttpGet("stock")]
+    [HttpGet("~/api/Analytics/stock")]
     [AllowAnonymous] // Manager ve Staff da stok raporlarını görebilmeli
     public async Task<ActionResult<object>> GetStockReport(
         [FromQuery] int page = 1,
@@ -354,5 +367,225 @@ public class ReportsController : ControllerBase
             return StatusCode(500, new { error = "Failed to generate stock report" });
         }
     }
-}
 
+    /// <summary>
+    /// GET /api/Reports/sync and legacy /api/Analytics/sync - Senkronizasyon raporu
+    /// </summary>
+    [HttpGet("sync")]
+    [HttpGet("~/api/Analytics/sync")]
+    public async Task<IActionResult> GetSyncReport()
+    {
+        try
+        {
+            var logs = await _context.SyncOperationLogs
+                .OrderByDescending(l => l.StartTime)
+                .Take(100)
+                .Select(l => new
+                {
+                    syncType = l.SyncType,
+                    status = l.Status,
+                    startTime = l.StartTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                    duration = l.EndTime.HasValue
+                        ? $"{(l.EndTime.Value - l.StartTime).TotalSeconds:F1}s"
+                        : "N/A",
+                    successCount = l.SuccessfulRecords,
+                    failCount = l.FailedRecords
+                })
+                .ToListAsync();
+
+            return Ok(logs);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating sync report");
+            return StatusCode(500, new { message = "Sync raporu oluşturulamadı" });
+        }
+    }
+
+    /// <summary>
+    /// GET /api/Reports/summary and legacy /api/Analytics/summary - Özet istatistikler
+    /// </summary>
+    [HttpGet("summary")]
+    [HttpGet("~/api/Analytics/summary")]
+    public async Task<IActionResult> GetSummaryReport()
+    {
+        try
+        {
+            var products = await _katanaService.GetProductsAsync();
+
+            var recentSyncs = await _context.SyncOperationLogs
+                .OrderByDescending(l => l.StartTime)
+                .Take(10)
+                .ToListAsync();
+
+            var summary = new
+            {
+                totalProducts = products.Count,
+                activeProducts = products.Count(p => p.IsActive),
+                inactiveProducts = products.Count(p => !p.IsActive),
+                totalSyncs = recentSyncs.Count,
+                successfulSyncs = recentSyncs.Count(s => s.Status == "SUCCESS"),
+                failedSyncs = recentSyncs.Count(s => s.Status != "SUCCESS"),
+                lastSyncDate = recentSyncs.FirstOrDefault()?.StartTime.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"
+            };
+
+            return Ok(summary);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating summary report");
+            return StatusCode(500, new { message = "Özet rapor oluşturulamadı" });
+        }
+    }
+
+    /// <summary>
+    /// Dashboard ana istatistikleri - GET /api/Reports/dashboard (legacy: /api/Dashboard)
+    /// </summary>
+    [HttpGet("dashboard")]
+    [HttpGet("~/api/Dashboard")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetDashboard()
+    {
+        try
+        {
+            _logger.LogInformation("Dashboard istatistikleri getiriliyor");
+
+            var products = await _katanaService.GetProductsAsync();
+
+            var stats = new
+            {
+                totalProducts = products.Count,
+                totalStock = products.Count(p => p.IsActive),
+                pendingSync = 0,
+                criticalStock = products.Count(p => !p.IsActive)
+            };
+
+            _logger.LogInformation("Dashboard istatistikleri başarıyla alındı");
+            return Ok(stats);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Dashboard verileri alınırken hata oluştu");
+            return StatusCode(500, new { message = "Dashboard verileri alınamadı" });
+        }
+    }
+
+    /// <summary>
+    /// Katana API bağlantısı ve senkronizasyon istatistikleri
+    /// </summary>
+    [HttpGet("dashboard/sync-stats")]
+    [HttpGet("~/api/Dashboard/sync-stats")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetDashboardSyncStats()
+    {
+        try
+        {
+            var isHealthy = await _katanaService.TestConnectionAsync();
+
+            if (!isHealthy)
+            {
+                _logger.LogWarning("Katana API bağlantısı başarısız.");
+                return Ok(new
+                {
+                    totalProducts = 0,
+                    totalStock = 0,
+                    lowStockItems = 0,
+                    outOfStockItems = 0,
+                    pendingSync = 0,
+                    lastSyncDate = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    warning = "Katana API bağlantısı kurulamadı"
+                });
+            }
+
+            var products = await _katanaService.GetProductsAsync();
+
+            var totalProducts = products.Count;
+            var totalStock = products.Count(p => p.IsActive);
+            var outOfStockItems = products.Count(p => !p.IsActive);
+            var lowStockItems = 0;
+
+            var pendingSync = await _context.SyncOperationLogs
+                .CountAsync(l => l.Status != "SUCCESS");
+
+            var lastSync = await _context.SyncOperationLogs
+                .OrderByDescending(l => l.EndTime ?? l.StartTime)
+                .FirstOrDefaultAsync();
+
+            return Ok(new
+            {
+                totalProducts,
+                totalStock,
+                lowStockItems,
+                outOfStockItems,
+                pendingSync,
+                lastSyncDate = (lastSync != null
+                    ? (lastSync.EndTime ?? lastSync.StartTime).ToString("yyyy-MM-ddTHH:mm:ss")
+                    : DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"))
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Senkronizasyon istatistikleri alınırken hata oluştu.");
+            return StatusCode(500, new { error = "Senkronizasyon istatistikleri alınamadı", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Dashboard istatistikleri
+    /// </summary>
+    [HttpGet("dashboard/stats")]
+    [HttpGet("~/api/Dashboard/stats")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<DashboardStatsDto>> GetDashboardStats()
+    {
+        try
+        {
+            var stats = await _dashboardService.GetDashboardStatsAsync();
+            return Ok(stats);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Dashboard istatistikleri alınamadı.");
+            return StatusCode(500, new { error = "İstatistikler alınamadı", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// En son sistem aktiviteleri
+    /// </summary>
+    [HttpGet("dashboard/activities")]
+    [HttpGet("~/api/Dashboard/activities")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRecentActivities()
+    {
+        try
+        {
+            var recentLogs = await _context.SyncOperationLogs
+                .OrderByDescending(l => l.EndTime ?? l.StartTime)
+                .Take(20)
+                .ToListAsync();
+
+            var activities = recentLogs.Select(log => new
+            {
+                id = log.Id,
+                type = log.SyncType,
+                message = log.Status == "SUCCESS"
+                    ? $"{log.SyncType} - Başarılı"
+                    : $"{log.SyncType} - Başarısız",
+                timestamp = log.EndTime ?? log.StartTime,
+                status = log.Status
+            }).ToList();
+
+            return Ok(new { data = activities, count = activities.Count });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Son aktiviteler alınırken hata oluştu");
+            return StatusCode(500, new { error = "Son aktiviteler alınamadı", details = ex.Message });
+        }
+    }
+}
