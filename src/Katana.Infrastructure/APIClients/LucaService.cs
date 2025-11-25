@@ -39,10 +39,17 @@ public class LucaService : ILucaService
     private static readonly Dictionary<long, (int ExpectedCariTur, string ErrorMessage)> FaturaKapamaCariRules =
         new()
         {
-            { 123, (5, "Tahsilat makbuzu için sadece Kasa Kartı kullanılabilir (cariTur=5)") },
-            { 124, (5, "Kredi kartı girişi için sadece Kasa Kartı kullanılabilir (cariTur=5)") },
-            { 125, (3, "Gelen havale için sadece Banka Kartı kullanılabilir (cariTur=3)") },
-            { 126, (5, "Tediye işlemleri için sadece Kasa Kartı kullanılabilir (cariTur=5)") }
+            // Cari Hareketler (BELGE_TUR_ID = 11)
+            { 49,  (5, "Tahsilat makbuzu için sadece Kasa Kartı kullanılabilir (cariTur=5)") },
+            { 63,  (5, "Tediye makbuzu için sadece Kasa Kartı kullanılabilir (cariTur=5)") },
+            { 64,  (3, "Gelen havale için sadece Banka Kartı kullanılabilir (cariTur=3)") },
+            { 65,  (3, "Gönderilen havale için Banka Kartı kullanılabilir (cariTur=3)") },
+            { 68,  (3, "Virman işlemleri için Banka Kartı kullanılabilir (cariTur=3)") },
+            { 66,  (1, "Alacak dekontu için Cari Kart kullanılmalıdır (cariTur=1)") },
+            { 67,  (1, "Borç dekontu için Cari Kart kullanılmalıdır (cariTur=1)") },
+
+            // Kredi Kartı Giriş (BELGE_TUR_ID = 28)
+            { 127, (5, "Kredi kartı girişi için sadece Kasa Kartı kullanılabilir (cariTur=5)") }
         };
 
     public LucaService(HttpClient httpClient, IOptions<LucaApiSettings> settings, ILogger<LucaService> logger)
@@ -2953,29 +2960,56 @@ public class LucaService : ILucaService
     {
         try
         {
-            await EnsureAuthenticatedAsync();
+            _logger.LogInformation("Fetching customers from Luca (fromDate={FromDate})", fromDate);
+            var element = await ListCustomersAsync();
+            var customers = new List<LucaCustomerDto>();
 
-            var queryDate = fromDate?.ToString("yyyy-MM-dd") ?? DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-dd");
-            var endpoint = $"{_settings.Endpoints.Customers}?fromDate={queryDate}";
-
-            _logger.LogInformation("Fetching customers from Luca since {Date}", queryDate);
-
-            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-            var response = await client.GetAsync(endpoint);
-
-            if (response.IsSuccessStatusCode)
+            JsonElement arrayEl = default;
+            if (element.ValueKind == JsonValueKind.Array)
             {
-                var content = await response.Content.ReadAsStringAsync();
-                var customers = JsonSerializer.Deserialize<List<LucaCustomerDto>>(content, _jsonOptions) ?? new List<LucaCustomerDto>();
+                arrayEl = element;
+            }
+            else if (element.ValueKind == JsonValueKind.Object)
+            {
+                if (element.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+                {
+                    arrayEl = data;
+                }
+                else if (element.TryGetProperty("list", out var list) && list.ValueKind == JsonValueKind.Array)
+                {
+                    arrayEl = list;
+                }
+            }
 
-                _logger.LogInformation("Successfully fetched {Count} customers from Luca", customers.Count);
+            if (arrayEl.ValueKind != JsonValueKind.Array)
+            {
+                _logger.LogWarning("Customer list response from Luca did not contain an array; returning empty list");
                 return customers;
             }
-            else
+
+            foreach (var item in arrayEl.EnumerateArray())
             {
-                _logger.LogError("Failed to fetch customers from Luca. Status: {StatusCode}", response.StatusCode);
-                return new List<LucaCustomerDto>();
+                if (item.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                var dto = new LucaCustomerDto
+                {
+                    CustomerCode = TryGetProperty(item, "kod", "cariKodu") ?? string.Empty,
+                    Title = TryGetProperty(item, "tanim", "cariTanim") ?? string.Empty,
+                    TaxNo = TryGetProperty(item, "vergiNo", "vkn", "tcKimlikNo") ?? string.Empty,
+                    ContactPerson = TryGetProperty(item, "yetkili", "yetkiliKisi"),
+                    Phone = TryGetProperty(item, "telefon"),
+                    Email = TryGetProperty(item, "email"),
+                    Address = TryGetProperty(item, "adresSerbest", "adres"),
+                    City = TryGetProperty(item, "il"),
+                    Country = TryGetProperty(item, "ulke", "country")
+                };
+
+                customers.Add(dto);
             }
+
+            _logger.LogInformation("Successfully fetched {Count} customers from Luca", customers.Count);
+            return customers;
         }
         catch (Exception ex)
         {

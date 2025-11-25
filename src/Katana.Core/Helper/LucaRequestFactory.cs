@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Katana.Core.DTOs;
+using Katana.Core.Constants;
 
 namespace Katana.Core.Helper
 {
@@ -56,7 +57,7 @@ namespace Katana.Core.Helper
         /// </summary>
         public static LucaCreateInvoiceHeaderRequest CreateSampleInvoiceHeader(
             DateTime? belgeTarihi = null,
-            long belgeTurDetayId = 76,
+            long belgeTurDetayId = KozaBelgeTurleri.MalSatisFaturasi,
             string belgeSeri = "A",
             int? belgeNo = null,
             string? belgeTakipNo = null,
@@ -107,7 +108,7 @@ namespace Katana.Core.Helper
         /// </summary>
         public static LucaCreateDshBaslikRequest CreateSampleOtherStockMovement(
             DateTime? belgeTarihi = null,
-            long belgeTurDetayId = 456,
+            long belgeTurDetayId = KozaBelgeTurleri.DigerStokGiris,
             string depoKodu = "0001-0001",
             int kartTuru = 1,
             string kartKodu = "PROD001",
