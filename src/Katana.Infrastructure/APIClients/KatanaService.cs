@@ -48,7 +48,7 @@ public class KatanaService : IKatanaService
         {
             _logger.LogInformation("Getting stock changes from {FromDate} to {ToDate}", fromDate, toDate);
 
-            var url = $"{_settings.Endpoints.Stock}?fromDate={fromDate:yyyy-MM-dd}&toDate={toDate:yyyy-MM-dd}";
+            var url = $"{_settings.Endpoints.StockAdjustments}?fromDate={fromDate:yyyy-MM-dd}&toDate={toDate:yyyy-MM-dd}";
             var response = await _httpClient.GetAsync(url);
 
             if (response.IsSuccessStatusCode)
@@ -351,7 +351,7 @@ public class KatanaService : IKatanaService
         {
             _logger.LogInformation("Getting invoices from {FromDate} to {ToDate}", fromDate, toDate);
 
-            var url = $"{_settings.Endpoints.Invoices}?fromDate={fromDate:yyyy-MM-dd}&toDate={toDate:yyyy-MM-dd}";
+            var url = $"{_settings.Endpoints.SalesOrders}?fromDate={fromDate:yyyy-MM-dd}&toDate={toDate:yyyy-MM-dd}";
             var response = await _httpClient.GetAsync(url);
 
             if (response.IsSuccessStatusCode)
@@ -424,7 +424,7 @@ public class KatanaService : IKatanaService
         {
             _logger.LogInformation("Getting product by SKU: {SKU}", sku);
             // Correct approach: query variants endpoint to find variant by sku, then fetch product by product_id
-            var variantUrl = $"variants?sku={Uri.EscapeDataString(sku)}";
+            var variantUrl = $"{_settings.Endpoints.Variants}?sku={Uri.EscapeDataString(sku)}";
             var varResp = await _httpClient.GetAsync(variantUrl);
             var varContent = await varResp.Content.ReadAsStringAsync();
 

@@ -187,7 +187,7 @@ public class LoaderService : ILoaderService
             return 0;
         }
 
-        var lucaStockCards = productList.Select(MappingHelper.MapToLucaStockCard).ToList();
+        var lucaStockCards = productList.Select(product => MappingHelper.MapToLucaStockCard(product)).ToList();
 
         // Diagnostic logging for product push
         try
