@@ -89,10 +89,12 @@ public class KatanaApiClient : IKatanaApiClient
             ProductId = 0,
             VariantId = m.VariantId,
             LocationId = m.LocationId,
-            MovementType = m.MovementType ?? "UNKNOWN",
-            Quantity = m.Quantity ?? 0,
-            Timestamp = m.TransactionDate ?? DateTime.UtcNow,
-            Reference = m.TransactionNumber
+            MovementType = string.IsNullOrWhiteSpace(m.ResourceType) ? "UNKNOWN" : m.ResourceType,
+            Quantity = m.Quantity,
+            Timestamp = m.CreatedAt == default ? DateTime.UtcNow : m.CreatedAt,
+            Reference = !string.IsNullOrWhiteSpace(m.CausedByOrderNo)
+                ? m.CausedByOrderNo
+                : (m.ResourceId?.ToString() ?? string.Empty)
         }).ToList();
     }
 
