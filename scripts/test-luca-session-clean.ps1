@@ -13,30 +13,17 @@ Saves artifacts to `scripts/logs/`:
   - stock-create-response.json
   - cookies.txt
   - http-<step>-headers.txt
-
-Usage examples:
-  .\test-luca-session.ps1
-  .\test-luca-session.ps1 -BaseUrl 'http://85.111.1.49:57005/Yetki/' -OrgCode 1422649 -UserName Admin -Password WebServis -ForcedBranchId 854
 #>
 param(
     [string]$BaseUrl = 'http://85.111.1.49:57005/Yetki/',
     [string]$OrgCode = '1422649',
     [string]$UserName = 'Admin',
     [string]$Password = 'WebServis',
-<<<<<<< HEAD
     [int]$ForcedBranchId = 854,
     [string]$ProductSKU = 'TEST-SKU-001',
     [string]$ProductName = 'Test Product From Script',
     [int]$OlcumBirimiId = 5,
-    [string]$LogDir = "$(Split-Path -Path $MyInvocation.MyCommand.Definition -Parent)\logs",
-    [string]$SessionCookie = ''  # optional: pass 'JSESSIONID=...!nnn' or just the id token
-=======
-    [int]$ForcedBranchId = 85,
-    [string]$ProductSKU = 'TEST-SKU-001',
-    [string]$ProductName = 'Test Product From Script',
-    [int]$OlcumBirimiId = 5,
     [string]$LogDir = "$(Split-Path -Path $MyInvocation.MyCommand.Definition -Parent)\logs"
->>>>>>> development
 )
 
 # Ensure base url ends with '/'
@@ -64,29 +51,6 @@ function Write-JsonFile($path, $obj) {
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $headers = @{ 'Accept' = 'application/json'; 'Content-Type' = 'application/json' }
 
-<<<<<<< HEAD
-# If caller provided a SessionCookie, parse and add it to the session before any requests
-if (-not [string]::IsNullOrWhiteSpace($SessionCookie)) {
-    $raw = $SessionCookie.Trim()
-    $sid = $null
-    if ($raw -match 'JSESSIONID=([^;\s]+)') { $sid = $matches[1] } else { $sid = $raw }
-    try {
-        $baseUri = [System.Uri] $BaseUrl
-        $cookie = New-Object System.Net.Cookie('JSESSIONID', $sid, '/', $baseUri.Host)
-        $session.Cookies.Add($cookie)
-        Write-Host "Session cookie injected: JSESSIONID=$sid"
-        # persist dump
-        $cookieDumpInit = @()
-        foreach ($c in $session.Cookies.GetCookies($baseUri)) { $cookieDumpInit += ([PSCustomObject]@{ Name=$c.Name; Value=$c.Value; Domain=$c.Domain; Path=$c.Path; Expires=$c.Expires; HttpOnly=$c.HttpOnly }) }
-        Write-JsonFile "$LogDir\cookies-initial.json" $cookieDumpInit
-    }
-    catch {
-        Write-Warning "Failed to inject session cookie: $_"
-    }
-}
-
-=======
->>>>>>> development
 # Helper: full URL
 function Url([string]$relative) { return ([string]::Format("{0}{1}",$BaseUrl,$relative)) }
 
@@ -118,6 +82,8 @@ foreach ($c in $session.Cookies.GetCookies($uri)) {
 Write-JsonFile "$LogDir\cookies-after-login.json" $cookieDump
 Set-Content "$LogDir\cookies.txt" ($cookieDump | ConvertTo-Json -Depth 3)
 Write-Host "Cookies after login saved to $LogDir/cookies-after-login.json"
+Write-Host "Login cookies:"
+($cookieDump | ConvertTo-Json -Depth 3) | Write-Host
 
 # 2) Get branches
 Write-Host "[2/4] Fetch branches -> $($BaseUrl)$($endpoints.Branches)"
@@ -210,6 +176,20 @@ if ($branchId) {
     Write-JsonFile "$LogDir\cookies-after-change-branch.json" $cookieDump2
     Set-Content "$LogDir\cookies.txt" ($cookieDump2 | ConvertTo-Json -Depth 3)
     Write-Host "Cookies after change-branch saved to $LogDir/cookies-after-change-branch.json"
+    Write-Host "Change-branch cookies:"
+    ($cookieDump2 | ConvertTo-Json -Depth 3) | Write-Host
+
+    # Verify branch selection state
+    Write-Host "[3b] Verify branch selection -> $($BaseUrl)$($endpoints.Branches)"
+    try {
+        $verifyResp = Invoke-WebRequest -Uri (Url $endpoints.Branches) -Method Post -Body '{}' -WebSession $session -Headers $headers -UseBasicParsing -ErrorAction Stop
+        $verifyContent = $verifyResp.Content
+        Write-JsonFile "$LogDir\\branches-verify.json" $verifyContent
+        Write-Host "Branch verification response saved to $LogDir\\branches-verify.json"
+    }
+    catch {
+        Write-Warning "Branch verification request failed: $_"
+    }
 }
 else {
     Write-Warning "Skipping change-branch because no branch id selected. Stock creation might fail with code 1003."
@@ -217,34 +197,130 @@ else {
 
 # 4) Create stock card
 Write-Host "[4/4] Create stock card -> $($BaseUrl)$($endpoints.StockCreate)"
-<<<<<<< HEAD
-$stockPayload = @{
-    KartAdi = $ProductName;
-=======
-$effectiveName = [string]::IsNullOrWhiteSpace($ProductName) ? $ProductSKU : $ProductName
-$stockPayload = @{
-    KartAdi = $effectiveName;
->>>>>>> development
-    KartTuru = 1;
-    OlcumBirimiId = $OlcumBirimiId;
-    KartKodu = $ProductSKU;
-    PerakendeSatisBirimFiyat = 100.0;
-    PerakendeAlisBirimFiyat = 80.0
-} | ConvertTo-Json
-try {
-    $stockResp = Invoke-WebRequest -Uri (Url $endpoints.StockCreate) -Method Post -Body $stockPayload -WebSession $session -Headers $headers -UseBasicParsing -ErrorAction Stop
-    $stockContent = $stockResp.Content
-    Write-JsonFile "$LogDir\stock-create-response.json" $stockContent
-    Set-Content "$LogDir\http-stock-headers.txt" ($stockResp.Headers | Out-String)
-    Write-Host "Stock create response saved to $LogDir/stock-create-response.json"
-}
-catch {
-    Write-Warning "Stock create request failed: $_"
-    if ($_.Exception.Response -ne $null) {
-        $resp = $_.Exception.Response
-        try { $body = (New-Object System.IO.StreamReader($resp.GetResponseStream())).ReadToEnd(); Write-JsonFile "$LogDir\stock-create-response.json" $body } catch {}
+function Send-HttpWithEncoding([string]$relative, [string]$bodyString, [string]$encodingName, [string]$contentType, [string]$outPrefix) {
+    # Uses HttpWebRequest to send raw bytes with requested encoding and reuse the session cookie container
+    try {
+        $url = (Url $relative)
+
+        if ($encodingName -eq 'windows-1254') {
+            try { $enc = [System.Text.Encoding]::GetEncoding(1254) } catch { Write-Warning "cp1254 encoding provider not available on this runtime; falling back to UTF8"; $enc = [System.Text.Encoding]::UTF8 }
+        }
+        elseif ($encodingName -eq 'utf-8') { $enc = [System.Text.Encoding]::UTF8 }
+        else { $enc = [System.Text.Encoding]::UTF8 }
+
+        $bytes = $enc.GetBytes($bodyString)
+
+        $req = [System.Net.WebRequest]::Create($url)
+        $req.Method = 'POST'
+        $req.ContentType = $contentType
+        $req.Accept = 'application/json'
+        # Attach existing cookies
+        $req.CookieContainer = $session.Cookies
+        $req.ContentLength = $bytes.Length
+
+        $reqStream = $req.GetRequestStream()
+        $reqStream.Write($bytes, 0, $bytes.Length)
+        $reqStream.Close()
+
+        $resp = $req.GetResponse()
+        $respStream = $resp.GetResponseStream()
+        $ms = New-Object System.IO.MemoryStream
+        $buf = New-Object byte[] 8192
+        while (($read = $respStream.Read($buf,0,$buf.Length)) -gt 0) { $ms.Write($buf,0,$read) }
+        $respBytes = $ms.ToArray()
+        $respStream.Close()
+
+        # try decode by response charset then fallback
+        $respContentType = $resp.Headers['Content-Type']
+        $respCharset = $null
+        if ($respContentType -match 'charset=([^;\r\n]+)') { $respCharset = $Matches[1] }
+
+        if ($respCharset -and $respCharset -match '1254') {
+            try { $respText = [System.Text.Encoding]::GetEncoding(1254).GetString($respBytes) } catch { Write-Warning "cp1254 decode not available; decoding as UTF8"; $respText = [System.Text.Encoding]::UTF8.GetString($respBytes) }
+        }
+        else { $respText = [System.Text.Encoding]::UTF8.GetString($respBytes) }
+
+        # write artifacts
+        $timeStamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
+        Set-Content -Path "$LogDir\${outPrefix}-response-${timeStamp}.txt" -Value $respText -Encoding UTF8
+        Set-Content -Path "$LogDir\${outPrefix}-headers-${timeStamp}.txt" -Value ($resp.Headers.ToString()) -Encoding UTF8
+        return @{ StatusCode = $resp.StatusCode; Content = $respText; Response = $resp }
     }
-    throw
+    catch {
+        Write-Warning "Send-HttpWithEncoding failed: $_"
+        return @{ StatusCode = 0; Content = ''; Response = $null }
+    }
+}
+
+# Option 1: Full payload with date-only (yyyy-MM-dd) and windows-1254 encoding
+$stockPayloadObj = @{
+    kartAdi = $ProductName;
+    kartTuru = 1;
+    baslangicTarihi = (Get-Date).ToString('yyyy-MM-dd');
+    olcumBirimiId = $OlcumBirimiId;
+    kartKodu = $ProductSKU;
+    maliyetHesaplanacakFlag = $true;
+    kartTipi = 1;
+    kategoriAgacKod = "";
+    kartAlisKdvOran = 0.20;
+    kartSatisKdvOran = 0.20;
+    bitisTarihi = (Get-Date).AddYears(10).ToString('yyyy-MM-dd');
+    barkod = $ProductSKU;
+    perakendeAlisBirimFiyat = 80.0;
+    perakendeSatisBirimFiyat = 100.0;
+    satilabilirFlag = $true;
+    satinAlinabilirFlag = $true;
+    detayAciklama = "Created by test script - cp1254 date-only"
+}
+$stockPayload = $stockPayloadObj | ConvertTo-Json -Depth 10
+Write-JsonFile "$LogDir\stock-create-request.json" $stockPayload
+Write-Host "Sending full payload as windows-1254 JSON with date-only fields..."
+$res = Send-HttpWithEncoding $endpoints.StockCreate $stockPayload 'windows-1254' 'application/json; charset=windows-1254' 'stock-create-cp1254'
+Write-JsonFile "$LogDir\stock-create-response-cp1254.json" $res.Content
+if ($res.Response -ne $null) { Set-Content "$LogDir\http-stock-headers-cp1254.txt" $res.Response.Headers.ToString() } else { Set-Content "$LogDir\http-stock-headers-cp1254.txt" "<no-response>" }
+Write-Host "Full payload (cp1254) response status: $($res.StatusCode)"
+
+# If server returned HTML (unexpected error), run Option 2: minimal payload tests
+if ($res.Content -and $res.Content.TrimStart().StartsWith('<')) {
+    Write-Host "Detected HTML response for full payload - running minimal payload tests (UTF-8, cp1254, form-encoded)"
+
+    $minimal = @{
+        kartAdi = $ProductName;
+        kartKodu = $ProductSKU;
+        kartTuru = 1;
+        baslangicTarihi = (Get-Date).ToString('yyyy-MM-dd');
+        olcumBirimiId = $OlcumBirimiId
+    }
+    $minimalJson = $minimal | ConvertTo-Json -Depth 5
+    # UTF-8 JSON
+    $r1 = Send-HttpWithEncoding $endpoints.StockCreate $minimalJson 'utf-8' 'application/json; charset=utf-8' 'minimal-json-utf8'
+    Write-JsonFile "$LogDir\minimal-json-utf8-response.json" $r1.Content
+    if ($r1.Response -ne $null) { Set-Content "$LogDir\http-minimal-json-utf8-headers.txt" $r1.Response.Headers.ToString() } else { Set-Content "$LogDir\http-minimal-json-utf8-headers.txt" "<no-response>" }
+
+    # cp1254 JSON
+    $r2 = Send-HttpWithEncoding $endpoints.StockCreate $minimalJson 'windows-1254' 'application/json; charset=windows-1254' 'minimal-json-cp1254'
+    Write-JsonFile "$LogDir\minimal-json-cp1254-response.json" $r2.Content
+    if ($r2.Response -ne $null) { Set-Content "$LogDir\http-minimal-json-cp1254-headers.txt" $r2.Response.Headers.ToString() } else { Set-Content "$LogDir\http-minimal-json-cp1254-headers.txt" "<no-response>" }
+
+    # form-encoded (cp1254)
+    $formPairs = $minimal.GetEnumerator() | ForEach-Object { "$($_.Key)=$( [System.Uri]::EscapeDataString(($_.Value -as [string]) ))" }
+    $formBody = [string]::Join('&', $formPairs)
+    $r3 = Send-HttpWithEncoding $endpoints.StockCreate $formBody 'windows-1254' 'application/x-www-form-urlencoded; charset=windows-1254' 'minimal-form-cp1254'
+    Write-JsonFile "$LogDir\minimal-form-cp1254-response.json" $r3.Content
+    if ($r3.Response -ne $null) { Set-Content "$LogDir\http-minimal-form-cp1254-headers.txt" $r3.Response.Headers.ToString() } else { Set-Content "$LogDir\http-minimal-form-cp1254-headers.txt" "<no-response>" }
+
+    # form-encoded (utf8)
+    $r4 = Send-HttpWithEncoding $endpoints.StockCreate $formBody 'utf-8' 'application/x-www-form-urlencoded; charset=utf-8' 'minimal-form-utf8'
+    Write-JsonFile "$LogDir\minimal-form-utf8-response.json" $r4.Content
+    if ($r4.Response -ne $null) { Set-Content "$LogDir\http-minimal-form-utf8-headers.txt" $r4.Response.Headers.ToString() } else { Set-Content "$LogDir\http-minimal-form-utf8-headers.txt" "<no-response>" }
+
+    Write-Host "Minimal tests complete. Files written to $LogDir"
+}
+else {
+    # response was not HTML; save original response
+    Write-JsonFile "$LogDir\stock-create-response.json" $res.Content
+    if ($res.Response -ne $null) { Set-Content "$LogDir\http-stock-headers.txt" $res.Response.Headers.ToString() } else { Set-Content "$LogDir\http-stock-headers.txt" "<no-response>" }
+    Write-Host "Stock create completed (non-HTML response)."    
 }
 
 Write-Host "Done. Artifacts written to: $LogDir"

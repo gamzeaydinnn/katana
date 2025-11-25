@@ -202,6 +202,7 @@ public class LucaService : ILucaService
 
             _logger.LogDebug("Branches response status: {Status}", branchesResponse.StatusCode);
             _logger.LogDebug("Branches response body: {Body}", branchesContent);
+                try { await SaveHttpTrafficAsync("BRANCHES", null, branchesResponse); } catch (Exception) { /* ignore */ }
 
             if (!branchesResponse.IsSuccessStatusCode)
             {
@@ -262,11 +263,18 @@ public class LucaService : ILucaService
 
                     _logger.LogDebug("Branch: id={Id}, name={Name}", branchId, branchName ?? "(unnamed)");
 
+                    // If ForcedBranchId configured, prefer that branch when present
+                    if (_settings.ForcedBranchId.HasValue && _settings.ForcedBranchId.Value == branchId)
+                    {
+                        selectedBranchId = branchId;
+                        _logger.LogInformation("Selected forced branch from config: {Id} - {Name}", branchId, branchName ?? "(unnamed)");
+                        break; // preferred branch found
+                    }
+
                     if (!selectedBranchId.HasValue)
                     {
                         selectedBranchId = branchId;
-                        _logger.LogInformation("Selected first branch: {Id} - {Name}",
-                            branchId, branchName ?? "(unnamed)");
+                        _logger.LogInformation("Selected first branch: {Id} - {Name}", branchId, branchName ?? "(unnamed)");
                     }
                 }
             }
@@ -434,6 +442,7 @@ public class LucaService : ILucaService
                 response = await _cookieHttpClient!.PostAsync(_settings.Endpoints.Auth, payload);
                 authBody = await ReadResponseContentAsync(response);
                 await AppendRawLogAsync($"AUTH_LOGIN:{desc}", _settings.Endpoints.Auth, payloadText, response.StatusCode, authBody);
+                try { await SaveHttpTrafficAsync($"AUTH_LOGIN:{desc}", null, response); } catch (Exception) { /* ignore */ }
 
                 if (response.IsSuccessStatusCode && IsKozaLoginSuccess(authBody))
                 {
@@ -653,6 +662,7 @@ public class LucaService : ILucaService
                     var resp = await _cookieHttpClient!.PostAsync(_settings.Endpoints.ChangeBranch, content);
                     var body = await ReadResponseContentAsync(resp);
                     await AppendRawLogAsync("CHANGE_BRANCH:" + desc, _settings.Endpoints.ChangeBranch, payloadText, resp.StatusCode, body);
+                            try { await SaveHttpTrafficAsync("CHANGE_BRANCH:" + desc, null, resp); } catch (Exception) { /* ignore */ }
 
                     if (resp.IsSuccessStatusCode)
                     {
@@ -1781,6 +1791,8 @@ public class LucaService : ILucaService
                         Content = content
                     };
 
+                    try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_REQUEST:{card.KartKodu}", httpRequest, null); } catch (Exception) { /* ignore */ }
+
                     var response = await client.SendAsync(httpRequest);
                     var responseBytes = await response.Content.ReadAsByteArrayAsync();
                     string responseContent;
@@ -1789,6 +1801,7 @@ public class LucaService : ILucaService
                     var baseUrl = client.BaseAddress?.ToString()?.TrimEnd('/') ?? _settings.BaseUrl?.TrimEnd('/') ?? string.Empty;
                     var fullUrl = string.IsNullOrWhiteSpace(baseUrl) ? endpoint : (endpoint.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? endpoint : baseUrl + "/" + endpoint.TrimStart('/'));
                     await AppendRawLogAsync("SEND_STOCK_CARD", fullUrl, payload, response.StatusCode, responseContent);
+                    try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_RESPONSE:{card.KartKodu}", httpRequest, response); } catch (Exception) { /* ignore */ }
 
                     if (NeedsBranchSelection(responseContent))
                     {
@@ -1804,11 +1817,101 @@ public class LucaService : ILucaService
 
                     if (responseContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
                     {
-                        failedCount++;
-                        var htmlPreview = responseContent.Length > 200 ? responseContent.Substring(0, 200) : responseContent;
-                        result.Errors.Add($"{card.KartKodu}: HTML response (session/branch issue): {htmlPreview}");
-                        _logger.LogError("Stock card {Card} returned HTML. Session expired or branch not selected.", card.KartKodu);
-                        continue;
+                        // HTML response — try additional fallbacks (UTF-8 JSON, then form-urlencoded)
+                        _logger.LogWarning("Stock card {Card} returned HTML. Will attempt UTF-8 JSON retry then form-encoded retry.", card.KartKodu);
+                        await AppendRawLogAsync($"SEND_STOCK_CARD_HTML:{card.KartKodu}", fullUrl, payload, response.StatusCode, responseContent);
+                        try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_HTML:{card.KartKodu}", null, response); } catch (Exception) { /* ignore */ }
+
+                        // Retry 1: send as UTF-8 JSON (no windows-1254 charset)
+                        try
+                        {
+                            var utf8Bytes = Encoding.UTF8.GetBytes(payload);
+                            var utf8Content = new ByteArrayContent(utf8Bytes);
+                            utf8Content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
+                            using var utf8Req = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = utf8Content };
+                            var utf8Resp = await (_cookieHttpClient ?? client).SendAsync(utf8Req);
+                            var utf8BytesResp = await utf8Resp.Content.ReadAsByteArrayAsync();
+                            string utf8RespContent;
+                            try { utf8RespContent = Encoding.UTF8.GetString(utf8BytesResp); } catch { utf8RespContent = Windows1254Encoding.GetString(utf8BytesResp); }
+                            await AppendRawLogAsync($"SEND_STOCK_CARD_UTF8_RETRY:{card.KartKodu}", fullUrl, payload, utf8Resp.StatusCode, utf8RespContent);
+                            try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_UTF8_RETRY:{card.KartKodu}", utf8Req, utf8Resp); } catch (Exception) { /* ignore */ }
+
+                            if (!utf8RespContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
+                            {
+                                responseContent = utf8RespContent;
+                                response = utf8Resp;
+                                // proceed to parse below
+                            }
+                            else
+                            {
+                                _logger.LogWarning("UTF-8 retry for {Card} still returned HTML", card.KartKodu);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "UTF-8 retry failed for stock card {Card}", card.KartKodu);
+                        }
+
+                        // If still HTML, Retry 2: form-urlencoded - flatten JSON properties to strings
+                        if (responseContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
+                        {
+                            try
+                            {
+                                // Build form values by parsing JSON payload and stringifying primitives
+                                var formPairs = new List<KeyValuePair<string, string>>();
+                                try
+                                {
+                                    using var doc = JsonDocument.Parse(payload);
+                                    if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                                    {
+                                        foreach (var prop in doc.RootElement.EnumerateObject())
+                                        {
+                                            if (prop.Value.ValueKind == JsonValueKind.String)
+                                                formPairs.Add(new KeyValuePair<string, string>(prop.Name, prop.Value.GetString() ?? string.Empty));
+                                            else if (prop.Value.ValueKind == JsonValueKind.Number)
+                                                formPairs.Add(new KeyValuePair<string, string>(prop.Name, prop.Value.ToString() ?? string.Empty));
+                                            else if (prop.Value.ValueKind == JsonValueKind.True || prop.Value.ValueKind == JsonValueKind.False)
+                                                formPairs.Add(new KeyValuePair<string, string>(prop.Name, prop.Value.GetBoolean() ? "true" : "false"));
+                                            else if (prop.Value.ValueKind == JsonValueKind.Null)
+                                                formPairs.Add(new KeyValuePair<string, string>(prop.Name, string.Empty));
+                                            // Skip arrays/objects (Koza usually expects flat fields for stock create)
+                                        }
+                                    }
+                                }
+                                catch (Exception) { /* ignore parse errors and proceed with empty form */ }
+
+                                var form = new FormUrlEncodedContent(formPairs);
+                                using var formReq = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = form };
+                                var formResp = await (_cookieHttpClient ?? client).SendAsync(formReq);
+                                var formRespBody = await ReadResponseContentAsync(formResp);
+                                await AppendRawLogAsync($"SEND_STOCK_CARD_FORM_RETRY:{card.KartKodu}", fullUrl, payload, formResp.StatusCode, formRespBody);
+                                try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_FORM_RETRY:{card.KartKodu}", formReq, formResp); } catch (Exception) { /* ignore */ }
+
+                                if (!formRespBody.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    responseContent = formRespBody;
+                                    response = formResp;
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("Form-encoded retry for {Card} returned HTML", card.KartKodu);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Form-encoded retry failed for stock card {Card}", card.KartKodu);
+                            }
+                        }
+
+                        // If still HTML after retries, record failure and continue
+                        if (responseContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
+                        {
+                            failedCount++;
+                            var htmlPreview = responseContent.Length > 300 ? responseContent.Substring(0, 300) : responseContent;
+                            result.Errors.Add($"{card.KartKodu}: HTML response after retries: {htmlPreview}");
+                            _logger.LogError("Stock card {Card} returned HTML after retries. Session/format issue.", card.KartKodu);
+                            continue;
+                        }
                     }
 
                     JsonElement parsedResponse = default;
@@ -3111,6 +3214,125 @@ public class LucaService : ILucaService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to append raw Luca log");
+        }
+    }
+
+    private async Task SaveHttpTrafficAsync(string tag, HttpRequestMessage? request, HttpResponseMessage? response)
+    {
+        try
+        {
+            var baseDir = AppContext.BaseDirectory ?? Directory.GetCurrentDirectory();
+            var logDir = Path.Combine(baseDir, "logs");
+            Directory.CreateDirectory(logDir);
+
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+            var filePath = Path.Combine(logDir, $"{tag}-http-{timestamp}.txt");
+
+            var sb = new StringBuilder();
+            sb.AppendLine("----");
+            sb.AppendLine(DateTime.UtcNow.ToString("o") + " " + tag);
+
+            var reqMsg = request ?? response?.RequestMessage;
+            if (reqMsg != null)
+            {
+                sb.AppendLine("RequestUri: " + (reqMsg.RequestUri?.ToString() ?? string.Empty));
+                sb.AppendLine("RequestMethod: " + reqMsg.Method.Method);
+                sb.AppendLine("Request Headers:");
+                foreach (var h in reqMsg.Headers)
+                {
+                    sb.AppendLine($"{h.Key}: {string.Join(",", h.Value)}");
+                }
+                if (reqMsg.Content != null)
+                {
+                    foreach (var h in reqMsg.Content.Headers)
+                    {
+                        sb.AppendLine($"{h.Key}: {string.Join(",", h.Value)}");
+                    }
+                }
+            }
+            else
+            {
+                sb.AppendLine("Request: (null)");
+            }
+
+            if (response != null)
+            {
+                sb.AppendLine("Response Status: " + response.StatusCode);
+                sb.AppendLine("Response Headers:");
+                foreach (var h in response.Headers)
+                {
+                    sb.AppendLine($"{h.Key}: {string.Join(",", h.Value)}");
+                }
+                if (response.Content != null)
+                {
+                    foreach (var h in response.Content.Headers)
+                    {
+                        sb.AppendLine($"{h.Key}: {string.Join(",", h.Value)}");
+                    }
+                }
+
+                // Capture Set-Cookie headers if present
+                if (response.Headers.TryGetValues("Set-Cookie", out var scs))
+                {
+                    sb.AppendLine("Set-Cookie:");
+                    foreach (var s in scs) sb.AppendLine(s);
+                }
+            }
+
+            // Dump cookie container (for the configured base URL)
+            try
+            {
+                if (_cookieContainer != null && !string.IsNullOrWhiteSpace(_settings.BaseUrl))
+                {
+                    var uri = new Uri(_settings.BaseUrl);
+                    var cookieCol = _cookieContainer.GetCookies(uri);
+                    var list = new List<object>();
+                    foreach (System.Net.Cookie ck in cookieCol)
+                    {
+                        list.Add(new
+                        {
+                            ck.Name,
+                            ck.Value,
+                            ck.Domain,
+                            ck.Path,
+                            Expires = ck.Expires == DateTime.MinValue ? (DateTime?)null : ck.Expires,
+                            ck.Secure,
+                            ck.HttpOnly
+                        });
+                    }
+                    var cookieFile = Path.Combine(logDir, $"{tag}-cookies-{timestamp}.json");
+                    await File.WriteAllTextAsync(cookieFile, JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true }));
+                    sb.AppendLine("CookiesFile: " + cookieFile);
+                }
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine("Cookie dump failed: " + ex.Message);
+            }
+
+            sb.AppendLine("----");
+            await File.WriteAllTextAsync(filePath, sb.ToString());
+
+            // Also write to repo ./logs for convenience when running from source
+            try
+            {
+                var cwd = Directory.GetCurrentDirectory();
+                var repoLogDir = Path.Combine(cwd, "logs");
+                if (!string.Equals(repoLogDir, logDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    Directory.CreateDirectory(repoLogDir);
+                    var repoFile = Path.Combine(repoLogDir, Path.GetFileName(filePath));
+                    await File.WriteAllTextAsync(repoFile, sb.ToString());
+                }
+            }
+            catch (Exception)
+            {
+                // ignore
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to save HTTP traffic diagnostics");
         }
     }
 

@@ -391,13 +391,12 @@ public class PriceListCustomerListQuery
     public int? Page { get; set; }
 }
 
+#endregion
+
 #region Misc
 
 /// <summary>
-/// Katana Misc (Diğer)
-/// </summary>
-/// <summary>
-/// Custom fields collection (listeleme).
+/// Katana Misc (Diğer) - Custom fields, webhook, subscription vb. DTO'lar.
 /// </summary>
 public class CustomFieldsCollectionDto
 {

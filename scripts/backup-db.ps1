@@ -6,9 +6,20 @@ Param(
   [string]$Password,
 
   # Backup output
-  [string]$BackupDir = $env:KATANA_BACKUP_DIR ?? (Join-Path -Path (Get-Location) -ChildPath "backups"),
-  [int]$RetentionDays = [int]($env:KATANA_BACKUP_RETENTION_DAYS ?? 30)
+  [string]$BackupDir = $null,
+  [int]$RetentionDays = $null
 )
+
+# Normalize defaults that used C#-style null-coalescing in original script
+# Set BackupDir from env if present, else fallback to ./backups
+if (-not $BackupDir) {
+  if ($env:KATANA_BACKUP_DIR) { $BackupDir = $env:KATANA_BACKUP_DIR } else { $BackupDir = Join-Path -Path (Get-Location) -ChildPath "backups" }
+}
+
+# Set RetentionDays from env if present, else default to 30
+if (-not $RetentionDays) {
+  if ($env:KATANA_BACKUP_RETENTION_DAYS) { $RetentionDays = [int]$env:KATANA_BACKUP_RETENTION_DAYS } else { $RetentionDays = 30 }
+}
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"

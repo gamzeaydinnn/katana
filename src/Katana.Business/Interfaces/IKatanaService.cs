@@ -25,4 +25,19 @@ public interface IKatanaService
     Task<List<KatanaBatchDto>> GetBatchesAsync(string? productId = null);
     Task<List<KatanaStockTransferDto>> GetStockTransfersAsync(string? status = null);
     Task<List<KatanaSalesReturnDto>> GetSalesReturnsAsync(DateTime? fromDate = null);
+    Task<List<SalesOrderDto>> GetSalesOrdersAsync(DateTime? fromDate = null);
+    Task<SalesOrderDto?> CreateSalesOrderAsync(SalesOrderDto salesOrder);
+    Task<SalesOrderDto?> UpdateSalesOrderAsync(SalesOrderDto salesOrder);
+    Task<List<LocationDto>> GetLocationsAsync();
+    Task<List<StockAdjustmentDto>> GetStockAdjustmentsAsync(DateTime? fromDate = null, DateTime? toDate = null);
+    Task<StockAdjustmentDto?> CreateStockAdjustmentAsync(StockAdjustmentCreateRequest request);
+    Task<List<InventoryMovementDto>> GetInventoryMovementsAsync(DateTime? fromDate = null, DateTime? toDate = null);
+    Task<List<ServiceDto>> GetServicesAsync();
+    Task<List<TaxRateDto>> GetTaxRatesAsync();
+    Task<List<PriceListDto>> GetPriceListsAsync();
+    Task<List<WebhookDto>> GetWebhooksAsync();
+    Task<List<SerialNumberDto>> GetSerialNumbersAsync();
+    Task<List<UserDto>> GetUsersAsync();
+    Task<List<BomRowDto>> GetBomRowsAsync();
+    Task<List<MaterialDto>> GetMaterialsAsync();
 }

@@ -13,10 +13,18 @@ public static class MappingHelper
     // Katana -> Core Entity mapping
     public static Product MapToProduct(KatanaProductDto katanaProduct)
     {
+        var sku = string.IsNullOrWhiteSpace(katanaProduct.SKU)
+            ? katanaProduct.GetProductCode()
+            : katanaProduct.SKU;
+
+        var name = string.IsNullOrWhiteSpace(katanaProduct.Name)
+            ? katanaProduct.GetProductCode()
+            : katanaProduct.Name;
+
         return new Product
         {
-            SKU = katanaProduct.SKU,
-            Name = katanaProduct.Name,
+            SKU = sku,
+            Name = name,
             Price = katanaProduct.Price,
             CategoryId = katanaProduct.CategoryId,
             MainImageUrl = katanaProduct.ImageUrl,
