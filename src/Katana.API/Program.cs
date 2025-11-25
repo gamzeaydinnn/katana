@@ -20,6 +20,7 @@ using Katana.Infrastructure.APIClients;
 using Katana.Business.UseCases.Sync;
 using Katana.Infrastructure.Utils;
 using Katana.Infrastructure.Notifications;
+using Katana.API.Notifications;
 using Katana.Core.Interfaces;
 using Katana.Core.Entities;
 using System.Text.RegularExpressions;
