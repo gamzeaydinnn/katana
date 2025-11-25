@@ -779,7 +779,7 @@ public class LucaService : ILucaService
         }
     }
 
-    public async Task<SyncResultDto> SendInvoicesAsync(List<LucaInvoiceDto> invoices)
+    public async Task<SyncResultDto> SendInvoicesAsync(List<LucaCreateInvoiceHeaderRequest> invoices)
     {
         var result = new SyncResultDto
         {
@@ -793,38 +793,15 @@ public class LucaService : ILucaService
         {
             await EnsureAuthenticatedAsync();
 
-            _logger.LogInformation("Sending {Count} invoices to Luca", invoices.Count);
-
-            EnsureInvoiceDefaults(invoices);
-
-            var json = JsonSerializer.Serialize(invoices, _jsonOptions);
-            var content = CreateKozaContent(json);
-
-            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-            var response = await client.PostAsync(_settings.Endpoints.Invoices, content);
-
-            if (response.IsSuccessStatusCode)
+            if (_settings.UseTokenAuth)
             {
-                var responseContent = await response.Content.ReadAsStringAsync();
-                var lucaResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
-
-                result.IsSuccess = true;
-                result.SuccessfulRecords = invoices.Count;
-                result.Message = "Invoices sent successfully to Luca";
-
-                _logger.LogInformation("Successfully sent {Count} invoices to Luca", invoices.Count);
+                return await SendInvoicesWithTokenAsync(invoices, result, startTime);
             }
-            else
-            {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                result.IsSuccess = false;
-                result.FailedRecords = invoices.Count;
-                result.Message = $"Failed to send invoices to Luca: {response.StatusCode}";
-                result.Errors.Add(errorContent);
 
-                _logger.LogError("Failed to send invoices to Luca. Status: {StatusCode}, Error: {Error}",
-                    response.StatusCode, errorContent);
-            }
+            await EnsureBranchSelectedAsync();
+            await VerifyBranchSelectionAsync();
+
+            return await SendInvoicesViaKozaAsync(invoices, result, startTime);
         }
         catch (Exception ex)
         {
@@ -832,107 +809,394 @@ public class LucaService : ILucaService
             result.FailedRecords = invoices.Count;
             result.Message = ex.Message;
             result.Errors.Add(ex.ToString());
+            result.Duration = DateTime.UtcNow - startTime;
 
             _logger.LogError(ex, "Error sending invoices to Luca");
+            return result;
+        }
+    }
+
+    public Task<SyncResultDto> SendInvoiceAsync(LucaCreateInvoiceHeaderRequest invoice) =>
+        SendInvoicesAsync(new List<LucaCreateInvoiceHeaderRequest> { invoice });
+
+    private async Task<SyncResultDto> SendInvoicesWithTokenAsync(
+        List<LucaCreateInvoiceHeaderRequest> invoices,
+        SyncResultDto result,
+        DateTime startTime)
+    {
+        _logger.LogInformation("Sending {Count} invoices to Luca (token mode)", invoices.Count);
+
+        var legacyInvoices = ConvertToLegacyInvoices(invoices);
+        EnsureInvoiceDefaults(legacyInvoices);
+
+        var json = JsonSerializer.Serialize(legacyInvoices, _jsonOptions);
+        var content = CreateKozaContent(json);
+
+        var response = await _httpClient.PostAsync(_settings.Endpoints.Invoices, content);
+        if (response.IsSuccessStatusCode)
+        {
+            result.IsSuccess = true;
+            result.SuccessfulRecords = invoices.Count;
+            result.Message = "Invoices sent successfully to Luca";
+            _logger.LogInformation("Successfully sent {Count} invoices to Luca", invoices.Count);
+        }
+        else
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            result.IsSuccess = false;
+            result.FailedRecords = invoices.Count;
+            result.Message = $"Failed to send invoices to Luca: {response.StatusCode}";
+            result.Errors.Add(errorContent);
+            _logger.LogError("Failed to send invoices to Luca. Status: {StatusCode}, Error: {Error}", response.StatusCode, errorContent);
         }
 
         result.Duration = DateTime.UtcNow - startTime;
         return result;
     }
 
-    public async Task<SyncResultDto> SendInvoiceAsync(LucaInvoiceDto invoice)
+    private async Task<SyncResultDto> SendInvoicesViaKozaAsync(
+        List<LucaCreateInvoiceHeaderRequest> invoices,
+        SyncResultDto result,
+        DateTime startTime)
     {
-        var result = new SyncResultDto
-        {
-            SyncType = "INVOICE",
-            ProcessedRecords = 1
-        };
+        _logger.LogInformation("Sending {Count} invoices to Luca (Koza)", invoices.Count);
+        var client = _cookieHttpClient ?? _httpClient;
+        var endpoint = _settings.Endpoints.InvoiceCreate;
+        var encoder = Windows1254Encoding;
+        var success = 0;
+        var failed = 0;
 
-        var startTime = DateTime.UtcNow;
+        foreach (var invoice in invoices)
+        {
+            var label = ResolveInvoiceLabel(invoice);
+            try
+            {
+                var payload = JsonSerializer.Serialize(invoice, _jsonOptions);
+                var content = new ByteArrayContent(encoder.GetBytes(payload));
+                content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
+                {
+                    CharSet = "windows-1254"
+                };
+
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                {
+                    Content = content
+                };
+
+                var response = await client.SendAsync(httpRequest);
+                var responseBody = await ReadResponseContentAsync(response);
+                await AppendRawLogAsync("SEND_INVOICE", endpoint, payload, response.StatusCode, responseBody);
+
+                if (NeedsBranchSelection(responseBody))
+                {
+                    _logger.LogWarning("Invoice {InvoiceLabel} failed due to missing branch selection. Re-authenticating and retrying once.", label);
+                    _isCookieAuthenticated = false;
+                    await EnsureAuthenticatedAsync();
+                    await EnsureBranchSelectedAsync();
+
+                    using var retryRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                    {
+                        Content = new ByteArrayContent(encoder.GetBytes(payload))
+                        {
+                            Headers =
+                            {
+                                ContentType = new MediaTypeHeaderValue("application/json")
+                                {
+                                    CharSet = "windows-1254"
+                                }
+                            }
+                        }
+                    };
+
+                    response = await (_cookieHttpClient ?? client).SendAsync(retryRequest);
+                    responseBody = await ReadResponseContentAsync(response);
+                    await AppendRawLogAsync("SEND_INVOICE_RETRY", endpoint, payload, response.StatusCode, responseBody);
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    failed++;
+                    result.Errors.Add($"{label}: HTTP {response.StatusCode} - {responseBody}");
+                    _logger.LogError("Invoice {InvoiceLabel} failed HTTP {Status}: {Body}", label, response.StatusCode, responseBody);
+                    continue;
+                }
+
+                var (isSuccess, message) = ParseKozaOperationResponse(responseBody);
+                if (!isSuccess)
+                {
+                    failed++;
+                    result.Errors.Add($"{label}: {message}");
+                    _logger.LogError("Invoice {InvoiceLabel} failed: {Message}", label, message);
+                    continue;
+                }
+
+                success++;
+                _logger.LogInformation("Invoice {InvoiceLabel} sent successfully", label);
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                result.Errors.Add($"{label}: {ex.Message}");
+                _logger.LogError(ex, "Error sending invoice {InvoiceLabel}", label);
+            }
+
+            await Task.Delay(150);
+        }
+
+        result.SuccessfulRecords = success;
+        result.FailedRecords = failed;
+        result.IsSuccess = failed == 0;
+        result.Message = failed == 0
+            ? "Invoices sent successfully to Luca"
+            : $"{success} succeeded, {failed} failed";
+        result.Duration = DateTime.UtcNow - startTime;
+        return result;
+    }
+
+    private List<LucaInvoiceDto> ConvertToLegacyInvoices(IEnumerable<LucaCreateInvoiceHeaderRequest> invoices)
+    {
+        var list = new List<LucaInvoiceDto>();
+        foreach (var invoice in invoices)
+        {
+            var dto = new LucaInvoiceDto
+            {
+                GnlOrgSsBelge = new LucaBelgeDto
+                {
+                    BelgeSeri = invoice.BelgeSeri ?? _settings.DefaultBelgeSeri ?? "A",
+                    BelgeNo = invoice.BelgeNo,
+                    BelgeTarihi = invoice.BelgeTarihi == default ? DateTime.UtcNow : invoice.BelgeTarihi,
+                    VadeTarihi = invoice.VadeTarihi,
+                    BelgeTurDetayId = invoice.BelgeTurDetayId
+                },
+                FaturaTur = invoice.FaturaTur,
+                ParaBirimKod = invoice.ParaBirimKod ?? "TRY",
+                KurBedeli = invoice.KurBedeli,
+                MusteriTedarikci = invoice.MusteriTedarikci,
+                CariKodu = invoice.CariKodu,
+                CariTanim = invoice.CariTanim,
+                CariTip = invoice.CariTip,
+                CariKisaAd = invoice.CariKisaAd,
+                CariYasalUnvan = invoice.CariYasalUnvan,
+                VergiNo = invoice.VergiNo,
+                AdresSerbest = invoice.AdresSerbest,
+                KdvFlag = invoice.KdvFlag,
+                ReferansNo = invoice.ReferansNo
+            };
+
+            dto.DocumentNo = invoice.BelgeTakipNo ?? invoice.BelgeNo?.ToString();
+            dto.DocumentDate = dto.GnlOrgSsBelge.BelgeTarihi;
+            dto.DueDate = invoice.VadeTarihi;
+            dto.CustomerTitle = invoice.CariTanim;
+            dto.CustomerCode = invoice.CariKodu;
+            dto.CustomerTaxNo = invoice.VergiNo;
+            dto.Lines = invoice.DetayList?.Select(ConvertToLegacyInvoiceLine).ToList() ?? new List<LucaInvoiceItemDto>();
+            dto.NetAmount = dto.Lines.Sum(l => l.NetAmount);
+            dto.TaxAmount = dto.Lines.Sum(l => l.TaxAmount);
+            dto.GrossAmount = dto.Lines.Sum(l => l.GrossAmount);
+
+            list.Add(dto);
+        }
+
+        return list;
+    }
+
+    private LucaInvoiceItemDto ConvertToLegacyInvoiceLine(LucaCreateInvoiceDetailRequest detail)
+    {
+        var netAmount = detail.Tutar.HasValue
+            ? Convert.ToDecimal(detail.Tutar.Value)
+            : Convert.ToDecimal(detail.BirimFiyat * detail.Miktar);
+        var taxAmount = netAmount * Convert.ToDecimal(detail.KdvOran);
+
+        return new LucaInvoiceItemDto
+        {
+            ProductCode = detail.KartKodu,
+            Description = detail.KartAdi ?? detail.KartKodu,
+            Quantity = Convert.ToDecimal(detail.Miktar),
+            Unit = "ADET",
+            UnitPrice = Convert.ToDecimal(detail.BirimFiyat),
+            NetAmount = netAmount,
+            TaxRate = Convert.ToDecimal(detail.KdvOran),
+            TaxAmount = taxAmount,
+            GrossAmount = netAmount + taxAmount,
+            AccountCode = detail.HesapKod ?? string.Empty
+        };
+    }
+
+    private static string ResolveInvoiceLabel(LucaCreateInvoiceHeaderRequest invoice)
+    {
+        if (!string.IsNullOrWhiteSpace(invoice.BelgeTakipNo))
+        {
+            return invoice.BelgeTakipNo;
+        }
+
+        if (invoice.BelgeNo.HasValue)
+        {
+            return $"{invoice.BelgeSeri ?? "A"}-{invoice.BelgeNo.Value}";
+        }
+
+        return "INVOICE";
+    }
+
+    private static (bool IsSuccess, string? Message) ParseKozaOperationResponse(string? responseBody)
+    {
+        if (string.IsNullOrWhiteSpace(responseBody))
+        {
+            return (false, "Empty response from Luca");
+        }
 
         try
         {
-            await EnsureAuthenticatedAsync();
-            if (!_settings.UseTokenAuth)
+            using var doc = JsonDocument.Parse(responseBody);
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("code", out var codeElement))
             {
-                await EnsureBranchSelectedAsync();
-            }
-
-            EnsureInvoiceDefaults(invoice);
-
-            _logger.LogInformation("Sending invoice {Serie}-{No} to Luca", invoice.GnlOrgSsBelge.BelgeSeri, invoice.GnlOrgSsBelge.BelgeNo);
-
-            var json = JsonSerializer.Serialize(invoice, _jsonOptions);
-            var content = CreateKozaContent(json);
-
-            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-            var response = await client.PostAsync(_settings.Endpoints.Invoices, content);
-
-            var responseBody = await ReadResponseContentAsync(response);
-
-            await AppendRawLogAsync("SEND_INVOICE", _settings.Endpoints.Invoices, json, response.StatusCode, responseBody);
-
-            if (response.IsSuccessStatusCode && !string.IsNullOrWhiteSpace(responseBody))
-            {
-                try
+                var code = codeElement.GetInt32();
+                if (code == 0)
                 {
-                    using var doc = JsonDocument.Parse(responseBody);
-                    var root = doc.RootElement;
-
-                    if (root.TryGetProperty("code", out var code) && code.GetInt32() == 0)
-                    {
-                        result.IsSuccess = true;
-                        result.SuccessfulRecords = 1;
-                        result.Message = "Invoice sent successfully";
-
-                        if (root.TryGetProperty("faturaId", out var faturaId))
-                        {
-                            _logger.LogInformation("Invoice created with ID: {FaturaId}", faturaId.GetInt64());
-                        }
-                    }
-                    else
-                    {
-                        var errorMsg = root.TryGetProperty("message", out var msg)
-                            ? msg.GetString()
-                            : "Unknown error";
-
-                        result.IsSuccess = false;
-                        result.FailedRecords = 1;
-                        result.Message = $"Koza error: {errorMsg}";
-                        result.Errors.Add(responseBody);
-
-                        _logger.LogError("Invoice failed: {Error}", errorMsg);
-                    }
+                    return (true, null);
                 }
-                catch (JsonException ex)
-                {
-                    _logger.LogError(ex, "Failed to parse invoice response");
-                    result.IsSuccess = false;
-                    result.FailedRecords = 1;
-                    result.Message = "Invalid JSON response";
-                    result.Errors.Add(responseBody);
-                }
-            }
-            else
-            {
-                result.IsSuccess = false;
-                result.FailedRecords = 1;
-                result.Message = $"HTTP {response.StatusCode}";
-                result.Errors.Add(responseBody);
+
+                var message = root.TryGetProperty("message", out var messageElement)
+                    ? messageElement.GetString()
+                    : "Unknown error";
+                return (false, $"code={code} message={message}");
             }
         }
-        catch (Exception ex)
+        catch (JsonException)
         {
-            result.IsSuccess = false;
-            result.FailedRecords = 1;
-            result.Message = ex.Message;
-            result.Errors.Add(ex.ToString());
+            // fall back to string check
+        }
 
-            _logger.LogError(ex, "Error sending invoice");
+        return responseBody.Contains("Başar", StringComparison.OrdinalIgnoreCase)
+            ? (true, null)
+            : (false, responseBody);
+    }
+
+    private async Task<SyncResultDto> SendCustomersWithTokenAsync(
+        List<LucaCreateCustomerRequest> customers,
+        SyncResultDto result,
+        DateTime startTime)
+    {
+        _logger.LogInformation("Sending {Count} customers to Luca (token mode)", customers.Count);
+
+        var legacyCustomers = ConvertToLegacyCustomers(customers);
+        var json = JsonSerializer.Serialize(legacyCustomers, _jsonOptions);
+        var content = CreateKozaContent(json);
+
+        var response = await _httpClient.PostAsync(_settings.Endpoints.Customers, content);
+        if (response.IsSuccessStatusCode)
+        {
+            result.IsSuccess = true;
+            result.SuccessfulRecords = customers.Count;
+            result.Message = "Customers sent successfully to Luca";
+            _logger.LogInformation("Successfully sent {Count} customers to Luca", customers.Count);
+        }
+        else
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            result.IsSuccess = false;
+            result.FailedRecords = customers.Count;
+            result.Message = $"Failed to send customers to Luca: {response.StatusCode}";
+            result.Errors.Add(errorContent);
+            _logger.LogError("Failed to send customers to Luca. Status: {StatusCode}, Error: {Error}", response.StatusCode, errorContent);
         }
 
         result.Duration = DateTime.UtcNow - startTime;
         return result;
+    }
+
+    private async Task<SyncResultDto> SendCustomersViaKozaAsync(
+        List<LucaCreateCustomerRequest> customers,
+        SyncResultDto result,
+        DateTime startTime)
+    {
+        _logger.LogInformation("Sending {Count} customers to Luca (Koza)", customers.Count);
+        var client = (_cookieHttpClient ?? _httpClient);
+        var endpoint = _settings.Endpoints.CustomerCreate;
+        var success = 0;
+        var failed = 0;
+
+        foreach (var customer in customers)
+        {
+            var label = ResolveCustomerLabel(customer);
+
+            try
+            {
+                var payload = JsonSerializer.Serialize(customer, _jsonOptions);
+                var content = CreateKozaContent(payload);
+                var response = await client.PostAsync(endpoint, content);
+                var body = await ReadResponseContentAsync(response);
+                await AppendRawLogAsync("SEND_CUSTOMER", endpoint, payload, response.StatusCode, body);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    failed++;
+                    result.Errors.Add($"{label}: HTTP {response.StatusCode} - {body}");
+                    _logger.LogError("Customer {Label} failed HTTP {Status}: {Body}", label, response.StatusCode, body);
+                    continue;
+                }
+
+                var (isSuccess, message) = ParseKozaOperationResponse(body);
+                if (!isSuccess)
+                {
+                    failed++;
+                    result.Errors.Add($"{label}: {message}");
+                    _logger.LogError("Customer {Label} failed: {Message}", label, message);
+                    continue;
+                }
+
+                success++;
+                _logger.LogInformation("Customer {Label} sent successfully", label);
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                result.Errors.Add($"{label}: {ex.Message}");
+                _logger.LogError(ex, "Error sending customer {Label}", label);
+            }
+
+            await Task.Delay(100);
+        }
+
+        result.SuccessfulRecords = success;
+        result.FailedRecords = failed;
+        result.IsSuccess = failed == 0;
+        result.Message = failed == 0
+            ? "Customers sent successfully to Luca"
+            : $"{success} succeeded, {failed} failed";
+        result.Duration = DateTime.UtcNow - startTime;
+        return result;
+    }
+
+    private List<LucaCustomerDto> ConvertToLegacyCustomers(IEnumerable<LucaCreateCustomerRequest> customers)
+    {
+        return customers.Select(c => new LucaCustomerDto
+        {
+            CustomerCode = string.IsNullOrWhiteSpace(c.KartKod) ? c.Tanim ?? Guid.NewGuid().ToString("N") : c.KartKod,
+            Title = c.Tanim ?? c.KartKod ?? string.Empty,
+            TaxNo = c.VergiNo ?? c.TcKimlikNo ?? string.Empty,
+            ContactPerson = null,
+            Phone = c.IletisimTanim,
+            Email = null,
+            Address = c.AdresSerbest,
+            City = c.Il,
+            Country = c.Ulke
+        }).ToList();
+    }
+
+    private static string ResolveCustomerLabel(LucaCreateCustomerRequest customer)
+    {
+        if (!string.IsNullOrWhiteSpace(customer.KartKod))
+        {
+            return customer.KartKod;
+        }
+
+        if (!string.IsNullOrWhiteSpace(customer.Tanim))
+        {
+            return customer.Tanim;
+        }
+
+        return "CUSTOMER";
     }
 
     public async Task<SyncResultDto> SendStockMovementsAsync(List<LucaStockDto> stockMovements)
@@ -1056,7 +1320,7 @@ public class LucaService : ILucaService
         return result;
     }
 
-    public async Task<SyncResultDto> SendCustomersAsync(List<LucaCustomerDto> customers)
+    public async Task<SyncResultDto> SendCustomersAsync(List<LucaCreateCustomerRequest> customers)
     {
         var result = new SyncResultDto
         {
@@ -1070,33 +1334,13 @@ public class LucaService : ILucaService
         {
             await EnsureAuthenticatedAsync();
 
-            _logger.LogInformation("Sending {Count} customers to Luca", customers.Count);
-
-            var json = JsonSerializer.Serialize(customers, _jsonOptions);
-            var content = CreateKozaContent(json);
-
-            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-            var response = await client.PostAsync(_settings.Endpoints.CustomerCreate, content);
-
-            if (response.IsSuccessStatusCode)
+            if (_settings.UseTokenAuth)
             {
-                result.IsSuccess = true;
-                result.SuccessfulRecords = customers.Count;
-                result.Message = "Customers sent successfully to Luca";
-
-                _logger.LogInformation("Successfully sent {Count} customers to Luca", customers.Count);
+                return await SendCustomersWithTokenAsync(customers, result, startTime);
             }
-            else
-            {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                result.IsSuccess = false;
-                result.FailedRecords = customers.Count;
-                result.Message = $"Failed to send customers to Luca: {response.StatusCode}";
-                result.Errors.Add(errorContent);
 
-                _logger.LogError("Failed to send customers to Luca. Status: {StatusCode}, Error: {Error}",
-                    response.StatusCode, errorContent);
-            }
+            await EnsureBranchSelectedAsync();
+            return await SendCustomersViaKozaAsync(customers, result, startTime);
         }
         catch (Exception ex)
         {
@@ -1104,12 +1348,11 @@ public class LucaService : ILucaService
             result.FailedRecords = customers.Count;
             result.Message = ex.Message;
             result.Errors.Add(ex.ToString());
+            result.Duration = DateTime.UtcNow - startTime;
 
             _logger.LogError(ex, "Error sending customers to Luca");
+            return result;
         }
-
-        result.Duration = DateTime.UtcNow - startTime;
-        return result;
     }
 
     public async Task<SyncResultDto> SendProductsAsync(List<LucaProductUpdateDto> products)

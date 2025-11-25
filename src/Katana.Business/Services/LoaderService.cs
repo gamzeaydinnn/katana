@@ -6,6 +6,7 @@ using Katana.Core.Helpers;
 using Katana.Data.Configuration;
 using Katana.Data.Context;
 using Katana.Data.Models;
+using Katana.Infrastructure.Mappers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
@@ -38,60 +39,59 @@ public class LoaderService : ILoaderService
         _logger = logger;
     }
 
-    public async Task<int> LoadProductsAsync(IEnumerable<Product> products, int batchSize = 100, CancellationToken ct = default)
+    public async Task<int> LoadProductsAsync(IEnumerable<Product> products, IReadOnlyDictionary<string, string>? locationMappings = null, int batchSize = 100, CancellationToken ct = default)
     {
-        var productList = products.ToList();
+        var productList = products?.ToList() ?? new List<Product>();
         if (!productList.Any())
         {
             _logger.LogInformation("LoaderService => No products to load.");
             return 0;
         }
 
-        var defaultWarehouseCode = string.IsNullOrWhiteSpace(_inventorySettings?.DefaultWarehouseCode)
-            ? "MAIN"
-            : _inventorySettings.DefaultWarehouseCode.Trim();
-        var entryWarehouseCode = string.IsNullOrWhiteSpace(_inventorySettings?.DefaultEntryWarehouseCode)
-            ? defaultWarehouseCode
-            : _inventorySettings.DefaultEntryWarehouseCode.Trim();
-        var exitWarehouseCode = string.IsNullOrWhiteSpace(_inventorySettings?.DefaultExitWarehouseCode)
-            ? entryWarehouseCode
-            : _inventorySettings.DefaultExitWarehouseCode.Trim();
+        var warehouseMappings = await ResolveMappingsAsync(locationMappings, "LOCATION_WAREHOUSE", ct);
+        ApplyWarehouseDefaults(warehouseMappings);
 
-        // Precompute stock per product from StockMovements to avoid relying on navigation being loaded
         var productIds = productList.Select(p => p.Id).Where(id => id > 0).Distinct().ToList();
-        var movementSums = new Dictionary<int, int>();
-        if (productIds.Any())
+        var stockRows = productIds.Any()
+            ? await _dbContext.Stocks
+                .Include(s => s.Product)
+                .Where(s => productIds.Contains(s.ProductId))
+                .ToListAsync(ct)
+            : new List<Stock>();
+
+        var lucaStocks = new List<LucaStockDto>();
+        foreach (var stock in stockRows)
         {
-            movementSums = await _dbContext.StockMovements
-                .Where(sm => productIds.Contains(sm.ProductId))
-                .GroupBy(sm => sm.ProductId)
-                .Select(g => new { ProductId = g.Key, Sum = g.Sum(x => x.ChangeQuantity) })
-                .ToDictionaryAsync(x => x.ProductId, x => x.Sum);
+            var owningProduct = stock.Product ?? productList.FirstOrDefault(p => p.Id == stock.ProductId);
+            if (owningProduct == null)
+            {
+                _logger.LogWarning("LoaderService => Stock row #{StockId} missing product reference. ProductId={ProductId}", stock.Id, stock.ProductId);
+                continue;
+            }
+
+            lucaStocks.Add(MappingHelper.MapToLucaStock(stock, owningProduct, warehouseMappings));
         }
 
-        var lucaStocks = productList.Select(product => new LucaStockDto
+        if (!lucaStocks.Any())
         {
-            ProductCode = product.SKU,
-            ProductName = product.Name,
-            WarehouseCode = entryWarehouseCode,
-            EntryWarehouseCode = entryWarehouseCode,
-            ExitWarehouseCode = exitWarehouseCode,
-            // Always compute balance from DB movements; fallback to product.StockSnapshot if no movements present
-            Quantity = Math.Max(movementSums.GetValueOrDefault(product.Id, product.StockSnapshot), 0),
-            MovementType = "BALANCE",
-            MovementDate = DateTime.UtcNow,
-            Description = $"Inventory sync for {product.Name}",
-            Reference = "SYNC"
-        }).ToList();
+            foreach (var product in productList)
+            {
+                var fallbackStock = new Stock
+                {
+                    ProductId = product.Id,
+                    Product = product,
+                    Location = "DEFAULT",
+                    Quantity = product.StockSnapshot,
+                    Type = product.StockSnapshot >= 0 ? "IN" : "OUT",
+                    Timestamp = DateTime.UtcNow,
+                    Reference = "SNAPSHOT"
+                };
 
-        // Diagnostic logging: count and sample SKUs
-        try
-        {
-            var sampleSkus = string.Join(',', lucaStocks.Take(8).Select(s => s.ProductCode));
-            var samplePayload = JsonSerializer.Serialize(lucaStocks.Take(5).Select(s => new { s.ProductCode, s.Quantity, s.WarehouseCode }));
-            _logger.LogInformation("LoaderService => Preparing {Count} stock movements. SampleSKUs={SampleSkus}; SamplePayload={SamplePayload}", lucaStocks.Count, sampleSkus, samplePayload);
+                lucaStocks.Add(MappingHelper.MapToLucaStock(fallbackStock, product, warehouseMappings));
+            }
         }
-        catch { /* ignore logging errors */ }
+
+        LogStockPreview(lucaStocks);
 
         var result = await _lucaService.SendStockMovementsAsync(lucaStocks);
         await WriteIntegrationLogAsync("STOCK", result, ct);
@@ -111,9 +111,9 @@ public class LoaderService : ILoaderService
         return result.SuccessfulRecords;
     }
 
-    public async Task<int> LoadInvoicesAsync(IEnumerable<Invoice> invoices, int batchSize = 50, CancellationToken ct = default)
+    public async Task<int> LoadInvoicesAsync(IEnumerable<Invoice> invoices, IReadOnlyDictionary<string, string>? skuAccountMappings = null, int batchSize = 50, CancellationToken ct = default)
     {
-        var invoiceList = invoices.ToList();
+        var invoiceList = invoices?.ToList() ?? new List<Invoice>();
         if (!invoiceList.Any())
         {
             _logger.LogInformation("LoaderService => No invoices to load.");
@@ -125,13 +125,13 @@ public class LoaderService : ILoaderService
             .Where(c => customerIds.Contains(c.Id))
             .ToDictionaryAsync(c => c.Id, ct);
 
-        var accountMappingsList = await _dbContext.MappingTables
-            .Where(m => m.MappingType == "SKU_ACCOUNT" && m.IsActive)
-            .Select(m => new { m.SourceValue, m.TargetValue })
-            .ToListAsync(ct);
-        var accountMappings = accountMappingsList.ToDictionary(m => m.SourceValue, m => m.TargetValue, StringComparer.OrdinalIgnoreCase);
+        var accountMappings = await ResolveMappingsAsync(skuAccountMappings, "SKU_ACCOUNT", ct);
+        var belgeSeri = string.IsNullOrWhiteSpace(_lucaSettings.DefaultBelgeSeri)
+            ? "A"
+            : _lucaSettings.DefaultBelgeSeri.Trim();
+        var defaultWarehouseCode = ResolveWarehouseCode();
 
-        var lucaInvoices = new List<LucaInvoiceDto>();
+        var lucaInvoices = new List<LucaCreateInvoiceHeaderRequest>();
         foreach (var invoice in invoiceList)
         {
             if (ct.IsCancellationRequested)
@@ -147,7 +147,17 @@ public class LoaderService : ILoaderService
             };
 
             var invoiceItems = invoice.InvoiceItems?.ToList() ?? new List<InvoiceItem>();
-            lucaInvoices.Add(MappingHelper.MapToLucaInvoice(invoice, customer, invoiceItems, accountMappings));
+            var belgeTurDetayId = KatanaToLucaMapper.GetBelgeTurDetayIdForInvoiceType(invoice);
+            var request = KatanaToLucaMapper.MapInvoiceToCreateRequest(
+                invoice,
+                customer,
+                invoiceItems,
+                accountMappings,
+                belgeSeri,
+                belgeTurDetayId,
+                defaultWarehouseCode);
+
+            lucaInvoices.Add(request);
         }
 
         var result = await _lucaService.SendInvoicesAsync(lucaInvoices);
@@ -159,17 +169,18 @@ public class LoaderService : ILoaderService
         return result.SuccessfulRecords;
     }
 
-    public async Task<int> LoadCustomersAsync(IEnumerable<Customer> customers, int batchSize = 50, CancellationToken ct = default)
+    public async Task<int> LoadCustomersAsync(IEnumerable<Customer> customers, IReadOnlyDictionary<string, string>? customerTypeMappings = null, int batchSize = 50, CancellationToken ct = default)
     {
-        var customerList = customers.ToList();
+        var customerList = customers?.ToList() ?? new List<Customer>();
         if (!customerList.Any())
         {
             _logger.LogInformation("LoaderService => No customers to load.");
             return 0;
         }
 
+        var resolvedMappings = await ResolveMappingsAsync(customerTypeMappings, "CUSTOMER_TYPE", ct);
         var lucaCustomers = customerList
-            .Select(MappingHelper.MapToLucaCustomer)
+            .Select(c => KatanaToLucaMapper.MapCustomerToCreateRequest(c, resolvedMappings))
             .ToList();
 
         var result = await _lucaService.SendCustomersAsync(lucaCustomers);
@@ -191,7 +202,12 @@ public class LoaderService : ILoaderService
         }
 
         var lucaStockCards = productList
-            .Select(product => MappingHelper.MapToLucaStockCard(product, _lucaSettings.DefaultOlcumBirimiId, _lucaSettings.DefaultKdv))
+            .Select(product => KatanaToLucaMapper.MapProductToStockCard(
+                product,
+                _lucaSettings.DefaultKdvOran,
+                _lucaSettings.DefaultOlcumBirimiId,
+                _lucaSettings.DefaultKartTipi,
+                _lucaSettings.DefaultKategoriKodu))
             .ToList();
 
         // Basit doğrulama: kartKodu/kartAdi/olcumBirimiId dolu mu kontrol et; hatalıları atla
@@ -232,6 +248,79 @@ public class LoaderService : ILoaderService
         }
 
         return result.SuccessfulRecords;
+    }
+
+    private void LogStockPreview(List<LucaStockDto> lucaStocks)
+    {
+        if (lucaStocks == null || lucaStocks.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var sampleSkus = string.Join(',', lucaStocks.Take(8).Select(s => s.ProductCode));
+            var samplePayload = JsonSerializer.Serialize(lucaStocks.Take(5).Select(s => new { s.ProductCode, s.Quantity, s.WarehouseCode }));
+            _logger.LogInformation("LoaderService => Preparing {Count} stock movements. SampleSKUs={SampleSkus}; SamplePayload={SamplePayload}", lucaStocks.Count, sampleSkus, samplePayload);
+        }
+        catch
+        {
+            // ignore logging issues
+        }
+    }
+
+    private void ApplyWarehouseDefaults(Dictionary<string, string> warehouseMappings)
+    {
+        var defaultWarehouse = ResolveWarehouseCode();
+        if (!warehouseMappings.ContainsKey("DEFAULT"))
+        {
+            warehouseMappings["DEFAULT"] = defaultWarehouse;
+        }
+    }
+
+    private string ResolveWarehouseCode()
+    {
+        if (!string.IsNullOrWhiteSpace(_inventorySettings?.DefaultWarehouseCode))
+        {
+            return _inventorySettings.DefaultWarehouseCode.Trim();
+        }
+
+        return "0001-0001";
+    }
+
+    private async Task<Dictionary<string, string>> ResolveMappingsAsync(
+        IReadOnlyDictionary<string, string>? provided,
+        string mappingType,
+        CancellationToken ct)
+    {
+        if (provided != null)
+        {
+            return new Dictionary<string, string>(provided, StringComparer.OrdinalIgnoreCase);
+        }
+
+        try
+        {
+            var normalized = string.IsNullOrWhiteSpace(mappingType)
+                ? string.Empty
+                : mappingType.Trim().ToUpperInvariant();
+
+            var entries = await _dbContext.MappingTables
+                .Where(m => m.IsActive && m.MappingType != null && m.MappingType.ToUpper() == normalized)
+                .Select(m => new { m.SourceValue, m.TargetValue })
+                .ToListAsync(ct);
+
+            return entries
+                .Where(e => !string.IsNullOrWhiteSpace(e.SourceValue))
+                .ToDictionary(
+                    e => e.SourceValue,
+                    e => e.TargetValue,
+                    StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "LoaderService => Failed to load mapping table {MappingType}. Falling back to empty mapping.", mappingType);
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
     }
 
     private async Task WriteIntegrationLogAsync(string syncType, SyncResultDto result, CancellationToken ct)

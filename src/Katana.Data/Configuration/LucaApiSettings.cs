@@ -62,6 +62,7 @@ public class LucaEndpoints
 
     // Koza fatura endpoint'leri
     public string InvoiceList { get; set; } = "ListeleFtrSsFaturaBaslik.do";
+    public string InvoiceCreate { get; set; } = "EkleFat.do";
     public string InvoiceClose { get; set; } = "EkleFtrWsFaturaKapama.do";
     public string InvoiceDelete { get; set; } = "SilFtrWsFaturaBaslik.do";
 

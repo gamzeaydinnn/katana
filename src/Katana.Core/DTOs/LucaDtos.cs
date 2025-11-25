@@ -1172,6 +1172,12 @@ public class LucaCreateInvoiceDetailRequest
     [JsonPropertyName("kartKodu")]
     public string KartKodu { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Hesap planı kodu (SKU → Luca hesap kodu eşlemesi için kullanılır).
+    /// </summary>
+    [JsonPropertyName("hesapKod")]
+    public string? HesapKod { get; set; }
+
     [JsonPropertyName("kartAdi")]
     public string? KartAdi { get; set; }
 
