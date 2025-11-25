@@ -12,6 +12,8 @@ public class LucaApiSettings
     public int TimeoutSeconds { get; set; } = 30;
     public int MaxRetryAttempts { get; set; } = 3;
     public bool UseTokenAuth { get; set; } = true;
+    // When false, HttpClient will not use CookieContainer so manual cookies can be sent as-is.
+    public bool UseCookieContainer { get; set; } = true;
     // Optional: pre-baked session cookie for Koza (e.g., "JSESSIONID=...") to bypass CAPTCHA
     public string? ManualSessionCookie { get; set; } = string.Empty;
     // Optional: force a specific branch id for Koza (orgSirketSubeId).

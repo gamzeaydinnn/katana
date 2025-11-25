@@ -117,17 +117,44 @@ public class LucaService : ILucaService
         {
             _logger.LogInformation("=== Starting Koza Authentication ===");
 
-            _cookieContainer ??= new System.Net.CookieContainer();
-            _cookieHandler ??= new HttpClientHandler
+            var manualCookieMode = !string.IsNullOrWhiteSpace(_settings.ManualSessionCookie);
+            var useCookieContainer = _settings.UseCookieContainer && !manualCookieMode;
+            var baseUri = new Uri($"{_settings.BaseUrl.TrimEnd('/')}/");
+
+            if (_cookieHttpClient == null || useCookieContainer != (_cookieHandler != null))
             {
-                CookieContainer = _cookieContainer,
-                UseCookies = true,
-                AllowAutoRedirect = true
-            };
-            _cookieHttpClient ??= new HttpClient(_cookieHandler)
-            {
-                BaseAddress = new Uri($"{_settings.BaseUrl.TrimEnd('/')}/")
-            };
+                _cookieHttpClient?.Dispose();
+                _cookieHttpClient = null;
+
+                if (useCookieContainer)
+                {
+                    _cookieContainer ??= new System.Net.CookieContainer();
+                    _cookieHandler ??= new HttpClientHandler
+                    {
+                        CookieContainer = _cookieContainer,
+                        UseCookies = true,
+                        AllowAutoRedirect = true
+                    };
+                    _cookieHttpClient = new HttpClient(_cookieHandler)
+                    {
+                        BaseAddress = baseUri
+                    };
+                }
+                else
+                {
+                    _cookieContainer = null;
+                    _cookieHandler = null;
+                    _cookieHttpClient = new HttpClient(new HttpClientHandler
+                    {
+                        UseCookies = false,
+                        AllowAutoRedirect = true
+                    })
+                    {
+                        BaseAddress = baseUri
+                    };
+                }
+            }
+
             _cookieHttpClient.DefaultRequestHeaders.Accept.Clear();
             _cookieHttpClient.DefaultRequestHeaders.Accept.Add(
                 new MediaTypeWithQualityHeaderValue("application/json")
@@ -150,7 +177,12 @@ public class LucaService : ILucaService
                     Path = "/"
                 };
 
-                _cookieContainer.Add(uri, cookie);
+                if (useCookieContainer && _cookieContainer != null)
+                {
+                    _cookieContainer.Add(uri, cookie);
+                }
+                _cookieHttpClient.DefaultRequestHeaders.Remove("Cookie");
+                _cookieHttpClient.DefaultRequestHeaders.TryAddWithoutValidation("Cookie", _settings.ManualSessionCookie);
 
                 _logger.LogInformation("Added manual cookie: JSESSIONID={Value}",
                     cookieValue.Substring(0, Math.Min(20, cookieValue.Length)) + "...");
@@ -878,12 +910,13 @@ public class LucaService : ILucaService
                     CharSet = "windows-1254"
                 };
 
-                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
-                {
-                    Content = content
-                };
+                    using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                    {
+                        Content = content
+                    };
+                    ApplyManualSessionCookie(httpRequest);
 
-                var response = await client.SendAsync(httpRequest);
+                    var response = await client.SendAsync(httpRequest);
                 var responseBody = await ReadResponseContentAsync(response);
                 await AppendRawLogAsync("SEND_INVOICE", endpoint, payload, response.StatusCode, responseBody);
 
@@ -907,6 +940,7 @@ public class LucaService : ILucaService
                             }
                         }
                     };
+                    ApplyManualSessionCookie(retryRequest);
 
                     response = await (_cookieHttpClient ?? client).SendAsync(retryRequest);
                     responseBody = await ReadResponseContentAsync(response);
@@ -1670,6 +1704,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -1691,6 +1726,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -1712,6 +1748,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -1733,6 +1770,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -1754,6 +1792,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -1775,6 +1814,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -1796,6 +1836,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -1817,6 +1858,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -1838,6 +1880,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -1859,6 +1902,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -1880,6 +1924,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -1901,6 +1946,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -1922,6 +1968,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -1943,6 +1990,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -1966,6 +2014,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -1988,6 +2037,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2009,6 +2059,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2055,6 +2106,7 @@ public class LucaService : ILucaService
                     {
                         Content = content
                     };
+                    ApplyManualSessionCookie(httpRequest);
 
                     try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_REQUEST:{card.KartKodu}", httpRequest, null); } catch (Exception) { /* ignore */ }
 
@@ -2075,7 +2127,15 @@ public class LucaService : ILucaService
                         await EnsureAuthenticatedAsync();
                         await EnsureBranchSelectedAsync();
                         await VerifyBranchSelectionAsync();
-                        response = await (_cookieHttpClient ?? client).SendAsync(new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = new ByteArrayContent(enc1254.GetBytes(payload)) { Headers = { ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "windows-1254" } } } });
+                        var retryReq = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                        {
+                            Content = new ByteArrayContent(enc1254.GetBytes(payload))
+                            {
+                                Headers = { ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "windows-1254" } }
+                            }
+                        };
+                        ApplyManualSessionCookie(retryReq);
+                        response = await (_cookieHttpClient ?? client).SendAsync(retryReq);
                         responseBytes = await response.Content.ReadAsByteArrayAsync();
                         try { responseContent = enc1254.GetString(responseBytes); } catch { responseContent = Encoding.UTF8.GetString(responseBytes); }
                         await AppendRawLogAsync("SEND_STOCK_CARD_RETRY", fullUrl, payload, response.StatusCode, responseContent);
@@ -2096,6 +2156,7 @@ public class LucaService : ILucaService
                             var utf8Content = new ByteArrayContent(utf8Bytes);
                             utf8Content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
                             using var utf8Req = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = utf8Content };
+                            ApplyManualSessionCookie(utf8Req);
                             var utf8Resp = await (_cookieHttpClient ?? client).SendAsync(utf8Req);
                             var utf8BytesResp = await utf8Resp.Content.ReadAsByteArrayAsync();
                             string utf8RespContent;
@@ -2149,6 +2210,7 @@ public class LucaService : ILucaService
 
                                 var form = new FormUrlEncodedContent(formPairs);
                                 using var formReq = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = form };
+                                ApplyManualSessionCookie(formReq);
                                 var formResp = await (_cookieHttpClient ?? client).SendAsync(formReq);
                                 var formRespBody = await ReadResponseContentAsync(formResp);
                                 await AppendRawLogAsync($"SEND_STOCK_CARD_FORM_RETRY:{card.KartKodu}", fullUrl, payload, formResp.StatusCode, formRespBody);
@@ -2323,6 +2385,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2389,6 +2452,7 @@ public class LucaService : ILucaService
         {
             Content = content
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2494,6 +2558,7 @@ public class LucaService : ILucaService
         {
             Content = CreateKozaContent("{}")
         };
+        ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -3115,6 +3180,23 @@ public class LucaService : ILucaService
         return content;
     }
 
+    private void ApplyManualSessionCookie(HttpRequestMessage? request)
+    {
+        try
+        {
+            if (request == null) return;
+            if (string.IsNullOrWhiteSpace(_settings?.ManualSessionCookie)) return;
+            // Always try to add the configured manual session cookie as a request header.
+            // This ensures requests carry the cookie even when CookieContainer is not used
+            // or when an HttpRequestMessage is constructed directly.
+            request.Headers.TryAddWithoutValidation("Cookie", _settings.ManualSessionCookie);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to apply manual session cookie to outgoing request");
+        }
+    }
+
     private void ValidateFaturaKapama(LucaFaturaKapamaDto dto, long belgeTurDetayId)
     {
         if (dto == null)
@@ -3296,6 +3378,7 @@ public class LucaService : ILucaService
             {
                 Content = content
             };
+            ApplyManualSessionCookie(httpRequest);
             httpRequest.Headers.Add("No-Paging", "true");
 
             var response = await client.SendAsync(httpRequest);

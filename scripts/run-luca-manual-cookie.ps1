@@ -16,7 +16,12 @@ Usage:
 param(
     [string]$BaseUrl = 'http://85.111.1.49:57005/Yetki/',
     [string]$CookieDomain = '85.111.1.49',
-    [string]$JSessionValue = 'ahi8kFgEr5Ky7kFP0q4vsHvjAojnpqBJQlnDZ81mgdwUDodkJ_vt!735453627',
+    # Optional manual JSESSIONID (if you prefer manual injection instead of login)
+    [string]$JSessionValue = '',
+    # Preferred: use server login to obtain session cookies
+    [string]$OrgCode = '',
+    [string]$Username = '',
+    [string]$Password = '',
     [int]$ForcedBranchId = 854,
     [string]$ProductSKU = 'MY-SKU-1',
     [string]$ProductName = 'Test Product',
@@ -49,14 +54,46 @@ function Write-JsonFile($path, $obj) {
 function Url([string]$relative) { return ([string]::Format("{0}{1}",$BaseUrl,$relative)) }
 
 # Avoid assigning to the automatic $Host variable; use $CookieDomain instead
-# Build session and add manual cookie
+# Build session
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-try {
-    $cookie = New-Object System.Net.Cookie('JSESSIONID', $JSessionValue, '/', $CookieDomain)
-    $session.Cookies.Add($cookie)
+
+# If OrgCode/Username/Password provided, try full login (Giris.do) to let server create session state
+if (-not [string]::IsNullOrWhiteSpace($Username) -and -not [string]::IsNullOrWhiteSpace($Password)) {
+    Write-Host "Performing Giris.do login to obtain session cookie..."
+    try {
+        $loginPayload = @{ orgCode = $OrgCode; userName = $Username; userPassword = $Password } | ConvertTo-Json -Depth 5
+        Write-JsonFile (Join-Path $LogDir 'manual-login-request.json') $loginPayload
+        $loginResp = Invoke-WebRequest -Uri (Url 'Giris.do') -Method Post -Body $loginPayload -WebSession $session -Headers @{ 'Content-Type' = 'application/json'; 'Accept' = 'application/json' } -UseBasicParsing -ErrorAction Stop
+        Write-JsonFile (Join-Path $LogDir 'manual-login-response.json') $loginResp.Content
+        Write-Host "Login response saved to $LogDir\manual-login-response.json"
+
+        # Dump cookies after login
+        $cookieDump = @()
+        foreach ($c in $session.Cookies.GetCookies([System.Uri]$BaseUrl)) {
+            $cookieDump += ([PSCustomObject]@{ Name=$c.Name; Value=$c.Value; Domain=$c.Domain; Path=$c.Path; Expires=$c.Expires; HttpOnly=$c.HttpOnly })
+        }
+        Write-JsonFile (Join-Path $LogDir 'cookies-after-login.json') $cookieDump
+        Set-Content (Join-Path $LogDir 'cookies.txt') ($cookieDump | ConvertTo-Json -Depth 3)
+    }
+    catch {
+        Write-Warning "Login failed: $_"
+    }
 }
-catch {
-    Write-Warning "Could not add manual cookie: $_"
+else {
+    # Fall back to manual cookie injection if JSessionValue provided
+    if (-not [string]::IsNullOrWhiteSpace($JSessionValue)) {
+        try {
+            $cookie = New-Object System.Net.Cookie('JSESSIONID', $JSessionValue, '/', $CookieDomain)
+            $session.Cookies.Add($cookie)
+            Write-Host "Added manual JSESSIONID to session cookie jar."
+        }
+        catch {
+            Write-Warning "Could not add manual cookie: $_"
+        }
+    }
+    else {
+        Write-Host "No login credentials and no manual JSESSIONID provided; continuing with empty cookie jar (may fail)."
+    }
 }
 
 $headers = @{ 'Accept' = 'application/json'; 'Content-Type' = 'application/json' }
@@ -113,6 +150,29 @@ function Send-HttpWithEncoding([string]$relative, [string]$bodyString, [string]$
         $hdrPath = Join-Path $LogDir "$outPrefix-headers-$timeStamp.txt"
         Set-Content -Path $respPath -Value $respText -Encoding UTF8
         Set-Content -Path $hdrPath -Value ($resp.Headers.ToString()) -Encoding UTF8
+
+        # If server sent Set-Cookie headers (e.g. new JSESSIONID), update our $session cookie jar
+        try {
+            $setCookie = $resp.Headers['Set-Cookie']
+            if ($setCookie) {
+                $baseUri = [System.Uri]$BaseUrl
+                # split possible multiple cookies
+                $cookieParts = $setCookie -split ','
+                foreach ($part in $cookieParts) {
+                    if ($part -match 'JSESSIONID=([^;\s]+)') {
+                        $newVal = $Matches[1]
+                        try {
+                            $nc = New-Object System.Net.Cookie('JSESSIONID', $newVal, '/', $baseUri.Host)
+                            $session.Cookies.Add($baseUri, $nc)
+                            Write-Host "Updated session cookie from Set-Cookie: JSESSIONID=$newVal"
+                        } catch {
+                            Write-Warning "Failed to add cookie from Set-Cookie: $_"
+                        }
+                    }
+                }
+            }
+        }
+        catch { }
         return @{ StatusCode = $resp.StatusCode; Content = $respText; Response = $resp }
     }
     catch {
@@ -187,5 +247,48 @@ $res = Send-HttpWithEncoding 'EkleStkWsSkart.do' $stockBody 'windows-1254' 'appl
 Write-JsonFile (Join-Path $LogDir 'manual-stock-create-response.json') $res.Content
 if ($res.Response -ne $null) { Set-Content (Join-Path $LogDir 'manual-stock-create-headers.txt') $res.Response.Headers.ToString() }
 Write-Host "Stock-create response saved to $LogDir\manual-stock-create-response.json"
+
+# If server says login/branch required, try once more after applying any Set-Cookie updates
+try {
+    $needRetry = $false
+    $contentLower = $res.Content.ToString().ToLower()
+    if ($contentLower -like '*login olunmalı*' -or $contentLower -like '*şirket şube seçimi yap*' -or $contentLower -match '"code"\s*:\s*1001' -or $contentLower -match '"code"\s*:\s*1003') { $needRetry = $true }
+    if ($needRetry) {
+        Write-Host "Server responded with login/branch requirement. Re-running change-branch and retrying stock-create..."
+
+        # attempt change-branch again using updated session cookie
+        $changed = $false
+        foreach ($p in $changeCandidates) {
+            $json = $p | ConvertTo-Json -Depth 5
+            try {
+                $resp = Invoke-WebRequest -Uri (Url 'GuncelleYtkSirketSubeDegistir.do') -Method Post -Body $json -WebSession $session -Headers $headers -ContentType 'application/json' -UseBasicParsing -ErrorAction Stop
+                Write-JsonFile (Join-Path $LogDir 'manual-change-branch-retry.json') $resp.Content
+                Write-Host "Retry change-branch attempt saved to $LogDir\manual-change-branch-retry.json"
+                $changed = $true
+                break
+            }
+            catch {
+                Write-Warning ("Retry change attempt failed for payload {0}: {1}" -f $json, $_)
+            }
+        }
+
+        if ($changed) {
+            # update cookies saved after retry
+            $cookieDump2 = @()
+            foreach ($c in $session.Cookies.GetCookies([System.Uri]$BaseUrl)) {
+                $cookieDump2 += ([PSCustomObject]@{ Name=$c.Name; Value=$c.Value; Domain=$c.Domain; Path=$c.Path; Expires=$c.Expires; HttpOnly=$c.HttpOnly })
+            }
+            Write-JsonFile (Join-Path $LogDir 'cookies-after-change-branch-retry.json') $cookieDump2
+            Set-Content (Join-Path $LogDir 'cookies.txt') ($cookieDump2 | ConvertTo-Json -Depth 3)
+
+            # retry stock-create using utf-8 JSON first
+            $res2 = Send-HttpWithEncoding 'EkleStkWsSkart.do' $stockBody 'utf-8' 'application/json; charset=utf-8' 'manual-stock-create-retry'
+            Write-JsonFile (Join-Path $LogDir 'manual-stock-create-response-retry.json') $res2.Content
+            if ($res2.Response -ne $null) { Set-Content (Join-Path $LogDir 'manual-stock-create-headers-retry.txt') $res2.Response.Headers.ToString() }
+            Write-Host "Retry stock-create response saved to $LogDir\manual-stock-create-response-retry.json"
+        }
+    }
+}
+catch { Write-Warning "Retry logic failed: $_" }
 
 Write-Host "Done. Check $LogDir for artifacts (manual-*-*.json / .txt)."
