@@ -2,6 +2,11 @@ using System.Text.Json.Serialization;
 
 namespace Katana.Core.DTOs;
 
+#region Product & Variant
+
+/// <summary>
+/// Katana Product (Ürün)
+/// </summary>
 public class ProductDto
 {
     [JsonPropertyName("id")]
@@ -552,3 +557,417 @@ public class ProductOperationRerankRequest
     [JsonPropertyName("should_group")]
     public bool? ShouldGroup { get; set; }
 }
+
+/// <summary>
+/// Katana Variant (Varyant)
+/// </summary>
+public class VariantDto
+{
+    [JsonPropertyName("id")]
+    public long Id { get; set; }
+
+    [JsonPropertyName("product_id")]
+    public long? ProductId { get; set; }
+
+    [JsonPropertyName("material_id")]
+    public long? MaterialId { get; set; }
+
+    [JsonPropertyName("sku")]
+    public string Sku { get; set; } = string.Empty;
+
+    [JsonPropertyName("sales_price")]
+    public decimal? SalesPrice { get; set; }
+
+    [JsonPropertyName("purchase_price")]
+    public decimal? PurchasePrice { get; set; }
+
+    [JsonPropertyName("internal_barcode")]
+    public string? InternalBarcode { get; set; }
+
+    [JsonPropertyName("registered_barcode")]
+    public string? RegisteredBarcode { get; set; }
+
+    [JsonPropertyName("supplier_item_codes")]
+    public List<string>? SupplierItemCodes { get; set; }
+
+    [JsonPropertyName("config_attributes")]
+    public List<VariantConfigAttributeDto>? ConfigAttributes { get; set; }
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; } // product | material
+
+    [JsonPropertyName("created_at")]
+    public DateTime? CreatedAt { get; set; }
+
+    [JsonPropertyName("updated_at")]
+    public DateTime? UpdatedAt { get; set; }
+
+    [JsonPropertyName("minimum_order_quantity")]
+    public decimal? MinimumOrderQuantity { get; set; }
+
+    [JsonPropertyName("lead_time")]
+    public int? LeadTime { get; set; }
+
+    [JsonPropertyName("custom_fields")]
+    public List<MaterialVariantCustomFieldDto>? CustomFields { get; set; }
+}
+
+public class VariantConfigAttributeDto
+{
+    [JsonPropertyName("config_name")]
+    public string ConfigName { get; set; } = string.Empty;
+
+    [JsonPropertyName("config_value")]
+    public string ConfigValue { get; set; } = string.Empty;
+}
+
+public class VariantCreateRequest
+{
+    [JsonPropertyName("sku")]
+    public string Sku { get; set; } = string.Empty;
+
+    [JsonPropertyName("sales_price")]
+    public decimal? SalesPrice { get; set; }
+
+    [JsonPropertyName("purchase_price")]
+    public decimal? PurchasePrice { get; set; }
+
+    [JsonPropertyName("product_id")]
+    public long? ProductId { get; set; }
+
+    [JsonPropertyName("material_id")]
+    public long? MaterialId { get; set; }
+
+    [JsonPropertyName("supplier_item_codes")]
+    public List<string>? SupplierItemCodes { get; set; }
+
+    [JsonPropertyName("internal_barcode")]
+    public string? InternalBarcode { get; set; }
+
+    [JsonPropertyName("registered_barcode")]
+    public string? RegisteredBarcode { get; set; }
+
+    [JsonPropertyName("lead_time")]
+    public int? LeadTime { get; set; }
+
+    [JsonPropertyName("minimum_order_quantity")]
+    public decimal? MinimumOrderQuantity { get; set; }
+
+    [JsonPropertyName("config_attributes")]
+    public List<VariantConfigAttributeDto>? ConfigAttributes { get; set; }
+
+    [JsonPropertyName("custom_fields")]
+    public List<MaterialVariantCustomFieldDto>? CustomFields { get; set; }
+}
+
+public class VariantUpdateRequest
+{
+    [JsonPropertyName("sku")]
+    public string? Sku { get; set; }
+
+    [JsonPropertyName("sales_price")]
+    public decimal? SalesPrice { get; set; }
+
+    [JsonPropertyName("purchase_price")]
+    public decimal? PurchasePrice { get; set; }
+
+    [JsonPropertyName("product_id")]
+    public long? ProductId { get; set; }
+
+    [JsonPropertyName("material_id")]
+    public long? MaterialId { get; set; }
+
+    [JsonPropertyName("supplier_item_codes")]
+    public List<string>? SupplierItemCodes { get; set; }
+
+    [JsonPropertyName("internal_barcode")]
+    public string? InternalBarcode { get; set; }
+
+    [JsonPropertyName("registered_barcode")]
+    public string? RegisteredBarcode { get; set; }
+
+    [JsonPropertyName("lead_time")]
+    public int? LeadTime { get; set; }
+
+    [JsonPropertyName("minimum_order_quantity")]
+    public decimal? MinimumOrderQuantity { get; set; }
+
+    [JsonPropertyName("config_attributes")]
+    public List<VariantConfigAttributeDto>? ConfigAttributes { get; set; }
+
+    [JsonPropertyName("custom_fields")]
+    public List<MaterialVariantCustomFieldDto>? CustomFields { get; set; }
+}
+
+public class VariantListQuery
+{
+    [JsonPropertyName("ids")]
+    public List<long>? Ids { get; set; }
+
+    [JsonPropertyName("product_id")]
+    public long? ProductId { get; set; }
+
+    [JsonPropertyName("material_id")]
+    public long? MaterialId { get; set; }
+
+    [JsonPropertyName("sku")]
+    public List<string>? Sku { get; set; }
+
+    [JsonPropertyName("sales_price")]
+    public decimal? SalesPrice { get; set; }
+
+    [JsonPropertyName("purchase_price")]
+    public decimal? PurchasePrice { get; set; }
+
+    [JsonPropertyName("internal_barcode")]
+    public string? InternalBarcode { get; set; }
+
+    [JsonPropertyName("registered_barcode")]
+    public string? RegisteredBarcode { get; set; }
+
+    [JsonPropertyName("supplier_item_codes")]
+    public List<string>? SupplierItemCodes { get; set; }
+
+    [JsonPropertyName("extend")]
+    public List<string>? Extend { get; set; }
+
+    [JsonPropertyName("include_deleted")]
+    public bool? IncludeDeleted { get; set; }
+
+    [JsonPropertyName("include_archived")]
+    public bool? IncludeArchived { get; set; }
+
+    [JsonPropertyName("limit")]
+    public int? Limit { get; set; }
+
+    [JsonPropertyName("page")]
+    public int? Page { get; set; }
+
+    [JsonPropertyName("created_at_min")]
+    public DateTime? CreatedAtMin { get; set; }
+
+    [JsonPropertyName("created_at_max")]
+    public DateTime? CreatedAtMax { get; set; }
+
+    [JsonPropertyName("updated_at_min")]
+    public DateTime? UpdatedAtMin { get; set; }
+
+    [JsonPropertyName("updated_at_max")]
+    public DateTime? UpdatedAtMax { get; set; }
+}
+
+public class VariantRetrieveQuery
+{
+    [JsonPropertyName("extend")]
+    public List<string>? Extend { get; set; }
+}
+
+public class VariantBinLocationLinkDto
+{
+    [JsonPropertyName("location_id")]
+    public long LocationId { get; set; }
+
+    [JsonPropertyName("variant_id")]
+    public long VariantId { get; set; }
+
+    [JsonPropertyName("bin_name")]
+    public string BinName { get; set; } = string.Empty;
+}
+
+public class VariantBinLocationUnlinkDto
+{
+    [JsonPropertyName("location_id")]
+    public long LocationId { get; set; }
+
+    [JsonPropertyName("variant_id")]
+    public long VariantId { get; set; }
+}
+
+#endregion
+
+#region Location
+
+/// <summary>
+/// Katana Location (Depo/Lokasyon)
+/// </summary>
+/// <summary>
+/// Lokasyon DTO'su.
+/// </summary>
+public class LocationDto
+{
+    [JsonPropertyName("id")]
+    public long Id { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("legal_name")]
+    public string? LegalName { get; set; }
+
+    [JsonPropertyName("address_id")]
+    public long? AddressId { get; set; }
+
+    [JsonPropertyName("address")]
+    public LocationAddressDto? Address { get; set; }
+
+    [JsonPropertyName("is_primary")]
+    public bool? IsPrimary { get; set; }
+
+    [JsonPropertyName("sales_allowed")]
+    public bool? SalesAllowed { get; set; }
+
+    [JsonPropertyName("manufacturing_allowed")]
+    public bool? ManufacturingAllowed { get; set; }
+
+    [JsonPropertyName("purchase_allowed")]
+    public bool? PurchaseAllowed { get; set; }
+
+    [JsonPropertyName("rank")]
+    public int? Rank { get; set; }
+
+    [JsonPropertyName("created_at")]
+    public DateTime CreatedAt { get; set; }
+
+    [JsonPropertyName("updated_at")]
+    public DateTime UpdatedAt { get; set; }
+
+    [JsonPropertyName("deleted_at")]
+    public DateTime? DeletedAt { get; set; }
+}
+
+/// <summary>
+/// Lokasyon adres DTO'su.
+/// </summary>
+public class LocationAddressDto
+{
+    [JsonPropertyName("id")]
+    public long Id { get; set; }
+
+    [JsonPropertyName("line_1")]
+    public string? Line1 { get; set; }
+
+    [JsonPropertyName("line_2")]
+    public string? Line2 { get; set; }
+
+    [JsonPropertyName("city")]
+    public string? City { get; set; }
+
+    [JsonPropertyName("state")]
+    public string? State { get; set; }
+
+    [JsonPropertyName("zip")]
+    public string? Zip { get; set; }
+
+    [JsonPropertyName("country")]
+    public string? Country { get; set; }
+}
+
+/// <summary>
+/// Lokasyon listeleme filtreleri.
+/// </summary>
+public class LocationListQuery
+{
+    [JsonPropertyName("ids")]
+    public List<long>? Ids { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("legal_name")]
+    public string? LegalName { get; set; }
+
+    [JsonPropertyName("address_id")]
+    public long? AddressId { get; set; }
+
+    [JsonPropertyName("sales_allowed")]
+    public bool? SalesAllowed { get; set; }
+
+    [JsonPropertyName("manufacturing_allowed")]
+    public bool? ManufacturingAllowed { get; set; }
+
+    [JsonPropertyName("purchases_allowed")]
+    public bool? PurchasesAllowed { get; set; }
+
+    [JsonPropertyName("rank")]
+    public int? Rank { get; set; }
+
+    [JsonPropertyName("include_deleted")]
+    public bool? IncludeDeleted { get; set; }
+
+    [JsonPropertyName("limit")]
+    public int? Limit { get; set; }
+
+    [JsonPropertyName("page")]
+    public int? Page { get; set; }
+
+    [JsonPropertyName("created_at_min")]
+    public DateTime? CreatedAtMin { get; set; }
+
+    [JsonPropertyName("created_at_max")]
+    public DateTime? CreatedAtMax { get; set; }
+
+    [JsonPropertyName("updated_at_min")]
+    public DateTime? UpdatedAtMin { get; set; }
+
+    [JsonPropertyName("updated_at_max")]
+    public DateTime? UpdatedAtMax { get; set; }
+}
+
+/// <summary>
+/// Katana Bin Location (Raf Konumu)
+/// </summary>
+/// <summary>
+/// Depo içi raf / storage bin DTO.
+/// </summary>
+public class BinLocationDto
+{
+    [JsonPropertyName("id")]
+    public long Id { get; set; }
+
+    [JsonPropertyName("bin_name")]
+    public string BinName { get; set; } = string.Empty;
+
+    [JsonPropertyName("location_id")]
+    public long LocationId { get; set; }
+
+    [JsonPropertyName("created_at")]
+    public DateTime CreatedAt { get; set; }
+
+    [JsonPropertyName("updated_at")]
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Storage bin listeleme filtreleri.
+/// </summary>
+public class BinLocationListQuery
+{
+    [JsonPropertyName("location_id")]
+    public string? LocationId { get; set; }
+
+    [JsonPropertyName("bin_name")]
+    public string? BinName { get; set; }
+
+    [JsonPropertyName("include_deleted")]
+    public bool? IncludeDeleted { get; set; }
+
+    [JsonPropertyName("limit")]
+    public int? Limit { get; set; }
+
+    [JsonPropertyName("page")]
+    public int? Page { get; set; }
+}
+
+/// <summary>
+/// Storage bin güncelleme isteği (partial).
+/// </summary>
+public class BinLocationUpdateRequest
+{
+    [JsonPropertyName("bin_name")]
+    public string? BinName { get; set; }
+
+    [JsonPropertyName("location_id")]
+    public long? LocationId { get; set; }
+}
+
+#endregion
