@@ -1,6 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 using Katana.Business.DTOs;
+using Katana.Business.Models.DTOs;
 using Katana.Data.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -11,6 +13,7 @@ using System.Linq;
 using System.Net.Http.Headers;
 using System.Globalization;
 using Katana.Business.Interfaces;
+using Katana.Infrastructure.Mappers;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Core.Helpers;
@@ -2067,6 +2070,33 @@ public class LucaService : ILucaService
         response.EnsureSuccessStatusCode();
 
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+    public async Task<SyncResultDto> SendProductsFromExcelAsync(List<ExcelProductDto> products, CancellationToken cancellationToken = default)
+    {
+        if (products == null || products.Count == 0)
+        {
+            return new SyncResultDto
+            {
+                SyncType = "PRODUCT_STOCK_CARD",
+                ProcessedRecords = 0,
+                SuccessCount = 0,
+                FailedCount = 0
+            };
+        }
+
+        var mapped = new List<LucaCreateStokKartiRequest>();
+        foreach (var p in products)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            mapped.Add(KatanaToLucaMapper.MapFromExcelRow(
+                p,
+                _settings.DefaultKdvOran,
+                _settings.DefaultOlcumBirimiId,
+                _settings.DefaultKartTipi,
+                _settings.DefaultKategoriKodu));
+        }
+
+        return await SendStockCardsAsync(mapped);
     }
     public async Task<SyncResultDto> SendStockCardsAsync(List<LucaCreateStokKartiRequest> stockCards)
     {

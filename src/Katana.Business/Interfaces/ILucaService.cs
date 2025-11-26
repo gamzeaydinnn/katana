@@ -1,4 +1,5 @@
 ﻿using Katana.Business.DTOs;
+using Katana.Business.Models.DTOs;
 using Katana.Core.DTOs;
 using System.Text.Json;
 
@@ -97,6 +98,7 @@ public interface ILucaService
     Task<List<LucaBranchDto>> GetBranchesAsync();
     Task<List<LucaWarehouseDto>> GetWarehousesAsync();
     Task<List<LucaMeasurementUnitDto>> GetMeasurementUnitsAsync();
+    Task<SyncResultDto> SendProductsFromExcelAsync(List<ExcelProductDto> products, System.Threading.CancellationToken cancellationToken = default);
     
     Task<JsonElement> ListStockCardSuppliersAsync(LucaStockCardByIdRequest request);
     

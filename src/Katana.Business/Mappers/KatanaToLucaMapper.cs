@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Katana.Business.Enums;
+using Katana.Business.Models.DTOs;
 using Katana.Core.Constants;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
@@ -11,6 +13,97 @@ namespace Katana.Infrastructure.Mappers;
 
 public static class KatanaToLucaMapper
 {
+    private const string KozaDateFormat = "dd/MM/yyyy";
+
+    public enum InvoiceDirection
+    {
+        Purchase,
+        Sales
+    }
+
+    public static (long belgeTurId, long belgeTurDetayId) GetBelgeTurForInvoice(
+        InvoiceDirection direction,
+        bool isReturn,
+        bool isProforma,
+        bool isExchangeRate = false)
+    {
+        if (direction == InvoiceDirection.Purchase && !isReturn)
+        {
+            if (isProforma) return (KozaBelgeTurleri.AlimFaturalari, KozaBelgeTurleri.ProformaAlimFaturasi);
+            if (isExchangeRate) return (KozaBelgeTurleri.AlimFaturalari, KozaBelgeTurleri.KurFarkiAlisFaturasi);
+            return (KozaBelgeTurleri.AlimFaturalari, KozaBelgeTurleri.AlimFaturasi);
+        }
+
+        if (direction == InvoiceDirection.Sales && !isReturn)
+        {
+            if (isProforma) return (KozaBelgeTurleri.SatisFaturalari, KozaBelgeTurleri.ProformaSatisFaturasi);
+            if (isExchangeRate) return (KozaBelgeTurleri.SatisFaturalari, KozaBelgeTurleri.KurFarkiSatisFaturasi);
+            return (KozaBelgeTurleri.SatisFaturalari, KozaBelgeTurleri.MalSatisFaturasi);
+        }
+
+        if (direction == InvoiceDirection.Purchase && isReturn)
+            return (KozaBelgeTurleri.AlimIadeFaturalari, KozaBelgeTurleri.AlimIadeFaturasi);
+
+        if (direction == InvoiceDirection.Sales && isReturn)
+            return (KozaBelgeTurleri.SatisIadeFaturalari, KozaBelgeTurleri.SatisIadeFaturasi);
+
+        // fallback
+        return (KozaBelgeTurleri.SatisFaturalari, KozaBelgeTurleri.MalSatisFaturasi);
+    }
+
+    public static LucaCreateStokKartiRequest MapFromExcelRow(
+        ExcelProductDto excelRow,
+        double? defaultVatRate = null,
+        long? defaultOlcumBirimiId = null,
+        long? defaultKartTipi = null,
+        string? defaultKategoriKod = null)
+    {
+        if (excelRow == null) throw new ArgumentNullException(nameof(excelRow));
+
+        var vatPurchase = excelRow.PurchaseVatRate ?? excelRow.VatRate ?? defaultVatRate ?? 0;
+        var vatSales = excelRow.SalesVatRate ?? excelRow.VatRate ?? defaultVatRate ?? 0;
+
+        var request = new LucaCreateStokKartiRequest
+        {
+            KartAdi = excelRow.Name?.Trim() ?? excelRow.SKU?.Trim() ?? string.Empty,
+            KartKodu = excelRow.SKU?.Trim() ?? string.Empty,
+            KartTuru = 1,
+            BaslangicTarihi = excelRow.StartDate,
+            OlcumBirimiId = defaultOlcumBirimiId ?? 5,
+            KartTipi = defaultKartTipi ?? 4,
+            KategoriAgacKod = !string.IsNullOrWhiteSpace(excelRow.CategoryCode) ? excelRow.CategoryCode : defaultKategoriKod ?? string.Empty,
+            KartAlisKdvOran = ConvertToDouble(vatPurchase),
+            KartSatisKdvOran = ConvertToDouble(vatSales),
+            PerakendeAlisBirimFiyat = 0,
+            PerakendeSatisBirimFiyat = 0,
+            SatilabilirFlag = BoolToInt(excelRow.IsActive),
+            SatinAlinabilirFlag = BoolToInt(excelRow.IsActive),
+            LotNoFlag = BoolToInt(excelRow.TrackStock),
+            MinStokKontrol = 0,
+            MaliyetHesaplanacakFlag = BoolToInt(excelRow.CalculateCostOnPurchase),
+            Barkod = excelRow.Barcode ?? string.Empty,
+            UzunAdi = excelRow.Name ?? excelRow.SKU ?? string.Empty
+        };
+
+        return request;
+    }
+
+    public static (int BelgeTurId, int BelgeTurDetayId) GetInvoiceTypeIds(InvoiceType type)
+    {
+        return Katana.Business.Mappers.DocumentTypeMapper.GetInvoiceTypeIds(type);
+    }
+
+    public static (int BelgeTurId, int BelgeTurDetayId) GetWaybillTypeIds(WaybillType type)
+    {
+        return Katana.Business.Mappers.DocumentTypeMapper.GetWaybillTypeIds(type);
+    }
+
+    private static string FormatDateForKoza(DateTime date)
+    {
+        return date.ToString(KozaDateFormat, CultureInfo.InvariantCulture);
+    }
+
+    private static int BoolToInt(bool value) => value ? 1 : 0;
     public static LucaCreateStokKartiRequest MapProductToStockCard(
         Product product,
         double? defaultVat = null,
@@ -105,56 +198,31 @@ public static class KatanaToLucaMapper
 
     public static long GetBelgeTurDetayIdForInvoiceType(Invoice invoice)
     {
-        if (invoice == null)
-        {
-            return KozaBelgeTurleri.MalSatisFaturasi;
-        }
+        if (invoice == null) return KozaBelgeTurleri.MalSatisFaturasi;
 
-        var hintSources = new[]
-        {
-            invoice.Notes,
-            invoice.Status,
-            invoice.InvoiceNo
-        };
+        // try to infer direction/isReturn/isProforma/isExchangeRate from invoice hints
+        var hintSources = new[] { invoice.Notes, invoice.Status, invoice.InvoiceNo };
+        var isProforma = false;
+        var isExchangeRate = false;
+        InvoiceDirection direction = InvoiceDirection.Sales;
+        var isReturn = false;
 
         foreach (var hint in hintSources)
         {
             var normalized = NormalizeTypeHint(hint);
             if (string.IsNullOrEmpty(normalized)) continue;
 
-            switch (normalized)
-            {
-                case "PURCHASEINVOICE":
-                case "PURCHASE":
-                case "ALIM":
-                case "BUY":
-                case "SUPPLIER":
-                    return KozaBelgeTurleri.AlimFaturasi;
-                case "SALESRETURN":
-                case "SALE_RETURN":
-                case "SATISIADE":
-                case "SALES-CREDIT":
-                    return KozaBelgeTurleri.SatisIadeFaturasi;
-                case "PURCHASERETURN":
-                case "ALIMIADE":
-                case "PURCHASE-CREDIT":
-                    return KozaBelgeTurleri.AlimIadeFaturasi;
-                case "PURCHASEPROFORMA":
-                case "PURCHASEORDER":
-                    return KozaBelgeTurleri.AlimFaturasi;
-                case "SALESPROFORMA":
-                    return KozaBelgeTurleri.MalSatisFaturasi;
-                case "SALESINVOICE":
-                    return KozaBelgeTurleri.MalSatisFaturasi;
-            }
+            if (normalized.Contains("PROFORMA")) isProforma = true;
+            if (normalized.Contains("KUR") || normalized.Contains("EXCHANGE") || normalized.Contains("CURRENCY")) isExchangeRate = true;
+            if (normalized.Contains("PURCHASE") || normalized.Contains("ALIM") || normalized.Contains("BUY") || normalized.Contains("SUPPLIER")) direction = InvoiceDirection.Purchase;
+            if (normalized.Contains("RETURN") || normalized.Contains("IADE") || normalized.Contains("CREDIT")) isReturn = true;
         }
 
-        if (invoice.TotalAmount < 0)
-        {
-            return KozaBelgeTurleri.SatisIadeFaturasi;
-        }
+        // negative total usually indicates a return
+        if (invoice.TotalAmount < 0) isReturn = true;
 
-        return KozaBelgeTurleri.MalSatisFaturasi;
+        var (belgeTurId, belgeTurDetayId) = GetBelgeTurForInvoice(direction, isReturn, isProforma, isExchangeRate);
+        return belgeTurDetayId;
     }
 
     private static List<LucaCreateInvoiceDetailRequest> ConvertLines(

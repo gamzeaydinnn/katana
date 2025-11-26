@@ -6,6 +6,7 @@ param(
     [string]$Password = 'WebServis',
     [int]$BranchId = 854,
     [int]$Limit = 0,
+    [string]$ExcelFile = '',
     [string]$ProductsFile = '',
     [string]$KatanaApiToken = '',
     [int]$PageSize = 100,
@@ -27,21 +28,21 @@ function Log([string]$m) {
 
 # URL-encode using codepage 1254 bytes (windows-1254) so percent-escapes represent CP1254 bytes
 function UrlEncodeCp1254([string]$s) {
-    if ($null -eq $s) { return '' }
+    if ($null -eq $s) { return [string]'' }
     $enc = [System.Text.Encoding]::GetEncoding(1254)
     $bytes = $enc.GetBytes([string]$s)
     $sb = New-Object System.Text.StringBuilder
     foreach ($b in $bytes) {
         # space -> + for form encoding
-        if ($b -eq 0x20) { $sb.Append('+') ; continue }
+        if ($b -eq 0x20) { [void]$sb.Append('+') ; continue }
         # safe characters: alnum and - . _ ~
         if ((($b -ge 0x30) -and ($b -le 0x39)) -or (($b -ge 0x41) -and ($b -le 0x5A)) -or (($b -ge 0x61) -and ($b -le 0x7A)) -or ($b -in 45,46,95,126)) {
-            $sb.Append([char]$b)
+            [void]$sb.Append([char]$b)
         } else {
-            $sb.Append('%' + $b.ToString('X2'))
+            [void]$sb.Append('%' + $b.ToString('X2'))
         }
     }
-    return $sb.ToString()
+    return ([string]$sb.ToString())
 }
 
 # Try to fix common UTF8<->CP125x mojibake by reinterpreting bytes
@@ -73,16 +74,23 @@ function FixMojibake([string]$s) {
     }
 }
 
-if ($KatanaApiToken -and ($KatanaApiToken -eq '<use-appsettings>' -or $KatanaApiToken -ieq 'use-appsettings')) {
+if ((($KatanaApiToken -and ($KatanaApiToken -eq '<use-appsettings>' -or $KatanaApiToken -ieq 'use-appsettings')) -or ($KatanaApiBaseUrl -and ($KatanaApiBaseUrl -eq '<use-appsettings>' -or $KatanaApiBaseUrl -ieq 'use-appsettings')))) {
     $cfgPath = Join-Path (Get-Location) 'src\Katana.API\appsettings.Development.json'
     if (Test-Path $cfgPath) {
         try {
             $cfg = Get-Content -Raw $cfgPath | ConvertFrom-Json -ErrorAction Stop
-            if ($cfg.KatanaApi -and $cfg.KatanaApi.ApiKey) {
-                $KatanaApiToken = $cfg.KatanaApi.ApiKey
-                Log "Using KatanaApi.ApiKey from appsettings.Development.json"
+            if ($cfg.KatanaApi) {
+                if ($cfg.KatanaApi.ApiKey -and ($KatanaApiToken -eq '<use-appsettings>' -or $KatanaApiToken -ieq 'use-appsettings' -or -not $KatanaApiToken)) {
+                    $KatanaApiToken = $cfg.KatanaApi.ApiKey
+                    Log "Using KatanaApi.ApiKey from appsettings.Development.json"
+                }
+                if ($cfg.KatanaApi.BaseUrl -and ($KatanaApiBaseUrl -eq '<use-appsettings>' -or $KatanaApiBaseUrl -ieq 'use-appsettings' -or -not $KatanaApiBaseUrl -or $KatanaApiBaseUrl -eq 'http://localhost:5000')) {
+                    $KatanaApiBaseUrl = $cfg.KatanaApi.BaseUrl
+                    if (-not $KatanaApiBaseUrl.EndsWith('/')) { $KatanaApiBaseUrl += '/' }
+                    Log "Using KatanaApi.BaseUrl from appsettings.Development.json: $KatanaApiBaseUrl"
+                }
             } else {
-                Log "WARNING: appsettings.Development.json found but KatanaApi.ApiKey missing"
+                Log "WARNING: appsettings.Development.json found but KatanaApi section missing"
             }
         } catch {
             Log "WARNING: failed to read appsettings.Development.json: $($_.Exception.Message)"
@@ -102,6 +110,74 @@ function Log([string]$m) { $m | Tee-Object -FilePath $logFile -Append; Write-Out
 Log "START sync-katana-to-luca: $ts"
 Log "Katana API: $KatanaApiBaseUrl"
 Log "Koza Base: $KozaBaseUrl"
+
+# Excel import kısa yol
+if ($ExcelFile -and (Test-Path $ExcelFile)) {
+    Log "Excel kaynağı tespit edildi: $ExcelFile"
+
+    if (!(Get-Module -ListAvailable -Name ImportExcel)) {
+        Log "ImportExcel modülü yükleniyor..."
+        try { Install-Module -Name ImportExcel -Force -Scope CurrentUser -AllowClobber } catch { Log "ERROR: ImportExcel kurulamadı: $($_.Exception.Message)"; exit 1 }
+    }
+    Import-Module ImportExcel -ErrorAction Stop
+
+    $products = Import-Excel -Path $ExcelFile
+    if (-not $products -or $products.Count -eq 0) { Log "ERROR: Excel boş veya okunamadı."; exit 1 }
+
+    $required = @('SKU','Name','VatRate','Unit','StartDate')
+    $cols = $products[0].PSObject.Properties.Name
+    $missing = $required | Where-Object { $_ -notin $cols }
+    if ($missing.Count -gt 0) { Log ("ERROR: Eksik kolonlar: " + ($missing -join ', ')); exit 1 }
+
+    # Log dosyaları
+    $successLog = @()
+    $errorLog = @()
+
+    foreach ($p in $products) {
+        $body = @{
+            SKU = $p.SKU
+            Name = $p.Name
+            VatRate = $p.VatRate
+            Unit = $p.Unit
+            StartDate = $p.StartDate
+            IsActive = $p.IsActive
+            IsService = $p.IsService
+            TrackStock = $p.TrackStock
+            Description = $p.Description
+            Barcode = $p.Barcode
+            CategoryCode = $p.CategoryCode
+            PurchaseVatRate = $p.PurchaseVatRate
+            SalesVatRate = $p.SalesVatRate
+        }
+
+        try {
+            $resp = Invoke-RestMethod -Uri ("{0}api/luca/send-product-from-excel" -f $KatanaApiBaseUrl) -Method Post -ContentType 'application/json' -Body ($body | ConvertTo-Json -Depth 10) -ErrorAction Stop
+            if ($resp.success) {
+                Log "✓ $($p.SKU) gönderildi"
+                $successLog += @{ SKU=$p.SKU; Name=$p.Name; timestamp=(Get-Date).ToString("s") }
+            } else {
+                Log "✗ $($p.SKU) gönderilemedi: $($resp.message)"
+                $errorLog += @{ SKU=$p.SKU; Name=$p.Name; errorMessage=$resp.message; timestamp=(Get-Date).ToString("s") }
+            }
+        } catch {
+            Log "✗ $($p.SKU) hata: $($_.Exception.Message)"
+            $errorLog += @{ SKU=$p.SKU; Name=$p.Name; errorMessage=$_.Exception.Message; timestamp=(Get-Date).ToString("s") }
+        }
+    }
+
+    if ($successLog.Count -gt 0) { $successLog | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $logDir "success.json") -Encoding utf8 }
+    if ($errorLog.Count -gt 0) { $errorLog | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $logDir "error.json") -Encoding utf8 }
+    $summary = @{
+        totalProducts = $products.Count
+        successful = $successLog.Count
+        failed = $errorLog.Count
+        source = "Excel: $ExcelFile"
+        timestamp = (Get-Date).ToString("s")
+    }
+    $summary | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $logDir "summary.json") -Encoding utf8
+    Log "Excel import tamamlandı. Başarılı: $($successLog.Count) / $($products.Count)"
+    exit 0
+}
 
 # 1) Load products: from file (if provided) or from Katana API
 if ($ProductsFile -and (Test-Path $ProductsFile)) {
@@ -136,8 +212,8 @@ if ($ProductsFile -and (Test-Path $ProductsFile)) {
         try {
             while ($true) {
                 # Try the generic Katana 'products' path first (this deployment responds there), then try the Luca-shaped path
-                $altUrl = "${KatanaApiBaseUrl}products?page=$page&pageSize=$PageSize"
-                $primaryUrl = "${KatanaApiBaseUrl}api/Luca/products?page=$page&pageSize=$PageSize"
+                $altUrl = ("{0}products?page={1}`&pageSize={2}" -f $KatanaApiBaseUrl, $page, $PageSize)
+                $primaryUrl = ("{0}api/Luca/products?page={1}`&pageSize={2}" -f $KatanaApiBaseUrl, $page, $PageSize)
                 Log "Fetching page $page -> products: $altUrl"
                 try {
                     if ($headers.Count -gt 0) {
@@ -218,6 +294,9 @@ if ($PreviewOnly) {
         if (-not $name -and $p -and $p.PSObject.Properties.Match('Name')) { $name = $p.Name }
         if (-not $sku) { $sku = "AUTO-$([guid]::NewGuid().ToString().Substring(0,8))" }
         if (-not $name) { $name = $sku }
+        # Normalize possible arrays to scalars to avoid System.Object[] when converting to string
+        $sku = (@($sku) -join '')
+        $name = (@($name) -join '')
         # attempt to fix mojibake in product names (common when sources mix encodings)
         $name = FixMojibake $name
 
@@ -229,7 +308,7 @@ if ($PreviewOnly) {
         $kartTipi = $p.kartTipi -as [int]
         if (-not $kartTipi) { $kartTipi = 4 }
         $kategoriAgacKod = ''
-        if ($p -and $p.PSObject.Properties.Match('kategoriAgacKod')) { $kategoriAgacKod = $p.kategoriAgacKod }
+        if ($p -and $p.PSObject.Properties.Match('kategoriAgacKod')) { $kategoriAgacKod = (@($p.kategoriAgacKod) -join '') }
 
         $toFlag = {
             param($v)
@@ -242,15 +321,29 @@ if ($PreviewOnly) {
         $lotNoFlag = & $toFlag $p.lotNoFlag
         $maliyetHesaplanacakFlag = & $toFlag $p.maliyetHesaplanacakFlag
 
-        $startDate = $p.baslangicTarihi
+        $startDate = (@($p.baslangicTarihi) -join '')
         if ($startDate) {
-            try { $d = [datetime]::Parse($startDate); $startDate = $d.ToString('dd/MM/yyyy', [System.Globalization.CultureInfo]::InvariantCulture) } catch { $startDate = $startDate }
-        } else { $startDate = (Get-Date).ToString('dd/MM/yyyy', [System.Globalization.CultureInfo]::InvariantCulture) }
+            try { $d = [datetime]::Parse($startDate); $startDate = $d.ToString("dd'/'MM'/'yyyy") } catch { $startDate = $startDate }
+        } else { $startDate = (Get-Date).ToString("dd'/'MM'/'yyyy") }
 
         $kartAlisKdvOran = if ($p.kartAlisKdvOran -ne $null) { $p.kartAlisKdvOran } else { 0.0 }
         $kartSatisKdvOran = if ($p.kartSatisKdvOran -ne $null) { $p.kartSatisKdvOran } else { 0.0 }
 
-        $form = "baslangicTarihi=$(UrlEncodeCp1254 $startDate)&kartKodu=$(UrlEncodeCp1254 $sku)&kartAdi=$(UrlEncodeCp1254 $name)&kartTuru=$kartTuru&olcumBirimiId=$olcumBirimiId&kartAlisKdvOran=$kartAlisKdvOran&kartSatisKdvOran=$kartSatisKdvOran&kartTipi=$kartTipi&kategoriAgacKod=$(UrlEncodeCp1254 $kategoriAgacKod)&satilabilirFlag=$satilabilirFlag&satinAlinabilirFlag=$satinAlinabilirFlag&lotNoFlag=$lotNoFlag&maliyetHesaplanacakFlag=$maliyetHesaplanacakFlag"
+        $form = ("baslangicTarihi={0}`&kartKodu={1}`&kartAdi={2}`&kartTuru={3}`&olcumBirimiId={4}`&kartAlisKdvOran={5}`&kartSatisKdvOran={6}`&kartTipi={7}`&kategoriAgacKod={8}`&satilabilirFlag={9}`&satinAlinabilirFlag={10}`&lotNoFlag={11}`&maliyetHesaplanacakFlag={12}" -f
+            ([string](UrlEncodeCp1254 $startDate)),
+            ([string](UrlEncodeCp1254 $sku)),
+            ([string](UrlEncodeCp1254 $name)),
+            $kartTuru,
+            $olcumBirimiId,
+            $kartAlisKdvOran,
+            $kartSatisKdvOran,
+            $kartTipi,
+            ([string](UrlEncodeCp1254 $kategoriAgacKod)),
+            $satilabilirFlag,
+            $satinAlinabilirFlag,
+            $lotNoFlag,
+            $maliyetHesaplanacakFlag)
+        )
 
         $safeSku = ($sku -replace '[^a-zA-Z0-9_-]', '_')
         $formFile = Join-Path $logDir ("preview-form-$safeSku.txt")
@@ -302,6 +395,9 @@ foreach ($p in $prods) {
     if (-not $name -and $p -and $p.PSObject.Properties.Match('Name')) { $name = $p.Name }
     if (-not $sku) { $sku = "AUTO-$([guid]::NewGuid().ToString().Substring(0,8))" }
     if (-not $name) { $name = $sku }
+    # Normalize possible arrays to scalars to avoid System.Object[] when converting to string
+    $sku = (@($sku) -join '')
+    $name = (@($name) -join '')
     # attempt to fix mojibake in product names (common when sources mix encodings)
     $name = FixMojibake $name
 
@@ -313,7 +409,7 @@ foreach ($p in $prods) {
     $kartTipi = $p.kartTipi -as [int]
     if (-not $kartTipi) { $kartTipi = 4 }
     $kategoriAgacKod = ''
-    if ($p -and $p.PSObject.Properties.Match('kategoriAgacKod')) { $kategoriAgacKod = $p.kategoriAgacKod }
+    if ($p -and $p.PSObject.Properties.Match('kategoriAgacKod')) { $kategoriAgacKod = (@($p.kategoriAgacKod) -join '') }
 
     # Flags: ensure 1/0
     $toFlag = {
@@ -328,16 +424,16 @@ foreach ($p in $prods) {
     $maliyetHesaplanacakFlag = & $toFlag $p.maliyetHesaplanacakFlag
 
     # Dates: prefer existing baslangicTarihi or use today
-    $startDate = $p.baslangicTarihi
+    $startDate = (@($p.baslangicTarihi) -join '')
     if ($startDate) {
-        try { $d = [datetime]::Parse($startDate); $startDate = $d.ToString('dd/MM/yyyy', [System.Globalization.CultureInfo]::InvariantCulture) } catch { $startDate = $startDate }
-    } else { $startDate = (Get-Date).ToString('dd/MM/yyyy', [System.Globalization.CultureInfo]::InvariantCulture) }
+        try { $d = [datetime]::Parse($startDate); $startDate = $d.ToString("dd'/'MM'/'yyyy") } catch { $startDate = $startDate }
+    } else { $startDate = (Get-Date).ToString("dd'/'MM'/'yyyy") }
 
     # Prices/KDV
     $kartAlisKdvOran = if ($p.kartAlisKdvOran -ne $null) { $p.kartAlisKdvOran } else { 0.0 }
     $kartSatisKdvOran = if ($p.kartSatisKdvOran -ne $null) { $p.kartSatisKdvOran } else { 0.0 }
 
-    $form = "baslangicTarihi=$(UrlEncodeCp1254 $startDate)&kartKodu=$(UrlEncodeCp1254 $sku)&kartAdi=$(UrlEncodeCp1254 $name)&kartTuru=$kartTuru&olcumBirimiId=$olcumBirimiId&kartAlisKdvOran=$kartAlisKdvOran&kartSatisKdvOran=$kartSatisKdvOran&kartTipi=$kartTipi&kategoriAgacKod=$(UrlEncodeCp1254 $kategoriAgacKod)&satilabilirFlag=$satilabilirFlag&satinAlinabilirFlag=$satinAlinabilirFlag&lotNoFlag=$lotNoFlag&maliyetHesaplanacakFlag=$maliyetHesaplanacakFlag"
+    $form = "baslangicTarihi=$([string](UrlEncodeCp1254 $startDate))`&kartKodu=$([string](UrlEncodeCp1254 $sku))`&kartAdi=$([string](UrlEncodeCp1254 $name))`&kartTuru=$kartTuru`&olcumBirimiId=$olcumBirimiId`&kartAlisKdvOran=$kartAlisKdvOran`&kartSatisKdvOran=$kartSatisKdvOran`&kartTipi=$kartTipi`&kategoriAgacKod=$([string](UrlEncodeCp1254 $kategoriAgacKod))`&satilabilirFlag=$satilabilirFlag`&satinAlinabilirFlag=$satinAlinabilirFlag`&lotNoFlag=$lotNoFlag`&maliyetHesaplanacakFlag=$maliyetHesaplanacakFlag"
 
     # Avoid printing the raw form (it contains '&' which PowerShell will treat as operators if re-pasted).
     Log "Built form for SKU: $sku (length: $($form.Length) chars)"

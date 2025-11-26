@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Net.Http;
+using System.Text;
+using Katana.Business.Models.DTOs;
+using Katana.Infrastructure.Mappers;
 using Katana.Core.DTOs;
 using Katana.Core.Constants;
 
@@ -133,6 +137,61 @@ namespace Katana.Core.Helper
             };
 
             return req;
+        }
+
+        /// <summary>
+        /// Excel DTO'sundan form-encoded stok kartı isteği üretir.
+        /// </summary>
+        public static FormUrlEncodedContent CreateStockCardRequestFromExcel(
+            ExcelProductDto dto,
+            double defaultVatRate = 0.20,
+            long defaultOlcumBirimiId = 5,
+            long defaultKartTipi = 4,
+            string defaultKategoriKod = "001")
+        {
+            if (dto == null) throw new ArgumentNullException(nameof(dto));
+            var card = KatanaToLucaMapper.MapFromExcelRow(dto, defaultVatRate, defaultOlcumBirimiId, defaultKartTipi, defaultKategoriKod);
+
+            var payload = new Dictionary<string, string>
+            {
+                { "kartAdi", card.KartAdi },
+                { "kartKodu", card.KartKodu },
+                { "kartTipi", card.KartTipi.ToString(CultureInfo.InvariantCulture) },
+                { "kartAlisKdvOran", card.KartAlisKdvOran.ToString(CultureInfo.InvariantCulture) },
+                { "kartSatisKdvOran", card.KartSatisKdvOran.ToString(CultureInfo.InvariantCulture) },
+                { "olcumBirimiId", card.OlcumBirimiId.ToString(CultureInfo.InvariantCulture) },
+                { "baslangicTarihi", card.BaslangicTarihi?.ToString() ?? DateTime.UtcNow.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture) },
+                { "kartTuru", card.KartTuru.ToString(CultureInfo.InvariantCulture) },
+                { "kategoriAgacKod", card.KategoriAgacKod ?? string.Empty },
+                { "satilabilirFlag", card.SatilabilirFlag.ToString(CultureInfo.InvariantCulture) },
+                { "satinAlinabilirFlag", card.SatinAlinabilirFlag.ToString(CultureInfo.InvariantCulture) },
+                { "lotNoFlag", card.LotNoFlag.ToString(CultureInfo.InvariantCulture) },
+                { "minStokKontrol", card.MinStokKontrol.ToString(CultureInfo.InvariantCulture) },
+                { "maliyetHesaplanacakFlag", card.MaliyetHesaplanacakFlag.ToString(CultureInfo.InvariantCulture) },
+                { "barkod", card.Barkod ?? string.Empty },
+                { "uzunAdi", card.UzunAdi ?? card.KartAdi }
+            };
+
+            return new FormUrlEncodedContent(payload);
+        }
+
+        /// <summary>
+        /// Excel ürün listesi için form-encoded istekleri üretir.
+        /// </summary>
+        public static List<FormUrlEncodedContent> CreateBatchStockCardRequests(
+            List<ExcelProductDto> dtos,
+            double defaultVatRate = 0.20,
+            long defaultOlcumBirimiId = 5,
+            long defaultKartTipi = 4,
+            string defaultKategoriKod = "001")
+        {
+            var list = new List<FormUrlEncodedContent>();
+            if (dtos == null) return list;
+            foreach (var dto in dtos)
+            {
+                list.Add(CreateStockCardRequestFromExcel(dto, defaultVatRate, defaultOlcumBirimiId, defaultKartTipi, defaultKategoriKod));
+            }
+            return list;
         }
     }
 }

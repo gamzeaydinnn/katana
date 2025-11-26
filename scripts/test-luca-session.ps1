@@ -26,10 +26,10 @@ param(
     [int]$ForcedBranchId = 854,
     [string]$ProductSKU = 'TEST-SKU-001',
     [string]$ProductName = 'Test Product From Script',
-    [int]$OlcumBirimiId = 5,
+    [int]$OlcumBirimiId = 1,
     [double]$DefaultKdvOran = 0.20,
     [int]$DefaultKartTipi = 4,
-    [string]$DefaultKategoriKodu = '001',
+    [string]$DefaultKategoriKodu = '',
     [string]$LogDir = "$(Split-Path -Path $MyInvocation.MyCommand.Definition -Parent)\logs"
 )
 
@@ -200,6 +200,34 @@ if ($branchId) {
                 $selected = $branchesObj.data | Where-Object { $_.orgSirketSubeId -eq $branchId -and ($_.selected -eq $true -or $_.isSelected -eq $true) }
             }
             $selectedOk = $selected -ne $null -and $selected.Count -gt 0
+            # If API does not include an explicit 'selected' flag, fallback to presence check
+            if (-not $selectedOk) {
+                try {
+                    $present = $false
+                    if ($branchesObj.list -ne $null) {
+                        foreach ($it in $branchesObj.list) {
+                            if ($it.id -ne $null -and ([string]$it.id) -eq ([string]$branchId)) { $present = $true; break }
+                            if ($it.orgSirketSubeId -ne $null -and ([string]$it.orgSirketSubeId) -eq ([string]$branchId)) { $present = $true; break }
+                        }
+                    } elseif ($branchesObj.data -ne $null) {
+                        foreach ($it in $branchesObj.data) {
+                            if ($it.id -ne $null -and ([string]$it.id) -eq ([string]$branchId)) { $present = $true; break }
+                            if ($it.orgSirketSubeId -ne $null -and ([string]$it.orgSirketSubeId) -eq ([string]$branchId)) { $present = $true; break }
+                        }
+                    } elseif ($branchesObj -is [array]) {
+                        foreach ($it in $branchesObj) {
+                            if ($it.id -ne $null -and ([string]$it.id) -eq ([string]$branchId)) { $present = $true; break }
+                            if ($it.orgSirketSubeId -ne $null -and ([string]$it.orgSirketSubeId) -eq ([string]$branchId)) { $present = $true; break }
+                        }
+                    }
+                    if ($present) {
+                        Write-Warning "Branch verify did not report an explicit 'selected' flag; branch id $branchId is present in response - proceeding anyway."
+                        $selectedOk = $true
+                    }
+                } catch {
+                    # ignore fallback parse errors
+                }
+            }
         }
         catch { Write-Warning "Branch verify JSON parse failed: $_" }
 
@@ -223,25 +251,38 @@ else {
 Write-Host "[4/4] Create stock card -> $($BaseUrl)$($endpoints.StockCreate)"
 $effectiveName = $null
 if ([string]::IsNullOrWhiteSpace($ProductName)) { $effectiveName = $ProductSKU } else { $effectiveName = $ProductName }
-$today = (Get-Date).ToString('yyyy-MM-dd')
-# Use lower-cased field names to match Koza expectations (e.g. 'kartAdi', 'kartKodu', 'baslangicTarihi')
-$stockPayload = @{
-    kartAdi = $effectiveName;
-    kartTuru = 1;
-    olcumBirimiId = $OlcumBirimiId;
-    kartKodu = $ProductSKU;
-    baslangicTarihi = $today; # Koza often requires a start date
-    perakendeSatisBirimFiyat = 100.0;
-    perakendeAlisBirimFiyat = 80.0
-    kartTipi = $DefaultKartTipi;
-    kategoriAgacKod = $DefaultKategoriKodu;
-    kartAlisKdvOran = $DefaultKdvOran;
-    kartSatisKdvOran = $DefaultKdvOran;
-    satilabilirFlag = $true;
-    satinAlinabilirFlag = $true
-} | ConvertTo-Json -Depth 10
+$today = (Get-Date).ToString('dd/MM/yyyy', [System.Globalization.CultureInfo]::InvariantCulture)
+
+# Build form-encoded payload using windows-1254 percent-encoding (same rules as sync script)
+function UrlEncodeCp1254([string]$s) {
+    if ($null -eq $s) { return '' }
+    $enc = [System.Text.Encoding]::GetEncoding(1254)
+    $bytes = $enc.GetBytes([string]$s)
+    $sb = New-Object System.Text.StringBuilder
+    foreach ($b in $bytes) {
+        if ($b -eq 0x20) { $sb.Append('+'); continue }
+        if ((($b -ge 0x30) -and ($b -le 0x39)) -or (($b -ge 0x41) -and ($b -le 0x5A)) -or (($b -ge 0x61) -and ($b -le 0x7A)) -or ($b -in 45,46,95,126)) {
+            $sb.Append([char]$b)
+        } else {
+            $sb.Append('%' + $b.ToString('X2'))
+        }
+    }
+    return $sb.ToString()
+}
+
+$kartTuru = 1
+$olcumBirimiId = $OlcumBirimiId
+$kartTipi = $DefaultKartTipi
+$kartAlisKdvOran = $DefaultKdvOran
+$kartSatisKdvOran = $DefaultKdvOran
+$satilabilirFlag = 1
+$satinAlinabilirFlag = 1
+
+$form = "baslangicTarihi=$(UrlEncodeCp1254 $today)&kartKodu=$(UrlEncodeCp1254 $ProductSKU)&kartAdi=$(UrlEncodeCp1254 $effectiveName)&kartTuru=$kartTuru&olcumBirimiId=$olcumBirimiId&kartAlisKdvOran=$kartAlisKdvOran&kartSatisKdvOran=$kartSatisKdvOran&kartTipi=$kartTipi&kategoriAgacKod=$(UrlEncodeCp1254 $DefaultKategoriKodu)&satilabilirFlag=$satilabilirFlag&satinAlinabilirFlag=$satinAlinabilirFlag"
+
 try {
-    $stockResp = Invoke-WebRequest -Uri (Url $endpoints.StockCreate) -Method Post -Body $stockPayload -WebSession $session -Headers $headers -UseBasicParsing -ErrorAction Stop
+    $bytes = [System.Text.Encoding]::GetEncoding(1254).GetBytes($form)
+    $stockResp = Invoke-WebRequest -Uri (Url $endpoints.StockCreate) -Method Post -Body $bytes -WebSession $session -ContentType 'application/x-www-form-urlencoded; charset=windows-1254' -UseBasicParsing -ErrorAction Stop
     $stockContent = $stockResp.Content
     Write-JsonFile "$LogDir\stock-create-response.json" $stockContent
     Set-Content "$LogDir\http-stock-headers.txt" ($stockResp.Headers | Out-String)
