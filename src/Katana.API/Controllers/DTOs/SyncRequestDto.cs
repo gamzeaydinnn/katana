@@ -5,11 +5,11 @@ namespace Katana.API.Controllers.DTOs
 {
     public class SyncRequestDto
     {
-        // Hangi tür senkronizasyon yapılacağını belirtir (Örn: "Stock", "Sales", "Full")
+        // Hangi tür senkronizasyon yapılacağını belirtir 
         [Required]
         public string SyncType { get; set; } = null!; 
 
-        // Hangi tarihten itibaren veri çekileceği (KatanaClient için)
+        // Hangi tarihten itibaren veri çekileceği 
         public DateTime? StartDate { get; set; } 
 
         // Eğer tek bir seferlik çalıştırma isteniyorsa

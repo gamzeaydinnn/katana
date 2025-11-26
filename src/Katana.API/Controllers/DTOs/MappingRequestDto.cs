@@ -5,15 +5,15 @@ namespace Katana.API.Controllers.DTOs
 {
     public class MappingRequestDto
     {
-        // Kaynak sistemdeki kod (Örn: Katana ürün kodu)
+        
         [Required]
         public string SourceCode { get; set; } = null!;
 
-        // Hedef sistemdeki kod (Örn: Luca stok kodu)
+        // Hedef sistemdeki kod
         [Required]
         public string TargetCode { get; set; } = null!;
 
-        // Eşleştirme tipi (Product, Customer, vb.)
+        // Eşleştirme tipi 
         [Required]
         public string MappingType { get; set; } = null!; 
     }
