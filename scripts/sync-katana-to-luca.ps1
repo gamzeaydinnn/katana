@@ -47,16 +47,24 @@ function UrlEncodeCp1254([string]$s) {
 # Try to fix common UTF8<->CP125x mojibake by reinterpreting bytes
 function FixMojibake([string]$s) {
     if ($null -eq $s) { return $s }
-    if ($s -notmatch 'Ã|Ä|Å|Â') { return $s }
+    # Quick heuristic: look for common UTF8->CP125x mojibake indicators using Unicode escapes
+    if (-not [regex]::IsMatch($s, '\u00C3|\u00C4|\u00C5|\u00C2')) { return $s }
     try {
         $orig = [string]$s
-        $try1254 = [System.Text.Encoding]::UTF8.GetString([System.Text.Encoding]::GetEncoding(1254).GetBytes($orig))
-        $try1252 = [System.Text.Encoding]::UTF8.GetString([System.Text.Encoding]::GetEncoding(1252).GetBytes($orig))
-        $scoreOrig = (@($orig.ToCharArray() | Where-Object { $_ -eq '�' -or $_ -match 'Ã' })).Count
-        $score1254 = (@($try1254.ToCharArray() | Where-Object { $_ -eq '�' -or $_ -match 'Ã' })).Count
-        $score1252 = (@($try1252.ToCharArray() | Where-Object { $_ -eq '�' -or $_ -match 'Ã' })).Count
-        $best = $orig
-        $bestScore = $scoreOrig
+        $enc1254 = [System.Text.Encoding]::GetEncoding(1254)
+        $enc1252 = [System.Text.Encoding]::GetEncoding(1252)
+        $utf8 = [System.Text.Encoding]::UTF8
+        $try1254 = $utf8.GetString($enc1254.GetBytes($orig))
+        $try1252 = $utf8.GetString($enc1252.GetBytes($orig))
+        $badChar = [char]0xFFFD
+        $countBad = {
+            param($str)
+            (@($str.ToCharArray() | Where-Object { $_ -eq $badChar -or [regex]::IsMatch($_, '\u00C3') })).Count
+        }
+        $scoreOrig = & $countBad $orig
+        $score1254 = & $countBad $try1254
+        $score1252 = & $countBad $try1252
+        $best = $orig; $bestScore = $scoreOrig
         if ($score1254 -lt $bestScore) { $best = $try1254; $bestScore = $score1254 }
         if ($score1252 -lt $bestScore) { $best = $try1252; $bestScore = $score1252 }
         return $best
