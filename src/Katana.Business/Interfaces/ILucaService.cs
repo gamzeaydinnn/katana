@@ -8,12 +8,11 @@ public interface ILucaService
 {
     // Authentication
     Task<bool> TestConnectionAsync();
-
-    // Katana → Luca (Push)
+    // Katana → Luca 
     Task<SyncResultDto> SendInvoicesAsync(List<LucaCreateInvoiceHeaderRequest> invoices);
     Task<SyncResultDto> SendStockMovementsAsync(List<LucaStockDto> stockMovements);
     Task<SyncResultDto> SendCustomersAsync(List<LucaCreateCustomerRequest> customers);
-    // Katana -> Luca: send product records (create/update)
+    // Katana -> Luca: send 
     Task<SyncResultDto> SendProductsAsync(List<LucaProductUpdateDto> products);
     // Katana -> Luca: Koza stok kartı oluşturma
     Task<SyncResultDto> SendStockCardsAsync(List<LucaCreateStokKartiRequest> stockCards);
@@ -31,7 +30,6 @@ public interface ILucaService
     Task<List<LucaDepoDto>> GetDepoListAsync();
     Task<List<LucaVergiDairesiDto>> GetVergiDairesiListAsync();
     Task<List<LucaOlcumBirimiDto>> GetOlcumBirimiListAsync();
-    
     // Luca → Katana (Pull)
     Task<List<LucaInvoiceDto>> FetchInvoicesAsync(DateTime? fromDate = null);
     Task<List<LucaStockDto>> FetchStockMovementsAsync(DateTime? fromDate = null);
@@ -59,14 +57,11 @@ public interface ILucaService
     Task<System.Text.Json.JsonElement> GetCustomerRiskAsync(LucaGetCustomerRiskRequest request);
     Task<System.Text.Json.JsonElement> CreateCustomerTransactionAsync(LucaCreateCariHareketRequest request);
 
-    // Koza irsaliye işlemleri
     Task<System.Text.Json.JsonElement> ListDeliveryNotesAsync(bool detayliListe = false);
     Task<System.Text.Json.JsonElement> CreateDeliveryNoteAsync(LucaCreateIrsaliyeBaslikRequest request);
     Task<System.Text.Json.JsonElement> DeleteDeliveryNoteAsync(LucaDeleteIrsaliyeRequest request);
     Task<List<LucaDespatchDto>> FetchDeliveryNotesAsync(DateTime? fromDate = null);
 
-    // NEW: Additional Methods from API Documentation
-    // 3.2.1 Vergi Dairesi Listesi
     Task<JsonElement> ListTaxOfficesAsync(LucaListTaxOfficesRequest? request = null);
     // 3.2.2 Ölçü Birimi Listesi
     Task<JsonElement> ListMeasurementUnitsAsync(LucaListMeasurementUnitsRequest? request = null);
@@ -80,9 +75,9 @@ public interface ILucaService
     Task<JsonElement> CreateCustomerAsync(LucaCreateCustomerRequest request);
     // 3.2.30 Tedarikçi Kart Ekle
     Task<JsonElement> CreateSupplierAsync(LucaCreateSupplierRequest request);
-    // 3.2.33 Stok Kartı Ekle (birincil ürün oluşturma endpoint'i)
+    // 3.2.33 Stok Kartı 
     Task<JsonElement> CreateStockCardAsync(LucaCreateStokKartiRequest request);
-    // 3.2.40 Diğer Stok Hareketi (stok düzeltmeleri için)
+    // 3.2.40 Diğer Stok Hareketi 
     Task<JsonElement> CreateOtherStockMovementAsync(LucaCreateDshBaslikRequest request);
     // Satış siparişi işlemleri
     Task<JsonElement> CreateSalesOrderAsync(LucaCreateSalesOrderRequest request);
@@ -102,8 +97,6 @@ public interface ILucaService
     Task<List<LucaBranchDto>> GetBranchesAsync();
     Task<List<LucaWarehouseDto>> GetWarehousesAsync();
     Task<List<LucaMeasurementUnitDto>> GetMeasurementUnitsAsync();
-
-    // --- Eksik kalan listeleme/çekme uçları ---
     // 3.2.7 Stok Kartı Temin Yerleri
     Task<JsonElement> ListStockCardSuppliersAsync(LucaStockCardByIdRequest request);
     // 3.2.8 Cari İletişim Listesi

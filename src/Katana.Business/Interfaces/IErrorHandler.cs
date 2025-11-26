@@ -8,13 +8,6 @@ namespace Katana.Business.Interfaces;
 /// </summary>
 public interface IErrorHandler
 {
-    /// <summary>
-    /// Belirtilen işlemi güvenli bir şekilde çalıştırır ve hata durumunda loglar.
-    /// </summary>
-    /// <typeparam name="T">İşlem sonucu dönecek tip.</typeparam>
-    /// <param name="operation">Yürütülecek işlem.</param>
-    /// <param name="operationName">İşlem adı (örneğin "GetProducts", "SyncData").</param>
-    /// <returns>Başarılıysa sonucu, başarısızsa varsayılan değeri döner.</returns>
     Task<T?> ExecuteWithHandlingAsync<T>(Func<Task<T>> operation, string operationName);
 
     /// <summary>

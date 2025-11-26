@@ -10,16 +10,3 @@ public interface IAdminService
     Task<SyncReportDto> GetSyncReportAsync(string integrationName);
     Task<bool> RunManualSyncAsync(ManualSyncRequest request);
 }
-
-/*Interfaces/
-│   │       ├── IKatanaClient.cs
-│   │       ├── ILucaClient.cs
-│   │       ├── IExtractor.cs
-│   │       ├── ITransformer.cs
-│   │       ├── ILoader.cs
-│   │       ├── IMappingService.cs
-│   │       ├── ISyncManager.cs
-│   │       ├── IAuditLogger.cs
-│   │       ├── IErrorHandler.cs
-│   │       ├── IRepository{T}.cs
-│   │       └── IUnitOfWork.cs*/

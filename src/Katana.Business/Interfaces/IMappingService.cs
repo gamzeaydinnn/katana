@@ -3,13 +3,8 @@ using System.Collections.Generic;
 using Katana.Core.DTOs;
 
 namespace Katana.Business.Interfaces;
-
-/// <summary>
-/// Katana ↔ Luca/Koza mapping ve senkronizasyon orkestrasyonu.
-/// </summary>
 public interface IMappingService
 {
-    // Mapping CRUD
     Task<MappingDto> CreateSkuMappingAsync(CreateMappingRequestDto dto);
     Task<MappingDto> CreateLocationMappingAsync(CreateMappingRequestDto dto);
     Task<MappingDto> UpdateMappingAsync(int id, UpdateMappingRequestDto dto);
@@ -18,8 +13,6 @@ public interface IMappingService
     Task<List<MappingDto>> GetAllMappingsAsync(string? mappingType = null);
     Task<MappingDto?> GetMappingBySourceAsync(string sourceValue, string mappingType);
     Task<MappingStatsDto> GetMappingStatsAsync();
-
-    // Temel mapping yönetimi
     Task<Dictionary<string, string>> GetSkuToAccountMappingAsync();
     Task<Dictionary<string, string>> GetLocationMappingAsync();
     Task UpdateSkuMappingAsync(string sku, string accountCode);
