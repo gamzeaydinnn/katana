@@ -5,10 +5,6 @@ using System.Text;
 using System.Text.Json;
 
 namespace Katana.API.Middleware;
-
-/// <summary>
-/// Admin paneli API'larına gelen isteklerde JWT token'ını doğrulayacak olan middleware.
-/// </summary>
 public class AuthMiddleware
 {
     private readonly RequestDelegate _next;
@@ -24,7 +20,6 @@ public class AuthMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // [AllowAnonymous] attribute'una sahip endpoint'leri atla
         var endpoint = context.GetEndpoint();
         var allowAnonymous = endpoint?.Metadata?.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() != null;
         
@@ -33,8 +28,6 @@ public class AuthMiddleware
             await _next(context);
             return;
         }
-
-        // Kimlik doğrulama gerektirmeyen yolları (path) atla.
         if (context.Request.Path.StartsWithSegments("/swagger") ||
             context.Request.Path.StartsWithSegments("/health") ||
             context.Request.Path.StartsWithSegments("/api/auth", StringComparison.OrdinalIgnoreCase) ||
@@ -43,8 +36,6 @@ public class AuthMiddleware
             await _next(context);
             return;
         }
-
-        // Authorization header'ını al
         var token = context.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
 
         if (token != null)
@@ -71,16 +62,12 @@ public class AuthMiddleware
                 ValidIssuer = _configuration["Jwt:Issuer"],
                 ValidateAudience = true,
                 ValidAudience = _configuration["Jwt:Audience"],
-                // Zaman aşımı kontrolü
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.Zero
             };
 
-            // Token'ı doğrula ve principal (kimlik) bilgilerini al
             var principal = tokenHandler.ValidateToken(token, validationParameters, out SecurityToken validatedToken);
 
-            // Kullanıcı kimliğini isteğin context'ine ekle.
-            // Bu sayede [Authorize] attribute'u ve controller içindeki User nesnesi çalışır.
             context.User = principal;
         }
         catch (Exception ex)
@@ -88,8 +75,6 @@ public class AuthMiddleware
             // Token doğrulama başarısız olursa (geçersiz, süresi dolmuş vb.)
             // loglama yapabiliriz ancak context'e kullanıcı eklemeyiz.
             _logger.LogWarning(ex, "JWT token validation failed.");
-            // Hata fırlatmaya veya response'u direkt değiştirmeye gerek yok,
-            // [Authorize] attribute'u context.User boş olduğu için zaten 401 döndürecektir.
             await HandleUnauthorizedAsync(context, $"JWT Token Validation Failed: {ex.Message}");
         }
     }
