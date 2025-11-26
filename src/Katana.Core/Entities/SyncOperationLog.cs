@@ -1,10 +1,6 @@
 
 using System.ComponentModel.DataAnnotations;
 namespace Katana.Core.Entities;
-
-
-
-
 public class SyncOperationLog
 {
     public int Id { get; set; }

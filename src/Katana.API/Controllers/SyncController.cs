@@ -106,9 +106,11 @@ public class SyncController : ControllerBase
                 "INVOICE" => await _syncService.SyncInvoicesAsync(null),
                 "CUSTOMER" => await _syncService.SyncCustomersAsync(null),
                 "DESPATCH" => await _syncService.SyncDespatchFromLucaAsync(null),
+
+                "PRODUCT" => await _syncService.SyncProductsAsync(null),
+                "STOCK_CARD" => await _syncService.SyncProductsAsync(null),
                 
                 "SUPPLIER" => new SyncResultDto { IsSuccess = true, Message = "Tedarikçi senkronizasyonu tetiklendi (placeholder)", SuccessfulRecords = 0, ProcessedRecords = 0, FailedRecords = 0, SyncType = "SUPPLIER" },
-                "STOCK_CARD" => new SyncResultDto { IsSuccess = true, Message = "Stok kartı senkronizasyonu tetiklendi (placeholder)", SuccessfulRecords = 0, ProcessedRecords = 0, FailedRecords = 0, SyncType = "STOCK_CARD" },
                 "CUSTOMER_TRANSACTION" => new SyncResultDto { IsSuccess = true, Message = "Cari hareket senkronizasyonu tetiklendi (placeholder)", SuccessfulRecords = 0, ProcessedRecords = 0, FailedRecords = 0, SyncType = "CUSTOMER_TRANSACTION" },
                 "CREDIT_CARD" => new SyncResultDto { IsSuccess = true, Message = "Kredi kartı girişi senkronizasyonu tetiklendi (placeholder)", SuccessfulRecords = 0, ProcessedRecords = 0, FailedRecords = 0, SyncType = "CREDIT_CARD" },
                 "SALES_ORDER" => new SyncResultDto { IsSuccess = true, Message = "Satış siparişi senkronizasyonu tetiklendi (placeholder)", SuccessfulRecords = 0, ProcessedRecords = 0, FailedRecords = 0, SyncType = "SALES_ORDER" },
@@ -247,6 +249,26 @@ public class SyncController : ControllerBase
         {
             _logger.LogError(ex, "Müşteri senkronizasyonu çalıştırılırken hata oluştu");
             return StatusCode(500, new { error = "Sunucu hata verdi: müşteri senkronizasyonu sırasında" });
+        }
+    }
+
+    
+    
+    
+    [HttpPost("to-luca/stock-cards")]
+    public async Task<ActionResult<SyncResultDto>> SyncProductsToLuca([FromQuery] DateTime? fromDate = null)
+    {
+        try
+        {
+            _logger.LogInformation("API üzerinden Katana → Luca ürün (stok kartı) senkronizasyonu tetiklendi");
+            var result = await _syncService.SyncProductsAsync(fromDate);
+
+            return result.IsSuccess ? Ok(result) : BadRequest(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Katana → Luca ürün senkronizasyonu hata verdi");
+            return StatusCode(500, new { error = "Sunucu hata verdi: ürün senkronizasyonu sırasında" });
         }
     }
 
