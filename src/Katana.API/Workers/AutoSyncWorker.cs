@@ -25,7 +25,7 @@ public class AutoSyncWorker : BackgroundService
     {
         _logger.LogInformation("AutoSyncWorker başlatıldı");
         
-        // İlk başlangıçta 10 saniye bekle (sistem ayaklanması için)
+        
         await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)

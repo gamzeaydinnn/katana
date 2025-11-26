@@ -72,8 +72,8 @@ public class AuthMiddleware
         }
         catch (Exception ex)
         {
-            // Token doğrulama başarısız olursa (geçersiz, süresi dolmuş vb.)
-            // loglama yapabiliriz ancak context'e kullanıcı eklemeyiz.
+            
+            
             _logger.LogWarning(ex, "JWT token validation failed.");
             await HandleUnauthorizedAsync(context, $"JWT Token Validation Failed: {ex.Message}");
         }

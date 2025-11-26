@@ -10,7 +10,7 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize] // Tüm authenticated kullanıcılar erişebilir, özel yetkiler endpoint seviyesinde
+[Authorize] 
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
@@ -24,11 +24,11 @@ public class UsersController : ControllerBase
         _auditService = auditService;
     }
 
-    /// <summary>
-    /// Tüm kullanıcıları getirir.
-    /// </summary>
+    
+    
+    
     [HttpGet]
-    [Authorize(Roles = "Admin,Manager")] // Manager sadece görüntüleyebilir
+    [Authorize(Roles = "Admin,Manager")] 
     public async Task<IActionResult> GetAll()
     {
         var users = await _userService.GetAllAsync();
@@ -36,9 +36,9 @@ public class UsersController : ControllerBase
         return Ok(users);
     }
 
-    /// <summary>
-    /// Belirli bir kullanıcıyı ID'ye göre getirir.
-    /// </summary>
+    
+    
+    
     [HttpGet("{id}")]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> GetById(int id)
@@ -47,9 +47,9 @@ public class UsersController : ControllerBase
         return user == null ? NotFound(new { message = $"Kullanıcı bulunamadı: {id}" }) : Ok(user);
     }
 
-    /// <summary>
-    /// Yeni bir kullanıcı oluşturur.
-    /// </summary>
+    
+    
+    
     [HttpPost]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
@@ -81,9 +81,9 @@ public class UsersController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Kullanıcıyı siler.
-    /// </summary>
+    
+    
+    
     [HttpDelete("{id}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)
@@ -98,11 +98,11 @@ public class UsersController : ControllerBase
         return NotFound(new { message = $"Kullanıcı bulunamadı: {id}" });
     }
 
-    /// <summary>
-    /// Kullanıcının rolünü günceller.
-    /// </summary>
+    
+    
+    
     [HttpPut("{id}/role")]
-    [Authorize(Roles = "Admin")] // sadece Admin rol değiştirebilir
+    [Authorize(Roles = "Admin")] 
     public async Task<IActionResult> UpdateRole(int id, [FromBody] string role)
     {
         if (string.IsNullOrWhiteSpace(role))
@@ -118,11 +118,11 @@ public class UsersController : ControllerBase
         return NotFound(new { message = $"Kullanıcı bulunamadı: {id}" });
     }
 
-    /// <summary>
-    /// Kullanıcı bilgilerini günceller.
-    /// </summary>
+    
+    
+    
     [HttpPut("{id}")]
-    [Authorize(Roles = "Admin")] // sadece Admin kullanıcı güncelleyebilir
+    [Authorize(Roles = "Admin")] 
     public async Task<IActionResult> Update(int id, [FromBody] UpdateUserDto dto)
     {
         if (!ModelState.IsValid)
@@ -141,7 +141,7 @@ public class UsersController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            // duplicate username/email gibi durumlar
+            
             return Conflict(new { error = ex.Message });
         }
     }

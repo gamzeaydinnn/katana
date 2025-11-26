@@ -25,9 +25,9 @@ public class InvoicesController : ControllerBase
         _auditService = auditService;
     }
 
-    /// <summary>
-    /// Tüm faturaları getirir
-    /// </summary>
+    
+    
+    
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll()
@@ -45,9 +45,9 @@ public class InvoicesController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// ID'ye göre fatura getirir
-    /// </summary>
+    
+    
+    
     [HttpGet("{id}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -72,9 +72,9 @@ public class InvoicesController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Fatura numarasına göre fatura getirir
-    /// </summary>
+    
+    
+    
     [HttpGet("by-number/{invoiceNo}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -87,9 +87,9 @@ public class InvoicesController : ControllerBase
         return Ok(invoice);
     }
 
-    /// <summary>
-    /// Müşteriye göre faturaları getirir
-    /// </summary>
+    
+    
+    
     [HttpGet("customer/{customerId}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByCustomer(int customerId)
@@ -98,9 +98,9 @@ public class InvoicesController : ControllerBase
         return Ok(new { data = invoices, count = invoices.Count });
     }
 
-    /// <summary>
-    /// Duruma göre faturaları getirir
-    /// </summary>
+    
+    
+    
     [HttpGet("status/{status}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByStatus(string status)
@@ -109,9 +109,9 @@ public class InvoicesController : ControllerBase
         return Ok(new { data = invoices, count = invoices.Count });
     }
 
-    /// <summary>
-    /// Tarih aralığına göre faturaları getirir
-    /// </summary>
+    
+    
+    
     [HttpGet("range")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByDateRange([FromQuery] DateTime startDate, [FromQuery] DateTime endDate)
@@ -120,9 +120,9 @@ public class InvoicesController : ControllerBase
         return Ok(new { data = invoices, count = invoices.Count });
     }
 
-    /// <summary>
-    /// Vadesi geçmiş faturaları getirir
-    /// </summary>
+    
+    
+    
     [HttpGet("overdue")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetOverdue()
@@ -131,9 +131,9 @@ public class InvoicesController : ControllerBase
         return Ok(new { data = invoices, count = invoices.Count });
     }
 
-    /// <summary>
-    /// Senkronize edilmemiş faturaları getirir
-    /// </summary>
+    
+    
+    
     [HttpGet("unsynced")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetUnsynced()
@@ -142,9 +142,9 @@ public class InvoicesController : ControllerBase
         return Ok(new { data = invoices, count = invoices.Count });
     }
 
-    /// <summary>
-    /// Yeni fatura oluşturur
-    /// </summary>
+    
+    
+    
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -176,9 +176,9 @@ public class InvoicesController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Fatura günceller
-    /// </summary>
+    
+    
+    
     [HttpPut("{id}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -206,9 +206,9 @@ public class InvoicesController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Fatura durumunu günceller
-    /// </summary>
+    
+    
+    
     [HttpPut("{id}/status")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -241,9 +241,9 @@ public class InvoicesController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Fatura siler
-    /// </summary>
+    
+    
+    
     [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -271,9 +271,9 @@ public class InvoicesController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Faturayı senkronize edildi olarak işaretler
-    /// </summary>
+    
+    
+    
     [HttpPut("{id}/sync")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -294,9 +294,9 @@ public class InvoicesController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Fatura istatistiklerini getirir
-    /// </summary>
+    
+    
+    
     [HttpGet("statistics")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetStatistics()
@@ -305,9 +305,9 @@ public class InvoicesController : ControllerBase
         return Ok(statistics);
     }
 
-    /// <summary>
-    /// Tarih aralığına göre fatura istatistiklerini getirir
-    /// </summary>
+    
+    
+    
     [HttpGet("statistics/range")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetStatisticsByDateRange([FromQuery] DateTime startDate, [FromQuery] DateTime endDate)

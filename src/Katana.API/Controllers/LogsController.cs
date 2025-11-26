@@ -24,9 +24,9 @@ public class LogsController : ControllerBase
         _loggingService = loggingService;
     }
 
-    /// <summary>
-    /// GET /api/Logs/errors - Error loglarını getirir (sayfalama + filtreleme)
-    /// </summary>
+    
+    
+    
     [HttpGet("errors")]
     public async Task<IActionResult> GetErrorLogs(
         [FromQuery] int pageSize = 50,
@@ -109,9 +109,9 @@ public class LogsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// GET /api/Logs/audits - Audit loglarını getirir (sayfalama + filtreleme)
-    /// </summary>
+    
+    
+    
     [HttpGet("audits")]
     public async Task<IActionResult> GetAuditLogs(
         [FromQuery] int pageSize = 50,
@@ -199,9 +199,9 @@ public class LogsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// GET /api/Logs/stats - Log istatistikleri
-    /// </summary>
+    
+    
+    
     [HttpGet("stats")]
     public async Task<IActionResult> GetLogStats([FromQuery] DateTime? fromDate = null)
     {
@@ -242,9 +242,9 @@ public class LogsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// POST /api/Logs/frontend-error - Frontend hatalarını loglar
-    /// </summary>
+    
+    
+    
     [HttpPost("frontend-error")]
     public IActionResult LogFrontendError([FromBody] FrontendErrorDto error)
     {

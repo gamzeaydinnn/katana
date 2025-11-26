@@ -24,13 +24,13 @@ public class DiagnosticsController : ControllerBase
     {
         var result = new Dictionary<string, object?>();
 
-        // A) Parse recent logs for "Product skipped"
+        
         try
         {
             var logsDir = Path.Combine(_env.ContentRootPath, "logs");
             if (!Directory.Exists(logsDir))
             {
-                // try legacy path
+                
                 logsDir = Path.Combine(_env.ContentRootPath, "src", "Katana.API", "logs");
             }
 
@@ -68,7 +68,7 @@ public class DiagnosticsController : ControllerBase
             result["skippedProductsFromLogs_error"] = ex.Message;
         }
 
-        // C) IntegrationLogs + FailedSyncRecords summary
+        
         try
         {
             var recentIntegration = await _db.IntegrationLogs

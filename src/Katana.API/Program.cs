@@ -31,9 +31,9 @@ using Katana.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// -----------------------------
-// Port Configuration
-// -----------------------------
+
+
+
 var envUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
 var configuredUrls = builder.Configuration["Urls"];
 if (string.IsNullOrWhiteSpace(envUrls) && string.IsNullOrWhiteSpace(configuredUrls))
@@ -55,14 +55,14 @@ if (string.IsNullOrWhiteSpace(envUrls) && string.IsNullOrWhiteSpace(configuredUr
     Console.WriteLine($"Kestrel chosen port: {chosen}");
 }
 
-// -----------------------------
-// Logging (Serilog)
-// -----------------------------
+
+
+
 builder.Host.UseSerilogConfiguration();
 
-// -----------------------------
-// Services
-// -----------------------------
+
+
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -74,9 +74,9 @@ builder.Services.AddMemoryCache();
 builder.Services.AddResponseCaching();
 builder.Services.AddHttpContextAccessor();
 
-// -----------------------------
-// Swagger
-// -----------------------------
+
+
+
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
@@ -86,7 +86,7 @@ builder.Services.AddSwaggerGen(c =>
         Description = "API for managing integration between Katana MRP/ERP and Luca Accounting systems"
     });
 
-    // XML comments (Controllers + DTOs)
+    
     var xmlApi = Path.Combine(AppContext.BaseDirectory, $"{Assembly.GetExecutingAssembly().GetName().Name}.xml");
     if (File.Exists(xmlApi)) c.IncludeXmlComments(xmlApi, includeControllerXmlComments: true);
     var xmlCore = Path.Combine(AppContext.BaseDirectory, "Katana.Core.xml");
@@ -100,7 +100,7 @@ builder.Services.AddSwaggerGen(c =>
         Type = SecuritySchemeType.ApiKey
     });
 
-    // JWT Bearer security for Swagger UI
+    
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
@@ -129,13 +129,13 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
-    // Operation filter: add 401/403/500 responses for [Authorize] endpoints
+    
     c.OperationFilter<Katana.API.Swagger.OperationFilters.AddAuthResponsesOperationFilter>();
 });
 
-// -----------------------------
-// Database (SQL Server only)
-// -----------------------------
+
+
+
 builder.Services.AddDbContext<IntegrationDbContext>(options =>
 {
     var sqlServerConnection = builder.Configuration.GetConnectionString("SqlServerConnection");
@@ -147,9 +147,9 @@ builder.Services.AddDbContext<IntegrationDbContext>(options =>
         sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null));
 });
 
-// -----------------------------
-// Config Bindings
-// -----------------------------
+
+
+
 builder.Services.Configure<KatanaApiSettings>(builder.Configuration.GetSection("KatanaApi"));
 builder.Services.Configure<LucaApiSettings>(builder.Configuration.GetSection("LucaApi"));
 builder.Services.Configure<SyncSettings>(builder.Configuration.GetSection(SyncSettings.SectionName));
@@ -158,9 +158,9 @@ builder.Services.Configure<CatalogVisibilitySettings>(builder.Configuration.GetS
 builder.Services.Configure<KatanaMappingSettings>(builder.Configuration.GetSection("Mapping:Katana"));
 builder.Services.AddAuthorization();
 
-// -----------------------------
-// HTTP Clients
-// -----------------------------
+
+
+
 builder.Services.AddHttpClient<IKatanaService, KatanaService>((sp, client) =>
 {
     var s = sp.GetRequiredService<IOptions<KatanaApiSettings>>().Value;
@@ -193,9 +193,9 @@ builder.Services.AddTransient<RateLimitHandler>();
 
 builder.Services.AddSingleton<ILucaCookieJarStore, LucaCookieJarStore>();
 
-// -----------------------------
-// Repositories + Services
-// -----------------------------
+
+
+
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IRepository<Category>, CategoryRepository>();
 builder.Services.AddScoped<IExtractorService, ExtractorService>();
@@ -232,9 +232,9 @@ builder.Services.AddScoped<IPendingNotificationPublisher, SignalRNotificationPub
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<AdminService>();
 
-// -----------------------------
-// JWT Authentication
-// -----------------------------
+
+
+
 var jwt = builder.Configuration.GetSection("Jwt");
 var key = jwt["Key"] ?? throw new InvalidOperationException("JWT Key not configured");
 
@@ -264,9 +264,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
-// -----------------------------
-// CORS
-// -----------------------------
+
+
+
 builder.Services.AddCors(o =>
 {
     o.AddPolicy("AllowFrontend", p =>
@@ -290,14 +290,14 @@ builder.Services.AddCors(o =>
          .WithExposedHeaders("Authorization", "X-Luca-Session"));
 });
 
-// -----------------------------
-// Health Checks
-// -----------------------------
+
+
+
 builder.Services.AddHealthChecks().AddDbContextCheck<IntegrationDbContext>();
 
-// -----------------------------
-// Background Services
-// -----------------------------
+
+
+
 var enableBackground = string.Equals(Environment.GetEnvironmentVariable("ENABLE_BACKGROUND_SERVICES"), "true", StringComparison.OrdinalIgnoreCase);
 if (enableBackground)
 {
@@ -317,12 +317,12 @@ builder.Services.AddHostedService<LogRetentionService>();
 builder.Services.AddHostedService<FailedNotificationProcessor>();
 builder.Services.AddHostedService<AutoSyncWorker>();
 
-// -----------------------------
-// Build & Run
-// -----------------------------
+
+
+
 var app = builder.Build();
 
-// Connection string info
+
 try
 {
     var sqlConn = builder.Configuration.GetConnectionString("SqlServerConnection");
@@ -360,7 +360,7 @@ app.MapControllers();
 app.MapHealthChecks("/health");
 app.MapHub<Katana.API.Hubs.NotificationHub>("/hubs/notifications");
 
-// Auto-migrate DB (SQL Server only)
+
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
@@ -497,5 +497,5 @@ static async Task EnsureDefaultAdminUserAsync(
     }
 }
 
-// Make Program class accessible to WebApplicationFactory in integration tests
+
 public partial class Program { }

@@ -14,9 +14,9 @@ using Microsoft.AspNetCore.Http;
 
 namespace Katana.API.Controllers;
 
-/// <summary>
-/// Diagnostic endpoints to verify configuration and Katana API connectivity. Admin-only.
-/// </summary>
+
+
+
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "Admin")]
@@ -82,9 +82,9 @@ public class TestController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Tek bir ürünü Luca'ya göndererek entegrasyonu test eder.
-    /// </summary>
+    
+    
+    
     [HttpPost("sync-one-product")]
     public async Task<IActionResult> SyncOneProduct([FromQuery] string? sku = null)
     {
@@ -139,9 +139,9 @@ public class TestController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Yeni bir test ürün oluşturur ve Luca'ya gönderir.
-    /// </summary>
+    
+    
+    
     [HttpPost("create-test-product")]
     public async Task<IActionResult> CreateTestProduct()
     {

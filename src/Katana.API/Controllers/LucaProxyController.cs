@@ -28,7 +28,7 @@ namespace Katana.API.Controllers
             _settings = settings.Value;
             _lucaBaseUrl = (_settings.BaseUrl ?? string.Empty).TrimEnd('/');
             if (string.IsNullOrWhiteSpace(_lucaBaseUrl))
-                _lucaBaseUrl = "https://akozas.luca.com.tr/Yetki"; // fallback
+                _lucaBaseUrl = "https://akozas.luca.com.tr/Yetki"; 
         }
 
         private void ApplyManualSessionCookie(HttpRequestMessage request)
@@ -40,13 +40,13 @@ namespace Katana.API.Controllers
                     request.Headers.TryAddWithoutValidation("Cookie", _settings.ManualSessionCookie);
                 }
             }
-            catch { /* swallow - best-effort */ }
+            catch {  }
         }
 
-        // Luca'dan gelen Set-Cookie'leri frontend'e forward eden yardımcı
+        
         private async Task<IActionResult> ForwardResponse(HttpResponseMessage response)
         {
-            // Not forwarding Set-Cookie from Luca. They are stored server-side in CookieContainer.
+            
             var responseContent = await response.Content.ReadAsStringAsync();
             return new ContentResult
             {
@@ -58,7 +58,7 @@ namespace Katana.API.Controllers
 
         private string? GetSessionIdFromRequest()
         {
-            // Prefer explicit header (works cross-origin without relying on cookies)
+            
             if (Request.Headers.TryGetValue("X-Luca-Session", out var headerVals))
             {
                 var hdr = headerVals.FirstOrDefault();
@@ -88,7 +88,7 @@ namespace Katana.API.Controllers
                 Secure = isHttps,
                 SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax,
                 Path = "/",
-                Expires = DateTimeOffset.UtcNow.AddMinutes(5) // Cookie 5 dakika geçerli
+                Expires = DateTimeOffset.UtcNow.AddMinutes(5) 
             });
             return sessionId;
         }
@@ -106,7 +106,7 @@ namespace Katana.API.Controllers
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
             };
             var client = new HttpClient(handler);
-            // Always use backend-configured Luca credentials to avoid mismatched front-end payloads
+            
             var defaultPayload = new
             {
                 orgCode = string.IsNullOrWhiteSpace(_settings.MemberNumber) ? (object)"" : _settings.MemberNumber,
@@ -128,18 +128,18 @@ namespace Katana.API.Controllers
             var respPreview = responseContent != null && responseContent.Length > 1000 ? responseContent.Substring(0, 1000) + "..." : responseContent;
             _logger.LogDebug("LucaProxy: Received response from {Url}. Status: {Status}. Body preview: {Preview}", requestUrl, response.StatusCode, respPreview);
 
-            // Try to deserialize the remote response for convenience
+            
             object? parsed = null;
             try
             {
                 if (!string.IsNullOrEmpty(responseContent))
                     parsed = JsonSerializer.Deserialize<object>(responseContent);
             }
-            catch { /* ignore */ }
+            catch {  }
 
-            // Return the remote response along with the server-side sessionId so the frontend
-            // can persist it and send it back via X-Luca-Session header on subsequent calls.
-            // If Luca returns code != 0, treat as auth failure even if HTTP 200
+            
+            
+            
             try
             {
                 if (parsed is JsonElement el && el.ValueKind == JsonValueKind.Object)
@@ -198,7 +198,7 @@ namespace Katana.API.Controllers
                 return StatusCode((int)response.StatusCode, new { raw = responseContent, status = (int)response.StatusCode, message = "Luca API error" });
             }
 
-            // Log full response for debugging when it's short (likely an error)
+            
             if ((responseContent?.Length ?? 0) < 200)
             {
                 _logger.LogWarning("Luca /branches suspiciously short response ({Length} chars): {Body}", responseContent?.Length ?? 0, responseContent);
@@ -218,8 +218,8 @@ namespace Katana.API.Controllers
 
                 if (foundArray.HasValue)
                 {
-                    // Materialize the found array into a standalone object so we don't
-                    // return a JsonElement that references the disposed JsonDocument.
+                    
+                    
                     var branchesObj = JsonSerializer.Deserialize<object>(foundArray.Value.GetRawText());
                     var rawObj = JsonSerializer.Deserialize<object>(responseContent ?? "null");
                     return Ok(new { branches = branchesObj, raw = rawObj });
@@ -230,7 +230,7 @@ namespace Katana.API.Controllers
                 _logger.LogWarning(ex, "Failed to parse Luca branches response");
             }
 
-            // Fallback: return raw content wrapped so frontend can reliably inspect the remote body
+            
             return StatusCode((int)response.StatusCode, new { raw = responseContent, status = (int)response.StatusCode });
         }
 

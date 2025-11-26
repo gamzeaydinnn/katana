@@ -9,9 +9,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Katana.API.Controllers;
 
-/// <summary>
-/// Manual and status endpoints for synchronization operations. Admin-only.
-/// </summary>
+
+
+
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "Admin")]
@@ -33,11 +33,11 @@ public class SyncController : ControllerBase
         _auditService = auditService;
     }
 
-    /// <summary>
-    /// GET /api/Sync/history - Senkronizasyon geçmişini getirir
-    /// </summary>
+    
+    
+    
     [HttpGet("history")]
-    [AllowAnonymous] // Manager ve Staff da senkronizasyon geçmişini görebilmeli
+    [AllowAnonymous] 
     public async Task<IActionResult> GetSyncHistory()
     {
         try
@@ -73,9 +73,9 @@ public class SyncController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// POST /api/Sync/start - Yeni senkronizasyon başlatır
-    /// </summary>
+    
+    
+    
     [HttpPost("start")]
     [Authorize(Roles = "Admin,StokYonetici")]
     public async Task<IActionResult> StartSync([FromBody] StartSyncRequest request)
@@ -97,7 +97,7 @@ public class SyncController : ControllerBase
             _logger.LogInformation("Senkronizasyon başlatılıyor: {SyncType}", normalizedType);
             _loggingService.LogInfo($"Senkronizasyon başlatıldı: {normalizedType}", user, "StartSync", LogCategory.Sync);
             
-            // Audit log: Sync başlatıldı
+            
             _auditService.LogSync(string.IsNullOrEmpty(normalizedType) ? "UNKNOWN" : normalizedType, user, $"Manuel senkronizasyon başlatıldı");
             
             var result = syncKey switch
@@ -106,7 +106,7 @@ public class SyncController : ControllerBase
                 "INVOICE" => await _syncService.SyncInvoicesAsync(null),
                 "CUSTOMER" => await _syncService.SyncCustomersAsync(null),
                 "DESPATCH" => await _syncService.SyncDespatchFromLucaAsync(null),
-                // Luca genişletilmiş uçlar: şimdilik tetikle ve başarılı dön (iş akışı eklenene kadar bloklamasın)
+                
                 "SUPPLIER" => new SyncResultDto { IsSuccess = true, Message = "Tedarikçi senkronizasyonu tetiklendi (placeholder)", SuccessfulRecords = 0, ProcessedRecords = 0, FailedRecords = 0, SyncType = "SUPPLIER" },
                 "STOCK_CARD" => new SyncResultDto { IsSuccess = true, Message = "Stok kartı senkronizasyonu tetiklendi (placeholder)", SuccessfulRecords = 0, ProcessedRecords = 0, FailedRecords = 0, SyncType = "STOCK_CARD" },
                 "CUSTOMER_TRANSACTION" => new SyncResultDto { IsSuccess = true, Message = "Cari hareket senkronizasyonu tetiklendi (placeholder)", SuccessfulRecords = 0, ProcessedRecords = 0, FailedRecords = 0, SyncType = "CUSTOMER_TRANSACTION" },
@@ -150,9 +150,9 @@ public class SyncController : ControllerBase
         });
     }
 
-    /// <summary>
-    /// Runs complete synchronization for all data types
-    /// </summary>
+    
+    
+    
     [HttpPost("run")]
     public async Task<ActionResult<BatchSyncResultDto>> RunCompleteSync([FromQuery] DateTime? fromDate = null)
     {
@@ -175,9 +175,9 @@ public class SyncController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Runs stock synchronization only
-    /// </summary>
+    
+    
+    
     [HttpPost("stock")]
     public async Task<ActionResult<SyncResultDto>> RunStockSync([FromQuery] DateTime? fromDate = null)
     {
@@ -200,9 +200,9 @@ public class SyncController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Runs invoice synchronization only
-    /// </summary>
+    
+    
+    
     [HttpPost("invoices")]
     public async Task<ActionResult<SyncResultDto>> RunInvoiceSync([FromQuery] DateTime? fromDate = null)
     {
@@ -225,9 +225,9 @@ public class SyncController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Runs customer synchronization only
-    /// </summary>
+    
+    
+    
     [HttpPost("customers")]
     public async Task<ActionResult<SyncResultDto>> RunCustomerSync([FromQuery] DateTime? fromDate = null)
     {
@@ -250,11 +250,11 @@ public class SyncController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Gets the status of all sync operations
-    /// </summary>
+    
+    
+    
     [HttpGet("status")]
-    [AllowAnonymous] // Manager ve Staff da sync durumunu görebilmeli
+    [AllowAnonymous] 
     public async Task<ActionResult<List<SyncStatusDto>>> GetSyncStatus()
     {
         try
@@ -269,11 +269,11 @@ public class SyncController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Checks if a specific sync type is currently running
-    /// </summary>
+    
+    
+    
     [HttpGet("status/{syncType}")]
-    [AllowAnonymous] // Manager ve Staff da sync durumunu görebilmeli
+    [AllowAnonymous] 
     public async Task<ActionResult<object>> GetSyncTypeStatus(string syncType)
     {
         try
@@ -288,13 +288,13 @@ public class SyncController : ControllerBase
         }
     }
 
-    // Luca → Katana (Reverse Sync) endpoints
     
-    /// <summary>
-    /// POST /api/Sync/from-luca/stock - Luca'dan stok hareketlerini çeker
-    /// </summary>
+    
+    
+    
+    
     [HttpPost("from-luca/stock")]
-    [AllowAnonymous] // Temporarily for testing
+    [AllowAnonymous] 
     public async Task<ActionResult<SyncResultDto>> SyncStockFromLuca([FromQuery] DateTime? fromDate = null)
     {
         try
@@ -311,9 +311,9 @@ public class SyncController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// POST /api/Sync/from-luca/invoices - Luca'dan faturaları çeker
-    /// </summary>
+    
+    
+    
     [HttpPost("from-luca/invoices")]
     public async Task<ActionResult<SyncResultDto>> SyncInvoicesFromLuca([FromQuery] DateTime? fromDate = null)
     {
@@ -331,9 +331,9 @@ public class SyncController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// POST /api/Sync/from-luca/customers - Luca'dan müşterileri çeker
-    /// </summary>
+    
+    
+    
     [HttpPost("from-luca/customers")]
     public async Task<ActionResult<SyncResultDto>> SyncCustomersFromLuca([FromQuery] DateTime? fromDate = null)
     {
@@ -351,9 +351,9 @@ public class SyncController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// POST /api/Sync/from-luca/despatch - Luca'dan irsaliyeleri çeker
-    /// </summary>
+    
+    
+    
     [HttpPost("from-luca/despatch")]
     public async Task<ActionResult<SyncResultDto>> SyncDespatchFromLuca([FromQuery] DateTime? fromDate = null)
     {
@@ -371,9 +371,9 @@ public class SyncController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// POST /api/Sync/from-luca/all - Luca'dan tüm verileri çeker
-    /// </summary>
+    
+    
+    
     [HttpPost("from-luca/all")]
     public async Task<ActionResult<BatchSyncResultDto>> SyncAllFromLuca([FromQuery] DateTime? fromDate = null)
     {
