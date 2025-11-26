@@ -1,12 +1,16 @@
 <#
 test-luca-correct-format.ps1
 
-Hedef: Luca/Koza stok kartı endpointine kullanıcının paylaştığı doğru formatta tek bir payload gönderip doğrudan root seviyeden çalışır hale gelmesini test eder.
-Format kuralları:
- 1. Tarih dd/MM/yyyy (örn. 06/04/2022)
- 2. Boolean alanlar integer (1 veya 0)
- 3. Wrapper yok, alanlar root seviyeden gönderiliyor
- 4. satilabilirFlag, satinAlinabilirFlag, lotNoFlag ve maliyetHesaplanacakFlag kesinlikle mevcut olmalı
+Hedef: Luca/Koza stok kartı endpointine kullanıcıdan gelen örnek formatı 3 farklı varyasyonla test ederek
+- Tarih dd/MM/yyyy
+- Boolean olmayan flag'ler 0/1 olarak
+- Wrapper yok, root seviyede alanlar
+- satilabilirFlag, satinAlinabilirFlag, lotNoFlag, maliyetHesaplanacakFlag (+ minStokKontrol) kesinlikle gönderiliyor
+
+Üç test:
+  1) Koza örneğine göre tam payload (tüm alanlar)
+  2) Sadece zorunlu alanlar
+  3) Zorunlu + fiyat alanları
 
 Kullanım (repo kökünden):
   .\scripts\test-luca-correct-format.ps1 -OrgCode 1422649 -Username Admin -Password WebServis -BranchId 854
@@ -34,6 +38,7 @@ if (-not (Test-Path $LogDir)) { New-Item -Path $LogDir -ItemType Directory -Forc
 
 $timestamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
 $testDate = (Get-Date).ToString('dd/MM/yyyy')
+$bitisDate = (Get-Date).AddMonths(6).ToString('dd/MM/yyyy')
 $testSKU = "CORRECT-$timestamp"
 
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
@@ -67,8 +72,19 @@ catch {
     Write-Host "Branch selection warning: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n=== CORRECT PAYLOAD ===" -ForegroundColor Cyan
-$payload = @{
+Write-Host "`n=== CORRECT FORMAT TESTS ===" -ForegroundColor Cyan
+
+$endpoint = "$BaseUrl`EkleStkWsSkart.do"
+
+$flags = @{
+    maliyetHesaplanacakFlag = 1
+    satilabilirFlag = 1
+    satinAlinabilirFlag = 1
+    lotNoFlag = 0
+    minStokKontrol = 0
+}
+
+$basePayload = @{
     kartAdi = "Correct Format $testSKU"
     kartKodu = $testSKU
     kartTuru = $KartTuru
@@ -76,42 +92,60 @@ $payload = @{
     olcumBirimiId = $OlcumBirimiId
     kategoriAgacKod = $KategoriKod
     kartTipi = $KartTipi
+}
+
+function Send-JsonTest($name, $payload, $description) {
+    Write-Host "`n[$name] $description" -ForegroundColor Yellow
+    $jsonPayload = $payload | ConvertTo-Json -Depth 4
+    Save-Log "$name-request.json" $jsonPayload
+
+    try {
+        $resp = Invoke-WebRequest -Uri $endpoint -Method Post -Body $jsonPayload `
+            -WebSession $session `
+            -Headers @{ 'Content-Type' = 'application/json; charset=utf-8' } -UseBasicParsing
+        Save-Log "$name-response.json" $resp.Content
+        Write-Host "   HTTP $($resp.StatusCode)" -ForegroundColor Green
+        try {
+            $parsed = $resp.Content | ConvertFrom-Json
+            Write-Host ("   code: {0} message: {1}" -f $parsed.code, $parsed.message) -ForegroundColor Cyan
+        } catch {
+            Write-Host "   Response is not JSON" -ForegroundColor Gray
+        }
+    } catch {
+        $body = ''
+        if ($_.Exception.Response -ne $null) {
+            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+            $body = $reader.ReadToEnd()
+            $reader.Close()
+        }
+        Save-Log "$name-response.json" $body
+        Write-Host "   Request failed: $_" -ForegroundColor Red
+    }
+}
+
+$test1 = $basePayload + @{
     kartAlisKdvOran = $KartAlisKdvOran
     kartSatisKdvOran = $KartSatisKdvOran
     perakendeAlisBirimFiyat = $PerakendeAlisBirimFiyat
     perakendeSatisBirimFiyat = $PerakendeSatisBirimFiyat
-    maliyetHesaplanacakFlag = 1
-    satilabilirFlag = 1
-    satinAlinabilirFlag = 1
-    lotNoFlag = 1
-}
+    barkod = "$testSKU-B"
+    rafOmru = 365
+    bitisTarihi = $bitisDate
+    gtipKodu = '01010101'
+    garantiSuresi = 12
+} + $flags
 
-$jsonPayload = $payload | ConvertTo-Json -Depth 3
-Save-Log 'correct-format-request.json' $jsonPayload
+$test2 = $basePayload + $flags
 
-$endpoint = "$BaseUrl`EkleStkWsSkart.do"
-try {
-    $resp = Invoke-WebRequest -Uri $endpoint -Method Post -Body $jsonPayload `
-        -WebSession $session `
-        -Headers @{ 'Content-Type' = 'application/json; charset=utf-8' } -UseBasicParsing
-    Save-Log 'correct-format-response.json' $resp.Content
-    Write-Host "HTTP $($resp.StatusCode)" -ForegroundColor Green
-    try {
-        $parsed = $resp.Content | ConvertFrom-Json
-        Write-Host ("code: {0} message: {1}" -f $parsed.code, $parsed.message) -ForegroundColor Cyan
-    } catch {
-        Write-Host "Response is not JSON" -ForegroundColor Gray
-    }
-}
-catch {
-    $body = ''
-    if ($_.Exception.Response -ne $null) {
-        $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-        $body = $reader.ReadToEnd()
-        $reader.Close()
-    }
-    Save-Log 'correct-format-response.json' $body
-    Write-Host "Request failed: $_" -ForegroundColor Red
-}
+$test3 = $basePayload + @{
+    kartAlisKdvOran = $KartAlisKdvOran
+    kartSatisKdvOran = $KartSatisKdvOran
+    perakendeAlisBirimFiyat = $PerakendeAlisBirimFiyat
+    perakendeSatisBirimFiyat = $PerakendeSatisBirimFiyat
+} + $flags
+
+Send-JsonTest 'test1-full' $test1 'EXACT format from Koza example (full field set)'
+Send-JsonTest 'test2-minimal' $test2 'Minimal required fields only'
+Send-JsonTest 'test3-prices' $test3 'Required fields plus price-related values'
 
 Write-Host "`nLog directory: $LogDir" -ForegroundColor Yellow
