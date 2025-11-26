@@ -1009,23 +1009,23 @@ public class LucaService : ILucaService
                 ParaBirimKod = invoice.ParaBirimKod ?? "TRY",
                 KurBedeli = invoice.KurBedeli,
                 MusteriTedarikci = invoice.MusteriTedarikci,
-                CariKodu = invoice.CariKodu,
-                CariTanim = invoice.CariTanim,
+                CariKodu = invoice.CariKodu ?? string.Empty,
+                CariTanim = invoice.CariTanim ?? string.Empty,
                 CariTip = invoice.CariTip,
-                CariKisaAd = invoice.CariKisaAd,
-                CariYasalUnvan = invoice.CariYasalUnvan,
-                VergiNo = invoice.VergiNo,
-                AdresSerbest = invoice.AdresSerbest,
+                CariKisaAd = invoice.CariKisaAd ?? string.Empty,
+                CariYasalUnvan = invoice.CariYasalUnvan ?? string.Empty,
+                VergiNo = invoice.VergiNo ?? string.Empty,
+                AdresSerbest = invoice.AdresSerbest ?? string.Empty,
                 KdvFlag = invoice.KdvFlag,
-                ReferansNo = invoice.ReferansNo
+                ReferansNo = invoice.ReferansNo ?? string.Empty
             };
 
-            dto.DocumentNo = invoice.BelgeTakipNo ?? invoice.BelgeNo?.ToString();
+            dto.DocumentNo = invoice.BelgeTakipNo ?? invoice.BelgeNo?.ToString() ?? string.Empty;
             dto.DocumentDate = dto.GnlOrgSsBelge.BelgeTarihi;
             dto.DueDate = invoice.VadeTarihi;
-            dto.CustomerTitle = invoice.CariTanim;
-            dto.CustomerCode = invoice.CariKodu;
-            dto.CustomerTaxNo = invoice.VergiNo;
+            dto.CustomerTitle = invoice.CariTanim ?? string.Empty;
+            dto.CustomerCode = invoice.CariKodu ?? string.Empty;
+            dto.CustomerTaxNo = invoice.VergiNo ?? string.Empty;
             dto.Lines = invoice.DetayList?.Select(ConvertToLegacyInvoiceLine).ToList() ?? new List<LucaInvoiceItemDto>();
             dto.NetAmount = dto.Lines.Sum(l => l.NetAmount);
             dto.TaxAmount = dto.Lines.Sum(l => l.TaxAmount);
@@ -2079,8 +2079,8 @@ public class LucaService : ILucaService
             {
                 SyncType = "PRODUCT_STOCK_CARD",
                 ProcessedRecords = 0,
-                SuccessCount = 0,
-                FailedCount = 0
+                SuccessfulRecords = 0,
+                FailedRecords = 0
             };
         }
 
