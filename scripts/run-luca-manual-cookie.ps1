@@ -26,6 +26,9 @@ param(
     [string]$ProductSKU = 'MY-SKU-1',
     [string]$ProductName = 'Test Product',
     [int]$OlcumBirimiId = 5,
+    [double]$DefaultKdvOran = 0.20,
+    [int]$DefaultKartTipi = 4,
+    [string]$DefaultKategoriKodu = '001',
     [string]$LogDir = $null
 )
 
@@ -238,6 +241,11 @@ $stockObj = @{
   baslangicTarihi = $today
   olcumBirimiId = $OlcumBirimiId
   kartKodu = $ProductSKU
+  # Koza tarafında zorunlu alanlar
+  kartAlisKdvOran = $DefaultKdvOran
+  kartSatisKdvOran = $DefaultKdvOran
+  kartTipi = $DefaultKartTipi
+  kategoriAgacKod = $DefaultKategoriKodu
   perakendeSatisBirimFiyat = 100.0
   perakendeAlisBirimFiyat = 80.0
 }

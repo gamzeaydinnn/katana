@@ -1,0 +1,90 @@
+﻿{
+    "MeasurementUnits":  [
+                             {
+                                 "Id":  965,
+                                 "Name":  "M3"
+                             },
+                             {
+                                 "Id":  945,
+                                 "Name":  "Yeni Adet"
+                             },
+                             {
+                                 "Id":  925,
+                                 "Name":  "ons"
+                             }
+                         ],
+    "CategoryMapping":  {
+                            "default":  "01"
+                        },
+    "CookieValid":  true,
+    "BranchSelected":  true,
+    "UnitMapping":  {
+
+                    },
+    "Categories":  [
+                       {
+                           "Code":  "01",
+                           "Name":  "BOREL EL DEZENFEKTANI"
+                       },
+                       {
+                           "Code":  "09",
+                           "Name":  "BORTAM YÜZEY DEZENFEKTANI"
+                       },
+                       {
+                           "Code":  "14",
+                           "Name":  "KARBON FIBER"
+                       },
+                       {
+                           "Code":  "153",
+                           "Name":  "TİCARİ MALLAR"
+                       },
+                       {
+                           "Code":  "00001",
+                           "Name":  "TESTLER"
+                       },
+                       {
+                           "Code":  "05",
+                           "Name":  "DETERJAN GRUBU"
+                       },
+                       {
+                           "Code":  "07",
+                           "Name":  "HIRDAVAT"
+                       },
+                       {
+                           "Code":  "09",
+                           "Name":  "KAĞIT GRUBU"
+                       },
+                       {
+                           "Code":  "13",
+                           "Name":  "KOZMETİK GRUBU"
+                       },
+                       {
+                           "Code":  "26",
+                           "Name":  "MUHTELİF MARKET ÜRÜNLERİ"
+                       },
+                       {
+                           "Code":  "BETON",
+                           "Name":  "Beton Tipleri"
+                       },
+                       {
+                           "Code":  "BORON",
+                           "Name":  "BORON"
+                       },
+                       {
+                           "Code":  "01",
+                           "Name":  "ÇAMAŞIR"
+                       },
+                       {
+                           "Code":  "01",
+                           "Name":  "TOZ"
+                       },
+                       {
+                           "Code":  "02",
+                           "Name":  "SIVI"
+                       },
+                       {
+                           "Code":  "CINENS",
+                           "Name":  "MISIR"
+                       }
+                   ]
+}

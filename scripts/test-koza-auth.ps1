@@ -2,7 +2,10 @@ param(
     [string]$BaseUrl = "http://85.111.1.49:57005",
     [string]$OrgCode = "7374953",
     [string]$Username = "Admin",
-    [string]$Password = "2009Bfm"
+    [string]$Password = "2009Bfm",
+    [double]$DefaultKdvOran = 0.20,
+    [int]$DefaultKartTipi = 4,
+    [string]$DefaultKategoriKodu = '001'
 )
 
 $ErrorActionPreference = "Stop"
@@ -80,10 +83,10 @@ $testCard = @{
     olcumBirimiId = 5
     kartKodu = "MANUALTEST001"
     maliyetHesaplanacakFlag = $true
-    kartTipi = 1
-    kategoriAgacKod = ""
-    kartAlisKdvOran = 0.18
-    kartSatisKdvOran = 0.18
+    kartTipi = $DefaultKartTipi
+    kategoriAgacKod = $DefaultKategoriKodu
+    kartAlisKdvOran = $DefaultKdvOran
+    kartSatisKdvOran = $DefaultKdvOran
     satilabilirFlag = $true
     satinAlinabilirFlag = $true
     perakendeAlisBirimFiyat = 100

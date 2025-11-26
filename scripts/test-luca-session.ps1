@@ -27,6 +27,9 @@ param(
     [string]$ProductSKU = 'TEST-SKU-001',
     [string]$ProductName = 'Test Product From Script',
     [int]$OlcumBirimiId = 5,
+    [double]$DefaultKdvOran = 0.20,
+    [int]$DefaultKartTipi = 4,
+    [string]$DefaultKategoriKodu = '001',
     [string]$LogDir = "$(Split-Path -Path $MyInvocation.MyCommand.Definition -Parent)\logs"
 )
 
@@ -230,6 +233,12 @@ $stockPayload = @{
     baslangicTarihi = $today; # Koza often requires a start date
     perakendeSatisBirimFiyat = 100.0;
     perakendeAlisBirimFiyat = 80.0
+    kartTipi = $DefaultKartTipi;
+    kategoriAgacKod = $DefaultKategoriKodu;
+    kartAlisKdvOran = $DefaultKdvOran;
+    kartSatisKdvOran = $DefaultKdvOran;
+    satilabilirFlag = $true;
+    satinAlinabilirFlag = $true
 } | ConvertTo-Json -Depth 10
 try {
     $stockResp = Invoke-WebRequest -Uri (Url $endpoints.StockCreate) -Method Post -Body $stockPayload -WebSession $session -Headers $headers -UseBasicParsing -ErrorAction Stop
