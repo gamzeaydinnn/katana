@@ -20,7 +20,7 @@ param(
     [string]$OrgCode = '1422649',
     [string]$Username = 'Admin',
     [string]$Password = 'WebServis',
-    [int]$BranchId = 854,
+    [int]$BranchId = 11746,
     [int]$OlcumBirimiId = 5,
     [double]$KdvOran = 0.20,
     [int]$KartTipi = 4,

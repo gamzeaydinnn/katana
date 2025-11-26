@@ -18,7 +18,7 @@ param(
     [string]$Username = 'Admin',
     [string]$Password = '2009Bfm',
     [string]$OrgCode = '',
-    [int]$BranchId = 854,
+    [int]$BranchId = 11746,
     [int]$DefaultOlcumBirimiId = 5,
     [double]$DefaultKdvOran = 0.20,
     [int]$DefaultKartTipi = 4,

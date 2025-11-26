@@ -3,7 +3,7 @@ param(
     [string]$OrgCode = '1422649',
     [string]$Username = 'Admin',
     [string]$Password = 'WebServis',
-    [int]$BranchId = 854
+    [int]$BranchId = 11746
 )
 
 $ts = Get-Date -Format 'yyyyMMdd-HHmmss'
