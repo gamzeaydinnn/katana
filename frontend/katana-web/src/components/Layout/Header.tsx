@@ -108,7 +108,7 @@ const Header: React.FC<HeaderProps> = ({
   >("connecting");
   const [signalrError, setSignalrError] = useState<string | null>(null);
 
-  // Backend health check
+  
   useEffect(() => {
     const checkBackendHealth = async () => {
       setIsChecking(true);
@@ -124,14 +124,14 @@ const Header: React.FC<HeaderProps> = ({
     };
 
     checkBackendHealth();
-    const interval = setInterval(checkBackendHealth, 60000); // Check every minute
+    const interval = setInterval(checkBackendHealth, 60000); 
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     let isMounted = true;
 
-    // Load initial pending adjustments on mount
+    
     const loadInitialNotifications = async () => {
       try {
         const response = await api.get<{ pendingAdjustments: any[] }>(
@@ -164,7 +164,7 @@ const Header: React.FC<HeaderProps> = ({
           message: err?.message,
           status: err?.response?.status,
         });
-        // Notifications are optional - set empty array if loading fails
+        
         setNotifications([]);
       }
     };
@@ -443,7 +443,7 @@ const Header: React.FC<HeaderProps> = ({
             mt: { xs: 0.5, md: 0 },
           }}
         >
-          {/* Theme toggle */}
+          {}
           <Tooltip title={mode === "dark" ? "Açık tema" : "Koyu tema"}>
             <IconButton
               size="small"
@@ -462,7 +462,7 @@ const Header: React.FC<HeaderProps> = ({
               }}
             >
               {mode === "dark" ? (
-                // Light mode icon
+                
                 <svg
                   width="22"
                   height="22"
@@ -476,7 +476,7 @@ const Header: React.FC<HeaderProps> = ({
                   />
                 </svg>
               ) : (
-                // Dark mode icon
+                
                 <svg
                   width="22"
                   height="22"
@@ -493,7 +493,7 @@ const Header: React.FC<HeaderProps> = ({
             </IconButton>
           </Tooltip>
 
-          {/* Backend Status */}
+          {}
           <Chip
             icon={backendStatus === "connected" ? <CheckCircle /> : <Error />}
             label={
@@ -537,7 +537,7 @@ const Header: React.FC<HeaderProps> = ({
             }}
           />
 
-        {/* Branch display + selector */}
+        {}
           {onOpenBranchSelector && (
             <Tooltip title={branchLabel}>
               <Chip
@@ -575,7 +575,7 @@ const Header: React.FC<HeaderProps> = ({
           </Tooltip>
         )}
 
-          {/* Sync Status */}
+          {}
           <Tooltip title="Son senkronizasyon: 10 dakika önce">
             <IconButton
               sx={{
@@ -612,7 +612,7 @@ const Header: React.FC<HeaderProps> = ({
             </IconButton>
           </Tooltip>
 
-          {/* Notifications */}
+          {}
           <Tooltip title={notificationTooltip}>
             <IconButton
               onClick={handleNotificationOpen}
@@ -679,7 +679,7 @@ const Header: React.FC<HeaderProps> = ({
             </IconButton>
           </Tooltip>
 
-          {/* Profile Menu */}
+          {}
           <Tooltip title="Profil">
             <IconButton
               edge="end"
@@ -726,7 +726,7 @@ const Header: React.FC<HeaderProps> = ({
           </Tooltip>
         </Box>
 
-        {/* Profile Menu */}
+        {}
         <Menu
           anchorEl={anchorEl}
           open={Boolean(anchorEl)}
@@ -801,7 +801,7 @@ const Header: React.FC<HeaderProps> = ({
           </MenuItem>
         </Menu>
 
-        {/* Notification Menu */}
+        {}
         <Menu
           anchorEl={notificationAnchor}
           open={Boolean(notificationAnchor)}

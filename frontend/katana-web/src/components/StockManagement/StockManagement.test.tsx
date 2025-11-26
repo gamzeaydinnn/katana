@@ -7,7 +7,7 @@ jest.mock("../../services/api");
 describe("StockManagement Component", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Mock default empty response
+    
     (api.stockAPI.getKatanaProducts as jest.Mock).mockResolvedValue([]);
   });
 
@@ -17,7 +17,7 @@ describe("StockManagement Component", () => {
       screen.getByRole("heading", { name: /stok yönetimi/i })
     ).toBeInTheDocument();
 
-    // Wait for initial API call
+    
     await waitFor(() => {
       expect(api.stockAPI.getKatanaProducts).toHaveBeenCalled();
     });
@@ -88,7 +88,7 @@ describe("StockManagement Component", () => {
     render(<StockManagement />);
 
     await waitFor(() => {
-      // Component shows generic error or the actual API error
+      
       const errorElements = screen.queryAllByText(/error|hata|yüklenemedi/i);
       expect(errorElements.length).toBeGreaterThan(0);
     });
@@ -128,17 +128,17 @@ describe("StockManagement Component", () => {
   test("refreshes products on button click", async () => {
     render(<StockManagement />);
 
-    // Wait for initial load
+    
     await waitFor(() => {
       expect(api.stockAPI.getKatanaProducts).toHaveBeenCalled();
     });
 
     const refreshButton = screen.getByRole("button", { name: /yenile/i });
 
-    // Button should be clickable
+    
     fireEvent.click(refreshButton);
 
-    // Just verify button exists and is clickable
+    
     expect(refreshButton).toBeInTheDocument();
   });
 });

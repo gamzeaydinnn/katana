@@ -10,12 +10,12 @@ export const createAppTheme = (mode: ColorMode) => {
     palette: {
       mode,
       primary: {
-        main: isDark ? "#6366f1" : "#4f46e5", // deeper indigo
+        main: isDark ? "#6366f1" : "#4f46e5", 
         light: isDark ? "#818cf8" : "#6366f1",
         dark: isDark ? "#4f46e5" : "#3730a3",
       },
       secondary: {
-        main: isDark ? "#06b6d4" : "#0891b2", // deeper cyan
+        main: isDark ? "#06b6d4" : "#0891b2", 
         light: isDark ? "#22d3ee" : "#06b6d4",
         dark: isDark ? "#0891b2" : "#0e7490",
       },
@@ -23,7 +23,7 @@ export const createAppTheme = (mode: ColorMode) => {
       warning: { main: "#f59e0b" },
       error: { main: "#ef4444" },
       background: {
-        default: isDark ? "#0f172a" : "#f1f5f9", // darker for dark mode, lighter for light
+        default: isDark ? "#0f172a" : "#f1f5f9", 
         paper: isDark
           ? alpha("#1e293b", 0.8)
           : alpha("#ffffff", 0.9),

@@ -21,9 +21,9 @@ type FeedbackContextType = {
 
 const FeedbackContext = createContext<FeedbackContextType | undefined>(undefined);
 
-// Lightweight global accessor so non-React modules (e.g., Axios interceptors)
-// can trigger a toast without needing the hook. It is a no-op until the
-// FeedbackProvider mounts and registers the implementation.
+
+
+
 export let showGlobalToast: (opts: ToastOptions | string) => void = () => {};
 
 export const __registerGlobalToast = (
@@ -55,7 +55,7 @@ export const FeedbackProvider: React.FC<React.PropsWithChildren<{}>> = ({ childr
 
   const value = useMemo(() => ({ showToast, setLoading }), [showToast]);
 
-  // Register global toast implementation for use outside React components
+  
   useEffect(() => {
     __registerGlobalToast(showToast);
   }, [showToast]);

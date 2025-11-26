@@ -144,12 +144,12 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   };
 
   const handleAdminClick = () => {
-    // Token varsa direkt admin paneline git
+    
     const token = localStorage.getItem("authToken");
     if (token) {
       navigate("/admin");
     } else {
-      // Token yoksa login'e yönlendir
+      
       navigate("/login");
     }
     if (isMobile) {

@@ -66,7 +66,7 @@ export default function PendingAdjustments() {
   const { showToast } = useFeedback();
   const isMobile = useMediaQuery("(max-width:900px)");
 
-  // Check user role
+  
   const userRoles = (() => {
     try {
       const token =
@@ -127,7 +127,7 @@ export default function PendingAdjustments() {
     load();
   }, [load]);
 
-  // read focusPending query param to highlight/scroll to a row
+  
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -137,7 +137,7 @@ export default function PendingAdjustments() {
     if (!focus) return;
     const id = parseInt(focus, 10);
     if (isNaN(id)) return;
-    // wait until items loaded
+    
     const t = setTimeout(() => {
       const el = document.getElementById(`pending-row-${id}`);
       if (el) {
@@ -145,7 +145,7 @@ export default function PendingAdjustments() {
         setHighlightedId(id);
         setTimeout(() => setHighlightedId(null), 6000);
       }
-      // remove query param without reloading
+      
       params.delete("focusPending");
       navigate(
         `${location.pathname}${
@@ -158,13 +158,13 @@ export default function PendingAdjustments() {
   }, [location.search, navigate]);
 
   useEffect(() => {
-    // start SignalR and subscribe to events to keep the list live
+    
     let createdHandler = (payload: any) => {
       try {
         const item = payload?.pending || payload;
         if (!item || !item.id) return;
         setItems((prev) => {
-          // if already exists, replace; otherwise add to top
+          
           const exists = prev.find((p) => p.id === item.id);
           if (exists) return prev.map((p) => (p.id === item.id ? item : p));
           return [item as any, ...prev];
@@ -182,7 +182,7 @@ export default function PendingAdjustments() {
       try {
         const id = payload?.pendingId || payload?.id || payload;
         if (!id) return;
-        // Remove from the list when approved (matches real-time UX)
+        
         setItems((prev) => prev.filter((p) => p.id !== id));
         showToast({
           message: `Stok ayarlaması #${id} onaylandı`,
@@ -197,7 +197,7 @@ export default function PendingAdjustments() {
       try {
         const id = payload?.pendingId || payload?.id || payload;
         if (!id) return;
-        // Remove from the list when rejected
+        
         setItems((prev) => prev.filter((p) => p.id !== id));
         showToast({
           message: `Stok ayarlaması #${id} reddedildi`,

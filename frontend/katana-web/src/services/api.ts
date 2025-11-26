@@ -6,22 +6,22 @@ import {
   isJwtTokenExpired,
 } from "../utils/jwt";
 
-// Development: prefer an explicit env var REACT_APP_API_URL. If not set, choose a smart default.
-// In production when the static site is served on :3000 and backend runs on :5055, we want
-// runtime to point requests to :5055 even if build-time env is missing.
+
+
+
 const getDefaultApiBase = () => {
   try {
     if (typeof window !== "undefined") {
       const { protocol, hostname, port } = window.location;
-      // Heuristic: if UI is on port 3000 or 3001 (static serve), backend is on 5055
+      
       if (port === "3000" || port === "3001") {
         return `${protocol}//${hostname}:5055/api`;
       }
     }
   } catch {
-    // ignore
+    
   }
-  // Fallback to relative '/api' for CRA dev proxy or same-origin deployments
+  
   return "/api";
 };
 
@@ -35,16 +35,16 @@ const api = axios.create({
   },
 });
 
-// Request interceptor: token'ı her istekte kontrol et
+
 api.interceptors.request.use((config) => {
   const token =
     typeof window !== "undefined"
       ? window.localStorage.getItem("authToken")
       : null;
-  // Ensure headers object exists to avoid runtime errors
+  
   if (!config.headers) config.headers = {} as any;
 
-  // Only attach Authorization if the token looks like a JWT (3 parts separated by dots)
+  
   if (token && typeof token === "string") {
     const payload = decodeJwtPayload(token);
     if (payload && !isJwtExpired(payload)) {
@@ -68,7 +68,7 @@ api.interceptors.response.use(
       const tokenExpiredOrInvalid = isJwtTokenExpired(token);
 
       if (status === 401) {
-        // Authentication problem / token expired
+        
         try {
           if (path.startsWith("/admin")) {
             showGlobalToast({
@@ -85,7 +85,7 @@ api.interceptors.response.use(
             });
           }
         } catch {
-          // ignore toast errors
+          
         }
 
         if (!token || tokenExpiredOrInvalid) {
@@ -95,11 +95,11 @@ api.interceptors.response.use(
               window.location.href = "/login";
             }
           } catch {
-            // ignore
+            
           }
         }
       } else if (status === 403) {
-        // Forbidden - user is authenticated but lacks permission
+        
         try {
           showGlobalToast({
             message: "Bu işlem için yetkiniz yok.",
@@ -107,14 +107,14 @@ api.interceptors.response.use(
             durationMs: 3500,
           });
         } catch {
-          // ignore
+          
         }
       } else if (status === 400) {
-        // Bad request - try to display helpful validation message
+        
         try {
           const data = error?.response?.data;
           if (data) {
-            // ASP.NET ValidationProblemDetails shape: { title, status, errors: { field: [..] }}
+            
             if (data.errors && typeof data.errors === "object") {
               const firstKey = Object.keys(data.errors)[0];
               const firstMsg = firstKey
@@ -152,7 +152,7 @@ api.interceptors.response.use(
             }
           }
         } catch {
-          // ignore toast errors
+          
         }
       }
     } catch (handlerError) {
@@ -247,7 +247,7 @@ export interface AdminSyncLog {
   errorMessage?: string;
 }
 
-// Users
+
 export interface UserDto {
   id: number;
   username: string;
@@ -259,7 +259,7 @@ export interface UserDto {
 export interface CreateUserRequest {
   username: string;
   password: string;
-  role: string; // e.g. "Staff" | "Manager" | "Admin"
+  role: string; 
   email?: string;
 }
 
@@ -272,21 +272,21 @@ export interface UpdateUserRequest {
 }
 
 export const stockAPI = {
-  // Dashboard - GET /api/Dashboard
+  
   getDashboardStats: () => api.get("/Dashboard").then((res) => res.data),
 
-  // Katana Products - GET /api/adminpanel/products
+  
   getKatanaProducts: () =>
     api.get("/adminpanel/products?page=1&pageSize=100").then((res) => res.data),
 
-  // Stock Status - GET /api/Stock/status
+  
   getStockStatus: () => api.get("/Stock/status").then((res) => res.data),
 
-  // Local Stock Summary - GET /api/Stock/local/summary
+  
   getLocalStockSummary: () =>
     api.get("/Stock/local/summary").then((res) => res.data),
 
-  // Stock Movements - GET /api/Stock/movements
+  
   getStockMovements: (fromDate?: string, toDate?: string) => {
     const params = new URLSearchParams();
     if (fromDate) params.append("fromDate", fromDate);
@@ -296,23 +296,23 @@ export const stockAPI = {
       .then((res) => res.data);
   },
 
-  // Sync - GET /api/Sync/history
+  
   getSyncHistory: () => api.get("/Sync/history").then((res) => res.data),
 
-  // Sync - POST /api/Sync/start
+  
   startSync: (syncType: string) =>
     api.post("/Sync/start", { syncType }).then((res) => res.data),
 
-  // Reports - GET /api/Reports/stock
+  
   getStockReport: (queryString?: string) =>
     api
       .get(`/Reports/stock${queryString ? `?${queryString}` : ""}`)
       .then((res) => res.data),
 
-  // Reports - GET /api/Reports/sync
+  
   getSyncReport: () => api.get("/Reports/sync").then((res) => res.data),
 
-  // Health - GET /api/Health
+  
   getHealthStatus: () => api.get("/Health").then((res) => res.data),
 };
 

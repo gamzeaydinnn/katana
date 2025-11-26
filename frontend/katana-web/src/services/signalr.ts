@@ -6,7 +6,7 @@ import {
 
 let connection: HubConnection | null = null;
 
-// Use direct backend URL in development to avoid proxy issues
+
 const HUB_URL =
   process.env.NODE_ENV === "production"
     ? "/hubs/notifications"
@@ -14,12 +14,12 @@ const HUB_URL =
 
 export function startConnection() {
   if (connection) {
-    // If already connected/connecting, do nothing (idempotent)
+    
     const state = connection.state as unknown as string;
     if (state && state !== "Disconnected") {
       return Promise.resolve();
     }
-    // Only start when fully disconnected
+    
     return connection.start();
   }
 
@@ -97,7 +97,7 @@ export function offPendingApproved(handler: (payload: object) => void) {
   connection?.off("PendingStockAdjustmentApproved", handler);
 }
 
-// Reserved for future use: backend may emit a rejected event
+
 export function onPendingRejected(handler: (payload: object) => void) {
   connection?.on("PendingStockAdjustmentRejected", handler);
 }

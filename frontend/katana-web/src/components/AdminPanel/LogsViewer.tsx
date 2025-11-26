@@ -68,7 +68,7 @@ const LogsViewer: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Filters
+  
   const [errorFilters, setErrorFilters] = useState({
     level: "",
     category: "",
@@ -114,12 +114,12 @@ const LogsViewer: React.FC = () => {
     },
   };
 
-  // Format date to Turkish timezone (UTC+3)
+  
   const formatToTurkishTime = (dateString: string) => {
     if (!dateString) return "N/A";
     try {
       const date = new Date(dateString);
-      // Türkiye saati (UTC+3)
+      
       const turkeyDate = new Date(date.getTime() + 3 * 60 * 60 * 1000);
 
       const day = String(turkeyDate.getDate()).padStart(2, "0");
@@ -137,13 +137,13 @@ const LogsViewer: React.FC = () => {
 
   useEffect(() => {
     fetchStats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, []);
 
   useEffect(() => {
     if (tabValue === 0) fetchErrorLogs();
     else if (tabValue === 1) fetchAuditLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [tabValue, errorFilters.page, auditFilters.page]);
 
   const fetchErrorLogs = async () => {
@@ -244,7 +244,7 @@ const LogsViewer: React.FC = () => {
         Sistem Logları
       </Typography>
 
-      {/* Stats Cards */}
+      {}
       {stats && (
         <Box
           sx={{
@@ -373,7 +373,7 @@ const LogsViewer: React.FC = () => {
         )}
 
         <CardContent>
-          {/* Error Logs Tab */}
+          {}
           {tabValue === 0 && (
             <>
               <Box
@@ -665,7 +665,7 @@ const LogsViewer: React.FC = () => {
             </>
           )}
 
-          {/* Audit Logs Tab */}
+          {}
           {tabValue === 1 && (
             <>
               <Box

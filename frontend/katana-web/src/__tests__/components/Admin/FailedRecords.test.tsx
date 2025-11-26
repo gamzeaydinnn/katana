@@ -10,21 +10,21 @@ import { setupServer } from "msw/node";
 import FailedRecords from "../../../components/Admin/FailedRecords";
 import api from "../../../services/api";
 
-/**
- * FailedRecords Component Integration Tests
- *
- * Test Coverage:
- * 1. Component renders and fetches data
- * 2. Filtering by status and recordType
- * 3. Pagination
- * 4. View details dialog
- * 5. Resolve dialog workflow
- * 6. Ignore workflow
- * 7. Retry action
- * 8. API error handling
- */
 
-// Mock API responses
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const mockFailedRecords = {
   total: 2,
   page: 1,
@@ -84,7 +84,7 @@ const mockFailedRecordDetail = {
   },
 };
 
-// MSW Server setup
+
 const server = setupServer(
   rest.get("/api/adminpanel/failed-records", (req, res, ctx) => {
     try {
@@ -146,7 +146,7 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 describe("FailedRecords Component", () => {
-  // Test 1: Component Renders and Fetches Data
+  
   test("renders component and displays failed records table", async () => {
     render(<FailedRecords />);
 
@@ -163,7 +163,7 @@ describe("FailedRecords Component", () => {
     expect(screen.getByText("Customer not found")).toBeInTheDocument();
   });
 
-  // Test 2: Status Filter
+  
   test("filters records by status", async () => {
     render(<FailedRecords />);
 
@@ -171,22 +171,22 @@ describe("FailedRecords Component", () => {
       expect(screen.getByText("TEST-001")).toBeInTheDocument();
     });
 
-    // Open status filter
+    
     const statusFilter = screen.getByLabelText("Durum");
     fireEvent.mouseDown(statusFilter);
 
-    // Select "Başarısız" (FAILED)
+    
     const failedOption = screen.getByText("Başarısız");
     fireEvent.click(failedOption);
 
     await waitFor(() => {
-      // Should only show FAILED records
+      
       expect(screen.getByText("TEST-001")).toBeInTheDocument();
       expect(screen.queryByText("TEST-002")).not.toBeInTheDocument();
     });
   });
 
-  // Test 3: RecordType Filter
+  
   test("filters records by record type", async () => {
     render(<FailedRecords />);
 
@@ -194,22 +194,22 @@ describe("FailedRecords Component", () => {
       expect(screen.getByText("TEST-001")).toBeInTheDocument();
     });
 
-    // Open record type filter
+    
     const typeFilter = screen.getByLabelText("Kayıt Tipi");
     fireEvent.mouseDown(typeFilter);
 
-    // Select "Stok" (STOCK)
+    
     const stockOption = screen.getByText("Stok");
     fireEvent.click(stockOption);
 
     await waitFor(() => {
-      // Should only show STOCK records
+      
       expect(screen.getByText("TEST-001")).toBeInTheDocument();
       expect(screen.queryByText("TEST-002")).not.toBeInTheDocument();
     });
   });
 
-  // Test 4: View Details Dialog
+  
   test("opens detail dialog when clicking view icon", async () => {
     render(<FailedRecords />);
 
@@ -217,7 +217,7 @@ describe("FailedRecords Component", () => {
       expect(screen.getByText("TEST-001")).toBeInTheDocument();
     });
 
-    // Click view icon (first Visibility icon)
+    
     const viewButtons = screen.getAllByTestId("VisibilityIcon");
     fireEvent.click(viewButtons[0]);
 
@@ -227,12 +227,12 @@ describe("FailedRecords Component", () => {
       expect(screen.getByText("Orijinal Veri:")).toBeInTheDocument();
     });
 
-    // Check if original data is displayed
+    
     const dataField = screen.getByDisplayValue(/"sku": "TEST-SKU-001"/);
     expect(dataField).toBeInTheDocument();
   });
 
-  // Test 5: Edit Corrected Data
+  
   test("allows editing corrected data in detail dialog", async () => {
     render(<FailedRecords />);
 
@@ -240,7 +240,7 @@ describe("FailedRecords Component", () => {
       expect(screen.getByText("TEST-001")).toBeInTheDocument();
     });
 
-    // Open detail dialog
+    
     const viewButtons = screen.getAllByTestId("VisibilityIcon");
     fireEvent.click(viewButtons[0]);
 
@@ -248,14 +248,14 @@ describe("FailedRecords Component", () => {
       expect(screen.getByText("Hatalı Kayıt Detayları")).toBeInTheDocument();
     });
 
-    // Find and edit the text field
+    
     const originalDataField = screen.getByRole("textbox", {
       name: /Orijinal Veri/i,
     });
     const correctedData = JSON.stringify(
       {
         sku: "TEST-SKU-001",
-        quantity: 10, // Fixed: positive quantity
+        quantity: 10, 
         productName: "Test Product",
       },
       null,
@@ -269,7 +269,7 @@ describe("FailedRecords Component", () => {
     );
   });
 
-  // Test 6: Resolve Dialog Workflow
+  
   test("opens resolve dialog and submits resolution", async () => {
     render(<FailedRecords />);
 
@@ -277,7 +277,7 @@ describe("FailedRecords Component", () => {
       expect(screen.getByText("TEST-001")).toBeInTheDocument();
     });
 
-    // Click edit icon
+    
     const editButtons = screen.getAllByTestId("EditIcon");
     fireEvent.click(editButtons[0]);
 
@@ -285,7 +285,7 @@ describe("FailedRecords Component", () => {
       expect(screen.getByText("Düzelt ve Gönder")).toBeInTheDocument();
     });
 
-    // Click "Düzelt ve Gönder" button
+    
     const resolveButton = screen.getByRole("button", {
       name: /Düzelt ve Gönder/i,
     });
@@ -295,13 +295,13 @@ describe("FailedRecords Component", () => {
       expect(screen.getByText("Hatayı Çöz")).toBeInTheDocument();
     });
 
-    // Enter resolution
+    
     const resolutionField = screen.getByLabelText("Çözüm Açıklaması");
     fireEvent.change(resolutionField, {
       target: { value: "Negatif miktar düzeltildi ve pozitif yapıldı" },
     });
 
-    // Select "Evet, yeniden gönder"
+    
     const resendSelect = screen.getByLabelText(
       "Düzeltilmiş veriyi yeniden gönder"
     );
@@ -309,19 +309,19 @@ describe("FailedRecords Component", () => {
     const yesOption = screen.getByText("Evet, yeniden gönder");
     fireEvent.click(yesOption);
 
-    // Submit resolution
+    
     const submitButton = screen.getByRole("button", { name: "Çöz" });
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      // Dialog should close and records should refresh
+      
       expect(screen.queryByText("Hatayı Çöz")).not.toBeInTheDocument();
     });
   });
 
-  // Test 7: Ignore Workflow
+  
   test("ignores a failed record with reason", async () => {
-    // Mock window.prompt
+    
     global.prompt = jest.fn(() => "Artık gerekli değil");
 
     render(<FailedRecords />);
@@ -330,7 +330,7 @@ describe("FailedRecords Component", () => {
       expect(screen.getByText("TEST-001")).toBeInTheDocument();
     });
 
-    // Open detail dialog
+    
     const viewButtons = screen.getAllByTestId("VisibilityIcon");
     fireEvent.click(viewButtons[0]);
 
@@ -338,7 +338,7 @@ describe("FailedRecords Component", () => {
       expect(screen.getByText("Hatalı Kayıt Detayları")).toBeInTheDocument();
     });
 
-    // Click "Göz Ardı Et" button
+    
     const ignoreButton = screen.getByRole("button", { name: /Göz Ardı Et/i });
     fireEvent.click(ignoreButton);
 
@@ -346,7 +346,7 @@ describe("FailedRecords Component", () => {
       expect(global.prompt).toHaveBeenCalledWith("Göz ardı etme nedeni:");
     });
 
-    // Dialog should close after ignore
+    
     await waitFor(() => {
       expect(
         screen.queryByText("Hatalı Kayıt Detayları")
@@ -354,7 +354,7 @@ describe("FailedRecords Component", () => {
     });
   });
 
-  // Test 8: Retry Action
+  
   test("retries a failed record", async () => {
     render(<FailedRecords />);
 
@@ -362,17 +362,17 @@ describe("FailedRecords Component", () => {
       expect(screen.getByText("TEST-001")).toBeInTheDocument();
     });
 
-    // Click retry icon (RestartAlt icon)
+    
     const retryButtons = screen.getAllByTestId("RestartAltIcon");
     fireEvent.click(retryButtons[0]);
 
     await waitFor(() => {
-      // Records should refresh after retry
+      
       expect(screen.getByText("TEST-001")).toBeInTheDocument();
     });
   });
 
-  // Test 9: Pagination
+  
   test("handles pagination correctly", async () => {
     render(<FailedRecords />);
 
@@ -380,16 +380,16 @@ describe("FailedRecords Component", () => {
       expect(screen.getByText("TEST-001")).toBeInTheDocument();
     });
 
-    // Find pagination controls
+    
     const pagination = screen.getByRole("navigation");
     expect(pagination).toBeInTheDocument();
 
-    // Check page size selector
+    
     const pageSizeSelect = screen.getByLabelText("Sayfa başına:");
     expect(pageSizeSelect).toBeInTheDocument();
   });
 
-  // Test 10: Status Chip Colors
+  
   test("displays correct color chips for different statuses", async () => {
     render(<FailedRecords />);
 
@@ -400,16 +400,16 @@ describe("FailedRecords Component", () => {
     const statusChips = screen.getAllByText(/FAILED|RETRYING/);
     expect(statusChips.length).toBeGreaterThan(0);
 
-    // FAILED should have error color
+    
     const failedChip = screen.getByText("FAILED");
     expect(failedChip).toHaveClass("MuiChip-colorError");
 
-    // RETRYING should have warning color
+    
     const retryingChip = screen.getByText("RETRYING");
     expect(retryingChip).toHaveClass("MuiChip-colorWarning");
   });
 
-  // Test 11: Refresh Button
+  
   test("refreshes data when clicking refresh button", async () => {
     render(<FailedRecords />);
 
@@ -417,19 +417,19 @@ describe("FailedRecords Component", () => {
       expect(screen.getByText("TEST-001")).toBeInTheDocument();
     });
 
-    // Click refresh button
+    
     const refreshButton = screen.getByTestId("RefreshIcon").closest("button");
     fireEvent.click(refreshButton!);
 
     await waitFor(() => {
-      // Data should be refetched
+      
       expect(screen.getByText("TEST-001")).toBeInTheDocument();
     });
   });
 
-  // Test 12: Error Handling
+  
   test("handles API errors gracefully", async () => {
-    // Override server with error response
+    
     server.use(
       rest.get("/api/adminpanel/failed-records", (req, res, ctx) => {
         return res(
@@ -442,20 +442,20 @@ describe("FailedRecords Component", () => {
     render(<FailedRecords />);
 
     await waitFor(() => {
-      // Component should handle error without crashing
+      
       expect(screen.queryByText("TEST-001")).not.toBeInTheDocument();
     });
   });
 
-  // Test 13: Loading State
+  
   test("shows loading indicator while fetching data", () => {
     render(<FailedRecords />);
 
-    // Should show loading initially
+    
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
   });
 
-  // Test 14: Empty State
+  
   test("handles empty records list", async () => {
     server.use(
       rest.get("/api/adminpanel/failed-records", (req, res, ctx) => {
@@ -466,43 +466,43 @@ describe("FailedRecords Component", () => {
     render(<FailedRecords />);
 
     await waitFor(() => {
-      // Table should be empty
+      
       const rows = screen.queryAllByRole("row");
-      // Only header row should exist
+      
       expect(rows.length).toBe(1);
     });
   });
 });
 
-// Integration Test: Complete Error Correction Flow
+
 describe("FailedRecords - Complete Workflow Integration", () => {
   test("complete error correction workflow from list to resolution", async () => {
     render(<FailedRecords />);
 
-    // Step 1: View list
+    
     await waitFor(() => {
       expect(screen.getByText("Hatalı Kayıtlar")).toBeInTheDocument();
       expect(screen.getByText("TEST-001")).toBeInTheDocument();
     });
 
-    // Step 2: Filter by FAILED status
+    
     const statusFilter = screen.getByLabelText("Durum");
     fireEvent.mouseDown(statusFilter);
     fireEvent.click(screen.getByText("Başarısız"));
 
-    // Step 3: Open detail dialog
+    
     await waitFor(() => {
       const viewButtons = screen.getAllByTestId("VisibilityIcon");
       fireEvent.click(viewButtons[0]);
     });
 
-    // Step 4: View error details
+    
     await waitFor(() => {
       expect(screen.getByText("Hatalı Kayıt Detayları")).toBeInTheDocument();
       expect(screen.getByText(/Validation failed/)).toBeInTheDocument();
     });
 
-    // Step 5: Edit corrected data
+    
     const dataField = screen.getByRole("textbox", { name: /Orijinal Veri/i });
     const correctedData = JSON.stringify(
       {
@@ -515,13 +515,13 @@ describe("FailedRecords - Complete Workflow Integration", () => {
     );
     fireEvent.change(dataField, { target: { value: correctedData } });
 
-    // Step 6: Open resolve dialog
+    
     const resolveButton = screen.getByRole("button", {
       name: /Düzelt ve Gönder/i,
     });
     fireEvent.click(resolveButton);
 
-    // Step 7: Enter resolution
+    
     await waitFor(() => {
       expect(screen.getByText("Hatayı Çöz")).toBeInTheDocument();
     });
@@ -531,21 +531,21 @@ describe("FailedRecords - Complete Workflow Integration", () => {
       target: { value: "Düzeltildi: Negatif miktar pozitif yapıldı" },
     });
 
-    // Step 8: Select resend option
+    
     const resendSelect = screen.getByLabelText(
       "Düzeltilmiş veriyi yeniden gönder"
     );
     fireEvent.mouseDown(resendSelect);
     fireEvent.click(screen.getByText("Evet, yeniden gönder"));
 
-    // Step 9: Submit resolution
+    
     const submitButton = screen.getByRole("button", { name: "Çöz" });
     fireEvent.click(submitButton);
 
-    // Step 10: Verify success
+    
     await waitFor(() => {
       expect(screen.queryByText("Hatayı Çöz")).not.toBeInTheDocument();
-      // Records should be refreshed
+      
       expect(screen.getByText("Hatalı Kayıtlar")).toBeInTheDocument();
     });
   });

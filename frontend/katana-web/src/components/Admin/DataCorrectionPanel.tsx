@@ -68,10 +68,10 @@ const DataCorrectionPanel: React.FC = () => {
   );
   const isMobile = useMediaQuery("(max-width:900px)");
 
-  // Karşılaştırma
+  
   const [comparisons, setComparisons] = useState<ComparisonResult[]>([]);
 
-  // Katana
+  
   const [katanaIssueProducts, setKatanaIssueProducts] = useState<
     KatanaProduct[]
   >([]);
@@ -85,7 +85,7 @@ const DataCorrectionPanel: React.FC = () => {
     onHand: 0,
   });
 
-  // Luca
+  
   const [lucaIssueProducts, setLucaIssueProducts] = useState<LucaProduct[]>([]);
   const [selectedLuca, setSelectedLuca] = useState<LucaProduct | null>(null);
   const [lucaEditOpen, setLucaEditOpen] = useState(false);
@@ -95,7 +95,7 @@ const DataCorrectionPanel: React.FC = () => {
     quantity: 0,
   });
 
-  // Common
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -108,12 +108,12 @@ const DataCorrectionPanel: React.FC = () => {
   const _roles = getJwtRoles(decodeJwtPayload(_token));
   const canEdit = _roles.includes("admin") || _roles.includes("stokyonetici");
 
-  // Compare Katana vs Luca data
+  
   const performComparison = async () => {
     setLoading(true);
     setError(null);
     try {
-      // Fetch both data sets
+      
       const [katanaResponse, lucaResponse] = await Promise.all([
         api.get<any>("/Products/katana?sync=true"),
         api.get<any>("/Products/luca"),
@@ -122,7 +122,7 @@ const DataCorrectionPanel: React.FC = () => {
       const katanaData = katanaResponse.data?.data || [];
       const lucaData = lucaResponse.data?.data || [];
 
-      // Compare data
+      
       const comparisonResults: ComparisonResult[] = [];
       const katanaIssues: KatanaProduct[] = [];
       const lucaIssues: LucaProduct[] = [];
@@ -137,7 +137,7 @@ const DataCorrectionPanel: React.FC = () => {
         let hasLucaIssue = false;
 
         if (lucaProduct) {
-          // Compare price
+          
           if (
             Math.abs((katanaProduct.salesPrice || 0) - lucaProduct.unitPrice) >
             0.01
@@ -152,7 +152,7 @@ const DataCorrectionPanel: React.FC = () => {
             hasLucaIssue = true;
           }
 
-          // Compare stock
+          
           if ((katanaProduct.onHand || 0) !== lucaProduct.quantity) {
             issues.push({
               field: "Stok",
@@ -164,7 +164,7 @@ const DataCorrectionPanel: React.FC = () => {
             hasLucaIssue = true;
           }
 
-          // Compare name
+          
           if (katanaProduct.name !== lucaProduct.productName) {
             issues.push({
               field: "İsim",
@@ -176,7 +176,7 @@ const DataCorrectionPanel: React.FC = () => {
             hasLucaIssue = true;
           }
         } else {
-          // Product only exists in Katana
+          
           issues.push({
             field: "Varlık",
             katanaValue: "Mevcut",
@@ -203,7 +203,7 @@ const DataCorrectionPanel: React.FC = () => {
         }
       });
 
-      // Check for Luca-only products
+      
       lucaData.forEach((lucaProduct: LucaProduct) => {
         const katanaExists = katanaData.find(
           (kp: KatanaProduct) => kp.sku === lucaProduct.productCode
@@ -238,10 +238,10 @@ const DataCorrectionPanel: React.FC = () => {
 
   useEffect(() => {
     performComparison();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, []);
 
-  // Katana edit handlers
+  
   const handleKatanaEdit = (product: KatanaProduct) => {
     setSelectedKatana(product);
     setKatanaEditData({
@@ -267,7 +267,7 @@ const DataCorrectionPanel: React.FC = () => {
       });
       setSuccess("Katana ürünü başarıyla güncellendi!");
       setKatanaEditOpen(false);
-      // Refresh comparison after edit
+      
       performComparison();
     } catch (err: any) {
       setError(err.response?.data?.error || "Güncelleme başarısız");
@@ -276,7 +276,7 @@ const DataCorrectionPanel: React.FC = () => {
     }
   };
 
-  // Luca edit handlers
+  
   const handleLucaEdit = (product: LucaProduct) => {
     setSelectedLuca(product);
     setLucaEditData({
@@ -302,7 +302,7 @@ const DataCorrectionPanel: React.FC = () => {
       });
       setSuccess("Luca ürünü başarıyla güncellendi!");
       setLucaEditOpen(false);
-      // Refresh comparison after edit
+      
       performComparison();
     } catch (err: any) {
       setError(err.response?.data?.error || "Güncelleme başarısız");
@@ -368,7 +368,7 @@ const DataCorrectionPanel: React.FC = () => {
         </Box>
       ) : (
         <>
-          {/* Comparison Tab */}
+          {}
           {sourceTab === "comparison" &&
             (isMobile ? (
               <Stack spacing={1.5}>
@@ -605,7 +605,7 @@ const DataCorrectionPanel: React.FC = () => {
               </TableContainer>
             ))}
 
-          {/* Katana Issues Tab */}
+          {}
           {sourceTab === "katana" &&
             (isMobile ? (
               <Stack spacing={1.5}>
@@ -738,7 +738,7 @@ const DataCorrectionPanel: React.FC = () => {
               </TableContainer>
             ))}
 
-          {/* Luca Issues Tab */}
+          {}
           {sourceTab === "luca" &&
             (isMobile ? (
               <Stack spacing={1.5}>
@@ -871,7 +871,7 @@ const DataCorrectionPanel: React.FC = () => {
         </>
       )}
 
-      {/* Katana Edit Dialog */}
+      {}
       <Dialog
         open={katanaEditOpen}
         onClose={() => setKatanaEditOpen(false)}
@@ -960,7 +960,7 @@ const DataCorrectionPanel: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Luca Edit Dialog */}
+      {}
       <Dialog
         open={lucaEditOpen}
         onClose={() => setLucaEditOpen(false)}

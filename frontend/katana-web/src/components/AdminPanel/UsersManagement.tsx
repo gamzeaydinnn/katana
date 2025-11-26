@@ -75,7 +75,7 @@ const UsersManagement: React.FC = () => {
   });
   const isMobile = useMediaQuery("(max-width:900px)");
 
-  // Validation now handled inline on submit with toasts
+  
 
   const load = async () => {
     try {
@@ -112,7 +112,7 @@ const UsersManagement: React.FC = () => {
 
   const handleCreate = async () => {
     try {
-      // Inline validation so kullanıcı butona basabilsin ve sebebini görsün
+      
       if (form.username.trim().length < 3) {
         showGlobalToast?.({
           message: "Kullanıcı adı en az 3 karakter olmalı",
@@ -143,7 +143,7 @@ const UsersManagement: React.FC = () => {
         username: form.username.trim(),
         password: form.password,
         role: form.role,
-        // Only send email if it's not empty and looks like an email
+        
         email:
           form.email?.trim() && form.email.includes("@")
             ? form.email.trim()
@@ -518,7 +518,7 @@ const UsersManagement: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Rol Yetkilendirmesi */}
+      {}
       <Card>
         <CardContent sx={{ p: { xs: 2, md: 3 }, "&:last-child": { pb: { xs: 2, md: 3 } } }}>
           <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>

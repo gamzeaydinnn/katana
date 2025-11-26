@@ -3,7 +3,7 @@ import { render, screen, act } from "@testing-library/react";
 import PendingAdjustments from "../PendingAdjustments";
 import { FeedbackProvider } from "../../../providers/FeedbackProvider";
 
-// Mock API to return empty list initially
+
 jest.mock("../../../services/api", () => ({
   pendingAdjustmentsAPI: {
     list: () => Promise.resolve({ items: [] }),
@@ -12,7 +12,7 @@ jest.mock("../../../services/api", () => ({
   },
 }));
 
-// Capture handlers to simulate SignalR events
+
 let createdHandler: ((p: any) => void) | null = null;
 
 jest.mock("../../../services/signalr", () => ({
@@ -36,10 +36,10 @@ describe("PendingAdjustments SignalR Integration", () => {
       </FeedbackProvider>
     );
 
-    // Initially shows 'No pending adjustments'
+    
     await screen.findByText(/No pending adjustments/i);
 
-    // Simulate SignalR event inside act to avoid unwrapped state updates
+    
     expect(createdHandler).toBeTruthy();
     await act(async () => {
       createdHandler!({
@@ -53,7 +53,7 @@ describe("PendingAdjustments SignalR Integration", () => {
       });
     });
 
-    // Row should appear
+    
     await screen.findByText("101");
     expect(screen.getByText("SKU-1")).toBeInTheDocument();
   });

@@ -174,7 +174,7 @@ const StockView: React.FC = () => {
         overflow: "hidden",
       }}
     >
-      {/* Header */}
+      {}
       <Stack
         direction={{ xs: "column", sm: "row" }}
         justifyContent="space-between"
@@ -230,7 +230,7 @@ const StockView: React.FC = () => {
         </Alert>
       )}
 
-      {/* Statistics Cards */}
+      {}
       {!loading && stats && (
         <Box
           sx={{
@@ -369,7 +369,7 @@ const StockView: React.FC = () => {
         </Box>
       )}
 
-      {/* Alerts */}
+      {}
       {criticalProducts.length > 0 && (
         <Alert
           severity="error"
@@ -420,7 +420,7 @@ const StockView: React.FC = () => {
         </Alert>
       )}
 
-      {/* Main Card */}
+      {}
       <Card
         sx={{
           borderRadius: { xs: 2, md: 3 },

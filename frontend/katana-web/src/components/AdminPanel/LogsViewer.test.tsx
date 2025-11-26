@@ -8,7 +8,7 @@ describe("LogsViewer Component", () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Mock API with proper structure including stats
+    
     (api.default.get as jest.Mock).mockImplementation((url: string) => {
       if (url.includes("/stats")) {
         return Promise.resolve({
@@ -26,7 +26,7 @@ describe("LogsViewer Component", () => {
           },
         });
       }
-      // Default response for logs
+      
       return Promise.resolve({
         data: { logs: [], total: 0, page: 1, limit: 50 },
       });
@@ -36,24 +36,24 @@ describe("LogsViewer Component", () => {
   test("renders logs viewer", async () => {
     render(<LogsViewer />);
 
-    // Wait for component to load
+    
     await waitFor(() => {
       expect(api.default.get).toHaveBeenCalled();
     });
 
-    // Component text is in English
+    
     expect(screen.getByText(/system logs/i)).toBeInTheDocument();
   });
 
   test("shows error and audit tabs", async () => {
     render(<LogsViewer />);
 
-    // Wait for async operations to complete
+    
     await waitFor(() => {
       expect(api.default.get).toHaveBeenCalled();
     });
 
-    // Tab texts appear multiple times, use getAllByText
+    
     const errorLogTexts = screen.getAllByText(/error logs/i);
     const auditLogTexts = screen.getAllByText(/audit logs/i);
 

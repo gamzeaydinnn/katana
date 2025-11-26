@@ -21,7 +21,7 @@ describe("Header Component", () => {
     (signalr.offPendingCreated as jest.Mock).mockImplementation(() => {});
     (signalr.offPendingApproved as jest.Mock).mockImplementation(() => {});
 
-    // Mock stockAPI.getHealthStatus
+    
     (api.stockAPI.getHealthStatus as jest.Mock).mockResolvedValue({
       status: "healthy",
     });
@@ -80,9 +80,9 @@ describe("Header Component", () => {
       );
     });
 
-    // Find IconButton with Brightness icon (theme toggle button)
+    
     const buttons = screen.getAllByRole("button");
-    // The theme button should have onToggleMode callback
+    
     const themeButton = buttons.find((btn) => {
       const svg = btn.querySelector("svg");
       return (
@@ -96,7 +96,7 @@ describe("Header Component", () => {
       fireEvent.click(themeButton);
       expect(mockOnToggleMode).toHaveBeenCalled();
     } else {
-      // If no specific theme button found, test passes (component may not show it without mode prop)
+      
       expect(mockOnToggleMode).not.toHaveBeenCalled();
     }
   });

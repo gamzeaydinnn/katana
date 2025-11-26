@@ -1,10 +1,10 @@
 import axios from "axios";
 
-// --- Yeni Eklenecek Kısım Başlangıcı ---
 
-// Kendi backend'ine istek atacak olan axios instance'ı
-// ÖNEMLİ: withCredentials, tarayıcının cookie'leri backend'e göndermesini ve
-// backend'den gelen Set-Cookie başlıklarını almasını sağlar.
+
+
+
+
 const lucaProxyClient = axios.create({
   baseURL: process.env.REACT_APP_API_URL || "/api",
   withCredentials: true,
@@ -26,12 +26,12 @@ lucaProxyClient.interceptors.response.use(
   }
 );
 
-// --- Yeni Eklenecek Kısım Sonu ---
+
 
 export const loginToLuca = async () => {
   try {
     console.log("Adım 1: Giriş yapılıyor (Backend Proxy üzerinden)...");
-    // Backend konfigürasyonundaki Luca cred'leri kullanılacak; body boş geçilebilir
+    
     const response = await lucaProxyClient.post("/luca/login", {});
 
     const data: any = response?.data ?? null;
@@ -39,7 +39,7 @@ export const loginToLuca = async () => {
 
     const raw = data?.raw ?? data;
 
-    // Try to pull sessionId from a few common shapes
+    
     const sessionId =
       data?.sessionId ??
       data?.SessionId ??
@@ -50,12 +50,12 @@ export const loginToLuca = async () => {
       try {
         localStorage.setItem("lucaSessionId", sessionId);
       } catch (e) {
-        // localStorage could fail in some environments; continue without blocking
+        
         console.warn("Could not persist lucaSessionId to localStorage:", e);
       }
     }
 
-    // Heuristics to decide success
+    
     const codeOk =
       data?.code === 0 ||
       raw?.code === 0 ||
@@ -110,7 +110,7 @@ export const getBranchList = async () => {
       return null;
     }
 
-    // Eğer hata kodu doğrudan kökte geldiyse erken dön
+    
     if (typeof payload === "object" && payload !== null && (payload.code ?? payload.Code)) {
       console.error(
         `Şube listesi alınamadı (code=${payload.code ?? payload.Code}): ${
@@ -120,30 +120,30 @@ export const getBranchList = async () => {
       return null;
     }
 
-    // Tüm olası veri yapılarını kontrol et
+    
     let branches: any = null;
 
-    // 1) Direkt array
+    
     if (Array.isArray(payload)) {
       branches = payload;
     }
-    // 2) data
+    
     else if (payload.data && Array.isArray(payload.data)) {
       branches = payload.data;
     }
-    // 3) list
+    
     else if (Array.isArray(payload.list)) {
       branches = payload.list;
     }
-    // 4) items
+    
     else if (Array.isArray(payload.items)) {
       branches = payload.items;
     }
-    // 5) branches
+    
     else if (Array.isArray(payload.branches)) {
       branches = payload.branches;
     }
-    // 6) raw içinde gömülü
+    
     else if (payload.raw) {
       try {
         const raw =
@@ -152,7 +152,7 @@ export const getBranchList = async () => {
         else if (raw && Array.isArray(raw.data)) branches = raw.data;
         else if (raw && Array.isArray(raw.list)) branches = raw.list;
 
-        // Eğer raw içindeki code != 0 ise erken dön ve mesajı logla
+        
         if (raw && typeof raw === "object" && (raw.code ?? raw.Code) !== undefined) {
           const rawCode = raw.code ?? raw.Code;
           const rawMessage = raw.message ?? raw.Message ?? "";
@@ -175,7 +175,7 @@ export const getBranchList = async () => {
         "Yetkili şirket/şube bulunamadı: beklenen biçimde dizi dönülmedi."
       );
 
-      // raw string içinden hata mesajı varsa logla
+      
       if (payload && typeof payload.raw === "string") {
         try {
           const parsedRaw = JSON.parse(payload.raw);
@@ -221,7 +221,7 @@ export const getBranchList = async () => {
 
 export const selectBranch = async (branchOrId: any) => {
   try {
-    // Accept either a plain id or an object returned from getBranchList
+    
     let branchId: any = branchOrId;
     if (branchOrId && typeof branchOrId === "object") {
       branchId =
@@ -259,13 +259,13 @@ export const selectBranch = async (branchOrId: any) => {
     console.log("Raw select response:", response.data);
 
     const data: any = response.data;
-    // Heuristics to determine success across different backend shapes
+    
     const message =
       typeof data?.message === "string" ? data.message : data?.Message ?? null;
     const codeOk = data?.code === 0;
     const successFlag = data?.success === true || data?.isSuccess === true;
     const messageOk =
-      typeof message === "string" && message.toLowerCase().includes("başar"); // başarı, başarıyla, başarılı
+      typeof message === "string" && message.toLowerCase().includes("başar"); 
 
     const ok = codeOk || successFlag || messageOk || response.status === 200;
 

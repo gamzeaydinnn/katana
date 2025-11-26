@@ -86,7 +86,7 @@ const AdminPanel: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalSyncLogs, setTotalSyncLogs] = useState(0);
-  // null = unknown / not loaded yet, true/false = explicit health state
+  
   const [katanaHealth, setKatanaHealth] = useState<boolean | null>(null);
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(
     null
@@ -122,7 +122,7 @@ const AdminPanel: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      // Backend'ten gerçek verileri çek
+      
       const [statsRes, productsRes, logsRes, healthRes] = await Promise.all([
         api.get("/adminpanel/statistics"),
         api.get(
@@ -134,10 +134,10 @@ const AdminPanel: React.FC = () => {
         api.get("/adminpanel/katana-health"),
       ]);
 
-      // İstatistikler
+      
       setStatistics(statsRes.data as Statistics);
 
-      // Ürünler - normalize farklı response şekillerine toleranslı olarak
+      
       const productsData = ((productsRes as any).data?.data ??
         (productsRes as any).data?.products ??
         (productsRes as any).data ??
@@ -149,14 +149,14 @@ const AdminPanel: React.FC = () => {
           name: String(p.name ?? p.Name ?? ""),
           stock: Number(p.stock ?? p.stockQuantity ?? p.quantity ?? 0),
           isActive: Boolean(p.isActive ?? p.IsActive ?? true),
-          // createdAt is optional for the small table; provide a fallback
+          
           createdAt: String(
             p.createdAt ?? p.createdAt ?? new Date().toISOString()
           ),
         }))
       );
 
-      // Senkronizasyon logları - normalize ve boolean/string durumlarını destekle
+      
       const rawLogs = ((logsRes as any).data?.data ??
         (logsRes as any).data?.logs ??
         (logsRes as any).data ??
@@ -190,8 +190,8 @@ const AdminPanel: React.FC = () => {
         )
       );
 
-      // Katana API health (harici Katana servisi)
-      // If the endpoint returned no data, keep it as `null` so the UI can hide the chip
+      
+      
       if (healthRes && typeof (healthRes as any).data !== "undefined") {
         setKatanaHealth(Boolean((healthRes as any).data?.isHealthy ?? false));
       } else {
@@ -209,7 +209,7 @@ const AdminPanel: React.FC = () => {
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [page, rowsPerPage]);
 
   const StatCard: React.FC<{
@@ -294,7 +294,7 @@ const AdminPanel: React.FC = () => {
         px: { xs: 1.5, sm: 2, md: 3 },
       }}
     >
-      {/* Header */}
+      {}
       <Box
         sx={{
           display: "flex",
@@ -361,7 +361,7 @@ const AdminPanel: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Tabs */}
+      {}
       <Paper
         sx={{
           mb: 4,
@@ -458,7 +458,7 @@ const AdminPanel: React.FC = () => {
           />
         </Tabs>
 
-        {/* Dropdown Menu for "Diğer" */}
+        {}
         <Menu
           anchorEl={moreMenuAnchor}
           open={Boolean(moreMenuAnchor)}
@@ -609,15 +609,15 @@ const AdminPanel: React.FC = () => {
         </Alert>
       )}
 
-      {/* Tab 0: Genel Bakış */}
+      {}
       {activeTab === 0 && (
         <Box>
-          {/* Pending adjustments - put high so admin can approve quickly */}
+          {}
           <Box sx={{ mb: 4 }}>
             <PendingAdjustments />
           </Box>
 
-          {/* Statistics Cards */}
+          {}
           {statistics && (
             <Box
               sx={{
@@ -665,7 +665,7 @@ const AdminPanel: React.FC = () => {
               gap: 3,
             }}
           >
-            {/* Recent Products */}
+            {}
             <Paper sx={{ p: { xs: 1.5, md: 3 }, borderRadius: 2 }}>
               <Typography
                 variant="h6"
@@ -802,7 +802,7 @@ const AdminPanel: React.FC = () => {
               )}
             </Paper>
 
-            {/* Sync Logs */}
+            {}
             <Paper sx={{ p: { xs: 1.5, md: 3 }, borderRadius: 2 }}>
               <Typography
                 variant="h6"
@@ -922,31 +922,31 @@ const AdminPanel: React.FC = () => {
         </Box>
       )}
 
-      {/* Tab 1: Siparişler */}
+      {}
       {activeTab === 1 && <Orders />}
 
-      {/* Tab 2: Katana Ürünleri */}
+      {}
       {activeTab === 2 && <KatanaProducts />}
 
-      {/* Tab 3: Luca Ürünleri */}
+      {}
       {activeTab === 3 && <LucaProducts />}
 
-      {/* Tab 4: Stok Yönetimi */}
+      {}
       {activeTab === 4 && <StockManagement />}
 
-      {/* Tab 5: Hatalı Kayıtlar */}
+      {}
       {activeTab === 5 && <FailedRecords />}
 
-      {/* Tab 6: Veri Düzeltme */}
+      {}
       {activeTab === 6 && <DataCorrectionPanel />}
 
-      {/* Tab 7: Kullanıcılar */}
+      {}
       {activeTab === 7 && <UsersManagement />}
 
-      {/* Tab 8: Loglar */}
+      {}
       {activeTab === 8 && <LogsViewer />}
 
-      {/* Tab 9: Ayarlar */}
+      {}
       {activeTab === 9 && <Settings />}
     </Container>
   );

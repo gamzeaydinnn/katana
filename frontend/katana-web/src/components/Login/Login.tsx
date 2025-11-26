@@ -108,7 +108,7 @@ const Login: React.FC = () => {
               ? "0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
               : "0 20px 40px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
           transition: "box-shadow 0.3s ease",
-          // Sabit yerleşim: hover'da kartın yer değiştirmesini engelle
+          
           "&:hover": {
             transform: "none",
             boxShadow:

@@ -2,7 +2,7 @@ import React from "react";
 import { render } from "@testing-library/react";
 import App from "./App";
 
-// Mock all components that might cause issues
+
 jest.mock("./components/Login/Login", () => () => <div>Login Component</div>);
 jest.mock("./components/Dashboard/Dashboard", () => () => (
   <div>Dashboard Component</div>
@@ -24,19 +24,19 @@ jest.mock("./components/Luca/BranchSelector", () => () => (
 jest.mock("./components/Layout/Sidebar", () => () => <div>Sidebar</div>);
 jest.mock("./components/Layout/Header", () => () => <div>Header</div>);
 
-// Mock ProtectedRoute
+
 jest.mock("./components/Auth/ProtectedRoute", () => ({
   __esModule: true,
   default: ({ children }: any) => <div>{children}</div>,
 }));
 
-// Mock authService
+
 jest.mock("./services/authService", () => ({
   loginToLuca: jest.fn().mockResolvedValue(true),
   initializeLucaSession: jest.fn().mockResolvedValue(true),
 }));
 
-// Mock react-router-dom
+
 jest.mock("react-router-dom", () => ({
   BrowserRouter: ({ children }: any) => (
     <div data-testid="router">{children}</div>

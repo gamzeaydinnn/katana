@@ -42,7 +42,7 @@ const StockManagement: React.FC = () => {
       setLoading(true);
       setError("");
       const res: any = await api.get("/Products/catalog");
-      // Normalize possible response shapes: { products: [...] } or { data: [...] } or plain array
+      
       const raw = res?.data?.data ?? res?.data ?? res ?? [];
 
       const normalized = (Array.isArray(raw) ? raw : []) as any[];

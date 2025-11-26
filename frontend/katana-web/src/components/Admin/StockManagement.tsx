@@ -150,7 +150,7 @@ const StockManagement: React.FC = () => {
 
   return (
     <Box>
-      {/* Statistics Cards */}
+      {}
       {!loading && stats && (
         <Box
           sx={{
@@ -272,7 +272,7 @@ const StockManagement: React.FC = () => {
         </Box>
       )}
 
-      {/* Alerts */}
+      {}
       {criticalProducts.length > 0 && (
         <Alert
           severity="error"
@@ -307,7 +307,7 @@ const StockManagement: React.FC = () => {
         </Alert>
       )}
 
-      {/* Main Card */}
+      {}
       <Card>
         <CardContent>
           <Stack
@@ -536,7 +536,7 @@ const StockManagement: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Out of Stock Products Table */}
+      {}
       {criticalProducts.length > 0 && (
         <Card sx={{ mt: 3 }}>
           <CardContent>
@@ -637,7 +637,7 @@ const StockManagement: React.FC = () => {
         </Card>
       )}
 
-      {/* Purchase Modal */}
+      {}
       <Dialog
         open={purchaseModalOpen}
         onClose={() => setPurchaseModalOpen(false)}

@@ -5,7 +5,7 @@ import * as api from "../../services/api";
 
 const mockedNavigate = jest.fn();
 
-// Simple mock for react-router-dom to avoid requiring the real package in tests
+
 jest.mock("react-router-dom", () => ({
   BrowserRouter: ({ children }: any) => <div>{children}</div>,
   Routes: ({ children }: any) => <div>{children}</div>,
@@ -13,7 +13,7 @@ jest.mock("react-router-dom", () => ({
   useNavigate: () => mockedNavigate,
 }));
 
-// Mock API
+
 jest.mock("../../services/api", () => ({
   authAPI: {
     login: jest.fn(),
@@ -133,8 +133,8 @@ describe("Login Component", () => {
     renderLogin();
 
     const passwordInput = screen.getByLabelText(/şifre/i) as HTMLInputElement;
-    // Avoid direct node access (querySelector). Prefer Testing Library queries.
-    // There are two buttons on this view: the submit button and the visibility toggle.
+    
+    
     const submitButton = screen.getByRole("button", { name: /giriş yap/i });
     const toggleButton = screen
       .getAllByRole("button")

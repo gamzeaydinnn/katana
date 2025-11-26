@@ -130,7 +130,7 @@ const FailedRecords: React.FC = () => {
       setDetailDialogOpen(true);
       setCorrectedData(response.data.originalData);
 
-      // Parse JSON for form editing
+      
       try {
         const parsed = JSON.parse(response.data.originalData);
         setParsedData(parsed);
@@ -274,7 +274,7 @@ const FailedRecords: React.FC = () => {
             </Box>
           </Box>
 
-          {/* Source System Tabs */}
+          {}
           <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
             <Tabs
               value={sourceTab}
@@ -534,7 +534,7 @@ const FailedRecords: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Detail Dialog */}
+      {}
       <Dialog
         open={detailDialogOpen}
         onClose={() => setDetailDialogOpen(false)}
@@ -571,7 +571,7 @@ const FailedRecords: React.FC = () => {
                             let finalValue: any = rawValue;
 
                             if (isNumber) {
-                              // Allow empty string during editing
+                              
                               if (rawValue === "" || rawValue === "-") {
                                 finalValue = rawValue;
                               } else {
@@ -583,7 +583,7 @@ const FailedRecords: React.FC = () => {
                             setParsedData({ ...parsedData, [key]: finalValue });
                           }}
                           onBlur={() => {
-                            // Convert to number on blur if it's a number field
+                            
                             if (
                               isNumber &&
                               (parsedData[key] === "" ||
@@ -705,7 +705,7 @@ const FailedRecords: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Resolve Dialog */}
+      {}
       <Dialog
         open={resolveDialogOpen}
         onClose={() => setResolveDialogOpen(false)}

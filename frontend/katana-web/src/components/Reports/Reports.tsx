@@ -78,7 +78,7 @@ const Reports: React.FC = () => {
 
   useEffect(() => {
     loadStockReport();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, []);
 
   const loadStockReport = async () => {

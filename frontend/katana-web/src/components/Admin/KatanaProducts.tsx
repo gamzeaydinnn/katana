@@ -49,7 +49,7 @@ interface KatanaProduct {
   salesPrice?: number;
   costPrice?: number;
   isActive?: boolean;
-  // Backend PascalCase alternatives
+  
   SKU?: string;
   Name?: string;
   Category?: string;
@@ -67,7 +67,7 @@ const KatanaProducts: React.FC = () => {
   const [products, setProducts] = useState<KatanaProduct[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<KatanaProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  // Inline error banner removed; use global toast notifications instead
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<KatanaProduct | null>(
@@ -82,7 +82,7 @@ const KatanaProducts: React.FC = () => {
     setLoading(true);
     try {
       console.log("Fetching Katana products...");
-      // Always sync to ensure local DB has products for editing
+      
       const response = await api.get("/Products/katana?sync=true");
       console.log("Response:", response.data);
       const responseData: any = response.data;
@@ -91,7 +91,7 @@ const KatanaProducts: React.FC = () => {
       setProducts(productData);
       setFilteredProducts(productData);
 
-      // Show sync info if available
+      
       if (responseData?.sync) {
         const { created, updated, skipped } = responseData.sync;
         if (created > 0 || updated > 0) {
@@ -197,7 +197,7 @@ const KatanaProducts: React.FC = () => {
     setSelectedProduct({ ...selectedProduct, [field]: value });
   };
 
-  // Determine edit permission from JWT roles: only Admin and StokYonetici can edit
+  
   const _token =
     typeof window !== "undefined"
       ? window.localStorage.getItem("authToken")
@@ -255,7 +255,7 @@ const KatanaProducts: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Inline error banner removed; global toast is used for errors */}
+      {}
 
       {successMessage && (
         <Alert
@@ -519,7 +519,7 @@ const KatanaProducts: React.FC = () => {
         </TableContainer>
       )}
 
-      {/* Edit Modal */}
+      {}
       <Dialog
         open={editModalOpen}
         onClose={handleCloseModal}

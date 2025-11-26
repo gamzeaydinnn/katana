@@ -46,16 +46,16 @@ export const isJwtExpired = (payload: JwtPayload | null): boolean => {
   return payload.exp <= nowSeconds;
 };
 
-// Convenience: checks if a raw token string is invalid or expired.
-// Invalid or malformed tokens are treated as expired (returns true).
+
+
 export const isJwtTokenExpired = (token?: string | null): boolean => {
   const payload = decodeJwtPayload(token ?? undefined);
   if (!payload) return true;
   return isJwtExpired(payload);
 };
 
-// Extract roles from a decoded JWT payload. Supports common claim shapes
-// used by ASP.NET and other identity providers.
+
+
 export const getJwtRoles = (payload: JwtPayload | null): string[] => {
   if (!payload) return [];
   const candidateKeys = [
@@ -74,7 +74,7 @@ export const getJwtRoles = (payload: JwtPayload | null): string[] => {
       roles.push(value);
     }
   }
-  // Deduplicate and normalize to lowercase for comparisons
+  
   return Array.from(new Set(roles.map((r) => r.toLowerCase())));
 };
 

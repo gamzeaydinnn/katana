@@ -15,7 +15,7 @@ import {
 } from "./services/authService";
 import BranchSelector, { Branch } from "./components/Luca/BranchSelector";
 
-// Layout Components
+
 import Header from "./components/Layout/Header";
 import Sidebar from "./components/Layout/Sidebar";
 import Dashboard from "./components/Dashboard/Dashboard";
@@ -50,7 +50,7 @@ const App: React.FC = () => {
     });
   };
 
-  // 🌿 Branch / session setup
+  
   const [branchesToSelect, setBranchesToSelect] = useState<Branch[] | null>(
     null
   );
@@ -123,7 +123,7 @@ const App: React.FC = () => {
     <ErrorBoundary>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {/* 🌈 Gradient Background */}
+        {}
         <Box
           sx={{
             position: "fixed",
@@ -146,14 +146,14 @@ const App: React.FC = () => {
             `,
           }}
         />
-        {/* Router Yapısı */}
+        {}
         <FeedbackProvider>
           <BrowserRouter>
             <Routes>
-              {/* Public login route used only for Admin access */}
+              {}
               <Route path="/login" element={<Login />} />
 
-              {/* Public app layout; only /admin below will be protected */}
+              {}
               <Route
                 path="/*"
                 element={
@@ -178,7 +178,7 @@ const App: React.FC = () => {
                       onClose={() => setSidebarOpen(false)}
                     />
 
-                    {/* 🎯 Main Content: Soldan Hizalı */}
+                    {}
                     <Box
                       component="main"
                       sx={{
@@ -200,7 +200,7 @@ const App: React.FC = () => {
                           <Route path="/stock-view" element={<StockView />} />
                           <Route path="/sync" element={<SyncManagement />} />
                           <Route path="/reports" element={<Reports />} />
-                          {/* Protect the Admin Panel route - accessible by Admin, Manager (read-only), StokYonetici (partial) */}
+                          {}
                           <Route
                             path="/admin"
                             element={

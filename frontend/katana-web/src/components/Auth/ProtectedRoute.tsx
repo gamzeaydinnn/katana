@@ -26,18 +26,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         window.localStorage.removeItem("authToken");
       }
     } catch {
-      // ignore storage errors
+      
     }
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  // Role-based access control
+  
   const roles = getJwtRoles(payload).map((r) => r.toLowerCase());
 
-  // If a requiredRole prop is not provided, allow admin/manager/stockmanager for /admin routes
+  
   let roleNeeded = requiredRole?.toLowerCase();
   if (!roleNeeded && location.pathname.startsWith("/admin")) {
-    // Admin panel accessible by Admin, Manager (read-only), and StokYonetici (partial)
+    
     const hasAdminPanelAccess =
       roles.includes("admin") ||
       roles.includes("manager") ||
@@ -45,18 +45,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     if (!hasAdminPanelAccess) {
       return <Navigate to="/unauthorized" replace state={{ from: location }} />;
     }
-    // Allow access without checking specific role
+    
     return children;
   }
 
   if (roleNeeded) {
-    // Admin her şeye erişebilir
+    
     const hasAdminRole = roles.includes("admin");
-    // Gereken role sahip mi kontrol et
+    
     const hasRequiredRole = roles.includes(roleNeeded);
 
     if (!hasAdminRole && !hasRequiredRole) {
-      // Do not clear token; just redirect to unauthorized page
+      
       return <Navigate to="/unauthorized" replace state={{ from: location }} />;
     }
   }

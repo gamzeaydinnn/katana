@@ -42,7 +42,7 @@ interface LucaProduct {
   unitPrice?: number;
   vatRate?: number;
   isActive?: boolean;
-  // Backend PascalCase alternatives
+  
   ProductCode?: string;
   ProductName?: string;
   Unit?: string;
@@ -69,7 +69,7 @@ const LucaProducts: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const url = "/Products/luca"; // Primary endpoint (alias: /Luca/products)
+      const url = "/Products/luca"; 
       const response = await api.get(url);
       const responseData: any = response.data;
       const productData = responseData?.data || responseData || [];
@@ -95,7 +95,7 @@ const LucaProducts: React.FC = () => {
         message: backendMsg,
         fullError: err,
       });
-      // Ek tanı: 404 ise reverse proxy veya route mismatch olasılığını vurgula
+      
       if (status === 404) {
         console.warn(
           "404 alındı. Nginx 'location /api/' proxy_pass 5055'e yönlendiriyor mu kontrol edin."
@@ -132,7 +132,7 @@ const LucaProducts: React.FC = () => {
 
     try {
       const productId = selectedProduct.id;
-      // Match LucaProductUpdateDto exactly (backend expects PascalCase or camelCase)
+      
       const updateDto = {
         productCode:
           selectedProduct.productCode || selectedProduct.ProductCode || "",
@@ -144,7 +144,7 @@ const LucaProducts: React.FC = () => {
         vatRate: selectedProduct.vatRate ?? selectedProduct.VatRate ?? 20,
       };
 
-      console.log("Sending update DTO:", updateDto); // Debug log
+      console.log("Sending update DTO:", updateDto); 
       await api.put(`/Products/luca/${productId}`, updateDto);
       handleCloseModal();
       fetchProducts();
@@ -427,7 +427,7 @@ const LucaProducts: React.FC = () => {
         </TableContainer>
       )}
 
-      {/* Edit Dialog */}
+      {}
       <Dialog
         open={editModalOpen}
         onClose={handleCloseModal}

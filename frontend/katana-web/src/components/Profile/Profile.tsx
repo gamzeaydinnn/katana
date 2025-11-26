@@ -84,7 +84,7 @@ const Profile: React.FC = () => {
       </Typography>
 
       <Stack spacing={3}>
-        {/* Kullanıcı Bilgileri */}
+        {}
         <Card>
           <CardContent>
             <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
@@ -150,7 +150,7 @@ const Profile: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Şifre Değiştirme */}
+        {}
         <Card>
           <CardContent>
             <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>

@@ -7,7 +7,7 @@ jest.mock("../../services/api");
 describe("Reports Component", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Mock default empty response
+    
     (api.stockAPI.getStockReport as jest.Mock).mockResolvedValue({
       stockData: [],
       summary: {
@@ -26,7 +26,7 @@ describe("Reports Component", () => {
     expect(
       screen.getByRole("heading", { name: /stok raporu/i })
     ).toBeInTheDocument();
-    // Wait for initial API call
+    
     await waitFor(() => {
       expect(api.stockAPI.getStockReport).toHaveBeenCalled();
     });
@@ -72,7 +72,7 @@ describe("Reports Component", () => {
   test("handles search filter", async () => {
     render(<Reports />);
 
-    // Wait for initial load
+    
     await waitFor(() => {
       expect(api.stockAPI.getStockReport).toHaveBeenCalled();
     });
@@ -85,12 +85,12 @@ describe("Reports Component", () => {
   test("handles low stock filter", async () => {
     render(<Reports />);
 
-    // Wait for initial load
+    
     await waitFor(() => {
       expect(api.stockAPI.getStockReport).toHaveBeenCalled();
     });
 
-    // Switch is a role="switch" not "checkbox"
+    
     const lowStockSwitch = screen.getByRole("switch");
     fireEvent.click(lowStockSwitch);
     expect(lowStockSwitch).toBeChecked();
@@ -104,7 +104,7 @@ describe("Reports Component", () => {
     render(<Reports />);
 
     await waitFor(() => {
-      // Error message shows the actual error, not a custom message
+      
       expect(screen.getByText(/API Error/i)).toBeInTheDocument();
     });
   });
@@ -139,7 +139,7 @@ describe("Reports Component", () => {
     };
     (api.stockAPI.getStockReport as jest.Mock).mockResolvedValue(mockData);
 
-    // Mock URL.createObjectURL
+    
     global.URL.createObjectURL = jest.fn(() => "blob:test");
 
     render(<Reports />);
@@ -148,10 +148,10 @@ describe("Reports Component", () => {
 
     const csvButton = screen.getByRole("button", { name: /rapor oluştur/i });
 
-    // CSV download is triggered by clicking
+    
     fireEvent.click(csvButton);
 
-    // Just check the button was clickable
+    
     expect(csvButton).toBeInTheDocument();
   });
 });

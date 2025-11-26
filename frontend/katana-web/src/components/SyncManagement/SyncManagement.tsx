@@ -49,7 +49,7 @@ interface SyncHistory {
 const SyncManagement: React.FC = () => {
   const [history, setHistory] = useState<SyncHistory[]>([]);
   const [loading, setLoading] = useState(false);
-  // Note: we use global toast for errors instead of rendering a persistent Alert banner
+  
   const [openDialog, setOpenDialog] = useState(false);
   const [syncType, setSyncType] = useState("STOCK");
   const [syncing, setSyncing] = useState(false);
@@ -61,7 +61,7 @@ const SyncManagement: React.FC = () => {
       const data: any = await stockAPI.getSyncHistory();
       setHistory(data || []);
     } catch (err: any) {
-      // Show a friendly toast; avoid rendering raw error text in page
+      
       try {
         showGlobalToast({
           message:
@@ -70,7 +70,7 @@ const SyncManagement: React.FC = () => {
           durationMs: 4000,
         });
       } catch {
-        // fallback: console log
+        
         console.error("Failed to show toast for sync history error:", err);
       }
     } finally {
@@ -194,7 +194,7 @@ const SyncManagement: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Error notifications are shown with global toast; remove inline error banner */}
+      {}
 
       <Paper sx={{ p: { xs: 2, md: 3 } }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 3 }}>
@@ -474,7 +474,7 @@ const SyncManagement: React.FC = () => {
         )}
       </Paper>
 
-      {/* Start Sync Dialog */}
+      {}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
         <DialogTitle>Senkronizasyon Başlat</DialogTitle>
         <DialogContent sx={{ minWidth: { xs: "auto", sm: 400 }, pt: 2 }}>
@@ -485,14 +485,14 @@ const SyncManagement: React.FC = () => {
             label="Senkronizasyon Tipi"
             onChange={(e) => setSyncType(e.target.value)}
           >
-            {/* Mevcut backend senkronizasyonları */}
+            {}
             <MenuItem value="STOCK">Stok</MenuItem>
             <MenuItem value="INVOICE">Fatura</MenuItem>
             <MenuItem value="CUSTOMER">Müşteri</MenuItem>
             <MenuItem value="DESPATCH">İrsaliye</MenuItem>
             <MenuItem value="ALL">Tümü</MenuItem>
 
-            {/* Luca genişletilmiş işlevler */}
+            {}
             <MenuItem value="SUPPLIER">Tedarikçi (Luca)</MenuItem>
             <MenuItem value="STOCK_CARD">Stok Kartları (Luca)</MenuItem>
             <MenuItem value="CUSTOMER_TRANSACTION">Cari Hareketler (Luca)</MenuItem>

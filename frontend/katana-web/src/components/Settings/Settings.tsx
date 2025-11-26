@@ -69,7 +69,7 @@ const Settings: React.FC = () => {
       });
     } catch (err: any) {
       console.error("Settings load error:", err);
-      // Hata olsa bile default değerlerle devam et
+      
       setSettings({
         katanaApiKey: "",
         lucaApiKey: "",
@@ -78,7 +78,7 @@ const Settings: React.FC = () => {
         showApiKey: false,
         hideZeroStockProducts: false,
       });
-      // Hata mesajını gösterme, sadece log'la
+      
     } finally {
       setLoading(false);
     }
@@ -155,7 +155,7 @@ const Settings: React.FC = () => {
 
       {!loading && (
         <Stack spacing={3}>
-          {/* API Ayarları ve Senkronizasyon yan yana */}
+          {}
           <Box
             sx={{
               display: "grid",
@@ -163,7 +163,7 @@ const Settings: React.FC = () => {
               gap: 3,
             }}
           >
-            {/* API Ayarları */}
+            {}
             <Card>
               <CardContent>
                 <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
@@ -230,7 +230,7 @@ const Settings: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Senkronizasyon Ayarları */}
+            {}
             <Card>
               <CardContent>
                 <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
@@ -294,7 +294,7 @@ const Settings: React.FC = () => {
             </Card>
           </Box>
 
-          {/* Sistem Bilgisi */}
+          {}
           <Card>
             <CardContent>
               <Typography variant="h6" fontWeight={600} gutterBottom>
