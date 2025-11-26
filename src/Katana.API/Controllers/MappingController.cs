@@ -7,11 +7,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace Katana.API.Controllers;
-/*Tüm eşleştirme türlerini (Ürün, Müşteri vb.) getiren bir endpoint (GET /api/mapping/types).
-Belirli bir türe ait tüm eşleştirmeleri getiren endpoint (GET /api/mapping/{type}).
-Yeni bir eşleştirme kaydı oluşturma (POST /api/mapping).
-Mevcut bir eşleştirmeyi güncelleme (PUT /api/mapping/{id}).
-Bir eşleştirmeyi silme (DELETE /api/mapping/{id}).*/
+
+
+
+
+
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
@@ -33,9 +33,9 @@ public class MappingController : ControllerBase
         _logger = logger;
         _auditLogger = auditLogger;
     }
-    /// <summary>
-    /// Gets all mapping entries
-    /// </summary>
+    
+    
+    
     [HttpGet]
     public async Task<ActionResult<object>> GetMappings(
         [FromQuery] string? mappingType = null,
@@ -88,9 +88,9 @@ public class MappingController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Gets SKU to account code mappings
-    /// </summary>
+    
+    
+    
     [HttpGet("sku-accounts")]
     public async Task<ActionResult<Dictionary<string, string>>> GetSkuAccountMappings()
     {
@@ -105,9 +105,9 @@ public class MappingController : ControllerBase
             return StatusCode(500, new { error = "Internal server error retrieving SKU mappings" });
         }
     }
-    /// <summary>
-    /// Gets location to warehouse mappings
-    /// </summary>
+    
+    
+    
     [HttpGet("locations")]
     public async Task<ActionResult<Dictionary<string, string>>> GetLocationMappings()
     {
@@ -122,9 +122,9 @@ public class MappingController : ControllerBase
             return StatusCode(500, new { error = "Internal server error retrieving location mappings" });
         }
     }
-    /// <summary>
-    /// Creates a new mapping entry
-    /// </summary>
+    
+    
+    
     [HttpPost]
     public async Task<ActionResult<object>> CreateMapping([FromBody] CreateMappingRequest request)
     {
@@ -160,7 +160,7 @@ public class MappingController : ControllerBase
             }
             catch (DbUpdateException)
             {
-                // Unique index violation or similar concurrency issue
+                
                 return Conflict(new { error = "Mapping for the given type and source already exists" });
             }
             await _auditLogger.LogAsync("CREATE", "MappingTable", mapping.Id, 
@@ -189,9 +189,9 @@ public class MappingController : ControllerBase
             return StatusCode(500, new { error = "Internal server error creating mapping" });
         }
     }
-    /// <summary>
-    /// Updates an existing mapping entry
-    /// </summary>
+    
+    
+    
     [HttpPut("{id}")]
     public async Task<ActionResult<object>> UpdateMapping(int id, [FromBody] UpdateMappingRequest request)
     {
@@ -236,9 +236,9 @@ public class MappingController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Gets a specific mapping by ID
-    /// </summary>
+    
+    
+    
     [HttpGet("{id}")]
     public async Task<ActionResult<object>> GetMappingById(int id)
     {
@@ -271,9 +271,9 @@ public class MappingController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Deletes a mapping entry
-    /// </summary>
+    
+    
+    
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteMapping(int id)
     {

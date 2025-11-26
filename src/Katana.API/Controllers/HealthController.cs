@@ -1,12 +1,12 @@
-// Katana.API/Controllers/HealthController.cs
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Katana.API.Controllers;
 
 [ApiController]
-[Route("api")] // Route'u 'api' olarak bırakalım ki, sadece /api/Health adresinden erişilebilsin.
-[AllowAnonymous] // Token olmadan erişilebilir
+[Route("api")] 
+[AllowAnonymous] 
 public class HealthController : ControllerBase
 {
     private readonly ILogger<HealthController> _logger;
@@ -16,10 +16,10 @@ public class HealthController : ControllerBase
         _logger = logger;
     }
 
-    [HttpGet("health")] // API adresi: /api/health (case-insensitive eşleşir)
+    [HttpGet("health")] 
     public IActionResult GetHealth()
     {
-        // Basitçe API'nizin çalıştığını gösterir. DB veya harici bağlantı kontrolü burada yapılmaz.
+        
         _logger.LogInformation("API Health check successful.");
         
         return Ok(new 

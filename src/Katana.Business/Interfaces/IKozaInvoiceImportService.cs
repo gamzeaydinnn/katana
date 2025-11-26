@@ -5,8 +5,8 @@ namespace Katana.Business.Interfaces;
 public interface IKozaInvoiceImportService
 {
     /// <summary>
-    /// Koza (Luca) tarafındaki faturaları listeleyip Invoice entity'lerine map eder
-    /// ve IntegrationDbContext üzerinden veritabanına yazar.
+    /// Koza (Luca) tarafındaki faturaları listeleyip Invoice entity'lerine map eder..
+    /// ve IntegrationDbContext üzerinden veritabanına yazdı
     /// </summary>
     /// <param name="fromDate">Opsiyonel başlangıç tarihi (belgeTarihiBas)</param>
     /// <param name="toDate">Opsiyonel bitiş tarihi (belgeTarihiBit)</param>

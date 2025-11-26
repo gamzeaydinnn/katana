@@ -10,10 +10,10 @@ using System.Text.Json;
 
 namespace Katana.API.Notifications
 {
-    /// <summary>
-    /// Publishes pending-created notifications to connected clients via SignalR.
-    /// Implemented inside the API project so SignalR types are available.
-    /// </summary>
+    
+    
+    
+    
     public class SignalRNotificationPublisher : IPendingNotificationPublisher
     {
         private static readonly AsyncRetryPolicy _publishRetryPolicy = Policy
@@ -66,7 +66,7 @@ namespace Katana.API.Notifications
             {
                 _logger?.LogInformation("Publishing PendingStockAdjustmentCreated for PendingId {PendingId}", evt.Id);
                 _logger?.LogInformation("Published PendingStockAdjustmentCreated for PendingId {PendingId}", evt.Id);
-                // Persist a server-side notification record
+                
                 try
                 {
                     var notif = new Katana.Core.Entities.Notification
@@ -109,7 +109,7 @@ namespace Katana.API.Notifications
             {
                 _logger?.LogInformation("Publishing PendingStockAdjustmentApproved for PendingId {PendingId}", evt.Id);
                 _logger?.LogInformation("Published PendingStockAdjustmentApproved for PendingId {PendingId}", evt.Id);
-                // Persist approval notification
+                
                 try
                 {
                     var notif = new Katana.Core.Entities.Notification

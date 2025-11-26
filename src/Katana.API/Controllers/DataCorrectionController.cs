@@ -21,9 +21,9 @@ public class DataCorrectionController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>
-    /// Compare Katana and Luca products - show differences
-    /// </summary>
+    
+    
+    
     [HttpGet("compare/products")]
     public async Task<IActionResult> CompareProducts()
     {
@@ -39,9 +39,9 @@ public class DataCorrectionController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get pending corrections waiting for approval
-    /// </summary>
+    
+    
+    
     [HttpGet("pending")]
     public async Task<IActionResult> GetPendingCorrections()
     {
@@ -57,9 +57,9 @@ public class DataCorrectionController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Create a new data correction
-    /// </summary>
+    
+    
+    
     [HttpPost]
     public async Task<IActionResult> CreateCorrection([FromBody] CreateCorrectionDto dto)
     {
@@ -76,9 +76,9 @@ public class DataCorrectionController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Approve a correction (Admin only)
-    /// </summary>
+    
+    
+    
     [HttpPost("{id}/approve")]
     public async Task<IActionResult> ApproveCorrection(int id)
     {
@@ -99,9 +99,9 @@ public class DataCorrectionController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Reject and delete a correction
-    /// </summary>
+    
+    
+    
     [HttpDelete("{id}")]
     public async Task<IActionResult> RejectCorrection(int id)
     {
@@ -122,9 +122,9 @@ public class DataCorrectionController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Apply approved correction to Luca
-    /// </summary>
+    
+    
+    
     [HttpPost("{id}/apply-to-luca")]
     public async Task<IActionResult> ApplyToLuca(int id)
     {
@@ -144,9 +144,9 @@ public class DataCorrectionController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Apply approved correction to Katana (if supported)
-    /// </summary>
+    
+    
+    
     [HttpPost("{id}/apply-to-katana")]
     public async Task<IActionResult> ApplyToKatana(int id)
     {

@@ -41,7 +41,7 @@ public class AdminController : ControllerBase
         _pendingService = pendingService;
     }
 
-    // Debug endpoint to check user roles
+    
     [HttpGet("debug/roles")]
     public IActionResult GetCurrentUserRoles()
     {
@@ -53,7 +53,7 @@ public class AdminController : ControllerBase
         return Ok(new { username, roles, isAuthenticated = User?.Identity?.IsAuthenticated });
     }
 
-    // Pending adjustments service will be resolved from DI when needed
+    
     [HttpGet("pending-adjustments")]
     public async Task<IActionResult> GetPendingAdjustments()
     {
@@ -88,7 +88,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("pending-adjustments/{id}/approve")]
-    [Authorize(Roles = "Admin,StokYonetici")] // Stok onaylama yetkisi
+    [Authorize(Roles = "Admin,StokYonetici")] 
     public async Task<IActionResult> ApprovePendingAdjustment(long id, [FromQuery] string approvedBy = "admin")
     {
         try
@@ -118,7 +118,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("pending-adjustments/{id}/reject")]
-    [Authorize(Roles = "Admin,StokYonetici")] // Stok red yetkisi
+    [Authorize(Roles = "Admin,StokYonetici")] 
     public async Task<IActionResult> RejectPendingAdjustment(long id, [FromBody] RejectDto dto)
     {
         try
@@ -226,7 +226,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("sync-logs")]
-    [Authorize(Roles = "Admin,Manager,StokYonetici")] // Allow viewing by Admin, Manager and StokYonetici
+    [Authorize(Roles = "Admin,Manager,StokYonetici")] 
     public IActionResult GetSyncLogs([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         try
@@ -245,7 +245,7 @@ public class AdminController : ControllerBase
                     l.Status,
                     l.StartTime,
                     l.EndTime,
-                    l.Details // varsa
+                    l.Details 
                 })
                 .ToList();
 
@@ -258,7 +258,7 @@ public class AdminController : ControllerBase
         }
     }
 
-    // Anonymous helper to read recent sync logs (for local testing)
+    
     [HttpGet("sync-logs-anon")]
     [AllowAnonymous]
     public IActionResult GetSyncLogsAnonymous([FromQuery] int take = 20)
@@ -280,7 +280,7 @@ public class AdminController : ControllerBase
         }
     }
 
-    // Anonymous helper to read LOCATION_WAREHOUSE mapping table entries
+    
     [HttpGet("mapping-table-anon")]
     [AllowAnonymous]
     public IActionResult GetMappingTableAnonymous([FromQuery] string mappingType = "LOCATION_WAREHOUSE")
@@ -302,7 +302,7 @@ public class AdminController : ControllerBase
         }
     }
 
-    // Set default LOCATION_WAREHOUSE mapping target to '001' (for testing)
+    
     [HttpPost("mapping-table-anon/set-default")]
     [AllowAnonymous]
     public async Task<IActionResult> SetMappingDefaultTo001()
@@ -416,17 +416,17 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("pending-adjustments/test-create")]
-    [Authorize(Roles = "Admin")] // Test endpoint - sadece Admin
+    [Authorize(Roles = "Admin")] 
     public async Task<IActionResult> CreateTestPendingAdjustment()
     {
         try
         {
-            // Create or find a test product
+            
             var sku = "TEST-SKU-ADMIN-001";
             var product = await _context.Products.FirstOrDefaultAsync(p => p.SKU == sku);
             if (product == null)
             {
-                // Ensure there's at least one category to satisfy FK
+                
                 var category = await _context.Categories.FirstOrDefaultAsync();
                 if (category == null)
                 {
@@ -466,7 +466,7 @@ public class AdminController : ControllerBase
                 Status = "Pending"
             };
 
-            // Use the centralized pending service so notifications (if configured) are published
+            
             var created = await _pendingService.CreateAsync(pending);
 
             return Ok(new { ok = true, pendingId = created.Id, productId = product.Id });
@@ -478,19 +478,19 @@ public class AdminController : ControllerBase
         }
     }
 
-    // Anonymous test endpoint to create a product + pending adjustment for local testing
+    
     [HttpPost("pending-adjustments/test-create-anon")]
     [AllowAnonymous]
     public async Task<IActionResult> CreateTestPendingAdjustmentAnonymous()
     {
         try
         {
-            // Create or find a test product
+            
             var sku = "TEST-SKU-ANON-001";
             var product = await _context.Products.FirstOrDefaultAsync(p => p.SKU == sku);
             if (product == null)
             {
-                // Ensure there's at least one category to satisfy FK
+                
                 var category = await _context.Categories.FirstOrDefaultAsync();
                 if (category == null)
                 {
@@ -546,7 +546,7 @@ public class AdminController : ControllerBase
     {
         try
         {
-            // Product.Id is an int in the EF model - ensure we use the correct type here
+            
             var p = await _context.Products.FindAsync(id);
             if (p == null) return NotFound();
             return Ok(new { id = p.Id, sku = p.SKU, stock = p.Stock });
@@ -588,7 +588,7 @@ public class AdminController : ControllerBase
         }
     }
 
-    // ================== FAILED SYNC RECORDS (Error Management) ==================
+    
 
     [HttpGet("failed-records")]
     public async Task<IActionResult> GetFailedSyncRecords(
@@ -641,7 +641,7 @@ public class AdminController : ControllerBase
         }
     }
 
-    // Anonymous view of recent failed sync records (for debugging)
+    
     [HttpGet("failed-records-anon")]
     [AllowAnonymous]
     public async Task<IActionResult> GetFailedSyncRecordsAnonymous([FromQuery] int take = 50)
@@ -663,7 +663,7 @@ public class AdminController : ControllerBase
         }
     }
 
-    // Trigger a direct push of local DB products to Luca (for testing).
+    
     [HttpPost("test-push-products-anon")]
     [AllowAnonymous]
     public async Task<IActionResult> TestPushProductsAnonymous([FromQuery] int take = 10)
@@ -677,7 +677,7 @@ public class AdminController : ControllerBase
 
             var lucaService = HttpContext.RequestServices.GetRequiredService<Katana.Business.Interfaces.ILucaService>();
 
-            // Katana ürünlerini Koza stok kartı DTO'suna map et ve Luca'ya gönder
+            
             var lucaStockCards = products
                 .Select(p => Katana.Core.Helpers.MappingHelper.MapToLucaStockCard(p))
                 .ToList();
@@ -753,7 +753,7 @@ public class AdminController : ControllerBase
             record.ResolvedAt = DateTime.UtcNow;
             record.ResolvedBy = User.Identity?.Name ?? "admin";
 
-            // If corrected data provided, update original data
+            
             if (!string.IsNullOrEmpty(dto.CorrectedData))
                 record.OriginalData = dto.CorrectedData;
 
@@ -768,7 +768,7 @@ public class AdminController : ControllerBase
                 dto.CorrectedData ?? record.OriginalData
             );
 
-            // If resend flag is true, trigger re-sync
+            
             if (dto.Resend && !string.IsNullOrEmpty(dto.CorrectedData))
             {
                 try
@@ -778,20 +778,20 @@ public class AdminController : ControllerBase
                     switch (record.RecordType?.ToUpper())
                     {
                         case "STOCK":
-                            // Deserialize corrected stock data and send to appropriate system
+                            
                             var stockData = JsonSerializer.Deserialize<Dictionary<string, object>>(dto.CorrectedData);
                             if (stockData != null)
                             {
-                                // Determine target system from integration log
+                                
                                 var targetSystem = record.IntegrationLog?.SyncType ?? "UNKNOWN";
                                 if (targetSystem.Contains("KATANA", StringComparison.OrdinalIgnoreCase))
                                 {
-                                    // TODO: Send to Katana
+                                    
                                     _logger.LogInformation("Would send stock update to Katana: {Data}", dto.CorrectedData);
                                 }
                                 else if (targetSystem.Contains("LUCA", StringComparison.OrdinalIgnoreCase))
                                 {
-                                    // TODO: Send to Luca
+                                    
                                     _logger.LogInformation("Would send stock update to Luca: {Data}", dto.CorrectedData);
                                 }
                             }
@@ -826,7 +826,7 @@ public class AdminController : ControllerBase
                             break;
                     }
                     
-                    // Log successful resend attempt
+                    
                     await _loggingService.LogAuditAsync(
                         User.Identity?.Name ?? "admin",
                         "RESEND_ATTEMPT",
@@ -839,7 +839,7 @@ public class AdminController : ControllerBase
                 catch (Exception resendEx)
                 {
                     _logger.LogError(resendEx, "Failed to resend corrected data for record {Id}", id);
-                    // Don't fail the whole operation, record is still marked as RESOLVED
+                    
                 }
             }
 
@@ -900,13 +900,13 @@ public class AdminController : ControllerBase
 
             record.RetryCount++;
             record.LastRetryAt = DateTime.UtcNow;
-            record.NextRetryAt = DateTime.UtcNow.AddMinutes(Math.Pow(2, record.RetryCount)); // Exponential backoff
+            record.NextRetryAt = DateTime.UtcNow.AddMinutes(Math.Pow(2, record.RetryCount)); 
             record.Status = "RETRYING";
 
             await _context.SaveChangesAsync();
 
-            // TODO: Implement actual retry logic based on RecordType
-            // This would call appropriate integration service
+            
+            
             _logger.LogInformation("Retry initiated for record {Id}, attempt {Count}", id, record.RetryCount);
 
             return Ok(new { success = true, message = "Retry initiated", retryCount = record.RetryCount });

@@ -12,10 +12,10 @@ using Microsoft.Extensions.Options;
 
 namespace Katana.API.Controllers;
 
-/// <summary>
-/// Product management endpoints. Requires authorization for write operations.
-/// Read endpoints return product data from local DB or Katana API.
-/// </summary>
+
+
+
+
 [ApiController]
 [Route("api/[controller]")]
 public class ProductsController : ControllerBase
@@ -49,13 +49,13 @@ public class ProductsController : ControllerBase
         _auditService = auditService;
     }
 
-    // ==========================================
-    // KATANA API ENDPOINTS (External)
-    // ==========================================
+    
+    
+    
 
-    /// <summary>
-    /// Get all products from Katana API and sync to local DB
-    /// </summary>
+    
+    
+    
     [HttpGet("katana")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -67,7 +67,7 @@ public class ProductsController : ControllerBase
             _loggingService.LogInfo("Fetching products from Katana API", User?.Identity?.Name, $"Page: {page}, Limit: {limit}, Sync: {sync}", LogCategory.ExternalAPI);
             var allProducts = await _katanaService.GetProductsAsync();
             
-            // Remove duplicates based on SKU - keep first occurrence
+            
             var products = allProducts
                 .GroupBy(p => p.SKU)
                 .Select(g => g.First())
@@ -78,16 +78,16 @@ public class ProductsController : ControllerBase
                 _logger.LogWarning($"Removed {allProducts.Count - products.Count} duplicate products from Katana API response");
             }
             
-            // Sync to local DB if requested
+            
             if (sync)
             {
-                // Get or create default category first
+                
                 var categories = await _categoryService.GetAllAsync();
                 int defaultCategoryId;
                 
                 if (categories == null || !categories.Any())
                 {
-                    // Create default category if none exists
+                    
                     var newCategory = await _categoryService.CreateAsync(new CreateCategoryDto
                     {
                         Name = "Genel",
@@ -101,11 +101,11 @@ public class ProductsController : ControllerBase
                     defaultCategoryId = categories.First().Id;
                 }
                 
-                // PERFORMANCE: Fetch all existing products in one query instead of N queries
+                
                 var allLocalProducts = await _productService.GetAllProductsAsync();
                 var localProductsBySku = allLocalProducts.ToDictionary(p => p.SKU, p => p);
                 
-                // Prepare products for bulk sync (only new ones)
+                
                 var productsToSync = new List<CreateProductDto>();
                 foreach (var katanaProduct in products)
                 {
@@ -122,7 +122,7 @@ public class ProductsController : ControllerBase
                     }
                 }
                 
-                // Use bulk sync method for better performance and error handling
+                
                 var (created, updated, skipped, syncErrors) = await _productService.BulkSyncProductsAsync(
                     productsToSync, 
                     defaultCategoryId
@@ -137,11 +137,11 @@ public class ProductsController : ControllerBase
                 _logger.LogInformation("Sync completed: {Created} created, {Updated} updated, {Skipped} skipped", 
                     created, updated, skipped);
                 
-                // PERFORMANCE: Re-fetch local products once after sync
+                
                 allLocalProducts = await _productService.GetAllProductsAsync();
                 localProductsBySku = allLocalProducts.ToDictionary(p => p.SKU, p => p);
                 
-                // Map local DB IDs and values to Katana products for frontend operations
+                
                 var enrichedProducts = new List<object>();
                 foreach (var katanaProduct in products)
                 {
@@ -178,7 +178,7 @@ public class ProductsController : ControllerBase
                 });
             }
             
-            // ALWAYS map to local DB IDs for editing capability
+            
             var localProducts = await _productService.GetAllProductsAsync();
             var localProductsMap = localProducts.ToDictionary(p => p.SKU, p => p);
             
@@ -187,7 +187,7 @@ public class ProductsController : ControllerBase
             {
                 var localProduct = localProductsMap.GetValueOrDefault(katanaProduct.SKU);
                 
-                // Only include products that exist in local DB (can be edited)
+                
                 if (localProduct != null)
                 {
                     result.Add(new
@@ -219,13 +219,13 @@ public class ProductsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get products in a Luca-like shape (from local DB)
-    /// Used by the Admin → Luca Ürünleri page. Returns realistic demo data
-    /// mapped from local products to avoid 404s until direct Luca listing is wired.
-    /// </summary>
+    
+    
+    
+    
+    
     [HttpGet("luca")]
-    [HttpGet("~/api/Luca/products")] // Route alias: also available as /api/Luca/products
+    [HttpGet("~/api/Luca/products")] 
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -246,7 +246,7 @@ public class ProductsController : ControllerBase
                 isActive = p.IsActive
             }).ToList();
 
-            // If DB has no products, fall back to demo items to guarantee a non-empty array
+            
             if (mapped.Count == 0)
             {
                 var demo = GetDemoLucaProducts();
@@ -257,7 +257,7 @@ public class ProductsController : ControllerBase
         }
         catch (Exception ex)
         {
-            // On any failure, serve demo data with HTTP 200 to keep Admin Panel stable
+            
             _logger.LogError(ex, "Error creating Luca-style product list from local DB. Serving demo data.");
             var demo = GetDemoLucaProducts();
             return Ok(new { data = demo, count = demo.Count });
@@ -276,9 +276,9 @@ public class ProductsController : ControllerBase
         };
     }
 
-    /// <summary>
-    /// Get a specific product by SKU from Katana API
-    /// </summary>
+    
+    
+    
     [HttpGet("katana/{sku}")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -304,9 +304,9 @@ public class ProductsController : ControllerBase
         }
     }
 
-    // ==========================================
-    // LOCAL DATABASE ENDPOINTS
-    // ==========================================
+    
+    
+    
 
     [HttpGet]
     [AllowAnonymous]
@@ -318,10 +318,10 @@ public class ProductsController : ControllerBase
         return Ok(products);
     }
 
-    /// <summary>
-    /// Returns only the products that are eligible for the public/customer catalog.
-    /// Applies category, status and stock validations.
-    /// </summary>
+    
+    
+    
+    
     [HttpGet("catalog")]
     [AllowAnonymous]
     public async Task<ActionResult<CustomerCatalogResponse>> GetCustomerCatalog([FromQuery] bool? hideZeroStockProducts = null)
@@ -433,7 +433,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin,StokYonetici")] // Ürün ekleme yetkisi
+    [Authorize(Roles = "Admin,StokYonetici")] 
     public async Task<ActionResult<ProductDto>> Create([FromBody] CreateProductDto dto)
     {
         var validationErrors = Katana.Business.Validators.ProductValidator.ValidateCreate(dto);
@@ -456,7 +456,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = "Admin,StokYonetici")] // Ürün güncelleme yetkisi
+    [Authorize(Roles = "Admin,StokYonetici")] 
     public async Task<ActionResult<ProductDto>> Update(int id, [FromBody] UpdateProductDto dto)
     {
         _logger.LogInformation("Update product called: ID={Id}, DTO={@Dto}", id, dto);
@@ -476,10 +476,10 @@ public class ProductsController : ControllerBase
 
         try
         {
-            // Update local DB
+            
             var product = await _productService.UpdateProductAsync(id, dto);
             
-            // Try to update Katana API (if product has Katana ID)
+            
             var katanaProduct = await _katanaService.GetProductBySkuAsync(product.SKU);
             if (katanaProduct != null && int.TryParse(katanaProduct.Id, out int katanaProductId))
             {
@@ -515,7 +515,7 @@ public class ProductsController : ControllerBase
             _logger.LogError(ex, "Invalid operation updating product {Id}", id);
             _loggingService.LogError("Product update failed", ex, User?.Identity?.Name, null, LogCategory.Business);
             
-            // Check if this is a CategoryId validation error
+            
             if (ex.Message.Contains("kategori") || ex.Message.Contains("CategoryId"))
             {
                 return BadRequest(new { error = ex.Message, details = ex.InnerException?.Message });
@@ -529,7 +529,7 @@ public class ProductsController : ControllerBase
                 id, ex.InnerException?.Message);
             _loggingService.LogError("Product update DB error", ex, User?.Identity?.Name, null, LogCategory.Business);
             
-            // Check for foreign key constraint violation on CategoryId
+            
             var innerMessage = ex.InnerException?.Message ?? ex.Message;
             if (innerMessage.Contains("FK_Products_Categories_CategoryId") || 
                 innerMessage.Contains("FOREIGN KEY constraint"))
@@ -601,11 +601,11 @@ public class ProductsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Update a Luca-style product (maps to local DB product)
-    /// </summary>
+    
+    
+    
     [HttpPut("luca/{id}")]
-    [Authorize(Roles = "Admin,StokYonetici")] // Luca ürün güncelleme
+    [Authorize(Roles = "Admin,StokYonetici")] 
     public async Task<ActionResult> UpdateLucaProduct(int id, [FromBody] LucaProductUpdateDto dto)
     {
         _logger.LogInformation("UpdateLucaProduct called: ID={Id}, DTO={@Dto}", id, dto);
@@ -616,7 +616,7 @@ public class ProductsController : ControllerBase
             return BadRequest(new { error = "Ürün verisi boş olamaz" });
         }
 
-        // Validate required fields
+        
         if (string.IsNullOrWhiteSpace(dto.ProductName))
         {
             _logger.LogWarning("UpdateLucaProduct missing ProductName for product {Id}", id);
@@ -631,7 +631,7 @@ public class ProductsController : ControllerBase
 
         try
         {
-            // Get existing product
+            
             var product = await _productService.GetProductByIdAsync(id);
             if (product == null)
             {
@@ -641,7 +641,7 @@ public class ProductsController : ControllerBase
 
             _logger.LogInformation("Existing product found: {@Product}", product);
 
-            // Ensure valid category exists
+            
             int validCategoryId = product.CategoryId;
             if (validCategoryId <= 0)
             {
@@ -653,7 +653,7 @@ public class ProductsController : ControllerBase
                 }
                 else
                 {
-                    // Create default category if none exists
+                    
                     _logger.LogWarning("No categories found, creating default category");
                     var newCategory = await _categoryService.CreateAsync(new CreateCategoryDto
                     {
@@ -664,7 +664,7 @@ public class ProductsController : ControllerBase
                 }
             }
 
-            // Create UpdateProductDto from Luca data
+            
             var updateDto = new UpdateProductDto
             {
                 Name = dto.ProductName,
@@ -677,7 +677,7 @@ public class ProductsController : ControllerBase
 
             _logger.LogInformation("Mapped to UpdateProductDto: {@UpdateDto}", updateDto);
 
-            // Validate before update
+            
             var validationErrors = Katana.Business.Validators.ProductValidator.ValidateUpdate(updateDto);
             if (validationErrors.Any())
             {
@@ -685,10 +685,10 @@ public class ProductsController : ControllerBase
                 return BadRequest(new { errors = validationErrors });
             }
 
-            // Update product
+            
             var updatedProduct = await _productService.UpdateProductAsync(id, updateDto);
 
-            // Map back to Luca format for response
+            
             var result = new
             {
                 id = updatedProduct.Id,
@@ -725,9 +725,9 @@ public class ProductsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Push a local product to Luca (Koza) using configured Luca API credentials.
-    /// </summary>
+    
+    
+    
     [HttpPost("luca/{id}/push")]
     [Authorize(Roles = "Admin,StokYonetici")]
     public async Task<ActionResult> PushProductToLuca(int id)
@@ -738,7 +738,7 @@ public class ProductsController : ControllerBase
             return NotFound(new { error = $"Ürün bulunamadı: {id}" });
         }
 
-        // Map local product to Luca DTO
+        
         var product = new Product
         {
             Id = productDto.Id,
@@ -782,7 +782,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id}/activate")]
-    [Authorize(Roles = "Admin,StokYonetici")] // Ürün aktif etme yetkisi
+    [Authorize(Roles = "Admin,StokYonetici")] 
     public async Task<ActionResult> Activate(int id)
     {
         var result = await _productService.ActivateProductAsync(id);
@@ -793,7 +793,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id}/deactivate")]
-    [Authorize(Roles = "Admin,StokYonetici")] // Ürün pasif etme yetkisi
+    [Authorize(Roles = "Admin,StokYonetici")] 
     public async Task<ActionResult> Deactivate(int id)
     {
         var result = await _productService.DeactivateProductAsync(id);

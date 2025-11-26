@@ -28,13 +28,13 @@ public class ErrorHandlingMiddleware
             _logger.LogError(ex, "Unhandled exception at {Path}", path);
             try
             {
-                // Resolve the scoped logging service from the request services to avoid capturing scoped services in middleware ctor
+                
                 var loggingService = context.RequestServices.GetService(typeof(Katana.Business.Interfaces.ILoggingService)) as Katana.Business.Interfaces.ILoggingService;
                 loggingService?.LogError($"Unhandled exception at {path}", ex, user, $"Method: {context.Request.Method}");
             }
             catch
             {
-                // ignore failures during error reporting to avoid secondary exceptions
+                
             }
             await HandleExceptionAsync(context, ex);
         }
@@ -42,7 +42,7 @@ public class ErrorHandlingMiddleware
 
     private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        // Response başlamışsa header set edilemez
+        
         if (context.Response.HasStarted)
         {
             return;

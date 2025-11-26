@@ -33,9 +33,9 @@ public class ReportsController : ControllerBase
         _dashboardService = dashboardService;
     }
 
-    /// <summary>
-    /// Gets the latest integration logs
-    /// </summary>
+    
+    
+    
     [HttpGet("logs")]
     public async Task<ActionResult<object>> GetIntegrationLogs(
         [FromQuery] int page = 1, 
@@ -54,7 +54,7 @@ public class ReportsController : ControllerBase
 
             if (!string.IsNullOrEmpty(status))
             {
-                // Parse string to enum
+                
                 if (Enum.TryParse<SyncStatus>(status, true, out var syncStatus))
                 {
                     query = query.Where(l => l.Status == syncStatus);
@@ -98,9 +98,9 @@ public class ReportsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Gets the last sync report for each sync type
-    /// </summary>
+    
+    
+    
     [HttpGet("last")]
     public async Task<ActionResult<object>> GetLastSyncReports()
     {
@@ -157,9 +157,9 @@ public class ReportsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Gets failed sync records that need attention
-    /// </summary>
+    
+    
+    
     [HttpGet("failed")]
     public async Task<ActionResult<object>> GetFailedRecords(
         [FromQuery] int page = 1,
@@ -218,9 +218,9 @@ public class ReportsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Gets sync statistics for dashboard
-    /// </summary>
+    
+    
+    
     [HttpGet("statistics")]
     public async Task<ActionResult<object>> GetSyncStatistics([FromQuery] int days = 7)
     {
@@ -263,12 +263,12 @@ public class ReportsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Gets stock report with product details, quantities, and values
-    /// </summary>
+    
+    
+    
     [HttpGet("stock")]
     [HttpGet("~/api/Analytics/stock")]
-    [AllowAnonymous] // Manager ve Staff da stok raporlarını görebilmeli
+    [AllowAnonymous] 
     public async Task<ActionResult<object>> GetStockReport(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 100,
@@ -279,7 +279,7 @@ public class ReportsController : ControllerBase
         {
             var query = _context.Products.AsQueryable();
 
-            // Search filter
+            
             if (!string.IsNullOrEmpty(search))
             {
                 query = query.Where(p => 
@@ -287,7 +287,7 @@ public class ReportsController : ControllerBase
                     p.SKU.Contains(search));
             }
 
-            // We'll compute balances from StockMovements and then apply lowStockOnly filtering in-memory
+            
             var initialProducts = await query.Select(p => new
             {
                 p.Id,
@@ -302,7 +302,7 @@ public class ReportsController : ControllerBase
                 LastUpdated = p.UpdatedAt
             }).ToListAsync();
 
-            // Apply low-stock filter if requested
+            
             if (lowStockOnly)
             {
                 initialProducts = initialProducts.Where(p => p.Balance <= 10).ToList();
@@ -333,7 +333,7 @@ public class ReportsController : ControllerBase
                 })
                 .ToList();
 
-            // Summary statistics
+            
             var totalStockValue = stockData.Sum(s => s.StockValue);
             var lowStockCount = stockData.Count(s => s.IsLowStock);
             var outOfStockCount = stockData.Count(s => s.IsOutOfStock);
@@ -368,9 +368,9 @@ public class ReportsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// GET /api/Reports/sync and legacy /api/Analytics/sync - Senkronizasyon raporu
-    /// </summary>
+    
+    
+    
     [HttpGet("sync")]
     [HttpGet("~/api/Analytics/sync")]
     public async Task<IActionResult> GetSyncReport()
@@ -402,9 +402,9 @@ public class ReportsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// GET /api/Reports/summary and legacy /api/Analytics/summary - Özet istatistikler
-    /// </summary>
+    
+    
+    
     [HttpGet("summary")]
     [HttpGet("~/api/Analytics/summary")]
     public async Task<IActionResult> GetSummaryReport()
@@ -438,9 +438,9 @@ public class ReportsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Dashboard ana istatistikleri - GET /api/Reports/dashboard (legacy: /api/Dashboard)
-    /// </summary>
+    
+    
+    
     [HttpGet("dashboard")]
     [HttpGet("~/api/Dashboard")]
     [AllowAnonymous]
@@ -471,9 +471,9 @@ public class ReportsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Katana API bağlantısı ve senkronizasyon istatistikleri
-    /// </summary>
+    
+    
+    
     [HttpGet("dashboard/sync-stats")]
     [HttpGet("~/api/Dashboard/sync-stats")]
     [AllowAnonymous]
@@ -532,9 +532,9 @@ public class ReportsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Dashboard istatistikleri
-    /// </summary>
+    
+    
+    
     [HttpGet("dashboard/stats")]
     [HttpGet("~/api/Dashboard/stats")]
     [AllowAnonymous]
@@ -553,9 +553,9 @@ public class ReportsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// En son sistem aktiviteleri
-    /// </summary>
+    
+    
+    
     [HttpGet("dashboard/activities")]
     [HttpGet("~/api/Dashboard/activities")]
     [AllowAnonymous]

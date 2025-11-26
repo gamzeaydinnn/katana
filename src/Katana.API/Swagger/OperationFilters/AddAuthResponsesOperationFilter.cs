@@ -7,10 +7,10 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace Katana.API.Swagger.OperationFilters
 {
-    /// <summary>
-    /// Adds 401/403 (and a basic 500) response documentation to endpoints protected by [Authorize].
-    /// Also wires a simple JSON example for unauthorized/forbidden responses.
-    /// </summary>
+    
+    
+    
+    
     public class AddAuthResponsesOperationFilter : IOperationFilter
     {
         public void Apply(OpenApiOperation operation, OperationFilterContext context)
@@ -22,7 +22,7 @@ namespace Katana.API.Swagger.OperationFilters
             if (!hasAuthorize)
                 return;
 
-            // 401 Unauthorized
+            
             if (!operation.Responses.ContainsKey("401"))
             {
                 operation.Responses.Add("401", new OpenApiResponse
@@ -43,7 +43,7 @@ namespace Katana.API.Swagger.OperationFilters
                 });
             }
 
-            // 403 Forbidden
+            
             if (!operation.Responses.ContainsKey("403"))
             {
                 operation.Responses.Add("403", new OpenApiResponse
@@ -63,7 +63,7 @@ namespace Katana.API.Swagger.OperationFilters
                 });
             }
 
-            // 500 Internal Server Error (basic)
+            
             if (!operation.Responses.ContainsKey("500"))
             {
                 operation.Responses.Add("500", new OpenApiResponse
