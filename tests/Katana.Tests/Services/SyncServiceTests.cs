@@ -50,12 +50,12 @@ public class SyncServiceTests : IDisposable
         _mockTransformer.Setup(t => t.ToCustomersAsync(It.IsAny<IEnumerable<CustomerDto>>()))
             .ReturnsAsync((IEnumerable<CustomerDto> dtos) => dtos.Select(d => new Customer { Id = d.Id, TaxNo = d.TaxNo, Title = d.Title, IsActive = d.IsActive }).ToList());
 
-        _mockLoader.Setup(l => l.LoadProductsAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((IEnumerable<Product> products, int _, CancellationToken __) => products.Count());
-        _mockLoader.Setup(l => l.LoadInvoicesAsync(It.IsAny<IEnumerable<Invoice>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((IEnumerable<Invoice> invoices, int _, CancellationToken __) => invoices.Count());
-        _mockLoader.Setup(l => l.LoadCustomersAsync(It.IsAny<IEnumerable<Customer>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((IEnumerable<Customer> customers, int _, CancellationToken __) => customers.Count());
+        _mockLoader.Setup(l => l.LoadProductsAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IEnumerable<Product> products, IReadOnlyDictionary<string, string> _, int __, CancellationToken ___) => products.Count());
+        _mockLoader.Setup(l => l.LoadInvoicesAsync(It.IsAny<IEnumerable<Invoice>>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IEnumerable<Invoice> invoices, IReadOnlyDictionary<string, string> _, int __, CancellationToken ___) => invoices.Count());
+        _mockLoader.Setup(l => l.LoadCustomersAsync(It.IsAny<IEnumerable<Customer>>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IEnumerable<Customer> customers, IReadOnlyDictionary<string, string> _, int __, CancellationToken ___) => customers.Count());
 
         _syncService = new SyncService(_mockExtractor.Object, _mockTransformer.Object, _mockLoader.Object, _mockLucaService.Object, _context, _mockLogger.Object);
     }
@@ -116,7 +116,7 @@ public class SyncServiceTests : IDisposable
 
         // Assert
         result.Should().NotBeNull();
-        result.Results.Should().HaveCount(3);
+        result.Results.Should().HaveCount(4);
         result.OverallSuccess.Should().BeTrue();
     }
 

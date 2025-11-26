@@ -40,7 +40,7 @@ public class SyncServiceEdgeCaseTests : IDisposable
             .ReturnsAsync(new List<ProductDto>());
         _transformer.Setup(t => t.ToProductsAsync(It.IsAny<IEnumerable<ProductDto>>()))
             .ReturnsAsync(new List<Product>());
-        _loader.Setup(l => l.LoadProductsAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        _loader.Setup(l => l.LoadProductsAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(0);
 
         var mockLucaService = new Mock<ILucaService>();
@@ -104,7 +104,7 @@ public class SyncServiceEdgeCaseTests : IDisposable
             .ReturnsAsync(dtos);
         _transformer.Setup(t => t.ToProductsAsync(It.IsAny<IEnumerable<ProductDto>>()))
             .ReturnsAsync((IEnumerable<ProductDto> p) => p.Select(d => new Product { SKU = d.SKU, Name = d.Name, Price = d.Price, CategoryId = d.CategoryId, IsActive = d.IsActive }).ToList());
-        _loader.Setup(l => l.LoadProductsAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        _loader.Setup(l => l.LoadProductsAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(2);
 
         var mockLucaService = new Mock<ILucaService>();
@@ -120,7 +120,7 @@ public class SyncServiceEdgeCaseTests : IDisposable
         result.FailedRecords.Should().Be(1);
 
         var log = _db.SyncOperationLogs.OrderByDescending(x => x.StartTime).First();
-        log.Status.Should().Be("SUCCESS"); // operation completed without exception
+        log.Status.Should().Be("FAILED");
         log.ProcessedRecords.Should().Be(3);
         log.SuccessfulRecords.Should().Be(2);
         log.FailedRecords.Should().Be(1);
@@ -152,4 +152,3 @@ public class SyncServiceEdgeCaseTests : IDisposable
         _db.Dispose();
     }
 }
-

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using Katana.Business.Interfaces;
 using System.Linq;
@@ -44,7 +45,14 @@ public class SyncService : ISyncService
         {
             var productDtos = await _extractorService.ExtractProductsAsync(fromDate, ct);
             var products = await _transformerService.ToProductsAsync(productDtos);
-            var successful = await _loaderService.LoadProductsAsync(products, ct: ct);
+            var validProducts = FilterValidProducts(products, out var skippedProducts);
+            if (skippedProducts > 0)
+            {
+                _logger.LogWarning("SyncService => {Count} products skipped during STOCK sync due to validation errors.", skippedProducts);
+            }
+
+            var locationMappings = await GetMappingDictionaryAsync("LOCATION_WAREHOUSE", ct);
+            var successful = await _loaderService.LoadProductsAsync(validProducts, locationMappings, ct: ct);
             return BuildResult("STOCK", productDtos.Count, successful);
         });
 
@@ -59,7 +67,13 @@ public class SyncService : ISyncService
             var products = await _transformerService.ToProductsAsync(productDtos);
             _logger.LogInformation("🔀 Transformed {Count} products", products.Count());
 
-            var successful = await _loaderService.LoadProductsToLucaAsync(products, ct: ct);
+            var validProducts = FilterValidProducts(products, out var skippedProducts);
+            if (skippedProducts > 0)
+            {
+                _logger.LogWarning("SyncService => {Count} products skipped during PRODUCT sync due to validation errors.", skippedProducts);
+            }
+
+            var successful = await _loaderService.LoadProductsToLucaAsync(validProducts, ct: ct);
             _logger.LogInformation("✅ Successfully sent {Successful}/{Total} products to Luca", successful, productDtos.Count);
 
             return BuildResult("PRODUCT", productDtos.Count, successful);
@@ -70,7 +84,14 @@ public class SyncService : ISyncService
         {
             var invoiceDtos = await _extractorService.ExtractInvoicesAsync(fromDate, ct);
             var invoices = await _transformerService.ToInvoicesAsync(invoiceDtos);
-            var successful = await _loaderService.LoadInvoicesAsync(invoices, ct: ct);
+            var validInvoices = FilterValidInvoices(invoices, out var skippedInvoices);
+            if (skippedInvoices > 0)
+            {
+                _logger.LogWarning("SyncService => {Count} invoices skipped during INVOICE sync due to validation errors.", skippedInvoices);
+            }
+
+            var skuAccountMappings = await GetMappingDictionaryAsync("SKU_ACCOUNT", ct);
+            var successful = await _loaderService.LoadInvoicesAsync(validInvoices, skuAccountMappings, ct: ct);
             return BuildResult("INVOICE", invoiceDtos.Count, successful);
         });
 
@@ -79,7 +100,14 @@ public class SyncService : ISyncService
         {
             var customerDtos = await _extractorService.ExtractCustomersAsync(fromDate, ct);
             var customers = await _transformerService.ToCustomersAsync(customerDtos);
-            var successful = await _loaderService.LoadCustomersAsync(customers, ct: ct);
+            var validCustomers = FilterValidCustomers(customers, out var skippedCustomers);
+            if (skippedCustomers > 0)
+            {
+                _logger.LogWarning("SyncService => {Count} customers skipped during CUSTOMER sync due to validation errors.", skippedCustomers);
+            }
+
+            var customerTypeMappings = await GetMappingDictionaryAsync("CUSTOMER_TYPE", ct);
+            var successful = await _loaderService.LoadCustomersAsync(validCustomers, customerTypeMappings, ct: ct);
             return BuildResult("CUSTOMER", customerDtos.Count, successful);
         });
 
@@ -142,13 +170,15 @@ public class SyncService : ISyncService
             result.SyncTime = DateTime.UtcNow;
             result.Duration = stopwatch.Elapsed;
 
+            var status = result.IsSuccess ? "SUCCESS" : "FAILED";
+            var errorMessage = result.IsSuccess ? null : BuildResultErrorMessage(result);
             await FinalizeOperationAsync(
                 logEntry,
-                "SUCCESS",
+                status,
                 result.ProcessedRecords,
                 result.SuccessfulRecords,
                 result.FailedRecords,
-                null);
+                errorMessage);
 
             _logger.LogInformation("SyncService => {SyncType} sync completed. Processed={Processed} Success={Success}",
                 syncType, result.ProcessedRecords, result.SuccessfulRecords);
@@ -219,6 +249,21 @@ public class SyncService : ISyncService
         return value.Length <= maxLength ? value : value.Substring(0, maxLength);
     }
 
+    private static string? BuildResultErrorMessage(SyncResultDto? result)
+    {
+        if (result == null)
+        {
+            return null;
+        }
+
+        if (result.Errors != null && result.Errors.Count > 0)
+        {
+            return string.Join("; ", result.Errors);
+        }
+
+        return string.IsNullOrWhiteSpace(result.Message) ? null : result.Message;
+    }
+
     private static SyncResultDto BuildResult(string syncType, int processed, int successful) =>
         new()
         {
@@ -231,6 +276,199 @@ public class SyncService : ISyncService
                 ? $"{processed} kayıt senkronize edildi."
                 : $"{processed} kaydın {successful} tanesi senkronize edildi."
         };
+
+    private List<Product> FilterValidProducts(IEnumerable<Product> products, out int skipped)
+    {
+        var valid = new List<Product>();
+        skipped = 0;
+        foreach (var product in products)
+        {
+            if (ValidateProductForLuca(product, out var reason))
+            {
+                valid.Add(product);
+            }
+            else
+            {
+                skipped++;
+                _logger.LogWarning("SyncService => Product skipped. SKU={Sku}; Reason={Reason}", product?.SKU, reason);
+            }
+        }
+        return valid;
+    }
+
+    private List<Invoice> FilterValidInvoices(IEnumerable<Invoice> invoices, out int skipped)
+    {
+        var valid = new List<Invoice>();
+        skipped = 0;
+        foreach (var invoice in invoices)
+        {
+            if (ValidateInvoiceForLuca(invoice, out var reason))
+            {
+                valid.Add(invoice);
+            }
+            else
+            {
+                skipped++;
+                _logger.LogWarning("SyncService => Invoice skipped. InvoiceNo={InvoiceNo}; Reason={Reason}", invoice?.InvoiceNo, reason);
+            }
+        }
+        return valid;
+    }
+
+    private List<Customer> FilterValidCustomers(IEnumerable<Customer> customers, out int skipped)
+    {
+        var valid = new List<Customer>();
+        skipped = 0;
+        foreach (var customer in customers)
+        {
+            if (ValidateCustomerForLuca(customer, out var reason))
+            {
+                valid.Add(customer);
+            }
+            else
+            {
+                skipped++;
+                _logger.LogWarning("SyncService => Customer skipped. TaxNo={TaxNo}; Reason={Reason}", customer?.TaxNo, reason);
+            }
+        }
+        return valid;
+    }
+
+    private bool ValidateProductForLuca(Product? product, out string reason)
+    {
+        if (product == null)
+        {
+            reason = "Product is null";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(product.SKU))
+        {
+            reason = "SKU boş";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(product.Name))
+        {
+            reason = "Ürün adı boş";
+            return false;
+        }
+
+        if (product.Price < 0)
+        {
+            reason = "Ürün fiyatı negatif olamaz";
+            return false;
+        }
+
+        reason = string.Empty;
+        return true;
+    }
+
+    private bool ValidateInvoiceForLuca(Invoice? invoice, out string reason)
+    {
+        if (invoice == null)
+        {
+            reason = "Invoice is null";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(invoice.InvoiceNo))
+        {
+            reason = "InvoiceNo boş";
+            return false;
+        }
+
+        if (invoice.CustomerId <= 0)
+        {
+            reason = "CustomerId eksik";
+            return false;
+        }
+
+        if (invoice.InvoiceDate == default)
+        {
+            reason = "Fatura tarihi boş";
+            return false;
+        }
+
+        var items = invoice.InvoiceItems?.ToList() ?? new List<InvoiceItem>();
+        if (!items.Any())
+        {
+            reason = "Fatura kalemi yok";
+            return false;
+        }
+
+        foreach (var item in items)
+        {
+            if (item.Quantity <= 0)
+            {
+                reason = $"Kalem miktarı geçersiz (SKU={item.ProductSKU})";
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(item.ProductSKU))
+            {
+                reason = "Kalem SKU boş";
+                return false;
+            }
+        }
+
+        reason = string.Empty;
+        return true;
+    }
+
+    private bool ValidateCustomerForLuca(Customer? customer, out string reason)
+    {
+        if (customer == null)
+        {
+            reason = "Customer is null";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(customer.TaxNo))
+        {
+            reason = "Vergi numarası boş";
+            return false;
+        }
+
+        if (customer.TaxNo.Length < 10)
+        {
+            reason = "Vergi numarası eksik";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(customer.Title))
+        {
+            reason = "Cari ünvan boş";
+            return false;
+        }
+
+        reason = string.Empty;
+        return true;
+    }
+
+    private async Task<Dictionary<string, string>> GetMappingDictionaryAsync(string mappingType, CancellationToken ct)
+    {
+        try
+        {
+            var normalized = string.IsNullOrWhiteSpace(mappingType)
+                ? string.Empty
+                : mappingType.Trim().ToUpperInvariant();
+
+            var entries = await _dbContext.MappingTables
+                .Where(m => m.IsActive && m.MappingType != null && m.MappingType.ToUpper() == normalized)
+                .Select(m => new { m.SourceValue, m.TargetValue })
+                .ToListAsync(ct);
+
+            return entries
+                .Where(e => !string.IsNullOrWhiteSpace(e.SourceValue))
+                .ToDictionary(e => e.SourceValue, e => e.TargetValue, StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SyncService => Failed to load mapping table {MappingType}. Returning empty mapping.", mappingType);
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
 
     // Luca → Katana (Reverse Sync) implementations
     public async Task<SyncResultDto> SyncStockFromLucaAsync(DateTime? fromDate = null)

@@ -10,15 +10,15 @@ public interface ILucaService
     Task<bool> TestConnectionAsync();
 
     // Katana → Luca (Push)
-    Task<SyncResultDto> SendInvoicesAsync(List<LucaInvoiceDto> invoices);
+    Task<SyncResultDto> SendInvoicesAsync(List<LucaCreateInvoiceHeaderRequest> invoices);
     Task<SyncResultDto> SendStockMovementsAsync(List<LucaStockDto> stockMovements);
-    Task<SyncResultDto> SendCustomersAsync(List<LucaCustomerDto> customers);
+    Task<SyncResultDto> SendCustomersAsync(List<LucaCreateCustomerRequest> customers);
     // Katana -> Luca: send product records (create/update)
     Task<SyncResultDto> SendProductsAsync(List<LucaProductUpdateDto> products);
     // Katana -> Luca: Koza stok kartı oluşturma
     Task<SyncResultDto> SendStockCardsAsync(List<LucaCreateStokKartiRequest> stockCards);
     Task<SyncResultDto> SendStockCardAsync(LucaStockCardDto stockCard);
-    Task<SyncResultDto> SendInvoiceAsync(LucaInvoiceDto invoice);
+    Task<SyncResultDto> SendInvoiceAsync(LucaCreateInvoiceHeaderRequest invoice);
     Task<long> CreateIrsaliyeAsync(LucaIrsaliyeDto dto);
     Task DeleteIrsaliyeAsync(long irsaliyeId);
     Task<long> CreateSatinalmaSiparisAsync(LucaSatinalmaSiparisDto dto);

@@ -31,6 +31,18 @@ namespace Katana.API.Controllers
                 _lucaBaseUrl = "https://akozas.luca.com.tr/Yetki"; // fallback
         }
 
+        private void ApplyManualSessionCookie(HttpRequestMessage request)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(_settings.ManualSessionCookie))
+                {
+                    request.Headers.TryAddWithoutValidation("Cookie", _settings.ManualSessionCookie);
+                }
+            }
+            catch { /* swallow - best-effort */ }
+        }
+
         // Luca'dan gelen Set-Cookie'leri frontend'e forward eden yardımcı
         private async Task<IActionResult> ForwardResponse(HttpResponseMessage response)
         {
@@ -106,6 +118,7 @@ namespace Katana.API.Controllers
             var requestUrl = $"{_lucaBaseUrl}/{_settings.Endpoints.Auth}";
             var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
             request.Content = new StringContent(payloadJson, Encoding.UTF8, "application/json");
+            ApplyManualSessionCookie(request);
 
             _logger.LogDebug("LucaProxy: Sending login request to {Url}. Payload preview: {PayloadPreview}", requestUrl, payloadJson?.Length > 1000 ? payloadJson.Substring(0, 1000) + "..." : payloadJson);
 
@@ -167,6 +180,7 @@ namespace Katana.API.Controllers
             var requestUrl = $"{_lucaBaseUrl}/{_settings.Endpoints.Branches}";
             var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
             request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
+            ApplyManualSessionCookie(request);
 
             _logger.LogDebug("LucaProxy: Sending branches request to {Url}", requestUrl);
 
@@ -240,6 +254,7 @@ namespace Katana.API.Controllers
             var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
             var bodyStr = body.ToString();
             request.Content = new StringContent(bodyStr, Encoding.UTF8, "application/json");
+            ApplyManualSessionCookie(request);
 
             _logger.LogDebug("LucaProxy: Sending select-branch request to {Url}. Payload preview: {PayloadPreview}", requestUrl, bodyStr?.Length > 1000 ? bodyStr.Substring(0, 1000) + "..." : bodyStr);
 
