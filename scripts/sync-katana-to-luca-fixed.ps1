@@ -1,10 +1,10 @@
 param(
     [string]$KatanaApiBaseUrl = 'http://localhost:5000',
-    [string]$KozaBaseUrl = 'http://85.111.1.49:57005/Yetki/',
-    [string]$OrgCode = '1422649',
+    [string]$KozaBaseUrl = 'https://akozas.luca.com.tr/Yetki/',
+    [string]$OrgCode = '7374953',
     [string]$Username = 'Admin',
-    [string]$Password = 'WebServis',
-    [int]$BranchId = 854,
+    [string]$Password = '2009Bfm',
+    [int]$BranchId = 11746,
     [int]$Limit = 0,
     [string]$ProductsFile = '',
     [string]$KatanaApiToken = '',
@@ -12,6 +12,8 @@ param(
     [ValidateSet('skip','fail')] [string]$OnDuplicate = 'skip',
     [switch]$DryRun,
     [switch]$ForceSendDuplicates,
+    [switch]$PreferLocalDedupe,
+    [switch]$Live,
     [switch]$PreviewOnly
 )
 
@@ -36,9 +38,41 @@ function UrlEncodeCp1254([string]$s) {
     return ([string]$sb.ToString())
 }
 
+# Try to fix common UTF8<->CP125x mojibake by reinterpreting bytes
+function FixMojibake([string]$s) {
+    if ($null -eq $s) { return $s }
+    $orig = [string]$s
+    try {
+        # If percent-encoded bytes are present, try unescaping first
+        if ($orig -match '%[0-9A-Fa-f]{2}') {
+            try { $un = [System.Uri]::UnescapeDataString($orig); if ($un -and $un -ne $orig) { $orig = $un } } catch {}
+            try {
+                $orig = [regex]::Replace($orig, '%([0-9A-Fa-f]{2})', { param($m) $b = [Convert]::ToByte($m.Groups[1].Value,16); return [System.Text.Encoding]::GetEncoding(1254).GetString([byte[]]@($b)) })
+            } catch {}
+        }
+
+        $enc1254 = [System.Text.Encoding]::GetEncoding(1254)
+        $enc1252 = [System.Text.Encoding]::GetEncoding(1252)
+        $utf8 = [System.Text.Encoding]::UTF8
+
+        # Heuristic: if string contains typical mojibake markers, try reinterpretation
+        if ($orig -match '[\u0000-\u007F]*[ÃÄÅ].*') {
+            try { $candidate = $utf8.GetString($enc1254.GetBytes($orig)); if ($candidate -and ($candidate -notmatch '�')) { return $candidate } } catch {}
+            try { $candidate2 = $utf8.GetString($enc1252.GetBytes($orig)); if ($candidate2 -and ($candidate2 -notmatch '�')) { return $candidate2 } } catch {}
+        }
+
+        return $orig
+    } catch {
+        return $orig
+    }
+}
+
 # Load products (from file or Katana API). Try multiple auth header variants and endpoint shapes
 if ($ProductsFile -and (Test-Path $ProductsFile)) {
     $prods = Get-Content -Raw -Path $ProductsFile | ConvertFrom-Json
+    if ($prods -and $prods.psobject.properties.match('products')) {
+        $prods = $prods.products
+    }
 } else {
     $prods = @()
     # Build authentication header attempts. Some Katana installations expect X-Api-Key, others Authorization: Bearer.
@@ -103,7 +137,9 @@ Log "Products fetched: $($prods.Count)"
 
 # Normalize SKU/Name fields and deduplicate products by SKU to avoid repeated columns-parsing duplicates
 function Get-SkuKey([psobject]$p) {
-    $sku = @($p.kartKodu, $p.kod, $p.sku, $p.SKU) -join ''
+    $candidates = @($p.kartKodu, $p.kod, $p.sku, $p.SKU) | ForEach-Object { if ($_ -ne $null) { $_.ToString().Trim() } else { $_ } } | Where-Object { $_ -and $_ -ne '' }
+    $sku = ''
+    if ($candidates.Count -gt 0) { $sku = $candidates[0] }
     $sku = ([string]$sku).Trim()
     if (-not $sku -or $sku -eq '') {
         # fallback to name-based key
@@ -115,18 +151,23 @@ function Get-SkuKey([psobject]$p) {
     return $sku
 }
 
-# Attach __skuKey property and then keep first occurrence per key (unless ForceSendDuplicates)
-if (-not $ForceSendDuplicates.IsPresent) {
-    $prods = $prods | ForEach-Object {
-        $p = $_
-        try { $k = Get-SkuKey $p } catch { $k = "AUTO-" + [guid]::NewGuid().ToString().Substring(0,8) }
-        if ($p -is [pscustomobject]) { $p | Add-Member -NotePropertyName '__skuKey' -NotePropertyValue $k -Force } else { $p | Add-Member -NotePropertyName '__skuKey' -NotePropertyValue $k -Force }
-        $p
+# By default we DO NOT perform client-side grouping/dedupe so that Koza existence
+# checks can decide what to skip. If you prefer local dedupe, pass -PreferLocalDedupe.
+if ($PreferLocalDedupe.IsPresent) {
+    if (-not $ForceSendDuplicates.IsPresent) {
+        $prods = $prods | ForEach-Object {
+            $p = $_
+            try { $k = Get-SkuKey $p } catch { $k = "AUTO-" + [guid]::NewGuid().ToString().Substring(0,8) }
+            if ($p -is [pscustomobject]) { $p | Add-Member -NotePropertyName '__skuKey' -NotePropertyValue $k -Force } else { $p | Add-Member -NotePropertyName '__skuKey' -NotePropertyValue $k -Force }
+            $p
+        }
+        $prods = $prods | Group-Object -Property '__skuKey' | ForEach-Object { $_.Group[0] }
+        Log "Products after local dedupe: $($prods.Count)"
+    } else {
+        Log "PreferLocalDedupe + ForceSendDuplicates: skipping dedupe due to ForceSendDuplicates; will attempt to send all fetched items ($($prods.Count))."
     }
-    $prods = $prods | Group-Object -Property '__skuKey' | ForEach-Object { $_.Group[0] }
-    Log "Products after dedupe: $($prods.Count)"
 } else {
-    Log "ForceSendDuplicates set: skipping deduplication, will attempt to send all fetched items ($($prods.Count))."
+    Log "Skipping local dedupe; will check Koza per-SKU and send only missing items. Use -PreferLocalDedupe to enable client-side grouping."
 }
 
 # PreviewOnly: create forms

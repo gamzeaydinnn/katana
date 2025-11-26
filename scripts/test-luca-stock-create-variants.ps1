@@ -16,7 +16,7 @@ param(
     [string]$Username = '',
     [string]$Password = '',
     [string]$JSessionId = '',
-    [int]$BranchId = 854,
+    [int]$BranchId = 11746,
     [int]$DefaultOlcumBirimiId = 5,
     [double]$DefaultKdvOran = 0.20,
     [int]$DefaultKartTipi = 4,

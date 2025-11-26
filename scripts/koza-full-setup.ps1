@@ -11,7 +11,7 @@ param(
     [string]$JSessionId = '',
     [switch]$AutoLogin,
     [string]$BaseUrl = "http://85.111.1.49:57005/Yetki/",
-    [int]$BranchId = 854,
+    [int]$BranchId = 11746,
     [string]$ConfigPath = ".\appsettings.Development.json",
     [string]$OrgCode = '',
     [string]$Username = '',

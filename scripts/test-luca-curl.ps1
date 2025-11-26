@@ -11,7 +11,7 @@ Adımlar:
 Loglar: scripts/logs/curl-test (cookie dosyası, curl verbose output, yanıtlar)
 
 Kullanım (repo kökünden):
-  .\scripts\test-luca-curl.ps1 -OrgCode 1422649 -Username Admin -Password WebServis -BranchId 854
+    .\scripts\test-luca-curl.ps1 -OrgCode 1422649 -Username Admin -Password WebServis -BranchId 11746
 #>
 
 param(
@@ -19,7 +19,7 @@ param(
     [string]$OrgCode = '1422649',
     [string]$Username = 'Admin',
     [string]$Password = 'WebServis',
-    [int]$BranchId = 854
+    [int]$BranchId = 11746
 )
 
 if (-not $BaseUrl.EndsWith('/')) { $BaseUrl += '/' }

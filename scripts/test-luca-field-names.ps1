@@ -11,7 +11,7 @@ Amaç: baslangicTarihi alanı sunucuya hangi isimle/formatla gitmeli?
 Her test için request/response/headers logs: scripts/logs/field-name-test
 
 Kullanım (repo kökünden):
-  .\scripts\test-luca-field-names.ps1 -OrgCode 1422649 -Username Admin -Password WebServis -BranchId 854
+    .\scripts\test-luca-field-names.ps1 -OrgCode 1422649 -Username Admin -Password WebServis -BranchId 11746
 #>
 
 param(
@@ -19,7 +19,7 @@ param(
     [string]$OrgCode = '1422649',
     [string]$Username = 'Admin',
     [string]$Password = 'WebServis',
-    [int]$BranchId = 854,
+    [int]$BranchId = 11746,
     [int]$OlcumBirimiId = 5,
     [double]$KdvOran = 0.20,
     [int]$KartTipi = 4,

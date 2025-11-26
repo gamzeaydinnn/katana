@@ -13,7 +13,7 @@ Hedef: Luca/Koza stok kartı endpointine kullanıcıdan gelen örnek formatı 3 
   3) Zorunlu + fiyat alanları
 
 Kullanım (repo kökünden):
-  .\scripts\test-luca-correct-format.ps1 -OrgCode 1422649 -Username Admin -Password WebServis -BranchId 854
+    .\scripts\test-luca-correct-format.ps1 -OrgCode 1422649 -Username Admin -Password WebServis -BranchId 11746
 #>
 
 param(
@@ -21,7 +21,7 @@ param(
     [string]$OrgCode = '1422649',
     [string]$Username = 'Admin',
     [string]$Password = 'WebServis',
-    [int]$BranchId = 854,
+    [int]$BranchId = 11746,
     [int]$OlcumBirimiId = 5,
     [int]$KartTuru = 1,
     [int]$KartTipi = 4,
