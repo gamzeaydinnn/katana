@@ -426,7 +426,7 @@ public class LucaStockDto
     public string? KategoriAgacKod { get; set; }
 
     [JsonPropertyName("baslangicTarihi")]
-    public DateTime? BaslangicTarihi { get; set; }
+    public string? BaslangicTarihi { get; set; }
 
     [JsonPropertyName("bitisTarihi")]
     public DateTime? BitisTarihi { get; set; }
@@ -465,7 +465,7 @@ public class LucaStockDto
     public bool LotNoFlag { get; set; }
 
     [JsonPropertyName("maliyetHesaplanacakFlag")]
-    public bool MaliyetHesaplanacakFlag { get; set; }
+    public int MaliyetHesaplanacakFlag { get; set; }
 
     // Detay alanları
     [JsonPropertyName("uzunAdi")]
@@ -854,7 +854,7 @@ public class LucaStockCardPriceListDto
     public string ParaBirimKod { get; set; } = "TRY";
 
     [JsonPropertyName("baslangicTarihi")]
-    public DateTime? BaslangicTarihi { get; set; }
+    public string? BaslangicTarihi { get; set; }
 
     [JsonPropertyName("bitisTarihi")]
     public DateTime? BitisTarihi { get; set; }
@@ -1517,7 +1517,7 @@ public class LucaCreateStokKartiRequest
     public long KartTuru { get; set; }
 
     [JsonPropertyName("baslangicTarihi")]
-    public DateTime? BaslangicTarihi { get; set; }
+    public string? BaslangicTarihi { get; set; }
 
     [JsonPropertyName("olcumBirimiId")]
     public long OlcumBirimiId { get; set; }
@@ -1526,7 +1526,7 @@ public class LucaCreateStokKartiRequest
     public string KartKodu { get; set; } = string.Empty;
 
     [JsonPropertyName("maliyetHesaplanacakFlag")]
-    public bool MaliyetHesaplanacakFlag { get; set; }
+    public int MaliyetHesaplanacakFlag { get; set; }
 
     [JsonPropertyName("kartTipi")]
     public long KartTipi { get; set; }
@@ -1589,13 +1589,13 @@ public class LucaCreateStokKartiRequest
     public double AlisIskontoOran1 { get; set; }
 
     [JsonPropertyName("satilabilirFlag")]
-    public bool SatilabilirFlag { get; set; }
+    public int SatilabilirFlag { get; set; }
 
     [JsonPropertyName("satinAlinabilirFlag")]
-    public bool SatinAlinabilirFlag { get; set; }
+    public int SatinAlinabilirFlag { get; set; }
 
     [JsonPropertyName("utsVeriAktarimiFlag")]
-    public bool UtsVeriAktarimiFlag { get; set; }
+    public int UtsVeriAktarimiFlag { get; set; }
 
     [JsonPropertyName("bagDerecesi")]
     public long BagDerecesi { get; set; }
@@ -1610,7 +1610,7 @@ public class LucaCreateStokKartiRequest
     public double SatisIskontoOran1 { get; set; }
 
     [JsonPropertyName("satisAlternatifFlag")]
-    public bool SatisAlternatifFlag { get; set; }
+    public int SatisAlternatifFlag { get; set; }
 
     [JsonPropertyName("uretimSuresi")]
     public double UretimSuresi { get; set; }
@@ -1619,10 +1619,10 @@ public class LucaCreateStokKartiRequest
     public long UretimSuresiBirim { get; set; }
 
     [JsonPropertyName("seriNoFlag")]
-    public bool SeriNoFlag { get; set; }
+    public int SeriNoFlag { get; set; }
 
     [JsonPropertyName("lotNoFlag")]
-    public bool LotNoFlag { get; set; }
+    public int LotNoFlag { get; set; }
 
     [JsonPropertyName("detayAciklama")]
     public string DetayAciklama { get; set; } = string.Empty;
@@ -1630,13 +1630,13 @@ public class LucaCreateStokKartiRequest
     // Oranlar Alanı
 
     [JsonPropertyName("otvMaliyetFlag")]
-    public bool OtvMaliyetFlag { get; set; }
+    public int OtvMaliyetFlag { get; set; }
 
     [JsonPropertyName("otvTutarKdvFlag")]
-    public bool OtvTutarKdvFlag { get; set; }
+    public int OtvTutarKdvFlag { get; set; }
 
     [JsonPropertyName("otvIskontoFlag")]
-    public bool OtvIskontoFlag { get; set; }
+    public int OtvIskontoFlag { get; set; }
 
     [JsonPropertyName("otvTipi")]
     public string OtvTipi { get; set; } = string.Empty;

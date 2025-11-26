@@ -32,7 +32,8 @@ $LogDir = './scripts/logs/wrapped-test'
 if (-not (Test-Path $LogDir)) { New-Item -Path $LogDir -ItemType Directory -Force | Out-Null }
 
 $timestamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
-$testDate = (Get-Date).ToString('yyyy-MM-dd')
+# Force dd/MM/yyyy to match Koza expectation
+$testDate = (Get-Date).ToString('dd/MM/yyyy')
 $testSKU = "WRAP-$timestamp"
 
 $cookieJar = New-Object System.Net.CookieContainer
@@ -68,7 +69,10 @@ try {
 function Send-JsonTest($name, $jsonBody) {
     Save-Text (Join-Path $LogDir "$name-request.json") $jsonBody
     try {
-        $resp = Invoke-WebRequest -Uri "$BaseUrl`EkleStkWsSkart.do" -Method Post -Body $jsonBody -WebSession $session -Headers @{ 'Content-Type' = 'application/json; charset=utf-8' } -UseBasicParsing
+        # Send as windows-1254 encoded JSON
+        $headersLocal = @{ 'Content-Type' = 'application/json; charset=windows-1254' }
+        $encBody = [System.Text.Encoding]::GetEncoding(1254).GetBytes($jsonBody)
+        $resp = Invoke-WebRequest -Uri "$BaseUrl`EkleStkWsSkart.do" -Method Post -Body $encBody -WebSession $session -ContentType $headersLocal['Content-Type'] -Headers $headersLocal -UseBasicParsing
         $content = $resp.Content
         Save-Text (Join-Path $LogDir "$name-response.txt") $content
         Write-Host "[$name] HTTP $($resp.StatusCode)"
@@ -88,7 +92,10 @@ function Send-JsonTest($name, $jsonBody) {
 function Send-FormTest($name, $bodyString) {
     Save-Text (Join-Path $LogDir "$name-request.txt") $bodyString
     try {
-        $resp = Invoke-WebRequest -Uri "$BaseUrl`EkleStkWsSkart.do" -Method Post -Body $bodyString -WebSession $session -Headers @{ 'Content-Type' = 'application/x-www-form-urlencoded; charset=utf-8' } -UseBasicParsing
+        # Send form as windows-1254
+        $headersLocal = @{ 'Content-Type' = 'application/x-www-form-urlencoded; charset=windows-1254' }
+        $encBody = [System.Text.Encoding]::GetEncoding(1254).GetBytes($bodyString)
+        $resp = Invoke-WebRequest -Uri "$BaseUrl`EkleStkWsSkart.do" -Method Post -Body $encBody -WebSession $session -ContentType $headersLocal['Content-Type'] -Headers $headersLocal -UseBasicParsing
         $content = $resp.Content
         Save-Text (Join-Path $LogDir "$name-response.txt") $content
         Write-Host "[$name] HTTP $($resp.StatusCode)"

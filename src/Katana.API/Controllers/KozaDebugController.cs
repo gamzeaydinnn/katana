@@ -1,10 +1,12 @@
 using System;
 using System.Threading.Tasks;
+using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Data.Configuration;
 using Katana.Infrastructure.APIClients;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 using Microsoft.Extensions.Options;
 
 namespace Katana.API.Controllers;
@@ -41,10 +43,10 @@ public class KozaDebugController : ControllerBase
             KartAdi = name,
             KartKodu = sku,
             KartTuru = 1,
-            BaslangicTarihi = DateTime.UtcNow.Date,
+            BaslangicTarihi = DateTime.UtcNow.Date.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
             OlcumBirimiId = request.OlcumBirimiId ?? _lucaSettings.DefaultOlcumBirimiId,
-            PerakendeSatisBirimFiyat = request.SalesPrice ?? 100m,
-            PerakendeAlisBirimFiyat = request.PurchasePrice ?? 80m,
+            PerakendeSatisBirimFiyat = (double)(request.SalesPrice ?? 100m),
+            PerakendeAlisBirimFiyat = (double)(request.PurchasePrice ?? 80m),
             KartAlisKdvOran = request.VatRate ?? _lucaSettings.DefaultKdvOran,
             KartSatisKdvOran = request.VatRate ?? _lucaSettings.DefaultKdvOran,
             UzunAdi = name

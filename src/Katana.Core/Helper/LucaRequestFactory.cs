@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Katana.Core.DTOs;
 using Katana.Core.Constants;
 
@@ -42,11 +43,11 @@ namespace Katana.Core.Helper
                 PerakendeAlisBirimFiyat = perakendeAlisBirimFiyat,
                 PerakendeSatisBirimFiyat = perakendeSatisBirimFiyat,
                 KartTipi = kartTipi,
-                MaliyetHesaplanacakFlag = maliyetHesaplanacakFlag,
-                SatilabilirFlag = satilabilirFlag,
-                SatinAlinabilirFlag = satinAlinabilirFlag,
+                MaliyetHesaplanacakFlag = maliyetHesaplanacakFlag ? 1 : 0,
+                SatilabilirFlag = satilabilirFlag ? 1 : 0,
+                SatinAlinabilirFlag = satinAlinabilirFlag ? 1 : 0,
                 // sensible defaults for optional fields if not provided
-                BaslangicTarihi = DateTime.UtcNow,
+                BaslangicTarihi = DateTime.UtcNow.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
                 UzunAdi = kartAdi,
             };
         }

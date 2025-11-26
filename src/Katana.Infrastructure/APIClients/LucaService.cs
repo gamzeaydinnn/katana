@@ -2335,7 +2335,7 @@ public class LucaService : ILucaService
             KartTuru = stockCard.KartTuru,
             KartKodu = stockCard.KartKodu ?? string.Empty,
             OlcumBirimiId = stockCard.OlcumBirimiId,
-            BaslangicTarihi = stockCard.BaslangicTarihi,
+            BaslangicTarihi = stockCard.BaslangicTarihi == default ? null : stockCard.BaslangicTarihi.ToString("dd/MM/yyyy"),
             KartAlisKdvOran = stockCard.KartAlisKdvOran,
             KartSatisKdvOran = stockCard.KartSatisKdvOran,
             KartToptanAlisKdvOran = stockCard.KartToptanAlisKdvOran ?? 0,
@@ -2345,7 +2345,7 @@ public class LucaService : ILucaService
             Barkod = stockCard.Barkod ?? stockCard.KartKodu ?? string.Empty,
             UzunAdi = stockCard.UzunAdi ?? stockCard.KartAdi,
             BitisTarihi = stockCard.BitisTarihi,
-            MaliyetHesaplanacakFlag = stockCard.MaliyetHesaplanacakFlag,
+            MaliyetHesaplanacakFlag = stockCard.MaliyetHesaplanacakFlag ? 1 : 0,
             GtipKodu = stockCard.GtipKodu ?? string.Empty,
             GarantiSuresi = stockCard.GarantiSuresi ?? 0,
             RafOmru = stockCard.RafOmru ?? 0,
@@ -2359,10 +2359,10 @@ public class LucaService : ILucaService
             MaxStokMiktari = stockCard.MaxStokMiktari ?? 0,
             AlisIskontoOran1 = stockCard.AlisIskontoOran1 ?? 0,
             SatisIskontoOran1 = stockCard.SatisIskontoOran1 ?? 0,
-            SatilabilirFlag = stockCard.SatilabilirFlag,
-            SatinAlinabilirFlag = stockCard.SatinAlinabilirFlag,
-            SeriNoFlag = stockCard.SeriNoFlag,
-            LotNoFlag = stockCard.LotNoFlag,
+            SatilabilirFlag = stockCard.SatilabilirFlag ? 1 : 0,
+            SatinAlinabilirFlag = stockCard.SatinAlinabilirFlag ? 1 : 0,
+            SeriNoFlag = stockCard.SeriNoFlag ? 1 : 0,
+            LotNoFlag = stockCard.LotNoFlag ? 1 : 0,
             DetayAciklama = stockCard.DetayAciklama ?? string.Empty,
             PerakendeAlisBirimFiyat = 0,
             PerakendeSatisBirimFiyat = 0
@@ -2632,16 +2632,137 @@ public class LucaService : ILucaService
     {
         await EnsureAuthenticatedAsync();
 
-        var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = CreateKozaContent(json);
-
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var endpoint = _settings.UseTokenAuth ? _settings.Endpoints.Products : _settings.Endpoints.StockCardCreate;
-        var response = await client.PostAsync(endpoint, content);
-        var responseContent = await response.Content.ReadAsStringAsync();
-        response.EnsureSuccessStatusCode();
 
-        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+        // Prepare three serialization strategies to try sequentially
+        // 1) JSON using original property names (no naming policy)
+        // 2) Wrapped object: { "stkSkart": { ... } }
+        // 3) Form-encoded key/value pairs
+
+        // JSON options with original property names
+        var jsonOptionsOriginal = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = null,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        };
+
+        // Attempt 1: JSON with original property names
+        try
+        {
+            _logger.LogInformation("ATTEMPT 1: JSON with original property names");
+            var json1 = JsonSerializer.Serialize(request, jsonOptionsOriginal);
+            var content1 = CreateKozaContent(json1);
+            using var req1 = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content1 };
+            ApplyManualSessionCookie(req1);
+            var resp1 = await client.SendAsync(req1);
+            var body1 = await ReadResponseContentAsync(resp1);
+            await AppendRawLogAsync("CREATE_STOCK_ATTEMPT1", endpoint, json1, resp1.StatusCode, body1);
+            try { await SaveHttpTrafficAsync("CREATE_STOCK_ATTEMPT1", req1, resp1); } catch { }
+
+            if (resp1.IsSuccessStatusCode)
+            {
+                var parsed = ParseKozaOperationResponse(body1);
+                if (parsed.IsSuccess)
+                {
+                    _logger.LogInformation("✅ SUCCESS with ATTEMPT 1");
+                    return JsonSerializer.Deserialize<JsonElement>(body1);
+                }
+            }
+
+            _logger.LogInformation("ATTEMPT 1 did not succeed: preview: {Preview}", body1?.Substring(0, Math.Min(200, body1?.Length ?? 0)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ATTEMPT 1 exception");
+        }
+
+        // Attempt 2: Wrapped in stkSkart
+        try
+        {
+            _logger.LogInformation("ATTEMPT 2: Wrapped object (stkSkart)");
+            var wrapped = new { stkSkart = request };
+            var json2 = JsonSerializer.Serialize(wrapped, jsonOptionsOriginal);
+            var content2 = CreateKozaContent(json2);
+            using var req2 = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content2 };
+            ApplyManualSessionCookie(req2);
+            var resp2 = await client.SendAsync(req2);
+            var body2 = await ReadResponseContentAsync(resp2);
+            await AppendRawLogAsync("CREATE_STOCK_ATTEMPT2", endpoint, json2, resp2.StatusCode, body2);
+            try { await SaveHttpTrafficAsync("CREATE_STOCK_ATTEMPT2", req2, resp2); } catch { }
+
+            if (resp2.IsSuccessStatusCode)
+            {
+                var parsed = ParseKozaOperationResponse(body2);
+                if (parsed.IsSuccess)
+                {
+                    _logger.LogInformation("✅ SUCCESS with ATTEMPT 2");
+                    return JsonSerializer.Deserialize<JsonElement>(body2);
+                }
+            }
+
+            _logger.LogInformation("ATTEMPT 2 did not succeed: preview: {Preview}", body2?.Substring(0, Math.Min(200, body2?.Length ?? 0)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ATTEMPT 2 exception");
+        }
+
+        // Attempt 3: Form-encoded key/value pairs
+        try
+        {
+            _logger.LogInformation("ATTEMPT 3: Form-encoded key/value pairs");
+            var fields = new Dictionary<string, string?>
+            {
+                ["kartAdi"] = request.KartAdi,
+                ["kartKodu"] = request.KartKodu,
+                ["kartTipi"] = request.KartTipi.ToString(),
+                ["kartTuru"] = request.KartTuru.ToString(),
+                ["baslangicTarihi"] = request.BaslangicTarihi,
+                ["olcumBirimiId"] = request.OlcumBirimiId.ToString(),
+                ["kategoriAgacKod"] = request.KategoriAgacKod,
+                ["barkod"] = request.Barkod,
+                ["kartAlisKdvOran"] = request.KartAlisKdvOran.ToString(CultureInfo.InvariantCulture),
+                ["kartSatisKdvOran"] = request.KartSatisKdvOran.ToString(CultureInfo.InvariantCulture),
+                ["satilabilirFlag"] = request.SatilabilirFlag.ToString(),
+                ["satinAlinabilirFlag"] = request.SatinAlinabilirFlag.ToString(),
+                ["lotNoFlag"] = request.LotNoFlag.ToString(),
+                ["maliyetHesaplanacakFlag"] = request.MaliyetHesaplanacakFlag.ToString()
+            };
+
+            // Build form body manually to control charset
+            var formPairs = fields.Where(kv => kv.Value != null).Select(kv => Uri.EscapeDataString(kv.Key) + "=" + Uri.EscapeDataString(kv.Value!));
+            var formBody = string.Join("&", formPairs);
+            var formBytes = Windows1254Encoding.GetBytes(formBody ?? string.Empty);
+            var content3 = new ByteArrayContent(formBytes);
+            content3.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded") { CharSet = "windows-1254" };
+
+            using var req3 = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content3 };
+            ApplyManualSessionCookie(req3);
+            var resp3 = await client.SendAsync(req3);
+            var body3 = await ReadResponseContentAsync(resp3);
+            await AppendRawLogAsync("CREATE_STOCK_ATTEMPT3", endpoint, formBody ?? string.Empty, resp3.StatusCode, body3);
+            try { await SaveHttpTrafficAsync("CREATE_STOCK_ATTEMPT3", req3, resp3); } catch { }
+
+            if (resp3.IsSuccessStatusCode)
+            {
+                var parsed = ParseKozaOperationResponse(body3);
+                if (parsed.IsSuccess)
+                {
+                    _logger.LogInformation("✅ SUCCESS with ATTEMPT 3");
+                    return JsonSerializer.Deserialize<JsonElement>(body3);
+                }
+            }
+
+            _logger.LogInformation("ATTEMPT 3 did not succeed: preview: {Preview}", body3?.Substring(0, Math.Min(200, body3?.Length ?? 0)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ATTEMPT 3 exception");
+        }
+
+        // If all attempts failed, throw with helpful diagnostics
+        throw new InvalidOperationException("All serialization attempts for CreateStockCardAsync failed. Need working example from Koza. Check logs for ATTEMPT* entries.");
     }
 
     public async Task<JsonElement> CreateOtherStockMovementAsync(LucaCreateDshBaslikRequest request)

@@ -100,9 +100,13 @@ function Send-JsonTest($name, $payload, $description) {
     Save-Log "$name-request.json" $jsonPayload
 
     try {
-        $resp = Invoke-WebRequest -Uri $endpoint -Method Post -Body $jsonPayload `
+        # send as windows-1254 to match Koza expected charset
+        $headers = @{ 'Content-Type' = 'application/json; charset=windows-1254' }
+        # convert to cp1254 bytes then send
+        $encJson = [System.Text.Encoding]::GetEncoding(1254).GetBytes($jsonPayload)
+        $resp = Invoke-WebRequest -Uri $endpoint -Method Post -Body $encJson `
             -WebSession $session `
-            -Headers @{ 'Content-Type' = 'application/json; charset=utf-8' } -UseBasicParsing
+            -ContentType $headers['Content-Type'] -Headers $headers -UseBasicParsing
         Save-Log "$name-response.json" $resp.Content
         Write-Host "   HTTP $($resp.StatusCode)" -ForegroundColor Green
         try {
