@@ -2,9 +2,9 @@
 
 public class AdminSyncStatusDto
 {
-    public string IntegrationName { get; set; } = string.Empty; // Katana / Luca
+    public string IntegrationName { get; set; } = string.Empty; 
     public DateTime LastSyncDate { get; set; }
-    public string Status { get; set; } = string.Empty; // Success / Failed / InProgress
+    public string Status { get; set; } = string.Empty; 
 }
 
 public class ErrorLogDto

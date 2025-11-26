@@ -24,7 +24,7 @@ public class KatanaWebhookControllerTests
         _mockLogger = new Mock<ILogger<KatanaWebhookController>>();
         _mockConfiguration = new Mock<IConfiguration>();
         
-        // Setup configuration
+        
         _mockConfiguration.Setup(c => c["KatanaApi:WebhookSecret"]).Returns("test-secret-key");
         
         _controller = new KatanaWebhookController(
@@ -32,7 +32,7 @@ public class KatanaWebhookControllerTests
             _mockLogger.Object,
             _mockConfiguration.Object);
 
-        // Setup HttpContext with headers
+        
         _controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()
@@ -43,7 +43,7 @@ public class KatanaWebhookControllerTests
     [Fact]
     public async Task ReceiveStockChange_ReturnsOkWhenValidSignature()
     {
-        // Arrange
+        
         var webhook = new KatanaStockChangeWebhook
         {
             Event = "stock.updated",
@@ -64,10 +64,10 @@ public class KatanaWebhookControllerTests
         _mockPendingService.Setup(s => s.CreateAsync(It.IsAny<PendingStockAdjustment>()))
             .ReturnsAsync(createdAdjustment);
 
-        // Act
+        
         var result = await _controller.ReceiveStockChange(webhook);
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
         _mockPendingService.Verify(s => s.CreateAsync(It.IsAny<PendingStockAdjustment>()), Times.Once);
@@ -76,7 +76,7 @@ public class KatanaWebhookControllerTests
     [Fact]
     public async Task ReceiveStockChange_ReturnsUnauthorizedWhenInvalidSignature()
     {
-        // Arrange
+        
         _controller.Request.Headers["X-Katana-Signature"] = "invalid-signature";
         var webhook = new KatanaStockChangeWebhook
         {
@@ -87,17 +87,17 @@ public class KatanaWebhookControllerTests
             QuantityChange = -5
         };
 
-        // Act
+        
         var result = await _controller.ReceiveStockChange(webhook);
 
-        // Assert
+        
         result.Should().BeOfType<UnauthorizedObjectResult>();
     }
 
     [Fact]
     public async Task ReceiveStockChange_ReturnsUnauthorizedWhenNoSignature()
     {
-        // Arrange
+        
         _controller.Request.Headers.Remove("X-Katana-Signature");
         var webhook = new KatanaStockChangeWebhook
         {
@@ -108,17 +108,17 @@ public class KatanaWebhookControllerTests
             QuantityChange = -5
         };
 
-        // Act
+        
         var result = await _controller.ReceiveStockChange(webhook);
 
-        // Assert
+        
         result.Should().BeOfType<UnauthorizedObjectResult>();
     }
 
     [Fact]
     public async Task ReceiveStockChange_ReturnsBadRequestWhenExceptionOccurs()
     {
-        // Arrange
+        
         var webhook = new KatanaStockChangeWebhook
         {
             Event = "stock.updated",
@@ -130,10 +130,10 @@ public class KatanaWebhookControllerTests
         _mockPendingService.Setup(s => s.CreateAsync(It.IsAny<PendingStockAdjustment>()))
             .ThrowsAsync(new Exception("Database error"));
 
-        // Act
+        
         var result = await _controller.ReceiveStockChange(webhook);
 
-        // Assert
+        
         var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
         badRequestResult.Value.Should().NotBeNull();
     }
@@ -141,7 +141,7 @@ public class KatanaWebhookControllerTests
     [Fact]
     public async Task ReceiveStockChange_CreatesCorrectPendingAdjustment()
     {
-        // Arrange
+        
         var webhook = new KatanaStockChangeWebhook
         {
             Event = "stock.updated",
@@ -156,10 +156,10 @@ public class KatanaWebhookControllerTests
             .Callback<PendingStockAdjustment>(adj => capturedAdjustment = adj)
             .ReturnsAsync(new PendingStockAdjustment { Id = 1 });
 
-        // Act
+        
         await _controller.ReceiveStockChange(webhook);
 
-        // Assert
+        
         capturedAdjustment.Should().NotBeNull();
         capturedAdjustment!.ExternalOrderId.Should().Be("ORD-12345");
         capturedAdjustment.ProductId.Should().Be(1);
@@ -172,14 +172,14 @@ public class KatanaWebhookControllerTests
     [Fact]
     public async Task TestWebhook_ReturnsOk()
     {
-        // Arrange
+        
         _mockPendingService.Setup(s => s.CreateAsync(It.IsAny<PendingStockAdjustment>()))
             .ReturnsAsync(new PendingStockAdjustment { Id = 1 });
 
-        // Act
+        
         var result = await _controller.TestWebhook();
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -187,13 +187,13 @@ public class KatanaWebhookControllerTests
     [Fact]
     public async Task ReceiveStockChange_UsesDefaultSkuWhenNotProvided()
     {
-        // Arrange
+        
         var webhook = new KatanaStockChangeWebhook
         {
             Event = "stock.updated",
             OrderId = "ORD-12345",
             ProductId = 123,
-            Sku = null, // No SKU provided
+            Sku = null, 
             QuantityChange = -5
         };
         PendingStockAdjustment? capturedAdjustment = null;
@@ -201,10 +201,10 @@ public class KatanaWebhookControllerTests
             .Callback<PendingStockAdjustment>(adj => capturedAdjustment = adj)
             .ReturnsAsync(new PendingStockAdjustment { Id = 1 });
 
-        // Act
+        
         await _controller.ReceiveStockChange(webhook);
 
-        // Assert
+        
         capturedAdjustment.Should().NotBeNull();
         capturedAdjustment!.Sku.Should().Be("PRODUCT-123");
     }

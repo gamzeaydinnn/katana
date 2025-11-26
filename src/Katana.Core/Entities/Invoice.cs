@@ -20,7 +20,7 @@ public class Invoice
     
     [Required]
     [MaxLength(20)]
-    public string Status { get; set; } = string.Empty; // DRAFT, SENT, PAID, CANCELLED
+    public string Status { get; set; } = string.Empty; 
     
     public DateTime InvoiceDate { get; set; }
     
@@ -40,7 +40,7 @@ public class Invoice
     
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     
-    // Navigation properties
+    
     public virtual Customer Customer { get; set; } = null!;
     public virtual ICollection<InvoiceItem> InvoiceItems { get; set; } = new List<InvoiceItem>();
 }

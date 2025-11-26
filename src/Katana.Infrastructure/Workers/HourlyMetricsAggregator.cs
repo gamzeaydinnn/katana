@@ -23,7 +23,7 @@ public class HourlyMetricsAggregator : BackgroundService
         _logger.LogInformation("HourlyMetricsAggregator starting");
         try
         {
-            // Initial catch-up for previously completed slice
+            
             await AggregatePreviousSlice(stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)

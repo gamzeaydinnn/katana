@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace Katana.Business.Jobs;
 
-/// <summary>
-/// Uygulama başladığında Quartz scheduler’ı başlatır ve senkronizasyon işleri planlar.
-/// </summary>
+
+
+
 public class SyncWorkerService : IHostedService
 {
     private readonly ISchedulerFactory _schedulerFactory;
@@ -27,17 +27,17 @@ public class SyncWorkerService : IHostedService
 
         _scheduler = await _schedulerFactory.GetScheduler(cancellationToken);
 
-        // SyncJob (6 saatte bir)
+        
         var syncJob = JobBuilder.Create<SyncJob>()
             .WithIdentity("SyncJob")
             .UsingJobData("SyncType", "ALL")
             .Build();
 
         var syncTrigger = TriggerBuilder.Create()
-            .WithCronSchedule("0 0 */6 * * ?") // her 6 saatte bir
+            .WithCronSchedule("0 0 */6 * * ?") 
             .Build();
 
-        // RetryJob (günde bir kez sabah 3'te)
+        
         var retryJob = JobBuilder.Create<RetryJob>()
             .WithIdentity("RetryJob")
             .Build();

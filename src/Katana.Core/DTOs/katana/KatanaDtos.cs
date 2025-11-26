@@ -31,22 +31,22 @@ public class KatanaProductDto
     public int? VatRate { get; set; }
     public string? Currency { get; set; }
     
-    // Stock levels
+    
     public int? OnHand { get; set; }
     public int? Available { get; set; }
     public int? Committed { get; set; }
     public int? InStock { get; set; }
 
-    /// <summary>
-    /// Luca stok kartı için kullanılacak kod: SKU boşsa KAT-{Id}
-    /// </summary>
+    
+    
+    
     public string GetProductCode() => !string.IsNullOrWhiteSpace(SKU) ? SKU : $"KAT-{Id}";
 }
 
 public class KatanaInvoiceDto
 {
     public string InvoiceNo { get; set; } = string.Empty;
-    // External Katana customer id when available
+    
     public int? ExternalCustomerId { get; set; }
     public string CustomerTaxNo { get; set; } = string.Empty;
     public string CustomerTitle { get; set; } = string.Empty;

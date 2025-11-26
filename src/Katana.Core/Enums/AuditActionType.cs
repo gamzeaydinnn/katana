@@ -1,8 +1,8 @@
 namespace Katana.Core.Enums;
 
-/// <summary>
-/// Audit işlemleri için eylem türleri.
-/// </summary>
+
+
+
 public enum AuditActionType
 {
     Create = 1,

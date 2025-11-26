@@ -19,7 +19,7 @@ public class IntegrationDbContext : DbContext
         _pendingQueue = pendingQueue;
         _currentUser = currentUser;
     }
-    // Core entities
+    
     public DbSet<Product> Products { get; set; } = null!;
     public DbSet<Stock> Stocks { get; set; } = null!;
     public DbSet<Customer> Customers { get; set; } = null!;
@@ -34,13 +34,13 @@ public class IntegrationDbContext : DbContext
     public DbSet<StockTransfer> StockTransfers { get; set; } = null!;
     public DbSet<Payment> Payments { get; set; } = null!;
 
-    // Integration specific entities
+    
     public DbSet<IntegrationLog> IntegrationLogs { get; set; } = null!;
     public DbSet<MappingTable> MappingTables { get; set; } = null!;
     public DbSet<FailedSyncRecord> FailedSyncRecords { get; set; } = null!;
-    //public DbSet<SyncLog> SyncLogs { get; set; } = null!;
+    
     public DbSet<ErrorLog> ErrorLogs { get; set; } = null!;
-    public DbSet<AuditLog> AuditLogs { get; set; } = null!; // ✅ Audit kayıtları için
+    public DbSet<AuditLog> AuditLogs { get; set; } = null!; 
     public DbSet<PendingStockAdjustment> PendingStockAdjustments { get; set; } = null!;
     public DbSet<Katana.Core.Entities.Notification> Notifications { get; set; } = null!;
     public DbSet<Katana.Core.Entities.FailedNotification> FailedNotifications { get; set; } = null!;
@@ -59,7 +59,7 @@ public class IntegrationDbContext : DbContext
 {
     base.OnModelCreating(modelBuilder);
 
-    // ✅ SyncLog configuration
+    
     modelBuilder.Entity<SyncOperationLog>(entity =>
     {
         entity.ToTable("SyncLogs");
@@ -70,15 +70,15 @@ public class IntegrationDbContext : DbContext
         entity.Property(e => e.Details).HasColumnType("nvarchar(max)");
     });
 
-    // Product configuration
+    
     modelBuilder.Entity<Product>(entity =>
     {
         entity.HasKey(e => e.Id);
         entity.HasIndex(e => e.SKU).IsUnique();
-        entity.HasIndex(e => e.CategoryId); // FK index for performance
+        entity.HasIndex(e => e.CategoryId); 
         entity.Property(e => e.Price).HasPrecision(18, 2);
         
-        // Explicit FK to Category without navigation properties
+        
         entity.HasOne<Category>()
             .WithMany()
             .HasForeignKey(e => e.CategoryId)
@@ -89,7 +89,7 @@ public class IntegrationDbContext : DbContext
             .HasForeignKey(e => e.ProductId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Local Stocks (application-level stock records) relationship
+        
         entity.HasMany(e => e.Stocks)
             .WithOne(s => s.Product)
             .HasForeignKey(s => s.ProductId)
@@ -112,14 +112,14 @@ public class IntegrationDbContext : DbContext
     });
 
 
-        // Stock configuration
+        
         modelBuilder.Entity<Stock>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.ProductId, e.Timestamp });
             entity.HasIndex(e => e.IsSynced);
         });
-        // Category hierarchy + constraints
+        
         modelBuilder.Entity<Category>()
             .HasMany(c => c.Children)
             .WithOne(c => c.Parent)
@@ -130,11 +130,11 @@ public class IntegrationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(150);
             entity.Property(e => e.Description).HasMaxLength(500);
-            // Same parent cannot have duplicate category names
+            
             entity.HasIndex(e => new { e.ParentId, e.Name }).IsUnique();
         });
 
-        // Customer configuration
+        
         modelBuilder.Entity<Customer>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -146,7 +146,7 @@ public class IntegrationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // Invoice configuration
+        
         modelBuilder.Entity<Invoice>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -163,7 +163,7 @@ public class IntegrationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // InvoiceItem configuration
+        
         modelBuilder.Entity<InvoiceItem>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -179,7 +179,7 @@ public class IntegrationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // IntegrationLog configuration
+        
         modelBuilder.Entity<IntegrationLog>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -192,7 +192,7 @@ public class IntegrationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // MappingTable configuration
+        
         modelBuilder.Entity<MappingTable>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -200,7 +200,7 @@ public class IntegrationDbContext : DbContext
             entity.HasIndex(e => e.IsActive);
         });
 
-        // FailedSyncRecord configuration
+        
         modelBuilder.Entity<FailedSyncRecord>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -208,7 +208,7 @@ public class IntegrationDbContext : DbContext
             entity.HasIndex(e => e.NextRetryAt);
         });
 
-        // AuditLog configuration ✅
+        
         modelBuilder.Entity<AuditLog>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -218,7 +218,7 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.Timestamp).IsRequired();
         });
 
-        // PendingStockAdjustment configuration
+        
         modelBuilder.Entity<PendingStockAdjustment>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -233,7 +233,7 @@ public class IntegrationDbContext : DbContext
             entity.HasIndex(e => e.RequestedAt);
         });
 
-        // ErrorLog configuration ✅
+        
         modelBuilder.Entity<ErrorLog>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -244,7 +244,7 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.ContextData).HasMaxLength(1000);
         });
 
-        // PendingStockAdjustment configuration
+        
         modelBuilder.Entity<PendingStockAdjustment>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -255,7 +255,7 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.RequestedBy).HasMaxLength(100).IsRequired();
         });
 
-        // Notification configuration
+        
         modelBuilder.Entity<Katana.Core.Entities.Notification>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -283,7 +283,7 @@ public class IntegrationDbContext : DbContext
             entity.HasIndex(e => e.Hour).IsUnique();
         });
 
-        // Supplier configuration
+        
         modelBuilder.Entity<Supplier>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -360,7 +360,7 @@ public class IntegrationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // SupplierPrice relationships
+        
         modelBuilder.Entity<SupplierPrice>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -370,7 +370,7 @@ public class IntegrationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // PurchaseOrder relationships
+        
         modelBuilder.Entity<PurchaseOrder>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -396,7 +396,7 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
         });
 
-        // User configuration
+        
         modelBuilder.Entity<User>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -408,7 +408,7 @@ public class IntegrationDbContext : DbContext
             entity.HasIndex(e => e.Email).IsUnique(false);
         });
 
-        // DataCorrectionLog configuration
+        
         modelBuilder.Entity<DataCorrectionLog>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -422,23 +422,23 @@ public class IntegrationDbContext : DbContext
             entity.HasIndex(e => e.IsSynced);
         });
 
-        // Logs performance indexes
+        
         modelBuilder.Entity<ErrorLog>(entity =>
         {
-            // Supports filtering by Level and range scans on CreatedAt
+            
             entity.HasIndex(e => new { e.Level, e.CreatedAt })
                 .HasDatabaseName("IX_ErrorLogs_Level_CreatedAt");
         });
 
         modelBuilder.Entity<AuditLog>(entity =>
         {
-            // Supports filtering by EntityName/ActionType with ordering by Timestamp
+            
             entity.HasIndex(a => new { a.EntityName, a.ActionType, a.Timestamp })
                 .HasDatabaseName("IX_AuditLogs_EntityName_ActionType_Timestamp");
         });
 
-        // Seed data
-        // SeedData(modelBuilder); // ❌ Geçici olarak kapalı
+        
+        
     }
     private static void SeedData(ModelBuilder modelBuilder)
     {
@@ -473,7 +473,7 @@ public class IntegrationDbContext : DbContext
     {
         var now = DateTime.UtcNow;
 
-        // Snapshot entries and ignore log tables to prevent self-logging
+        
         var entries = ChangeTracker.Entries()
             .Where(e => e.State is EntityState.Modified or EntityState.Added or EntityState.Deleted)
             .Where(e => e.Entity is not AuditLog && e.Entity is not ErrorLog)
@@ -538,7 +538,7 @@ public class IntegrationDbContext : DbContext
         }
         catch (Microsoft.Data.SqlClient.SqlException)
         {
-            // If SQL Server is unavailable or login failed, queue the audit logs (if any) and swallow the exception
+            
             if (_pendingQueue != null)
             {
                 try
@@ -566,15 +566,15 @@ public class IntegrationDbContext : DbContext
                         _pendingQueue.EnqueueAudit(dto);
                     }
                 }
-                catch { /* ignore */ }
+                catch {  }
             }
-            return 0; // swallow so upstream can continue; eventual writer will persist
+            return 0; 
         }
     }
 
     public override int SaveChanges()
     {
-        // Delegate to async override for consistent audit logic
+        
         return SaveChangesAsync().GetAwaiter().GetResult();
     }
 
@@ -599,7 +599,7 @@ public class IntegrationDbContext : DbContext
         }
         if (entry.State == EntityState.Added)
         {
-            // Keep it compact; don't dump full object
+            
             var keys = entry.Metadata.FindPrimaryKey()?.Properties.Select(p => p.Name).ToHashSet() ?? new HashSet<string>();
             var samples = entry.Properties
                 .Where(p => !keys.Contains(p.Metadata.Name))
@@ -644,7 +644,7 @@ public class IntegrationDbContext : DbContext
             id = string.Join("-", parts);
         }
 
-        // Try common display fields
+        
         string? display = null;
         foreach (var name in new[] { "Name", "SKU", "InvoiceNo", "ExternalOrderId", "Title" })
         {

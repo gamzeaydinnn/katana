@@ -49,7 +49,7 @@ public class ProductsControllerTests
     [Fact]
     public async Task GetAll_ReturnsOkWithProducts()
     {
-        // Arrange
+        
         var products = new List<ProductDto>
         {
             new() { Id = 1, SKU = "PRD001", Name = "Product 1", Price = 100, Stock = 50 },
@@ -57,10 +57,10 @@ public class ProductsControllerTests
         };
         _mockProductService.Setup(s => s.GetAllProductsAsync()).ReturnsAsync(products);
 
-        // Act
+        
         var result = await _controller.GetAll();
 
-        // Assert
+        
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var data = okResult.Value.Should().BeAssignableTo<IEnumerable<ProductDto>>().Subject;
         data.Should().HaveCount(2);
@@ -69,7 +69,7 @@ public class ProductsControllerTests
     [Fact]
     public async Task GetCustomerCatalog_FiltersInvalidProducts()
     {
-        // Arrange
+        
         var categories = new List<CategoryDto>
         {
             new() { Id = 1, Name = "Yayınlanan", IsActive = true },
@@ -86,10 +86,10 @@ public class ProductsControllerTests
         };
         _mockProductService.Setup(s => s.GetAllProductsAsync()).ReturnsAsync(products);
 
-        // Act
+        
         var result = await _controller.GetCustomerCatalog(true);
 
-        // Assert
+        
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var payload = okResult.Value.Should().BeOfType<CustomerCatalogResponse>().Subject;
         payload.Data.Should().HaveCount(1);
@@ -101,14 +101,14 @@ public class ProductsControllerTests
     [Fact]
     public async Task GetById_ReturnsOkWhenProductExists()
     {
-        // Arrange
+        
         var product = new ProductDto { Id = 1, SKU = "PRD001", Name = "Product 1", Price = 100 };
         _mockProductService.Setup(s => s.GetProductByIdAsync(1)).ReturnsAsync(product);
 
-        // Act
+        
         var result = await _controller.GetById(1);
 
-        // Assert
+        
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var data = okResult.Value.Should().BeOfType<ProductDto>().Subject;
         data.Id.Should().Be(1);
@@ -117,27 +117,27 @@ public class ProductsControllerTests
     [Fact]
     public async Task GetById_ReturnsNotFoundWhenProductDoesNotExist()
     {
-        // Arrange
+        
         _mockProductService.Setup(s => s.GetProductByIdAsync(99)).ReturnsAsync((ProductDto?)null);
 
-        // Act
+        
         var result = await _controller.GetById(99);
 
-        // Assert
+        
         result.Result.Should().BeOfType<NotFoundObjectResult>();
     }
 
     [Fact]
     public async Task GetBySku_ReturnsOkWhenSkuExists()
     {
-        // Arrange
+        
         var product = new ProductDto { Id = 1, SKU = "PRD001", Name = "Product 1" };
         _mockProductService.Setup(s => s.GetProductBySkuAsync("PRD001")).ReturnsAsync(product);
 
-        // Act
+        
         var result = await _controller.GetBySku("PRD001");
 
-        // Assert
+        
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var data = okResult.Value.Should().BeOfType<ProductDto>().Subject;
         data.SKU.Should().Be("PRD001");
@@ -146,27 +146,27 @@ public class ProductsControllerTests
     [Fact]
     public async Task Search_ReturnsBadRequestWhenQueryIsEmpty()
     {
-        // Act
+        
         var result = await _controller.Search(string.Empty);
 
-        // Assert
+        
         result.Result.Should().BeOfType<BadRequestObjectResult>();
     }
 
     [Fact]
     public async Task Search_ReturnsOkWithMatchingProducts()
     {
-        // Arrange
+        
         var products = new List<ProductDto>
         {
             new() { Id = 1, SKU = "PRD001", Name = "Test Product" }
         };
         _mockProductService.Setup(s => s.SearchProductsAsync("Test")).ReturnsAsync(products);
 
-        // Act
+        
         var result = await _controller.Search("Test");
 
-        // Assert
+        
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var data = okResult.Value.Should().BeAssignableTo<IEnumerable<ProductDto>>().Subject;
         data.Should().HaveCount(1);
@@ -175,15 +175,15 @@ public class ProductsControllerTests
     [Fact]
     public async Task Create_ReturnsCreatedWhenValid()
     {
-        // Arrange
+        
         var dto = new CreateProductDto { SKU = "PRD001", Name = "New Product", Price = 100, Stock = 10, CategoryId = 1 };
         var product = new ProductDto { Id = 1, SKU = "PRD001", Name = "New Product", Price = 100 };
         _mockProductService.Setup(s => s.CreateProductAsync(dto)).ReturnsAsync(product);
 
-        // Act
+        
         var result = await _controller.Create(dto);
 
-        // Assert
+        
         var createdResult = result.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
         var data = createdResult.Value.Should().BeOfType<ProductDto>().Subject;
         data.SKU.Should().Be("PRD001");
@@ -193,15 +193,15 @@ public class ProductsControllerTests
     [Fact]
     public async Task Update_ReturnsOkWhenValid()
     {
-        // Arrange
+        
         var dto = new UpdateProductDto { SKU = "PRD001", Name = "Updated Product", Price = 150, Stock = 20, CategoryId = 1, IsActive = true };
         var product = new ProductDto { Id = 1, SKU = "PRD001", Name = "Updated Product", Price = 150 };
         _mockProductService.Setup(s => s.UpdateProductAsync(1, dto)).ReturnsAsync(product);
 
-        // Act
+        
         var result = await _controller.Update(1, dto);
 
-        // Assert
+        
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var data = okResult.Value.Should().BeOfType<ProductDto>().Subject;
         data.Price.Should().Be(150);
@@ -211,28 +211,28 @@ public class ProductsControllerTests
     [Fact]
     public async Task Update_ReturnsNotFoundWhenProductDoesNotExist()
     {
-        // Arrange
+        
         var dto = new UpdateProductDto { SKU = "PRD999", Name = "Unknown", Price = 100, Stock = 10, CategoryId = 1, IsActive = true };
         _mockProductService.Setup(s => s.UpdateProductAsync(99, dto))
             .ThrowsAsync(new KeyNotFoundException("Product not found"));
 
-        // Act
+        
         var result = await _controller.Update(99, dto);
 
-        // Assert
+        
         result.Result.Should().BeOfType<NotFoundObjectResult>();
     }
 
     [Fact]
     public async Task Delete_ReturnsNoContentWhenSuccessful()
     {
-        // Arrange
+        
         _mockProductService.Setup(s => s.DeleteProductAsync(1)).ReturnsAsync(true);
 
-        // Act
+        
         var result = await _controller.Delete(1);
 
-        // Assert
+        
         result.Should().BeOfType<NoContentResult>();
         _mockAuditService.Verify(a => a.LogDelete(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Once);
     }
@@ -240,17 +240,17 @@ public class ProductsControllerTests
     [Fact]
     public async Task GetLowStock_ReturnsOkWithLowStockProducts()
     {
-        // Arrange
+        
         var products = new List<ProductDto>
         {
             new() { Id = 1, SKU = "PRD001", Name = "Low Stock Item", Stock = 5 }
         };
         _mockProductService.Setup(s => s.GetLowStockProductsAsync(10)).ReturnsAsync(products);
 
-        // Act
+        
         var result = await _controller.GetLowStock(10);
 
-        // Assert
+        
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var data = okResult.Value.Should().BeAssignableTo<IEnumerable<ProductDto>>().Subject;
         data.Should().HaveCount(1);
@@ -259,7 +259,7 @@ public class ProductsControllerTests
     [Fact]
     public async Task GetStatistics_ReturnsOkWithStats()
     {
-        // Arrange
+        
         var stats = new ProductStatisticsDto
         {
             TotalProducts = 100,
@@ -270,10 +270,10 @@ public class ProductsControllerTests
         };
         _mockProductService.Setup(s => s.GetProductStatisticsAsync()).ReturnsAsync(stats);
 
-        // Act
+        
         var result = await _controller.GetStatistics();
 
-        // Assert
+        
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var data = okResult.Value.Should().BeOfType<ProductStatisticsDto>().Subject;
         data.TotalProducts.Should().Be(100);
@@ -283,14 +283,14 @@ public class ProductsControllerTests
     [Fact]
     public async Task GetKatanaProducts_ReturnsOkWithProducts()
     {
-        // Arrange
+        
         var products = new List<KatanaProductDto> { new() { SKU = "KAT001", Name = "Katana Product" } };
         _mockKatanaService.Setup(s => s.GetProductsAsync()).ReturnsAsync(products);
 
-        // Act
+        
         var result = await _controller.GetKatanaProducts(null, null);
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }

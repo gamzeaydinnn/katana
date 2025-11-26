@@ -33,7 +33,7 @@ public class LogsControllerTests : IDisposable
             _mockLogger.Object,
             _mockLoggingService.Object);
 
-        // Setup user identity
+        
         var user = new ClaimsPrincipal(new ClaimsIdentity(new Claim[]
         {
             new Claim(ClaimTypes.Name, "testuser")
@@ -47,7 +47,7 @@ public class LogsControllerTests : IDisposable
     [Fact]
     public async Task GetErrorLogs_ReturnsOkWithLogs()
     {
-        // Arrange
+        
         _context.ErrorLogs.Add(new ErrorLog
         {
             Level = "ERROR",
@@ -58,10 +58,10 @@ public class LogsControllerTests : IDisposable
         });
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetErrorLogs(50, null, null, null, null, null, null);
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -69,17 +69,17 @@ public class LogsControllerTests : IDisposable
     [Fact]
     public async Task GetErrorLogs_FiltersbyLevel()
     {
-        // Arrange
+        
         _context.ErrorLogs.AddRange(
             new ErrorLog { Level = "ERROR", Message = "Error 1", CreatedAt = DateTime.UtcNow },
             new ErrorLog { Level = "WARNING", Message = "Warning 1", CreatedAt = DateTime.UtcNow }
         );
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetErrorLogs(50, "ERROR", null, null, null, null, null);
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -87,17 +87,17 @@ public class LogsControllerTests : IDisposable
     [Fact]
     public async Task GetErrorLogs_FiltersbyCategory()
     {
-        // Arrange
+        
         _context.ErrorLogs.AddRange(
             new ErrorLog { Level = "ERROR", Category = "System", Message = "System error", CreatedAt = DateTime.UtcNow },
             new ErrorLog { Level = "ERROR", Category = "UserAction", Message = "User error", CreatedAt = DateTime.UtcNow }
         );
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetErrorLogs(50, null, "System", null, null, null, null);
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -105,7 +105,7 @@ public class LogsControllerTests : IDisposable
     [Fact]
     public async Task GetErrorLogs_FiltersbyDateRange()
     {
-        // Arrange
+        
         var yesterday = DateTime.UtcNow.AddDays(-1);
         var tomorrow = DateTime.UtcNow.AddDays(1);
         _context.ErrorLogs.Add(new ErrorLog
@@ -116,10 +116,10 @@ public class LogsControllerTests : IDisposable
         });
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetErrorLogs(50, null, null, yesterday, tomorrow, null, null);
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -127,7 +127,7 @@ public class LogsControllerTests : IDisposable
     [Fact]
     public async Task GetAuditLogs_ReturnsOkWithLogs()
     {
-        // Arrange
+        
         _context.AuditLogs.Add(new AuditLog
         {
             ActionType = "CREATE",
@@ -138,10 +138,10 @@ public class LogsControllerTests : IDisposable
         });
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetAuditLogs(50, null, null, null, null, null, null, null);
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -149,17 +149,17 @@ public class LogsControllerTests : IDisposable
     [Fact]
     public async Task GetAuditLogs_FiltersbyActionType()
     {
-        // Arrange
+        
         _context.AuditLogs.AddRange(
             new AuditLog { ActionType = "CREATE", EntityName = "Product", PerformedBy = "admin", Timestamp = DateTime.UtcNow },
             new AuditLog { ActionType = "UPDATE", EntityName = "Product", PerformedBy = "admin", Timestamp = DateTime.UtcNow }
         );
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetAuditLogs(50, "CREATE", null, null, null, null, null, null);
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -167,17 +167,17 @@ public class LogsControllerTests : IDisposable
     [Fact]
     public async Task GetAuditLogs_FiltersbyEntityName()
     {
-        // Arrange
+        
         _context.AuditLogs.AddRange(
             new AuditLog { ActionType = "CREATE", EntityName = "Product", PerformedBy = "admin", Timestamp = DateTime.UtcNow },
             new AuditLog { ActionType = "CREATE", EntityName = "Customer", PerformedBy = "admin", Timestamp = DateTime.UtcNow }
         );
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetAuditLogs(50, null, "Product", null, null, null, null, null);
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -185,7 +185,7 @@ public class LogsControllerTests : IDisposable
     [Fact]
     public async Task GetLogStats_ReturnsOkWithStats()
     {
-        // Arrange
+        
         _context.ErrorLogs.Add(new ErrorLog
         {
             Level = "ERROR",
@@ -202,10 +202,10 @@ public class LogsControllerTests : IDisposable
         });
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetLogStats(null);
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -213,7 +213,7 @@ public class LogsControllerTests : IDisposable
     [Fact]
     public async Task GetLogStats_FiltersbyFromDate()
     {
-        // Arrange
+        
         var yesterday = DateTime.UtcNow.AddDays(-1);
         _context.ErrorLogs.Add(new ErrorLog
         {
@@ -223,10 +223,10 @@ public class LogsControllerTests : IDisposable
         });
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetLogStats(yesterday);
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -234,7 +234,7 @@ public class LogsControllerTests : IDisposable
     [Fact]
     public void LogFrontendError_ReturnsOkWhenValid()
     {
-        // Arrange
+        
         var errorDto = new FrontendErrorDto
         {
             message = "Frontend error occurred",
@@ -244,10 +244,10 @@ public class LogsControllerTests : IDisposable
             timestamp = DateTime.UtcNow.ToString()
         };
 
-        // Act
+        
         var result = _controller.LogFrontendError(errorDto);
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -255,7 +255,7 @@ public class LogsControllerTests : IDisposable
     [Fact]
     public void ClearOldErrors_ReturnsOkWithMessage()
     {
-        // Arrange
+        
         _context.ErrorLogs.Add(new ErrorLog
         {
             Level = "ERROR",
@@ -264,10 +264,10 @@ public class LogsControllerTests : IDisposable
         });
         _context.SaveChanges();
 
-        // Act
+        
         var result = _controller.ClearOldErrors();
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }

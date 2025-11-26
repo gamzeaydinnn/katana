@@ -33,7 +33,7 @@ public class DashboardControllerTests : IDisposable
         _mockDashboardService = new Mock<IDashboardService>();
         _mockLogger = new Mock<ILogger<DashboardController>>();
 
-        // Use real DashboardService with context
+        
         var realDashboardService = new DashboardService(_context);
 
         _controller = new DashboardController(
@@ -46,7 +46,7 @@ public class DashboardControllerTests : IDisposable
     [Fact]
     public async Task Get_ReturnsOkWithStats()
     {
-        // Arrange
+        
         var products = new List<KatanaProductDto>
         {
             new() { SKU = "SKU1", Name = "Product1", IsActive = true },
@@ -55,10 +55,10 @@ public class DashboardControllerTests : IDisposable
         };
         _mockKatanaService.Setup(s => s.GetProductsAsync()).ReturnsAsync(products);
 
-        // Act
+        
         var result = await _controller.Get();
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -66,7 +66,7 @@ public class DashboardControllerTests : IDisposable
     [Fact]
     public async Task GetSyncStats_ReturnsOkWithData_WhenHealthy()
     {
-        // Arrange
+        
         _mockKatanaService.Setup(s => s.TestConnectionAsync()).ReturnsAsync(true);
         _mockKatanaService.Setup(s => s.GetProductsAsync()).ReturnsAsync(new List<KatanaProductDto>
         {
@@ -83,10 +83,10 @@ public class DashboardControllerTests : IDisposable
         });
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetSyncStats();
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -94,13 +94,13 @@ public class DashboardControllerTests : IDisposable
     [Fact]
     public async Task GetSyncStats_ReturnsWarning_WhenUnhealthy()
     {
-        // Arrange
+        
         _mockKatanaService.Setup(s => s.TestConnectionAsync()).ReturnsAsync(false);
 
-        // Act
+        
         var result = await _controller.GetSyncStats();
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         var response = okResult.Value.Should().BeAssignableTo<object>().Subject;
         var warningProp = response.GetType().GetProperty("warning");
@@ -110,7 +110,7 @@ public class DashboardControllerTests : IDisposable
     [Fact]
     public async Task GetDashboardStats_ReturnsOk_WhenServiceSucceeds()
     {
-        // Arrange - Seed test data in database
+        
         _context.Invoices.Add(new Invoice 
         { 
             TotalAmount = 5000, 
@@ -131,10 +131,10 @@ public class DashboardControllerTests : IDisposable
         });
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetDashboardStats();
 
-        // Assert
+        
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var stats = okResult.Value.Should().BeOfType<DashboardStatsDto>().Subject;
         stats.TotalSales.Should().Be(10000);
@@ -143,7 +143,7 @@ public class DashboardControllerTests : IDisposable
     [Fact]
     public async Task GetRecentActivities_ReturnsOkWithActivities()
     {
-        // Arrange
+        
         _context.SyncOperationLogs.AddRange(new[]
         {
             new SyncOperationLog
@@ -163,10 +163,10 @@ public class DashboardControllerTests : IDisposable
         });
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetRecentActivities();
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         var response = okResult.Value.Should().BeAssignableTo<object>().Subject;
         var countProp = response.GetType().GetProperty("count");
@@ -176,13 +176,13 @@ public class DashboardControllerTests : IDisposable
     [Fact]
     public async Task Get_ReturnsServerError_WhenExceptionThrown()
     {
-        // Arrange
+        
         _mockKatanaService.Setup(s => s.GetProductsAsync()).ThrowsAsync(new Exception("API Error"));
 
-        // Act
+        
         var result = await _controller.Get();
 
-        // Assert
+        
         var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
         objectResult.StatusCode.Should().Be(500);
     }

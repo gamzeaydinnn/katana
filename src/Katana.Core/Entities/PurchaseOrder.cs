@@ -27,7 +27,7 @@ public class PurchaseOrder
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
-    // Navigation
+    
     public virtual Supplier? Supplier { get; set; }
     public virtual ICollection<PurchaseOrderItem> Items { get; set; } = new List<PurchaseOrderItem>();
 }

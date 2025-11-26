@@ -7,9 +7,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Katana.Business.Services;
 
-/// <summary>
-/// Stok yönetimi servisi
-/// </summary>
+
+
+
 public class StockService : IStockService
 {
     private readonly IntegrationDbContext _context;

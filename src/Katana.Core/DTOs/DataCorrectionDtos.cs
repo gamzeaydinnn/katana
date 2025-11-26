@@ -33,13 +33,13 @@ public class ComparisonProductDto
     public string SKU { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     
-    // Katana Data
+    
     public KatanaProductData? KatanaData { get; set; }
     
-    // Luca Data
+    
     public LucaProductData? LucaData { get; set; }
     
-    // Validation Issues
+    
     public List<DataIssue> Issues { get; set; } = new();
 }
 
@@ -74,5 +74,5 @@ public class DataIssue
     public string Issue { get; set; } = string.Empty;
     public string? KatanaValue { get; set; }
     public string? LucaValue { get; set; }
-    public string Severity { get; set; } = "Warning"; // "Critical", "Warning", "Info"
+    public string Severity { get; set; } = "Warning"; 
 }

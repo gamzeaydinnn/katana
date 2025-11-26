@@ -4,9 +4,9 @@ namespace Katana.Core.DTOs;
 
 #region Service
 
-/// <summary>
-/// Katana Service (Hizmet)
-/// </summary>
+
+
+
 public class ServiceDto
 {
     [JsonPropertyName("id")]
@@ -25,7 +25,7 @@ public class ServiceDto
     public bool? IsSellable { get; set; }
 
     [JsonPropertyName("type")]
-    public string? Type { get; set; } // service
+    public string? Type { get; set; } 
 
     [JsonPropertyName("additional_info")]
     public string? AdditionalInfo { get; set; }
@@ -164,9 +164,9 @@ public class ServiceUpdateRequest
 
 #region Tax & Pricing
 
-/// <summary>
-/// Katana Tax & Pricing (Vergi ve Fiyatlandırma)
-/// </summary>
+
+
+
 public class TaxRateDto
 {
     [JsonPropertyName("id")]
@@ -301,7 +301,7 @@ public class PriceListRowDto
     public long VariantId { get; set; }
 
     [JsonPropertyName("adjustment_method")]
-    public string? AdjustmentMethod { get; set; } // fixed | percentage | markup
+    public string? AdjustmentMethod { get; set; } 
 
     [JsonPropertyName("amount")]
     public decimal? Amount { get; set; }
@@ -395,9 +395,9 @@ public class PriceListCustomerListQuery
 
 #region Misc
 
-/// <summary>
-/// Katana Misc (Diğer) - Custom fields, webhook, subscription vb. DTO'lar.
-/// </summary>
+
+
+
 public class CustomFieldsCollectionDto
 {
     [JsonPropertyName("id")]
@@ -501,9 +501,9 @@ public class WebhookLogsExportRequest
     [JsonPropertyName("created_at_max")]
     public DateTime? CreatedAtMax { get; set; }
 }
-/// <summary>
-/// Factory genel bilgisi DTO.
-/// </summary>
+
+
+
 public class FactoryDto
 {
     [JsonPropertyName("id")]
@@ -523,9 +523,9 @@ public class FactoryDto
 
 #region Serial Number
 
-/// <summary>
-/// Katana Serial Number (Seri Numarası)
-/// </summary>
+
+
+
 public class SerialNumberDto
 {
     [JsonPropertyName("id")]
@@ -608,9 +608,9 @@ public class SerialNumberStockDto
 
 #region User
 
-/// <summary>
-/// Katana User (Kullanıcı)
-/// </summary>
+
+
+
 public class UserDto
 {
     [JsonPropertyName("id")]

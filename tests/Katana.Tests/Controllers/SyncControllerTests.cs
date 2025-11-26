@@ -43,7 +43,7 @@ public class SyncControllerTests
     [Fact]
     public async Task RunCompleteSync_ReturnsOkWhenSuccessful()
     {
-        // Arrange
+        
         var result = new BatchSyncResultDto
         {
             Results = new List<SyncResultDto>
@@ -54,10 +54,10 @@ public class SyncControllerTests
         };
         _mockSyncService.Setup(s => s.SyncAllAsync(null)).ReturnsAsync(result);
 
-        // Act
+        
         var actionResult = await _controller.RunCompleteSync(null);
 
-        // Assert
+        
         var okResult = actionResult.Result.Should().BeOfType<OkObjectResult>().Subject;
         var returnedResult = okResult.Value.Should().BeAssignableTo<BatchSyncResultDto>().Subject;
         returnedResult.OverallSuccess.Should().BeTrue();
@@ -66,7 +66,7 @@ public class SyncControllerTests
     [Fact]
     public async Task RunCompleteSync_ReturnsBadRequestWhenFailed()
     {
-        // Arrange
+        
         var result = new BatchSyncResultDto
         {
             Results = new List<SyncResultDto>
@@ -76,10 +76,10 @@ public class SyncControllerTests
         };
         _mockSyncService.Setup(s => s.SyncAllAsync(null)).ReturnsAsync(result);
 
-        // Act
+        
         var actionResult = await _controller.RunCompleteSync(null);
 
-        // Assert
+        
         var badRequestResult = actionResult.Result.Should().BeOfType<BadRequestObjectResult>().Subject;
         var returnedResult = badRequestResult.Value.Should().BeAssignableTo<BatchSyncResultDto>().Subject;
         returnedResult.OverallSuccess.Should().BeFalse();
@@ -88,7 +88,7 @@ public class SyncControllerTests
     [Fact]
     public async Task RunStockSync_ReturnsOkWhenSuccessful()
     {
-        // Arrange
+        
         var result = new SyncResultDto
         {
             IsSuccess = true,
@@ -97,10 +97,10 @@ public class SyncControllerTests
         };
         _mockSyncService.Setup(s => s.SyncStockAsync(null)).ReturnsAsync(result);
 
-        // Act
+        
         var actionResult = await _controller.RunStockSync(null);
 
-        // Assert
+        
         var okResult = actionResult.Result.Should().BeOfType<OkObjectResult>().Subject;
         var returnedResult = okResult.Value.Should().BeAssignableTo<SyncResultDto>().Subject;
         returnedResult.IsSuccess.Should().BeTrue();
@@ -110,7 +110,7 @@ public class SyncControllerTests
     [Fact]
     public async Task RunStockSync_ReturnsBadRequestWhenFailed()
     {
-        // Arrange
+        
         var result = new SyncResultDto
         {
             IsSuccess = false,
@@ -119,10 +119,10 @@ public class SyncControllerTests
         };
         _mockSyncService.Setup(s => s.SyncStockAsync(null)).ReturnsAsync(result);
 
-        // Act
+        
         var actionResult = await _controller.RunStockSync(null);
 
-        // Assert
+        
         var badRequestResult = actionResult.Result.Should().BeOfType<BadRequestObjectResult>().Subject;
         var returnedResult = badRequestResult.Value.Should().BeAssignableTo<SyncResultDto>().Subject;
         returnedResult.IsSuccess.Should().BeFalse();
@@ -131,7 +131,7 @@ public class SyncControllerTests
     [Fact]
     public async Task RunInvoiceSync_ReturnsOkWhenSuccessful()
     {
-        // Arrange
+        
         var result = new SyncResultDto
         {
             IsSuccess = true,
@@ -140,10 +140,10 @@ public class SyncControllerTests
         };
         _mockSyncService.Setup(s => s.SyncInvoicesAsync(null)).ReturnsAsync(result);
 
-        // Act
+        
         var actionResult = await _controller.RunInvoiceSync(null);
 
-        // Assert
+        
         var okResult = actionResult.Result.Should().BeOfType<OkObjectResult>().Subject;
         var returnedResult = okResult.Value.Should().BeAssignableTo<SyncResultDto>().Subject;
         returnedResult.IsSuccess.Should().BeTrue();
@@ -153,7 +153,7 @@ public class SyncControllerTests
     [Fact]
     public async Task RunInvoiceSync_ReturnsBadRequestWhenFailed()
     {
-        // Arrange
+        
         var result = new SyncResultDto
         {
             IsSuccess = false,
@@ -162,10 +162,10 @@ public class SyncControllerTests
         };
         _mockSyncService.Setup(s => s.SyncInvoicesAsync(null)).ReturnsAsync(result);
 
-        // Act
+        
         var actionResult = await _controller.RunInvoiceSync(null);
 
-        // Assert
+        
         var badRequestResult = actionResult.Result.Should().BeOfType<BadRequestObjectResult>().Subject;
         var returnedResult = badRequestResult.Value.Should().BeAssignableTo<SyncResultDto>().Subject;
         returnedResult.IsSuccess.Should().BeFalse();
@@ -174,7 +174,7 @@ public class SyncControllerTests
     [Fact]
     public async Task RunCustomerSync_ReturnsOkWhenSuccessful()
     {
-        // Arrange
+        
         var result = new SyncResultDto
         {
             IsSuccess = true,
@@ -183,10 +183,10 @@ public class SyncControllerTests
         };
         _mockSyncService.Setup(s => s.SyncCustomersAsync(null)).ReturnsAsync(result);
 
-        // Act
+        
         var actionResult = await _controller.RunCustomerSync(null);
 
-        // Assert
+        
         var okResult = actionResult.Result.Should().BeOfType<OkObjectResult>().Subject;
         var returnedResult = okResult.Value.Should().BeAssignableTo<SyncResultDto>().Subject;
         returnedResult.IsSuccess.Should().BeTrue();
@@ -196,7 +196,7 @@ public class SyncControllerTests
     [Fact]
     public async Task RunCustomerSync_ReturnsBadRequestWhenFailed()
     {
-        // Arrange
+        
         var result = new SyncResultDto
         {
             IsSuccess = false,
@@ -205,10 +205,10 @@ public class SyncControllerTests
         };
         _mockSyncService.Setup(s => s.SyncCustomersAsync(null)).ReturnsAsync(result);
 
-        // Act
+        
         var actionResult = await _controller.RunCustomerSync(null);
 
-        // Assert
+        
         var badRequestResult = actionResult.Result.Should().BeOfType<BadRequestObjectResult>().Subject;
         var returnedResult = badRequestResult.Value.Should().BeAssignableTo<SyncResultDto>().Subject;
         returnedResult.IsSuccess.Should().BeFalse();
@@ -217,7 +217,7 @@ public class SyncControllerTests
     [Fact]
     public async Task GetSyncStatus_ReturnsOkWithStatusList()
     {
-        // Arrange
+        
         var statusList = new List<SyncStatusDto>
         {
             new() { SyncType = "STOCK", IsRunning = false, PendingRecords = 5 },
@@ -225,10 +225,10 @@ public class SyncControllerTests
         };
         _mockSyncService.Setup(s => s.GetSyncStatusAsync()).ReturnsAsync(statusList);
 
-        // Act
+        
         var actionResult = await _controller.GetSyncStatus();
 
-        // Assert
+        
         var okResult = actionResult.Result.Should().BeOfType<OkObjectResult>().Subject;
         var returnedStatus = okResult.Value.Should().BeAssignableTo<List<SyncStatusDto>>().Subject;
         returnedStatus.Should().HaveCount(2);
@@ -237,13 +237,13 @@ public class SyncControllerTests
     [Fact]
     public async Task GetSyncTypeStatus_ReturnsOkWithStatus()
     {
-        // Arrange
+        
         _mockSyncService.Setup(s => s.IsSyncRunningAsync("STOCK")).ReturnsAsync(true);
 
-        // Act
+        
         var actionResult = await _controller.GetSyncTypeStatus("stock");
 
-        // Assert
+        
         var okResult = actionResult.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -251,7 +251,7 @@ public class SyncControllerTests
     [Fact]
     public async Task StartSync_ReturnsOkForStockSync()
     {
-        // Arrange
+        
         var request = new StartSyncRequest { SyncType = "STOCK" };
         var result = new SyncResultDto
         {
@@ -261,10 +261,10 @@ public class SyncControllerTests
         };
         _mockSyncService.Setup(s => s.SyncStockAsync(null)).ReturnsAsync(result);
 
-        // Act
+        
         var actionResult = await _controller.StartSync(request);
 
-        // Assert
+        
         var okResult = actionResult.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
         _mockAuditService.Verify(a => a.LogSync(
@@ -276,7 +276,7 @@ public class SyncControllerTests
     [Fact]
     public async Task StartSync_ReturnsOkForInvoiceSync()
     {
-        // Arrange
+        
         var request = new StartSyncRequest { SyncType = "INVOICE" };
         var result = new SyncResultDto
         {
@@ -286,10 +286,10 @@ public class SyncControllerTests
         };
         _mockSyncService.Setup(s => s.SyncInvoicesAsync(null)).ReturnsAsync(result);
 
-        // Act
+        
         var actionResult = await _controller.StartSync(request);
 
-        // Assert
+        
         var okResult = actionResult.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -297,7 +297,7 @@ public class SyncControllerTests
     [Fact]
     public async Task StartSync_ReturnsOkForCustomerSync()
     {
-        // Arrange
+        
         var request = new StartSyncRequest { SyncType = "CUSTOMER" };
         var result = new SyncResultDto
         {
@@ -307,10 +307,10 @@ public class SyncControllerTests
         };
         _mockSyncService.Setup(s => s.SyncCustomersAsync(null)).ReturnsAsync(result);
 
-        // Act
+        
         var actionResult = await _controller.StartSync(request);
 
-        // Assert
+        
         var okResult = actionResult.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -318,15 +318,15 @@ public class SyncControllerTests
     [Fact]
     public async Task StartSync_ReturnsInternalServerErrorWhenExceptionOccurs()
     {
-        // Arrange
+        
         var request = new StartSyncRequest { SyncType = "STOCK" };
         _mockSyncService.Setup(s => s.SyncStockAsync(null))
             .ThrowsAsync(new Exception("Sync failed"));
 
-        // Act
+        
         var actionResult = await _controller.StartSync(request);
 
-        // Assert
+        
         var statusCodeResult = actionResult.Should().BeOfType<ObjectResult>().Subject;
         statusCodeResult.StatusCode.Should().Be(500);
     }

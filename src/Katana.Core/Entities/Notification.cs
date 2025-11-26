@@ -12,7 +12,7 @@ public class Notification
     [MaxLength(200)]
     public string Title { get; set; } = string.Empty;
 
-    // free-form JSON payload
+    
     public string? Payload { get; set; }
 
     public string? Link { get; set; }

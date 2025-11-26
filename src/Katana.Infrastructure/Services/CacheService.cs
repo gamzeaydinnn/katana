@@ -4,10 +4,10 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace Katana.Infrastructure.Services;
 
-/// <summary>
-/// Lightweight cache helper around IMemoryCache.
-/// Provides simple GetOrAdd patterns with a default TTL.
-/// </summary>
+
+
+
+
 public class CacheService
 {
     private readonly IMemoryCache _cache;

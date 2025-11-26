@@ -2,10 +2,10 @@ using System.Text.RegularExpressions;
 
 namespace Katana.Core.ValueObjects;
 
-/// <summary>
-/// Represents an immutable accounting code used while mapping products to ledger accounts.
-/// Enforces a simple format (alphanumeric with separators) to keep data consistent.
-/// </summary>
+
+
+
+
 public readonly record struct AccountCode
 {
     private const int MaxLength = 50;

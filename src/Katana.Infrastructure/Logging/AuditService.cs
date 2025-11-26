@@ -5,10 +5,10 @@ using Microsoft.Extensions.Logging;
 
 namespace Katana.Infrastructure.Logging;
 
-/// <summary>
-/// Kullanıcı aksiyonlarını kaydetmek için audit log servisi
-/// Veritabanı yokken sadece konsol/dosyaya yazar, veritabanı gelince otomatik AuditLogs tablosuna kaydeder
-/// </summary>
+
+
+
+
 public class AuditService : IAuditService
 {
     private readonly ILogger<AuditService> _logger;
@@ -85,7 +85,7 @@ public class AuditService : IAuditService
         }
         catch
         {
-            // Veritabanı yoksa sadece konsola/dosyaya yaz
+            
         }
     }
 }

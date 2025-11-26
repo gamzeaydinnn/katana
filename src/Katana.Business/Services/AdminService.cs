@@ -37,7 +37,7 @@ public class AdminService : IAdminService
         var statuses = new List<AdminSyncStatusDto>();
         try
         {
-            // STOCK / INVOICE / CUSTOMER için son durumları getir
+            
             foreach (var type in new[] { "STOCK", "INVOICE", "CUSTOMER" })
             {
                 var lastTime = await _context.SyncOperationLogs
@@ -54,7 +54,7 @@ public class AdminService : IAdminService
 
                 statuses.Add(new AdminSyncStatusDto
                 {
-                    IntegrationName = type,               // burada integration yerine syncType gösteriyoruz
+                    IntegrationName = type,               
                     LastSyncDate = lastTime,
                     Status = lastStatus ?? "Unknown"
                 });
@@ -83,7 +83,7 @@ public class AdminService : IAdminService
             .ToListAsync();
     }
 
-    // integrationName parametresi yerine syncType beklediğimizi dökümante edebilirsin: "STOCK" | "INVOICE" | "CUSTOMER"
+    
     public async Task<SyncReportDto> GetSyncReportAsync(string integrationName)
     {
         var syncType = integrationName?.ToUpperInvariant();
@@ -105,7 +105,7 @@ public class AdminService : IAdminService
     {
         try
         {
-            // Bu metodu gerçek senaryoya göre zenginleştirebilirsin.
+            
             if (request.IntegrationName.Equals("Katana", StringComparison.OrdinalIgnoreCase))
             {
                 var products = await _katanaService.GetProductsAsync();
@@ -113,9 +113,9 @@ public class AdminService : IAdminService
             }
             else if (request.IntegrationName.Equals("Luca", StringComparison.OrdinalIgnoreCase))
             {
-                // Run both directions for Luca:
-                // 1) Push Katana products to Luca
-                // 2) Pull stock movements from Luca into Katana
+                
+                
+                
                 var pushRes = await _syncService.SyncProductsAsync();
                 var pullRes = await _syncService.SyncStockFromLucaAsync();
 

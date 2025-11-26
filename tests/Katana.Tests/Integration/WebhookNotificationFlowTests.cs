@@ -19,7 +19,7 @@ public class WebhookNotificationFlowTests
     [Fact]
     public async Task KatanaWebhook_ShouldCreatePendingAndPublishNotification()
     {
-        // Arrange
+        
         var options = new DbContextOptionsBuilder<IntegrationDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
@@ -79,10 +79,10 @@ public class WebhookNotificationFlowTests
             Timestamp = DateTime.UtcNow
         };
 
-        // Act
+        
         var result = await controller.ReceiveStockChange(webhook);
 
-        // Assert
+        
         result.Should().BeOfType<OkObjectResult>();
         var okResult = result as OkObjectResult;
         okResult!.StatusCode.Should().Be(200);
@@ -101,7 +101,7 @@ public class WebhookNotificationFlowTests
     [Fact]
     public async Task KatanaWebhook_InvalidSignature_ShouldReturnUnauthorized()
     {
-        // Arrange
+        
         var options = new DbContextOptionsBuilder<IntegrationDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
@@ -141,23 +141,23 @@ public class WebhookNotificationFlowTests
             Timestamp = DateTime.UtcNow
         };
 
-        // Act
+        
         var result = await controller.ReceiveStockChange(webhook);
 
-        // Assert
+        
         result.Should().BeOfType<UnauthorizedObjectResult>();
     }
 
     [Fact]
     public async Task ApprovePending_ShouldPublishApprovedNotification()
     {
-        // Arrange
+        
         var options = new DbContextOptionsBuilder<IntegrationDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         await using var db = new IntegrationDbContext(options);
 
-        // Create category first
+        
         var category = new Katana.Core.Entities.Category
         {
             Name = "Test Category",
@@ -180,12 +180,12 @@ public class WebhookNotificationFlowTests
             IsActive = true
         };
         db.Products.Add(product);
-        await db.SaveChangesAsync(); // Save first to get product.Id
+        await db.SaveChangesAsync(); 
 
         var pending = new Katana.Data.Models.PendingStockAdjustment
         {
             ExternalOrderId = "ORD-APPROVE-001",
-            ProductId = product.Id, // Now product.Id is available
+            ProductId = product.Id, 
             Sku = "APPROVE-SKU",
             Quantity = 10,
             Status = "Pending",
@@ -206,10 +206,10 @@ public class WebhookNotificationFlowTests
             new Mock<ILogger<PendingStockAdjustmentService>>().Object,
             publisherMock.Object);
 
-        // Act
+        
         await pendingService.ApproveAsync(pending.Id, "AdminUser");
 
-        // Assert
+        
         var updated = await db.PendingStockAdjustments.FindAsync(pending.Id);
         updated!.Status.Should().Be("Approved");
         updated.ApprovedBy.Should().Be("AdminUser");

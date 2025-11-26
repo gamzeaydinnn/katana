@@ -3,9 +3,9 @@ using System.Text.Json.Serialization;
 
 namespace Katana.Core.DTOs;
 
-/// <summary>
-/// Belge ana bilgileri (fatura/irsaliye/sipariş başlıkları için).
-/// </summary>
+
+
+
 public class LucaBelgeDto
 {
     [JsonPropertyName("belgeSeri")]
@@ -32,7 +32,7 @@ public class LucaBelgeDto
     [JsonPropertyName("belgeTurDetayId")]
     public long BelgeTurDetayId { get; set; }
 
-    // Custom Attributes
+    
     [JsonPropertyName("belgeAttribute1Deger")]
     public string? BelgeAttribute1Deger { get; set; }
     [JsonPropertyName("belgeAttribute1Ack")]
@@ -57,13 +57,13 @@ public class LucaBelgeDto
 
 public class LucaInvoiceDto
 {
-    // =============== BELGE BİLGİLERİ ===============
+    
     [JsonPropertyName("gnlOrgSsBelge")]
     public LucaBelgeDto GnlOrgSsBelge { get; set; } = new();
 
-    // =============== FATURA BAŞLIK ===============
+    
     [JsonPropertyName("faturaTur")]
-    public int? FaturaTur { get; set; } // 1:Mal/Hizmet, 2:Gider, 3:Gelir
+    public int? FaturaTur { get; set; } 
 
     [JsonPropertyName("paraBirimKod")]
     public string ParaBirimKod { get; set; } = "TRY";
@@ -78,25 +78,25 @@ public class LucaInvoiceDto
     public bool BabsFlag { get; set; }
 
     [JsonPropertyName("kdvFlag")]
-    public bool? KdvFlag { get; set; } // false: KDV Hariç, true: KDV Dahil
+    public bool? KdvFlag { get; set; } 
 
     [JsonPropertyName("referansNo")]
     public string? ReferansNo { get; set; }
 
     [JsonPropertyName("tevkifatOran")]
-    public string? TevkifatOran { get; set; } // "1/2", "1/3", "/10"
+    public string? TevkifatOran { get; set; } 
 
     [JsonPropertyName("tevkifatKod")]
     public int? TevkifatKod { get; set; }
 
-    // =============== CARİ BİLGİLERİ ===============
+    
     [JsonPropertyName("musteriTedarikci")]
-    public int? MusteriTedarikci { get; set; } // 1:Müşteri, 2:Tedarikçi
+    public int? MusteriTedarikci { get; set; } 
 
     [JsonPropertyName("cariKodu")]
     public string CariKodu { get; set; } = string.Empty;
 
-    // Yeni cari açılıyorsa opsiyonel alanlar
+    
     [JsonPropertyName("cariTanim")]
     public string? CariTanim { get; set; }
 
@@ -124,7 +124,7 @@ public class LucaInvoiceDto
     [JsonPropertyName("cariSoyad")]
     public string? CariSoyad { get; set; }
 
-    // =============== ADRES BİLGİLERİ ===============
+    
     [JsonPropertyName("il")]
     public string? Il { get; set; }
 
@@ -155,7 +155,7 @@ public class LucaInvoiceDto
     [JsonPropertyName("email")]
     public string? Email { get; set; }
 
-    // =============== E-ARŞİV / E-FATURA ===============
+    
     [JsonPropertyName("webAdresi")]
     public string? WebAdresi { get; set; }
 
@@ -174,7 +174,7 @@ public class LucaInvoiceDto
     [JsonPropertyName("efaturaNo")]
     public string? EfaturaNo { get; set; }
 
-    // =============== SİPARİŞ / İRSALİYE BİLGİLERİ ===============
+    
     [JsonPropertyName("siparisTarihi")]
     public DateTime? SiparisTarihi { get; set; }
 
@@ -184,7 +184,7 @@ public class LucaInvoiceDto
     [JsonPropertyName("irsaliyeBilgisiList")]
     public List<LucaIrsaliyeBilgisiDto>? IrsaliyeBilgisiList { get; set; }
 
-    // =============== CUSTOM ATTRIBUTES (5'e kadar) ===============
+    
     [JsonPropertyName("fhAttribute1Deger")]
     public string? FhAttribute1Deger { get; set; }
 
@@ -215,11 +215,11 @@ public class LucaInvoiceDto
     [JsonPropertyName("fhAttribute5Ack")]
     public string? FhAttribute5Ack { get; set; }
 
-    // =============== DETAYLAR ===============
+    
     [JsonPropertyName("detayList")]
     public List<LucaInvoiceItemDto> Lines { get; set; } = new();
 
-    // Geriye dönük uyumluluk alanları
+    
     [JsonIgnore]
     public string DocumentNo
     {
@@ -295,7 +295,7 @@ public class LucaInvoiceItemDto
     public decimal TaxAmount { get; set; }
     public decimal GrossAmount { get; set; }
 
-    // Yeni kart açma / detay alanları
+    
     [JsonPropertyName("kartAdi")]
     public string? KartAdi { get; set; }
 
@@ -353,7 +353,7 @@ public class LucaInvoiceItemDto
     [JsonPropertyName("konaklamaVergiOran")]
     public double? KonaklamaVergiOran { get; set; }
 
-    // Custom attributes (satır bazında)
+    
     [JsonPropertyName("shAttribute1Deger")]
     public string? ShAttribute1Deger { get; set; }
     [JsonPropertyName("shAttribute1Ack")]
@@ -376,13 +376,13 @@ public class LucaInvoiceItemDto
     public string? ShAttribute5Ack { get; set; }
 }
 
-/// <summary>
-/// ListeleStkSkart.do response için detaylı stok kartı DTO'su.
-/// Hareket alanları geriye dönük uyumluluk için JsonIgnore ile tutulur.
-/// </summary>
+
+
+
+
 public class LucaStockDto
 {
-    // Temel bilgiler
+    
     [JsonPropertyName("skartId")]
     public long SkartId { get; set; }
 
@@ -398,7 +398,7 @@ public class LucaStockDto
     [JsonPropertyName("kartTipi")]
     public long? KartTipi { get; set; }
 
-    // Ölçüm ve barkod
+    
     [JsonPropertyName("olcumBirimiId")]
     public long OlcumBirimiId { get; set; }
 
@@ -408,7 +408,7 @@ public class LucaStockDto
     [JsonPropertyName("barkod")]
     public string? Barkod { get; set; }
 
-    // KDV oranları
+    
     [JsonPropertyName("kartAlisKdvOran")]
     public double? KartAlisKdvOran { get; set; }
 
@@ -421,7 +421,7 @@ public class LucaStockDto
     [JsonPropertyName("kartToptanSatisKdvOran")]
     public double? KartToptanSatisKdvOran { get; set; }
 
-    // Kategori ve tarihler
+    
     [JsonPropertyName("kategoriAgacKod")]
     public string? KategoriAgacKod { get; set; }
 
@@ -431,7 +431,7 @@ public class LucaStockDto
     [JsonPropertyName("bitisTarihi")]
     public DateTime? BitisTarihi { get; set; }
 
-    // Stok kontrol
+    
     [JsonPropertyName("minStokKontrol")]
     public long? MinStokKontrol { get; set; }
 
@@ -444,14 +444,14 @@ public class LucaStockDto
     [JsonPropertyName("maxStokMiktari")]
     public double? MaxStokMiktari { get; set; }
 
-    // Fiyatlar
+    
     [JsonPropertyName("perakendeAlisBirimFiyat")]
     public double? PerakendeAlisBirimFiyat { get; set; }
 
     [JsonPropertyName("perakendeSatisBirimFiyat")]
     public double? PerakendeSatisBirimFiyat { get; set; }
 
-    // Flagler
+    
     [JsonPropertyName("satilabilirFlag")]
     public bool SatilabilirFlag { get; set; }
 
@@ -467,7 +467,7 @@ public class LucaStockDto
     [JsonPropertyName("maliyetHesaplanacakFlag")]
     public int MaliyetHesaplanacakFlag { get; set; }
 
-    // Detay alanları
+    
     [JsonPropertyName("uzunAdi")]
     public string? UzunAdi { get; set; }
 
@@ -483,7 +483,7 @@ public class LucaStockDto
     [JsonPropertyName("rafOmru")]
     public double? RafOmru { get; set; }
 
-    // Tevkifat
+    
     [JsonPropertyName("alisTevkifatOran")]
     public string? AlisTevkifatOran { get; set; }
 
@@ -496,21 +496,21 @@ public class LucaStockDto
     [JsonPropertyName("satisTevkifatKod")]
     public int? SatisTevkifatKod { get; set; }
 
-    // Iskonto
+    
     [JsonPropertyName("alisIskontoOran1")]
     public double? AlisIskontoOran1 { get; set; }
 
     [JsonPropertyName("satisIskontoOran1")]
     public double? SatisIskontoOran1 { get; set; }
 
-    // ÖTV / Stopaj
+    
     [JsonPropertyName("otvTipi")]
     public string? OtvTipi { get; set; }
 
     [JsonPropertyName("stopajOran")]
     public double? StopajOran { get; set; }
 
-    // Hareket alanları (geriye dönük)
+    
     [JsonIgnore]
     public string WarehouseCode { get; set; } = string.Empty;
 
@@ -645,9 +645,9 @@ public class LucaIrsaliyeDetayDto
     public string? DepoKodu { get; set; }
 }
 
-/// <summary>
-/// Fatura içinde irsaliye referans bilgisi.
-/// </summary>
+
+
+
 public class LucaIrsaliyeBilgisiDto
 {
     [JsonPropertyName("belgeTarihi")]
@@ -704,7 +704,7 @@ public class LucaTedarikciDto
     public string? Telefon { get; set; }
 }
 
-// --- Ortak listeleme filtreleri ---
+
 
 public class LucaCodeRangeFilter
 {
@@ -718,7 +718,7 @@ public class LucaCodeRangeFilter
     public string? KodOp { get; set; }
 }
 
-// --- 3.2.1 Vergi Dairesi Listesi ---
+
 
 public class LucaTaxOfficeFilter
 {
@@ -735,7 +735,7 @@ public class LucaListTaxOfficesRequest
     public LucaTaxOfficeFilter? GnlVergiDairesi { get; set; }
 }
 
-// --- 3.2.2 Ölçü Birimi Listesi ---
+
 
 public class LucaMeasurementUnitFilter
 {
@@ -749,7 +749,7 @@ public class LucaListMeasurementUnitsRequest
     public LucaMeasurementUnitFilter? GnlOlcumBirimi { get; set; }
 }
 
-// --- 3.2.3 / 3.2.4 Cari ve Tedarikçi Listesi ---
+
 
 public class LucaFinancialObjectFilter
 {
@@ -769,7 +769,7 @@ public class LucaListSuppliersRequest
     public LucaFinancialObjectFilter? FinTedarikci { get; set; }
 }
 
-// --- 3.2.16 Depo Listesi ---
+
 
 public class LucaWarehouseFilter
 {
@@ -789,7 +789,7 @@ public class LucaListWarehousesRequest
     public LucaWarehouseFilter? StkDepo { get; set; }
 }
 
-// --- Koza / Luca stok kartı listeleme ve yardımcı DTO'lar ---
+
 
 public class LucaStockCardCodeFilter
 {
@@ -799,9 +799,9 @@ public class LucaStockCardCodeFilter
     [JsonPropertyName("kodBit")]
     public string? KodBit { get; set; }
 
-    /// <summary>
-    /// Operatör: between, ge, le vb.
-    /// </summary>
+    
+    
+    
     [JsonPropertyName("kodOp")]
     public string? KodOp { get; set; }
 }
@@ -812,33 +812,33 @@ public class LucaStockCardKey
     public long SkartId { get; set; }
 }
 
-/// <summary>
-/// 3.2.5 Stok Kartları Listesi isteği gövdesi.
-/// </summary>
+
+
+
 public class LucaListStockCardsRequest
 {
     [JsonPropertyName("stkSkart")]
     public LucaStockCardCodeFilter? StkSkart { get; set; }
 }
 
-/// <summary>
-/// 3.2.9 Stok Kartı Alış/Satış Fiyat Listesi isteği.
-/// </summary>
+
+
+
 public class LucaListStockCardPriceListsRequest
 {
     [JsonPropertyName("stkSkart")]
     public LucaStockCardKey StkSkart { get; set; } = new();
 
-    /// <summary>
-    /// "alis" veya "satis"
-    /// </summary>
+    
+    
+    
     [JsonPropertyName("tip")]
     public string Tip { get; set; } = string.Empty;
 }
 
-/// <summary>
-/// 3.2.9 Stok Kartı Alış/Satış Fiyat Listesi response DTO'su.
-/// </summary>
+
+
+
 public class LucaStockCardPriceListDto
 {
     [JsonPropertyName("fiyatListesiId")]
@@ -860,31 +860,31 @@ public class LucaStockCardPriceListDto
     public DateTime? BitisTarihi { get; set; }
 }
 
-/// <summary>
-/// skartId ile çalışan basit istek gövdesi (alternatif OB, alternatif stoklar, maliyet vb.).
-/// </summary>
+
+
+
 public class LucaStockCardByIdRequest
 {
     [JsonPropertyName("stkSkart")]
     public LucaStockCardKey StkSkart { get; set; } = new();
 }
 
-/// <summary>
-/// 3.2.23 Stok/Hizmet Kategori Listesi isteği.
-/// </summary>
+
+
+
 public class LucaListStockCategoriesRequest
 {
-    /// <summary>
-    /// 1 = Stok Kartı, 2 = Hizmet Kartı
-    /// </summary>
+    
+    
+    
     [JsonPropertyName("kartTuru")]
     public long KartTuru { get; set; }
 }
 
-/// <summary>
-/// 3.2.23 Stok/Hizmet Kategori Listesi response DTO'su.
-/// ListeleStkSkartKategoriAgac.do sonucu dönen her bir kategori düğümünü temsil eder.
-/// </summary>
+
+
+
+
 public class LucaStockCategoryDto
 {
     [JsonPropertyName("kategoriKod")]
@@ -900,7 +900,7 @@ public class LucaStockCategoryDto
     public int Seviye { get; set; }
 }
 
-// --- 3.2.7 Stok Kartı Temin Yerleri (Tedarikçi) ---
+
 
 public class LucaStockCardSuppliersRequest
 {
@@ -908,7 +908,7 @@ public class LucaStockCardSuppliersRequest
     public LucaStockCardKey StkSkart { get; set; } = new();
 }
 
-// --- 3.2.8 Cari İletişim Listesi ---
+
 
 public class LucaListCustomerContactsRequest
 {
@@ -916,7 +916,7 @@ public class LucaListCustomerContactsRequest
     public long FinansalNesneId { get; set; }
 }
 
-// --- 3.2.12 Banka Kartları Listesi ---
+
 
 public class LucaBankFilter
 {
@@ -930,7 +930,7 @@ public class LucaListBanksRequest
     public LucaBankFilter? FinSsBanka { get; set; }
 }
 
-// --- 3.2.17 Depo Eldeki Miktar ---
+
 
 public class LucaGetWarehouseStockRequest
 {
@@ -947,7 +947,7 @@ public class LucaWarehouseKey
     public long DepoId { get; set; }
 }
 
-// --- 3.2.20 Stok Kartı Alım Şartları ---
+
 
 public class LucaListStockCardPurchaseTermsRequest
 {
@@ -955,9 +955,9 @@ public class LucaListStockCardPurchaseTermsRequest
     public LucaStockCardKey StkSkart { get; set; } = new();
 }
 
-/// <summary>
-/// 3.2.10 Stok Kartı Alternatif Ölçü Birimi response DTO'su.
-/// </summary>
+
+
+
 public class LucaStockCardAlternativeUnitDto
 {
     [JsonPropertyName("alternatifObId")]
@@ -976,9 +976,9 @@ public class LucaStockCardAlternativeUnitDto
     public double Bolen { get; set; }
 }
 
-/// <summary>
-/// 3.2.11 Stok Kartı Alternatif Stoklar response DTO'su.
-/// </summary>
+
+
+
 public class LucaStockCardAlternativeDto
 {
     [JsonPropertyName("alternatifSkartId")]
@@ -994,19 +994,19 @@ public class LucaStockCardAlternativeDto
     public int? OncelikSirasi { get; set; }
 }
 
-// --- 3.2.22 Satış Sipariş Listesi ---
+
 
 public class LucaListSalesOrdersRequest
 {
-    /// <summary>
-    /// Tarih aralığı veya kod aralığı gibi opsiyonel alanlar gerekirse genişletilebilir.
-    /// Şimdilik boş gövde ile çağrı yapılabiliyor.
-    /// </summary>
+    
+    
+    
+    
 }
 
-/// <summary>
-/// 3.2.18 Stok Kartı Maliyet Bilgisi response DTO'su.
-/// </summary>
+
+
+
 public class LucaStockCardCostDto
 {
     [JsonPropertyName("maliyetTuru")]
@@ -1022,9 +1022,9 @@ public class LucaStockCardCostDto
     public DateTime? SonGuncellemeTarihi { get; set; }
 }
 
-/// <summary>
-/// 3.2.20 Stok Kartı Alım Şartları response DTO'su.
-/// </summary>
+
+
+
 public class LucaStockCardPurchaseTermDto
 {
     [JsonPropertyName("tedarikciKodu")]
@@ -1046,7 +1046,7 @@ public class LucaStockCardPurchaseTermDto
     public string ParaBirimKod { get; set; } = "TRY";
 }
 
-// ======================= STOK KARTI DETAY =======================
+
 
 public class LucaGetStockCardDetailRequest
 {
@@ -1087,7 +1087,7 @@ public class LucaStockCardDetailDto
     public double? RafOmru { get; set; }
 }
 
-// ======================= STOK KARTI GÜNCELLEME =======================
+
 
 public class LucaUpdateStockCardRequest
 {
@@ -1110,7 +1110,7 @@ public class LucaUpdateStockCardRequest
     public string? DetayAciklama { get; set; }
 }
 
-// --- Koza / Luca fatura listeleme ve ekleme DTO'ları ---
+
 
 public class LucaInvoiceBelgeFilter
 {
@@ -1139,42 +1139,42 @@ public class LucaInvoiceOrgBelgeFilter
     public LucaInvoiceBelgeFilter? GnlOrgSsBelge { get; set; }
 }
 
-/// <summary>
-/// 3.2.6 Fatura Listesi (ListeleFtrSsFaturaBaslik.do) istek DTO'su.
-/// </summary>
+
+
+
 public class LucaListInvoicesRequest
 {
     [JsonPropertyName("ftrSsFaturaBaslik")]
     public LucaInvoiceOrgBelgeFilter? FtrSsFaturaBaslik { get; set; }
 
-    /// <summary>
-    /// Üst hareket türü (16,17,18,19 ...)
-    /// </summary>
+    
+    
+    
     [JsonPropertyName("parUstHareketTuru")]
     public int? ParUstHareketTuru { get; set; }
 
-    /// <summary>
-    /// Alt hareket türü (dokümandaki ID listesine göre).
-    /// </summary>
+    
+    
+    
     [JsonPropertyName("parAltHareketTuru")]
     public int? ParAltHareketTuru { get; set; }
 }
 
-/// <summary>
-/// 3.2.24 Fatura Ekleme – Fatura detay satırı DTO'su.
-/// Bu DTO sadece temel mal/hizmet satırı alanlarını içerir; ihtiyaç halinde genişletilebilir.
-/// </summary>
+
+
+
+
 public class LucaCreateInvoiceDetailRequest
 {
     [JsonPropertyName("kartTuru")]
-    public int KartTuru { get; set; } = 1; // 1: Stok, 2: Hizmet
+    public int KartTuru { get; set; } = 1; 
 
     [JsonPropertyName("kartKodu")]
     public string KartKodu { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Hesap planı kodu (SKU → Luca hesap kodu eşlemesi için kullanılır).
-    /// </summary>
+    
+    
+    
     [JsonPropertyName("hesapKod")]
     public string? HesapKod { get; set; }
 
@@ -1244,20 +1244,20 @@ public class LucaCreateInvoiceDetailRequest
     [JsonPropertyName("konaklamaVergiOran")]
     public double? KonaklamaVergiOran { get; set; }
 
-    /// <summary>
-    /// Dokümanda geçen ek alanlar için esnek taşıyıcı.
-    /// </summary>
+    
+    
+    
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtraFields { get; set; }
 }
 
-/// <summary>
-/// 3.2.24 Fatura Ekleme – Fatura başlık DTO'su.
-/// Pek çok alan opsiyonel bırakıldı; zorunlu olanlar iş kuralına göre doldurulmalı.
-/// </summary>
+
+
+
+
 public class LucaCreateInvoiceHeaderRequest
 {
-    // Belge bilgileri
+    
     [JsonPropertyName("belgeSeri")]
     public string? BelgeSeri { get; set; }
 
@@ -1282,7 +1282,7 @@ public class LucaCreateInvoiceHeaderRequest
     [JsonPropertyName("belgeTurDetayId")]
     public long BelgeTurDetayId { get; set; }
 
-    // Fatura başlık
+    
     [JsonPropertyName("faturaTur")]
     public int FaturaTur { get; set; } = 1;
 
@@ -1302,7 +1302,7 @@ public class LucaCreateInvoiceHeaderRequest
     public string? ReferansNo { get; set; }
 
     [JsonPropertyName("musteriTedarikci")]
-    public int MusteriTedarikci { get; set; } = 1; // 1:Müşteri, 2:Tedarikçi
+    public int MusteriTedarikci { get; set; } = 1; 
 
     [JsonPropertyName("cariKodu")]
     public string CariKodu { get; set; } = string.Empty;
@@ -1364,18 +1364,18 @@ public class LucaCreateInvoiceHeaderRequest
     [JsonPropertyName("irsaliyeBilgisiList")]
     public List<LucaLinkedDocument> IrsaliyeBilgisiList { get; set; } = new();
 
-    // Detay listesi
+    
     [JsonPropertyName("detayList")]
     public List<LucaCreateInvoiceDetailRequest> DetayList { get; set; } = new();
 
-    /// <summary>
-    /// Dokümanda yer alan diğer başlık alanlarını taşımak için esnek alan (ör. belgeAttribute*, fhAttribute*).
-    /// </summary>
+    
+    
+    
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtraFields { get; set; }
 }
 
-// ======================= FATURA DETAY =======================
+
 
 public class LucaGetInvoiceDetailRequest
 {
@@ -1410,7 +1410,7 @@ public class LucaInvoiceDetailDto
     public List<LucaInvoiceItemDto> DetayList { get; set; } = new();
 }
 
-// ======================= FATURA GÜNCELLEME =======================
+
 
 public class LucaUpdateInvoiceRequest
 {
@@ -1427,9 +1427,9 @@ public class LucaUpdateInvoiceRequest
     public string? ReferansNo { get; set; }
 }
 
-/// <summary>
-/// İrsaliye veya sipariş referanslarını fatura ile ilişkilendirmek için basit belge DTO'su.
-/// </summary>
+
+
+
 public class LucaLinkedDocument
 {
     [JsonPropertyName("belgeSeri")]
@@ -1442,9 +1442,9 @@ public class LucaLinkedDocument
     public DateTime? BelgeTarihi { get; set; }
 }
 
-/// <summary>
-/// 3.2.25 Fatura Kapama isteği.
-/// </summary>
+
+
+
 public class LucaCloseInvoiceRequest
 {
     [JsonPropertyName("belgeTurDetayId")]
@@ -1484,18 +1484,18 @@ public class LucaCloseInvoiceRequest
     public double KurBedeli { get; set; } = 1.0;
 }
 
-/// <summary>
-/// 3.2.26 Fatura Silme isteği.
-/// </summary>
+
+
+
 public class LucaDeleteInvoiceRequest
 {
     [JsonPropertyName("ssFaturaBaslikId")]
     public long SsFaturaBaslikId { get; set; }
 }
 
-/// <summary>
-/// Luca fatura satır request'i (basit şekil).
-/// </summary>
+
+
+
 public class LucaInvoiceItemRequest
 {
     public string stokKodu { get; set; } = string.Empty;
@@ -1504,10 +1504,10 @@ public class LucaInvoiceItemRequest
     public decimal kdvOrani { get; set; }
 }
 
-/// <summary>
-/// Koza / Luca stok kartı oluşturma isteği (EkleStkWsSkart.do).
-/// Tüm alanlar Luca tarafının beklediği JSON alan adlarıyla eşleştirilmiştir.
-/// </summary>
+
+
+
+
 public class LucaCreateStokKartiRequest
 {
     [JsonPropertyName("kartAdi")]
@@ -1627,7 +1627,7 @@ public class LucaCreateStokKartiRequest
     [JsonPropertyName("detayAciklama")]
     public string DetayAciklama { get; set; } = string.Empty;
 
-    // Oranlar Alanı
+    
 
     [JsonPropertyName("otvMaliyetFlag")]
     public int OtvMaliyetFlag { get; set; }
@@ -1699,9 +1699,9 @@ public class LucaCreateStokKartiRequest
     public double PerakendeSatisBirimFiyat { get; set; }
 }
 
-/// <summary>
-/// Koza stok kartı DTO (detaylı) – ekleme/güncelleme için.
-/// </summary>
+
+
+
 public class LucaStockCardDto
 {
     [JsonPropertyName("kartAdi")]
@@ -1827,7 +1827,7 @@ public class LucaStockCardDto
     [JsonPropertyName("detayAciklama")]
     public string? DetayAciklama { get; set; }
 
-    // Hizmet kartı için ek alanlar
+    
     [JsonPropertyName("kategoriAgacTanim")]
     public string? KategoriAgacTanim { get; set; }
 
@@ -1852,7 +1852,7 @@ public class LucaStockCardDto
     [JsonPropertyName("makineKod")]
     public string? MakineKod { get; set; }
 
-    // Oranlar alanı
+    
     [JsonPropertyName("otvMaliyetFlag")]
     public bool? OtvMaliyetFlag { get; set; }
 
@@ -1937,7 +1937,7 @@ public class LucaProductUpdateDto
     [JsonPropertyName("vatRate")]
     public int? VatRate { get; set; }
 
-    // Koza (EkleStkWsSkart.do) specific fields
+    
     [JsonPropertyName("kartAdi")]
     public string? KartAdi { get; set; }
 
@@ -1957,9 +1957,9 @@ public class LucaProductUpdateDto
     public string? UzunAdi { get; set; }
 }
 
-/// <summary>
-/// Luca stok kartı / ürün DTO (ListeleStkSkart.do response için)
-/// </summary>
+
+
+
 public class LucaProductDto
 {
     [JsonPropertyName("skartId")]
@@ -1983,32 +1983,32 @@ public class LucaProductDto
     [JsonPropertyName("kartSatisKdvOran")]
     public double? SalesVatRate { get; set; }
 
-    // Ek alanlar gerektiğinde genişletilebilir: rafOmru, detayAciklama vb.
+    
 }
 
-// --- Cari / Finansal Nesne yardımcı DTO'lar ---
 
-/// <summary>
-/// 3.2.13 Cari Adres Listesi isteği.
-/// </summary>
+
+
+
+
 public class LucaListCustomerAddressesRequest
 {
     [JsonPropertyName("finansalNesneId")]
     public long FinansalNesneId { get; set; }
 }
 
-/// <summary>
-/// 3.2.14 Cari Çalışma Koşulları isteği.
-/// </summary>
+
+
+
 public class LucaGetCustomerWorkingConditionsRequest
 {
     [JsonPropertyName("calismaKosulId")]
     public long CalismaKosulId { get; set; }
 }
 
-/// <summary>
-/// 3.2.15 Cari Yetkili Kişiler isteği.
-/// </summary>
+
+
+
 public class LucaListCustomerAuthorizedPersonsRequest
 {
     [JsonPropertyName("gnlFinansalNesne")]
@@ -2021,18 +2021,18 @@ public class LucaFinansalNesneKey
     public long FinansalNesneId { get; set; }
 }
 
-/// <summary>
-/// 3.2.19 Cari Risk Bilgileri isteği (isteğe bağlı body kullanımı).
-/// </summary>
+
+
+
 public class LucaGetCustomerRiskRequest
 {
     [JsonPropertyName("gnlFinansalNesne")]
     public LucaFinansalNesneKey GnlFinansalNesne { get; set; } = new();
 }
 
-/// <summary>
-/// 3.2.31 Cari Hareket Ekleme - detay satırı.
-/// </summary>
+
+
+
 public class LucaCreateCariHareketDetayRequest
 {
     [JsonPropertyName("kartTuru")]
@@ -2051,12 +2051,12 @@ public class LucaCreateCariHareketDetayRequest
     public string? Aciklama { get; set; }
 }
 
-/// <summary>
-/// 3.2.31 Cari Hareket Ekleme - başlık DTO'su.
-/// </summary>
+
+
+
 public class LucaCreateCariHareketRequest
 {
-    // Belge bilgileri
+    
     [JsonPropertyName("belgeSeri")]
     public string? BelgeSeri { get; set; }
 
@@ -2081,7 +2081,7 @@ public class LucaCreateCariHareketRequest
     [JsonPropertyName("belgeTurDetayId")]
     public long BelgeTurDetayId { get; set; }
 
-    // Cari hareket başlık
+    
     [JsonPropertyName("cariTuru")]
     public int CariTuru { get; set; }
 
@@ -2095,7 +2095,7 @@ public class LucaCreateCariHareketRequest
     public List<LucaCreateCariHareketDetayRequest> DetayList { get; set; } = new();
 }
 
-// ======================= CARI HAREKET LİSTESİ =======================
+
 
 public class LucaListCustomerTransactionsRequest
 {
@@ -2133,7 +2133,7 @@ public class LucaCustomerTransactionDto
     public string? Aciklama { get; set; }
 }
 
-// ======================= CARI DETAY =======================
+
 
 public class LucaGetCustomerDetailRequest
 {
@@ -2165,7 +2165,7 @@ public class LucaCustomerDetailDto
     public string? Email { get; set; }
 }
 
-// ======================= CARI GÜNCELLEME =======================
+
 
 public class LucaUpdateCustomerRequest
 {
@@ -2191,7 +2191,7 @@ public class LucaUpdateCustomerRequest
     public string? Email { get; set; }
 }
 
-// ======================= TEDARIKÇI GÜNCELLEME =======================
+
 
 public class LucaUpdateSupplierRequest
 {
@@ -2211,7 +2211,7 @@ public class LucaUpdateSupplierRequest
     public string? Telefon { get; set; }
 }
 
-// --- 3.2.29 / 3.2.30 Cari ve Tedarikçi Kart Ekleme ---
+
 
 public class LucaCreateCustomerRequest
 {
@@ -2298,16 +2298,16 @@ public class LucaCreateSupplierRequest : LucaCreateCustomerRequest
 {
     public LucaCreateSupplierRequest()
     {
-        // 2 genellikle tedarikçi kart tipini temsil eder
+        
         CariTipId = 2;
     }
 }
 
-// --- 3.2.35 / 3.2.36 Satış / Satın Alma Siparişi ---
 
-/// <summary>
-/// 3.2.35 Satış veya 3.2.36 Satınalma siparişi detay satırı.
-/// </summary>
+
+
+
+
 public class LucaCreateOrderDetailRequest
 {
     [JsonPropertyName("kartTuru")]
@@ -2401,9 +2401,9 @@ public class LucaCreateOrderDetailRequest
     public string? ShAttribute5Ack { get; set; }
 }
 
-/// <summary>
-/// 3.2.35 / 3.2.36 sipariş başlık DTO'su.
-/// </summary>
+
+
+
 public class LucaCreateOrderHeaderRequest
 {
     [JsonPropertyName("belgeSeri")]
@@ -2545,18 +2545,18 @@ public class LucaCreateOrderHeaderRequest
     public List<LucaCreateOrderDetailRequest> DetayList { get; set; } = new();
 }
 
-/// <summary>
-/// 3.2.38 sipariş silme isteği.
-/// </summary>
+
+
+
 public class LucaDeleteOrderRequest
 {
     [JsonPropertyName("ssSiparisBaslikId")]
     public long SsSiparisBaslikId { get; set; }
 }
 
-/// <summary>
-/// 3.2.38 sipariş detay silme isteği.
-/// </summary>
+
+
+
 public class LucaDeleteOrderDetailRequest
 {
     [JsonPropertyName("detayList")]
@@ -2569,7 +2569,7 @@ public class LucaOrderDetailToDelete
     public long DetayId { get; set; }
 }
 
-// --- Mevcut sipariş DTO'ları (basitleştirilmiş) ---
+
 
 public class LucaCreateSalesOrderRequest
 {
@@ -2616,7 +2616,7 @@ public class LucaSalesOrderDetailRequest
     public double KdvOran { get; set; }
 }
 
-// ======================= SİPARİŞ GÜNCELLEME =======================
+
 
 public class LucaUpdateSalesOrderRequest
 {
@@ -2756,7 +2756,7 @@ public class LucaPurchaseOrderLineDto
     public double? KdvOran { get; set; }
 }
 
-// --- Depo hareket / sayım ve kredi kartı ---
+
 
 public class LucaCreateWarehouseTransferRequest
 {
@@ -2926,7 +2926,7 @@ public class LucaCreditCardEntryDetailRequest
     public string? Aciklama { get; set; }
 }
 
-// --- 3.2.40 Diğer Stok Hareketi (Dsh) ---
+
 
 public class LucaCreateDshDetayRequest
 {
@@ -3005,34 +3005,34 @@ public class LucaCreateDshBaslikRequest
     [JsonPropertyName("siparisBelgeNo")]
     public string? SiparisBelgeNo { get; set; }
 
-    /// <summary>
-    /// Giriş/çıkış yönü: "GIRIS" veya "CIKIS" (dokümandaki alt belge türüne göre de belirlenebilir)
-    /// </summary>
+    
+    
+    
     [JsonPropertyName("hareketYonu")]
     public string? HareketYonu { get; set; }
 
     [JsonPropertyName("detayList")]
     public List<LucaCreateDshDetayRequest> DetayList { get; set; } = new();
 
-    /// <summary>
-    /// Çıkış belgesine bağlı giriş hareketi.
-    /// </summary>
+    
+    
+    
     [JsonPropertyName("uretimeGirisBaslik")]
     public LucaCreateDshBaslikRequest? UretimeGirisBaslik { get; set; }
 }
 
-// --- İrsaliye DTO'ları ---
 
-/// <summary>
-/// 3.2.21 İrsaliye Listesi isteği (body boş; sadece gövde için placeholder).
-/// </summary>
+
+
+
+
 public class LucaListIrsaliyeRequest
 {
 }
 
-/// <summary>
-/// 3.2.27 İrsaliye Detay satırı.
-/// </summary>
+
+
+
 public class LucaCreateIrsaliyeDetayRequest
 {
     [JsonPropertyName("kartTuru")]
@@ -3071,7 +3071,7 @@ public class LucaCreateIrsaliyeDetayRequest
     [JsonPropertyName("kdvOran")]
     public double KdvOran { get; set; }
 
-    // İskonto alanları
+    
     [JsonPropertyName("iskontoOran1")]
     public double? IskontoOran1 { get; set; }
     [JsonPropertyName("iskontoOran2")]
@@ -3114,7 +3114,7 @@ public class LucaCreateIrsaliyeDetayRequest
     [JsonPropertyName("uretimTarihi")]
     public DateTime? UretimTarihi { get; set; }
 
-    // Satır custom attributes
+    
     [JsonPropertyName("shAttribute1Deger")]
     public string? ShAttribute1Deger { get; set; }
     [JsonPropertyName("shAttribute1Ack")]
@@ -3137,12 +3137,12 @@ public class LucaCreateIrsaliyeDetayRequest
     public string? ShAttribute5Ack { get; set; }
 }
 
-/// <summary>
-/// 3.2.27 İrsaliye Ekleme – başlık DTO'su.
-/// </summary>
+
+
+
 public class LucaCreateIrsaliyeBaslikRequest
 {
-    // Belge bilgileri
+    
     [JsonPropertyName("belgeSeri")]
     public string? BelgeSeri { get; set; }
 
@@ -3167,7 +3167,7 @@ public class LucaCreateIrsaliyeBaslikRequest
     [JsonPropertyName("belgeTurDetayId")]
     public long BelgeTurDetayId { get; set; }
 
-    // Belge custom attributes
+    
     [JsonPropertyName("belgeAttribute1Deger")]
     public string? BelgeAttribute1Deger { get; set; }
     [JsonPropertyName("belgeAttribute1Ack")]
@@ -3189,7 +3189,7 @@ public class LucaCreateIrsaliyeBaslikRequest
     [JsonPropertyName("belgeAttribute5Ack")]
     public string? BelgeAttribute5Ack { get; set; }
 
-    // Başlık bilgileri
+    
     [JsonPropertyName("paraBirimKod")]
     public string ParaBirimKod { get; set; } = "TRY";
 
@@ -3244,7 +3244,7 @@ public class LucaCreateIrsaliyeBaslikRequest
     [JsonPropertyName("adresSerbest")]
     public string? AdresSerbest { get; set; }
 
-    // E-İrsaliye taşıyıcı bilgileri
+    
     [JsonPropertyName("tasiyiciPlaka")]
     public string? TasiyiciPlaka { get; set; }
 
@@ -3270,18 +3270,18 @@ public class LucaCreateIrsaliyeBaslikRequest
     public List<LucaCreateIrsaliyeDetayRequest> DetayList { get; set; } = new();
 }
 
-/// <summary>
-/// 3.2.28 İrsaliye Silme isteği.
-/// </summary>
+
+
+
 public class LucaDeleteIrsaliyeRequest
 {
     [JsonPropertyName("ssIrsaliyeBaslikId")]
     public long SsIrsaliyeBaslikId { get; set; }
 }
 
-/// <summary>
-/// Basit İrsaliye (Delivery Note) DTO - Luca'dan gelen listeyi parse edip kullanmak için özet alanlar.
-/// </summary>
+
+
+
 public class LucaDespatchItemDto
 {
     [JsonPropertyName("kartKodu")]
@@ -3318,12 +3318,12 @@ public class LucaDespatchDto
     public List<LucaDespatchItemDto> Lines { get; set; } = new();
 }
 
-// --- Basit fatura ve cari DTO'ları (özet kullanımlar için) ---
 
-/// <summary>
-/// 3.3 kısa örneğe uygun sadeleştirilmiş fatura isteği.
-/// Detaylı EkleFtrWsFaturaBaslik.do DTO'larına ek olarak, basit senaryolar için kullanılabilir.
-/// </summary>
+
+
+
+
+
 public class LucaInvoiceRequest
 {
     [JsonPropertyName("belgeTurId")]
@@ -3354,9 +3354,9 @@ public class LucaInvoiceLine
     public decimal BirimFiyat { get; set; }
 }
 
-/// <summary>
-/// Cari (müşteri/tedarikçi) ekleme/güncelleme için özet DTO.
-/// </summary>
+
+
+
 public class LucaCustomerRequest
 {
     [JsonPropertyName("cariKod")]
@@ -3375,9 +3375,9 @@ public class LucaCustomerRequest
     public string Telefon { get; set; } = string.Empty;
 }
 
-/// <summary>
-/// Luca/Koza endpoint'leri için ortak response zarfı.
-/// </summary>
+
+
+
 public class LucaResponse<T>
 {
     [JsonPropertyName("success")]
@@ -3389,7 +3389,7 @@ public class LucaResponse<T>
     [JsonPropertyName("data")]
     public T? Data { get; set; }
 }
-// ======================= CHECK (ÇEK) =======================
+
 
 public class LucaCreateCheckRequest
 {
@@ -3462,7 +3462,7 @@ public class LucaListChecksRequest
     [JsonPropertyName("vadeTarihiOp")]
     public string? VadeTarihiOp { get; set; }
 }
-// ======================= BOND (SENET) =======================
+
 
 public class LucaCreateBondRequest
 {
@@ -3527,7 +3527,7 @@ public class LucaListBondsRequest
     public string? VadeTarihiOp { get; set; }
 }
 
-// ======================= CASH (KASA) =======================
+
 
 public class LucaCashDto
 {
@@ -3556,7 +3556,7 @@ public class LucaListCashRequest
     public string? KodOp { get; set; }
 }
 
-// ------- Kasa Hareketi ---------
+
 
 public class LucaCashTransactionDto
 {

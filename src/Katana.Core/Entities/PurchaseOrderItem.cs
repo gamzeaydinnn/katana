@@ -13,7 +13,7 @@ public class PurchaseOrderItem
     [Column(TypeName = "decimal(18,2)")]
     public decimal UnitPrice { get; set; }
 
-    // Navigation
+    
     public virtual PurchaseOrder? PurchaseOrder { get; set; }
     public virtual Product? Product { get; set; }
 }

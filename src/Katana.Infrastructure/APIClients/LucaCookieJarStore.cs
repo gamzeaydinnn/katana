@@ -38,7 +38,7 @@ public class LucaCookieJarStore : ILucaCookieJarStore
 
         var container = new CookieContainer();
 
-        // Cache with sliding expiration; keep small size accounting for limiters
+        
         _cache.Set(sessionId, container, _options);
         return container;
     }

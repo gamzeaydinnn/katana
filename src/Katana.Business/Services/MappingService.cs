@@ -138,9 +138,9 @@ public class MappingService : IMappingService
         }
     }
 
-    // ----------------------
-    // Mapping CRUD
-    // ----------------------
+    
+    
+    
     public async Task<MappingDto> CreateSkuMappingAsync(CreateMappingRequestDto dto) =>
         await CreateMappingInternalAsync(new CreateMappingRequestDto
         {
@@ -213,9 +213,9 @@ public class MappingService : IMappingService
         return mapping == null ? null : ToDto(mapping);
     }
 
-    // ----------------------
-    // Stats
-    // ----------------------
+    
+    
+    
     public async Task<MappingStatsDto> GetMappingStatsAsync()
     {
         try
@@ -240,9 +240,9 @@ public class MappingService : IMappingService
         }
     }
 
-    // ----------------------
-    // Katana → Luca sync stubs
-    // ----------------------
+    
+    
+    
     public Task<SyncResultDto> SyncProductsToLucaAsync(DateTime? fromDate = null) =>
         Task.FromResult(new SyncResultDto { SyncType = "PRODUCT_TO_LUCA", IsSuccess = false, Message = "Not implemented" });
 
@@ -255,9 +255,9 @@ public class MappingService : IMappingService
     public Task<SyncResultDto> SyncInvoicesToLucaAsync(DateTime fromDate, DateTime toDate) =>
         Task.FromResult(new SyncResultDto { SyncType = "INVOICE_TO_LUCA", IsSuccess = false, Message = "Not implemented" });
 
-    // ----------------------
-    // Luca → Katana sync stubs
-    // ----------------------
+    
+    
+    
     public Task<SyncResultDto> SyncProductsFromLucaAsync(DateTime? fromDate = null) =>
         Task.FromResult(new SyncResultDto { SyncType = "PRODUCT_FROM_LUCA", IsSuccess = false, Message = "Not implemented" });
 
@@ -267,9 +267,9 @@ public class MappingService : IMappingService
     public Task<SyncResultDto> SyncInvoicesFromLucaAsync(DateTime? fromDate = null) =>
         Task.FromResult(new SyncResultDto { SyncType = "INVOICE_FROM_LUCA", IsSuccess = false, Message = "Not implemented" });
 
-    // ----------------------
-    // Validation & diagnostics stubs
-    // ----------------------
+    
+    
+    
     public Task<MappingValidationDto> ValidateMappingsAsync() =>
         Task.FromResult(new MappingValidationDto
         {
@@ -292,9 +292,9 @@ public class MappingService : IMappingService
             }
         });
 
-    // ----------------------
-    // Helpers
-    // ----------------------
+    
+    
+    
     private async Task<MappingDto> CreateMappingInternalAsync(CreateMappingRequestDto dto)
     {
         var normalizedType = (dto.MappingType ?? string.Empty).Trim().ToUpperInvariant();

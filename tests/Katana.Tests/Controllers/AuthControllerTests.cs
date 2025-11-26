@@ -31,20 +31,20 @@ public class AuthControllerTests : IDisposable
         _mockLogger = new Mock<ILogger<AuthController>>();
         _mockAuditService = new Mock<IAuditService>();
 
-        // Setup JWT configuration
+        
         var jwtSection = new Mock<IConfigurationSection>();
         jwtSection.Setup(x => x["Key"]).Returns("ThisIsASecretKeyForJwtTokenGenerationWithAtLeast256Bits");
         jwtSection.Setup(x => x["Issuer"]).Returns("KatanaAPI");
         jwtSection.Setup(x => x["Audience"]).Returns("KatanaWebApp");
         _mockConfiguration.Setup(x => x.GetSection("Jwt")).Returns(jwtSection.Object);
 
-        // Setup In-Memory Database
+        
         var options = new DbContextOptionsBuilder<IntegrationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
         _context = new IntegrationDbContext(options);
 
-        // Seed test user
+        
         using var sha = SHA256.Create();
         var passwordHash = Convert.ToBase64String(sha.ComputeHash(Encoding.UTF8.GetBytes("Katana2025!")));
         _context.Users.Add(new User
@@ -60,7 +60,7 @@ public class AuthControllerTests : IDisposable
 
         _controller = new AuthController(_mockConfiguration.Object, _mockLogger.Object, _mockAuditService.Object, _context);
         
-        // Setup HttpContext
+        
         var httpContext = new DefaultHttpContext();
         httpContext.Connection.RemoteIpAddress = IPAddress.Parse("127.0.0.1");
         httpContext.Request.Headers["User-Agent"] = "TestAgent";
@@ -78,13 +78,13 @@ public class AuthControllerTests : IDisposable
     [Fact]
     public async Task Login_ReturnsOkWithToken_WhenValidCredentials()
     {
-        // Arrange
+        
         var loginRequest = new LoginRequest("admin", "Katana2025!");
 
-        // Act
+        
         var result = await _controller.Login(loginRequest);
 
-        // Assert
+        
         result.Should().BeOfType<OkObjectResult>();
         var okResult = (OkObjectResult)result;
         okResult.Value.Should().NotBeNull();
@@ -94,13 +94,13 @@ public class AuthControllerTests : IDisposable
     [Fact]
     public async Task Login_ReturnsUnauthorized_WhenInvalidUsername()
     {
-        // Arrange
+        
         var loginRequest = new LoginRequest("wronguser", "Katana2025!");
 
-        // Act
+        
         var result = await _controller.Login(loginRequest);
 
-        // Assert
+        
         result.Should().BeOfType<UnauthorizedObjectResult>();
         _mockAuditService.Verify(a => a.LogLogin(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
@@ -108,20 +108,20 @@ public class AuthControllerTests : IDisposable
     [Fact]
     public async Task Login_ReturnsUnauthorized_WhenInvalidPassword()
     {
-        // Arrange
+        
         var loginRequest = new LoginRequest("admin", "wrongpassword");
 
-        // Act
+        
         var result = await _controller.Login(loginRequest);
 
-        // Assert
+        
         result.Should().BeOfType<UnauthorizedObjectResult>();
     }
 
     [Fact]
     public async Task Login_ReturnsUnauthorized_WhenUserInactive()
     {
-        // Arrange
+        
         using var sha = SHA256.Create();
         var passwordHash = Convert.ToBase64String(sha.ComputeHash(Encoding.UTF8.GetBytes("Test123!")));
         _context.Users.Add(new User
@@ -137,23 +137,23 @@ public class AuthControllerTests : IDisposable
 
         var loginRequest = new LoginRequest("inactive", "Test123!");
 
-        // Act
+        
         var result = await _controller.Login(loginRequest);
 
-        // Assert
+        
         result.Should().BeOfType<UnauthorizedObjectResult>();
     }
 
     [Fact]
     public async Task Login_ReturnsTokenWithCorrectFormat_WhenValid()
     {
-        // Arrange
+        
         var loginRequest = new LoginRequest("admin", "Katana2025!");
 
-        // Act
+        
         var result = await _controller.Login(loginRequest);
 
-        // Assert
+        
         result.Should().BeOfType<OkObjectResult>();
         var okResult = (OkObjectResult)result;
         okResult.Value.Should().NotBeNull();

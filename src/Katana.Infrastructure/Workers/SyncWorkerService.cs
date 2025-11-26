@@ -12,7 +12,7 @@ public class SyncWorkerService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<SyncWorkerService> _logger;
-    private readonly TimeSpan _syncInterval = TimeSpan.FromHours(6); // Default 6 hours
+    private readonly TimeSpan _syncInterval = TimeSpan.FromHours(6); 
 
     public SyncWorkerService(IServiceProvider serviceProvider, ILogger<SyncWorkerService> logger)
     {
@@ -33,7 +33,7 @@ public class SyncWorkerService : BackgroundService
 
                 _logger.LogInformation("Starting background sync operation");
 
-                // Full sync operation
+                
                 var result = await syncService.SyncAllAsync();
 
                 if (result.OverallSuccess)
@@ -52,14 +52,14 @@ public class SyncWorkerService : BackgroundService
                 _logger.LogError(ex, "Error during background sync operation");
             }
 
-            // Wait for next sync cycle or cancellation
+            
             try
             {
                 await Task.Delay(_syncInterval, stoppingToken);
             }
             catch (OperationCanceledException)
             {
-                // Expected when cancellation is requested
+                
                 break;
             }
         }

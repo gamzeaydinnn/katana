@@ -35,7 +35,7 @@ public class SyncServiceTests : IDisposable
             .Options;
         _context = new IntegrationDbContext(options);
 
-        // Default mocks: one item per sync path returning success
+        
         _mockExtractor.Setup(e => e.ExtractProductsAsync(It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ProductDto> { new() { SKU = "PRD-1", Name = "Prod", Price = 10m, CategoryId = 1, IsActive = true } });
         _mockExtractor.Setup(e => e.ExtractInvoicesAsync(It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
@@ -63,13 +63,13 @@ public class SyncServiceTests : IDisposable
     [Fact]
     public async Task SyncStockAsync_WhenCalled_ShouldReturnMockResult()
     {
-        // Arrange
+        
         var fromDate = DateTime.UtcNow.AddDays(-7);
 
-        // Act
+        
         var result = await _syncService.SyncStockAsync(fromDate);
 
-        // Assert
+        
         result.Should().NotBeNull();
         result.IsSuccess.Should().BeTrue();
         result.SyncType.Should().Be("STOCK");
@@ -78,13 +78,13 @@ public class SyncServiceTests : IDisposable
     [Fact]
     public async Task SyncInvoicesAsync_WhenCalled_ShouldReturnMockResult()
     {
-        // Arrange
+        
         var fromDate = DateTime.UtcNow.AddDays(-7);
 
-        // Act
+        
         var result = await _syncService.SyncInvoicesAsync(fromDate);
 
-        // Assert
+        
         result.Should().NotBeNull();
         result.IsSuccess.Should().BeTrue();
         result.SyncType.Should().Be("INVOICE");
@@ -93,13 +93,13 @@ public class SyncServiceTests : IDisposable
     [Fact]
     public async Task SyncCustomersAsync_WhenCalled_ShouldReturnMockResult()
     {
-        // Arrange
+        
         var fromDate = DateTime.UtcNow.AddDays(-7);
 
-        // Act
+        
         var result = await _syncService.SyncCustomersAsync(fromDate);
 
-        // Assert
+        
         result.Should().NotBeNull();
         result.IsSuccess.Should().BeTrue();
         result.SyncType.Should().Be("CUSTOMER");
@@ -108,13 +108,13 @@ public class SyncServiceTests : IDisposable
     [Fact]
     public async Task SyncAllAsync_WhenCalled_ShouldReturnBatchResult()
     {
-        // Arrange
+        
         var fromDate = DateTime.UtcNow.AddDays(-7);
 
-        // Act
+        
         var result = await _syncService.SyncAllAsync(fromDate);
 
-        // Assert
+        
         result.Should().NotBeNull();
         result.Results.Should().HaveCount(4);
         result.OverallSuccess.Should().BeTrue();

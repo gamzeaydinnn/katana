@@ -31,6 +31,6 @@ public class Supplier
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
-    // Navigation
+    
     public virtual ICollection<SupplierPrice> PriceList { get; set; } = new List<SupplierPrice>();
 }

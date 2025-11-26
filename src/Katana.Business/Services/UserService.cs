@@ -53,12 +53,12 @@ public async Task<UserDto> UpdateAsync(int id, UpdateUserDto dto)
     if (user == null)
         throw new KeyNotFoundException($"Kullanıcı bulunamadı: {id}");
 
-    // Role validation
+    
         var validRoles = new[] { "Admin", "Manager", "Staff", "StokYonetici" };
     if (!validRoles.Contains(dto.Role))
         throw new InvalidOperationException($"Geçersiz rol: {dto.Role}. Geçerli roller: {string.Join(", ", validRoles)}");
 
-    // Uniqueness checks if changed
+    
     if (!string.Equals(user.Username, dto.Username, StringComparison.OrdinalIgnoreCase))
     {
         var exists = await _context.Set<User>().AnyAsync(u => u.Username == dto.Username && u.Id != id);
@@ -99,12 +99,12 @@ public async Task<UserDto> UpdateAsync(int id, UpdateUserDto dto)
 }
     public async Task<UserDto> CreateAsync(CreateUserDto dto)
     {
-        // Role validation
+        
             var validRoles = new[] { "Admin", "Manager", "Staff", "StokYonetici" };
         if (!validRoles.Contains(dto.Role))
             throw new InvalidOperationException($"Geçersiz rol: {dto.Role}. Geçerli roller: {string.Join(", ", validRoles)}");
 
-        // Uniqueness checks
+        
         if (await _context.Set<User>().AnyAsync(u => u.Username == dto.Username))
             throw new InvalidOperationException($"Kullanıcı adı zaten kullanılıyor: {dto.Username}");
         if (!string.IsNullOrWhiteSpace(dto.Email) && await _context.Set<User>().AnyAsync(u => u.Email == dto.Email))

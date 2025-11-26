@@ -21,10 +21,10 @@ public class HealthControllerTests
     [Fact]
     public void GetHealth_ReturnsOkWithHealthyStatus()
     {
-        // Act
+        
         var result = _controller.GetHealth();
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
         okResult.StatusCode.Should().Be(200);
@@ -33,15 +33,15 @@ public class HealthControllerTests
     [Fact]
     public void GetHealth_ReturnsStatusHealthy()
     {
-        // Act
+        
         var result = _controller.GetHealth();
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         var value = okResult.Value;
         value.Should().NotBeNull();
         
-        // Verify the response contains status and checkedAt
+        
         var properties = value!.GetType().GetProperties();
         properties.Should().Contain(p => p.Name == "status");
         properties.Should().Contain(p => p.Name == "checkedAt");
@@ -50,10 +50,10 @@ public class HealthControllerTests
     [Fact]
     public void GetHealth_LogsInformation()
     {
-        // Act
+        
         _controller.GetHealth();
 
-        // Assert
+        
         _mockLogger.Verify(
             x => x.Log(
                 LogLevel.Information,

@@ -4,12 +4,12 @@ namespace Katana.Core.DTOs;
 
 #region BOM
 
-/// <summary>
-/// Katana BOM Row (Reçete Satırı)
-/// </summary>
-/// <summary>
-/// BOM satırı (listeleme/okuma için).
-/// </summary>
+
+
+
+
+
+
 public class BomRowDto
 {
     [JsonPropertyName("id")]
@@ -37,9 +37,9 @@ public class BomRowDto
     public DateTime UpdatedAt { get; set; }
 }
 
-/// <summary>
-/// Tekli BOM satırı oluşturma isteği.
-/// </summary>
+
+
+
 public class BomRowCreateRequest
 {
     [JsonPropertyName("product_item_id")]
@@ -58,18 +58,18 @@ public class BomRowCreateRequest
     public string? Notes { get; set; }
 }
 
-/// <summary>
-/// Çoklu BOM satırı oluşturma isteği (batch create).
-/// </summary>
+
+
+
 public class BomRowBatchCreateRequest
 {
     [JsonPropertyName("data")]
     public List<BomRowCreateRequest> Data { get; set; } = new();
 }
 
-/// <summary>
-/// BOM satırı güncelleme isteği (partial).
-/// </summary>
+
+
+
 public class BomRowUpdateRequest
 {
     [JsonPropertyName("ingredient_variant_id")]
@@ -82,9 +82,9 @@ public class BomRowUpdateRequest
     public string? Notes { get; set; }
 }
 
-/// <summary>
-/// BOM satırı listeleme filtreleri.
-/// </summary>
+
+
+
 public class BomRowListQuery
 {
     [JsonPropertyName("id")]
@@ -122,9 +122,9 @@ public class BomRowListQuery
 
 #region Material
 
-/// <summary>
-/// Katana Material (Hammadde)
-/// </summary>
+
+
+
 public class MaterialDto
 {
     [JsonPropertyName("id")]
@@ -381,12 +381,12 @@ public class MaterialUpdateRequest
 
 #region Recipe
 
-/// <summary>
-/// Katana Recipe (Üretim Tarifi)
-/// </summary>
-/// <summary>
-/// Deprecated recipe row DTO (use BOM rows instead).
-/// </summary>
+
+
+
+
+
+
 public class RecipeRowDto
 {
     [JsonPropertyName("recipe_row_id")]
@@ -487,9 +487,9 @@ public class RecipeListQuery
 
 #region Operator
 
-/// <summary>
-/// Katana Operator (Operatör)
-/// </summary>
+
+
+
 public class OperatorDto
 {
     [JsonPropertyName("id")]
@@ -499,7 +499,7 @@ public class OperatorDto
     public string? Name { get; set; }
 
     [JsonPropertyName("working_area")]
-    public string? WorkingArea { get; set; } // shopFloor, warehouse
+    public string? WorkingArea { get; set; } 
 
     [JsonPropertyName("resource_id")]
     public long? ResourceId { get; set; }

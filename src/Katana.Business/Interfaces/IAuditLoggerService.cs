@@ -8,7 +8,7 @@ public interface IAuditLoggerService
 {
 
     Task LogAsync(
-        string actionType,       // "CREATE", "UPDATE", "DELETE" gibi
+        string actionType,       
         string entityName,       
         string? entityId,       
         string? performedBy,     

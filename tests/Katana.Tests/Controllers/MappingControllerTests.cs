@@ -36,7 +36,7 @@ public class MappingControllerTests : IDisposable
             _mockLogger.Object,
             _mockAuditLogger.Object);
 
-        // Setup user identity for controller context
+        
         var user = new ClaimsPrincipal(new ClaimsIdentity(new Claim[]
         {
             new Claim(ClaimTypes.Name, "testuser")
@@ -50,7 +50,7 @@ public class MappingControllerTests : IDisposable
     [Fact]
     public async Task GetMappings_ReturnsOkWithMappings()
     {
-        // Arrange
+        
         _context.MappingTables.Add(new MappingTable
         {
             MappingType = "SKU",
@@ -61,10 +61,10 @@ public class MappingControllerTests : IDisposable
         });
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetMappings(null, 1, 50);
 
-        // Assert
+        
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -72,17 +72,17 @@ public class MappingControllerTests : IDisposable
     [Fact]
     public async Task GetMappings_FiltersbyMappingType()
     {
-        // Arrange
+        
         _context.MappingTables.AddRange(
             new MappingTable { MappingType = "SKU", SourceValue = "S1", TargetValue = "T1", IsActive = true, CreatedAt = DateTime.UtcNow },
             new MappingTable { MappingType = "LOCATION", SourceValue = "L1", TargetValue = "W1", IsActive = true, CreatedAt = DateTime.UtcNow }
         );
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetMappings("SKU", 1, 50);
 
-        // Assert
+        
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -90,7 +90,7 @@ public class MappingControllerTests : IDisposable
     [Fact]
     public async Task GetSkuAccountMappings_ReturnsOkWithMappings()
     {
-        // Arrange
+        
         var mappings = new Dictionary<string, string>
         {
             { "SKU001", "ACC001" },
@@ -98,10 +98,10 @@ public class MappingControllerTests : IDisposable
         };
         _mockMappingService.Setup(s => s.GetSkuToAccountMappingAsync()).ReturnsAsync(mappings);
 
-        // Act
+        
         var result = await _controller.GetSkuAccountMappings();
 
-        // Assert
+        
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var returnedMappings = okResult.Value.Should().BeAssignableTo<Dictionary<string, string>>().Subject;
         returnedMappings.Should().HaveCount(2);
@@ -110,7 +110,7 @@ public class MappingControllerTests : IDisposable
     [Fact]
     public async Task GetLocationMappings_ReturnsOkWithMappings()
     {
-        // Arrange
+        
         var mappings = new Dictionary<string, string>
         {
             { "LOC001", "WH001" },
@@ -118,10 +118,10 @@ public class MappingControllerTests : IDisposable
         };
         _mockMappingService.Setup(s => s.GetLocationMappingAsync()).ReturnsAsync(mappings);
 
-        // Act
+        
         var result = await _controller.GetLocationMappings();
 
-        // Assert
+        
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var returnedMappings = okResult.Value.Should().BeAssignableTo<Dictionary<string, string>>().Subject;
         returnedMappings.Should().HaveCount(2);
@@ -130,7 +130,7 @@ public class MappingControllerTests : IDisposable
     [Fact]
     public async Task CreateMapping_ReturnsCreatedWhenValid()
     {
-        // Arrange
+        
         var request = new CreateMappingRequest
         {
             MappingType = "SKU",
@@ -140,10 +140,10 @@ public class MappingControllerTests : IDisposable
             IsActive = true
         };
 
-        // Act
+        
         var result = await _controller.CreateMapping(request);
 
-        // Assert
+        
         var createdResult = result.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
         createdResult.Value.Should().NotBeNull();
         _mockAuditLogger.Verify(a => a.LogAsync(
@@ -157,7 +157,7 @@ public class MappingControllerTests : IDisposable
     [Fact]
     public async Task CreateMapping_ReturnsBadRequestWhenDuplicate()
     {
-        // Arrange
+        
         _context.MappingTables.Add(new MappingTable
         {
             MappingType = "SKU",
@@ -175,10 +175,10 @@ public class MappingControllerTests : IDisposable
             TargetValue = "ACC002"
         };
 
-        // Act
+        
         var result = await _controller.CreateMapping(request);
 
-        // Assert
+        
         var badRequestResult = result.Result.Should().BeOfType<BadRequestObjectResult>().Subject;
         badRequestResult.Value.Should().NotBeNull();
     }
@@ -186,7 +186,7 @@ public class MappingControllerTests : IDisposable
     [Fact]
     public async Task GetMappingById_ReturnsOkWhenExists()
     {
-        // Arrange
+        
         var mapping = new MappingTable
         {
             MappingType = "SKU",
@@ -198,10 +198,10 @@ public class MappingControllerTests : IDisposable
         _context.MappingTables.Add(mapping);
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetMappingById(mapping.Id);
 
-        // Assert
+        
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -209,10 +209,10 @@ public class MappingControllerTests : IDisposable
     [Fact]
     public async Task GetMappingById_ReturnsNotFoundWhenDoesNotExist()
     {
-        // Act
+        
         var result = await _controller.GetMappingById(999);
 
-        // Assert
+        
         var notFoundResult = result.Result.Should().BeOfType<NotFoundObjectResult>().Subject;
         notFoundResult.Value.Should().NotBeNull();
     }
@@ -220,7 +220,7 @@ public class MappingControllerTests : IDisposable
     [Fact]
     public async Task UpdateMapping_ReturnsOkWhenValid()
     {
-        // Arrange
+        
         var mapping = new MappingTable
         {
             MappingType = "SKU",
@@ -239,10 +239,10 @@ public class MappingControllerTests : IDisposable
             IsActive = true
         };
 
-        // Act
+        
         var result = await _controller.UpdateMapping(mapping.Id, request);
 
-        // Assert
+        
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
         _mockAuditLogger.Verify(a => a.LogAsync(
@@ -256,13 +256,13 @@ public class MappingControllerTests : IDisposable
     [Fact]
     public async Task UpdateMapping_ReturnsNotFoundWhenDoesNotExist()
     {
-        // Arrange
+        
         var request = new UpdateMappingRequest { TargetValue = "ACC002" };
 
-        // Act
+        
         var result = await _controller.UpdateMapping(999, request);
 
-        // Assert
+        
         var notFoundResult = result.Result.Should().BeOfType<NotFoundObjectResult>().Subject;
         notFoundResult.Value.Should().NotBeNull();
     }
@@ -270,7 +270,7 @@ public class MappingControllerTests : IDisposable
     [Fact]
     public async Task DeleteMapping_ReturnsNoContentWhenSuccessful()
     {
-        // Arrange
+        
         var mapping = new MappingTable
         {
             MappingType = "SKU",
@@ -282,10 +282,10 @@ public class MappingControllerTests : IDisposable
         _context.MappingTables.Add(mapping);
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.DeleteMapping(mapping.Id);
 
-        // Assert
+        
         result.Should().BeOfType<NoContentResult>();
         _mockAuditLogger.Verify(a => a.LogAsync(
             "DELETE",
@@ -298,10 +298,10 @@ public class MappingControllerTests : IDisposable
     [Fact]
     public async Task DeleteMapping_ReturnsNotFoundWhenDoesNotExist()
     {
-        // Act
+        
         var result = await _controller.DeleteMapping(999);
 
-        // Assert
+        
         var notFoundResult = result.Should().BeOfType<NotFoundObjectResult>().Subject;
         notFoundResult.Value.Should().NotBeNull();
     }

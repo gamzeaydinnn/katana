@@ -8,9 +8,9 @@ using System.Text.Json;
 
 namespace Katana.Business.Services;
 
-/// <summary>
-/// Katana API'sinden veya yerel depodan ham veriyi çıkarır ve temel doğrulamaları uygular.
-/// </summary>
+
+
+
 public class ExtractorService : IExtractorService
 {
     private readonly IKatanaService _katanaService;
@@ -72,14 +72,14 @@ public class ExtractorService : IExtractorService
             }
             else
             {
-                // If category is missing/invalid (or not provided), try to assign a default category and re-validate
+                
                 var missingCategory = validationErrors.Any(e => e.Contains("Geçerli bir kategori"));
                 var categoryNotProvided = dto.CategoryId == 0;
                 if (categoryNotProvided || missingCategory)
                 {
                     try
                     {
-                        // Find existing default category by name or create one
+                        
                         var defaultCat = await _dbContext.Categories
                             .FirstOrDefaultAsync(c => c.Name == "Default" || c.Name == "Uncategorized", ct);
 
@@ -99,7 +99,7 @@ public class ExtractorService : IExtractorService
 
                         dto.CategoryId = defaultCat.Id;
 
-                        // Re-validate after assigning
+                        
                         validationErrors = ProductValidator.ValidateUpdate(new UpdateProductDto
                         {
                             SKU = dto.SKU,
@@ -125,7 +125,7 @@ public class ExtractorService : IExtractorService
                     }
                 }
 
-                // Try to resolve category name for better diagnostics
+                
                 string? categoryName = null;
                 try
                 {
@@ -139,7 +139,7 @@ public class ExtractorService : IExtractorService
                 }
                 catch
                 {
-                    // ignore category lookup failures for logging
+                    
                 }
 
                 var payload = JsonSerializer.Serialize(new
@@ -202,12 +202,12 @@ public class ExtractorService : IExtractorService
                 }).ToList()
             };
 
-            // Attempt to resolve missing local CustomerId using heuristics (TaxNo, Title)
+            
             if (dto.CustomerId == 0)
             {
                 try
                 {
-                    // Prefer TaxNo match
+                    
                     if (!string.IsNullOrEmpty(invoice.CustomerTaxNo))
                     {
                         var cust = await _dbContext.Customers.AsNoTracking()
@@ -216,7 +216,7 @@ public class ExtractorService : IExtractorService
                             dto.CustomerId = cust.Id;
                     }
 
-                    // If still not found, try Title match
+                    
                     if (dto.CustomerId == 0 && !string.IsNullOrEmpty(invoice.CustomerTitle))
                     {
                         var cust2 = await _dbContext.Customers.AsNoTracking()
@@ -231,7 +231,7 @@ public class ExtractorService : IExtractorService
                 }
             }
 
-            // Attempt to resolve products for invoice items using SKU or name
+            
             foreach (var item in dto.Items)
             {
                 if (item.ProductId == 0)
@@ -251,7 +251,7 @@ public class ExtractorService : IExtractorService
                                 .FirstOrDefaultAsync(p => p.Name == item.ProductName, ct);
                         }
 
-                        // last resort: partial name match
+                        
                         if (prod == null && !string.IsNullOrEmpty(item.ProductName))
                         {
                             prod = await _dbContext.Products.AsNoTracking()

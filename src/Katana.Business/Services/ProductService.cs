@@ -79,7 +79,7 @@ public class ProductService : IProductService
 
     public async Task<IEnumerable<ProductDto>> GetLowStockProductsAsync(int threshold = 10)
     {
-        // Ensure StockMovements are included so Product.Stock reflects movements rather than snapshot
+        
         var products = await _context.Products
             .Include(p => p.StockMovements)
             .Where(p => p.IsActive)
@@ -115,7 +115,7 @@ public class ProductService : IProductService
             Name = dto.Name,
             SKU = dto.SKU,
             Price = dto.Price,
-            // Initial creation should set the snapshot value instead of triggering movements
+            
             StockSnapshot = dto.Stock,
             CategoryId = dto.CategoryId,
             MainImageUrl = dto.MainImageUrl,
@@ -147,7 +147,7 @@ public class ProductService : IProductService
             product.Name = dto.Name;
             product.SKU = dto.SKU;
             product.Price = dto.Price;
-            // Treat full product updates coming from UI as metadata changes. If stock changed, create a StockMovement
+            
             if (dto.Stock != product.Stock)
             {
                 var delta = dto.Stock - product.Stock;
@@ -175,7 +175,7 @@ public class ProductService : IProductService
         }
         catch (DbUpdateException ex)
         {
-            // Log the inner exception details
+            
             var innerMessage = ex.InnerException?.Message ?? ex.Message;
             throw new InvalidOperationException($"Ürün güncellenirken veritabanı hatası oluştu: {innerMessage}", ex);
         }
@@ -187,7 +187,7 @@ public class ProductService : IProductService
         if (product == null)
             return false;
 
-        // Create a StockMovement representing the delta
+        
         var delta = quantity - product.Stock;
         if (delta == 0)
         {
@@ -282,7 +282,7 @@ public class ProductService : IProductService
         var skippedCount = 0;
         var errors = new List<string>();
 
-        // Validate default category exists
+        
         var categoryExists = await _context.Categories.AnyAsync(c => c.Id == defaultCategoryId);
         if (!categoryExists)
         {
@@ -290,7 +290,7 @@ public class ProductService : IProductService
             return (0, 0, 0, errors);
         }
 
-        // Fetch all existing products in one query for performance
+        
         var existingProducts = await _context.Products.ToListAsync();
         var existingProductsBySku = existingProducts.ToDictionary(p => p.SKU, p => p);
 
@@ -298,13 +298,13 @@ public class ProductService : IProductService
         {
             try
             {
-                // Ensure valid CategoryId
+                
                 if (productDto.CategoryId <= 0)
                 {
                     productDto.CategoryId = defaultCategoryId;
                 }
 
-                // Validate the CategoryId exists
+                
                 var catExists = await _context.Categories.AnyAsync(c => c.Id == productDto.CategoryId);
                 if (!catExists)
                 {
@@ -314,10 +314,10 @@ public class ProductService : IProductService
 
                 if (existingProductsBySku.TryGetValue(productDto.SKU, out var existingProduct))
                 {
-                    // Update existing product
+                    
                     existingProduct.Name = productDto.Name;
                     existingProduct.Price = productDto.Price;
-                    // Update snapshot to reflect external system state instead of creating movements for bulk sync
+                    
                     existingProduct.StockSnapshot = productDto.Stock;
                     existingProduct.CategoryId = productDto.CategoryId;
                     existingProduct.MainImageUrl = productDto.MainImageUrl;
@@ -327,7 +327,7 @@ public class ProductService : IProductService
                 }
                 else
                 {
-                    // Create new product
+                    
                     var newProduct = new Product
                     {
                         Name = productDto.Name,
@@ -361,7 +361,7 @@ public class ProductService : IProductService
             var innerMessage = ex.InnerException?.Message ?? ex.Message;
             errors.Add($"Database error during bulk save: {innerMessage}");
             
-            // If FK constraint violation, provide specific guidance
+            
             if (innerMessage.Contains("FK_Products_Categories_CategoryId"))
             {
                 errors.Add("Foreign key constraint violation on CategoryId. Some products have invalid category references.");

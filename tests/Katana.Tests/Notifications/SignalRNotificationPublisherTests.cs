@@ -18,7 +18,7 @@ public class SignalRNotificationPublisherTests
     [Fact]
     public async Task PublishPendingCreatedAsync_ShouldSendToAllClients()
     {
-        // Arrange
+        
         var mockClients = new Mock<IHubClients>();
         var mockClientProxy = new Mock<IClientProxy>();
         mockClients.Setup(c => c.All).Returns(mockClientProxy.Object);
@@ -43,10 +43,10 @@ public class SignalRNotificationPublisherTests
             requestedAt: DateTimeOffset.UtcNow
         );
 
-        // Act
+        
         await publisher.PublishPendingCreatedAsync(evt);
 
-        // Assert
+        
         mockClientProxy.Verify(
             c => c.SendCoreAsync(
                 "PendingStockAdjustmentCreated",
@@ -61,7 +61,7 @@ public class SignalRNotificationPublisherTests
     [Fact]
     public async Task PublishPendingApprovedAsync_ShouldSendToAllClients()
     {
-        // Arrange
+        
         var mockClients = new Mock<IHubClients>();
         var mockClientProxy = new Mock<IClientProxy>();
         mockClients.Setup(c => c.All).Returns(mockClientProxy.Object);
@@ -86,10 +86,10 @@ public class SignalRNotificationPublisherTests
             approvedAt: DateTimeOffset.UtcNow
         );
 
-        // Act
+        
         await publisher.PublishPendingApprovedAsync(evt);
 
-        // Assert
+        
         mockClientProxy.Verify(
             c => c.SendCoreAsync(
                 "PendingStockAdjustmentApproved",
@@ -104,7 +104,7 @@ public class SignalRNotificationPublisherTests
     [Fact]
     public async Task PublishPendingCreatedAsync_ShouldHandleExceptions()
     {
-        // Arrange
+        
         var mockClients = new Mock<IHubClients>();
         mockClients.Setup(c => c.All).Throws(new Exception("SignalR failure"));
 
@@ -128,7 +128,7 @@ public class SignalRNotificationPublisherTests
             requestedAt: DateTimeOffset.UtcNow
         );
 
-        // Act & Assert - should not throw
+        
         await publisher.Invoking(p => p.PublishPendingCreatedAsync(evt))
             .Should().NotThrowAsync();
     }

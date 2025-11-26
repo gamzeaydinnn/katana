@@ -29,7 +29,7 @@ export default function (data) {
   const token = data?.token || '';
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-  // Hit a cheap authorized endpoint; pending adjustments list
+  
   const res = http.get(`${BASE_URL}/api/adminpanel/pending-adjustments`, { headers });
   check(res, { 'pending 200': (r) => r.status === 200 });
 

@@ -1,8 +1,3 @@
-/*DashboardController'ın ihtiyaç duyduğu özet verileri ve istatistikleri hazırlayacak olan servis.
-Amacı: Veri katmanındaki log ve hata kayıtlarını analiz edip anlamlı çıktılara dönüştürmek.
-Sorumlulukları:
-IntegrationLogRepository ve FailedSyncRecordRepository'den verileri okuyup özet bilgiler oluşturmak.
-Başarı/hata oranlarını hesaplamak.*/
 using Katana.Core.DTOs;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
@@ -18,15 +13,15 @@ public class DashboardService
         _context = context;
     }
 
-    /// <summary>
-    /// Yönetim paneli için özet istatistikleri döner.
-    /// </summary>
+    
+    
+    
     public async Task<DashboardStatsDto> GetDashboardStatsAsync()
     {
-        // Tüm ürünleri say (Canlı Stok ile tutarlılık için)
+        
         var totalProducts = await _context.Products.CountAsync();
 
-        // Compute total stock from StockMovements (authoritative) for active products.
+        
         var activeProductIds = await _context.Products.Where(p => p.IsActive).Select(p => p.Id).ToListAsync();
         var totalStock = 0;
         if (activeProductIds.Any())
@@ -36,7 +31,7 @@ public class DashboardService
                 .SumAsync(sm => (int?)sm.ChangeQuantity) ?? 0;
         }
 
-        // Compute number of products with balance <= 5 using movement sums + fallback to snapshot
+        
         var productBalances = await _context.StockMovements
             .GroupBy(sm => sm.ProductId)
             .Select(g => new { ProductId = g.Key, Balance = g.Sum(x => x.ChangeQuantity) })

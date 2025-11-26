@@ -70,7 +70,7 @@ public class CategoryService : ICategoryService
 
     public async Task<CategoryDto> CreateAsync(CreateCategoryDto dto)
     {
-        // uniqueness within the same parent
+        
         var exists = await _context.Categories.AnyAsync(c => c.ParentId == dto.ParentId && c.Name == dto.Name);
         if (exists)
             throw new InvalidOperationException("Aynı seviyede aynı isimde kategori mevcut.");
@@ -107,7 +107,7 @@ public class CategoryService : ICategoryService
         if (category == null)
             throw new KeyNotFoundException("Category not found");
 
-        // check uniqueness within same parent (excluding current)
+        
         var exists = await _context.Categories.AnyAsync(c => c.ParentId == dto.ParentId && c.Name == dto.Name && c.Id != id);
         if (exists)
             throw new InvalidOperationException("Aynı seviyede aynı isimde kategori mevcut.");

@@ -24,7 +24,7 @@ public class NotificationsControllerTests
     [Fact]
     public async Task List_ReturnsAll_WhenNoFilter()
     {
-        // Arrange
+        
         await using var db = CreateContext();
 
         db.Notifications.AddRange(
@@ -35,10 +35,10 @@ public class NotificationsControllerTests
 
         var controller = new NotificationsController(db);
 
-        // Act
+        
         var result = await controller.List(null);
 
-        // Assert
+        
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         var list = ok.Value.Should().BeAssignableTo<System.Collections.Generic.IEnumerable<Notification>>().Subject;
         list.Count().Should().Be(2);
@@ -47,7 +47,7 @@ public class NotificationsControllerTests
     [Fact]
     public async Task List_FiltersUnreadTrue()
     {
-        // Arrange
+        
         await using var db = CreateContext();
         db.Notifications.AddRange(
             new Notification { Type = "X", IsRead = false },
@@ -57,10 +57,10 @@ public class NotificationsControllerTests
 
         var controller = new NotificationsController(db);
 
-        // Act
+        
         var result = await controller.List(true);
 
-        // Assert
+        
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         var list = ok.Value.Should().BeAssignableTo<System.Collections.Generic.IEnumerable<Notification>>().Subject;
         list.Should().OnlyContain(n => n.IsRead == false);
@@ -69,7 +69,7 @@ public class NotificationsControllerTests
     [Fact]
     public async Task Get_ReturnsOk_WhenExists()
     {
-        // Arrange
+        
         await using var db = CreateContext();
         var n = new Notification { Type = "Detail", Title = "Hello" };
         db.Notifications.Add(n);
@@ -77,31 +77,31 @@ public class NotificationsControllerTests
 
         var controller = new NotificationsController(db);
 
-        // Act
+        
         var result = await controller.Get(n.Id);
 
-        // Assert
+        
         result.Should().BeOfType<OkObjectResult>();
     }
 
     [Fact]
     public async Task Get_ReturnsNotFound_WhenMissing()
     {
-        // Arrange
+        
         await using var db = CreateContext();
         var controller = new NotificationsController(db);
 
-        // Act
+        
         var result = await controller.Get(12345);
 
-        // Assert
+        
         result.Should().BeOfType<NotFoundResult>();
     }
 
     [Fact]
     public async Task MarkRead_SetsIsReadTrue()
     {
-        // Arrange
+        
         await using var db = CreateContext();
         var n = new Notification { Type = "Mark", IsRead = false };
         db.Notifications.Add(n);
@@ -109,10 +109,10 @@ public class NotificationsControllerTests
 
         var controller = new NotificationsController(db);
 
-        // Act
+        
         var result = await controller.MarkRead(n.Id);
 
-        // Assert
+        
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         var updated = await db.Notifications.FindAsync(n.Id);
         updated!.IsRead.Should().BeTrue();
@@ -121,7 +121,7 @@ public class NotificationsControllerTests
     [Fact]
     public async Task Delete_RemovesNotification()
     {
-        // Arrange
+        
         await using var db = CreateContext();
         var n = new Notification { Type = "DeleteMe" };
         db.Notifications.Add(n);
@@ -129,10 +129,10 @@ public class NotificationsControllerTests
 
         var controller = new NotificationsController(db);
 
-        // Act
+        
         var result = await controller.Delete(n.Id);
 
-        // Assert
+        
         result.Should().BeOfType<NoContentResult>();
         (await db.Notifications.FindAsync(n.Id)).Should().BeNull();
     }

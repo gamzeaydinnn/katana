@@ -35,13 +35,13 @@ public class DataCorrectionService : IDataCorrectionService
     {
         _loggingService.LogInfo("Starting Katana ↔ Luca product comparison", null, null, LogCategory.Business);
 
-        // Fetch from both systems
+        
         var katanaProducts = await _katanaService.GetProductsAsync();
         var lucaProducts = await _productService.GetAllProductsAsync();
 
         var comparisons = new List<ComparisonProductDto>();
 
-        // Compare by SKU
+        
         var allSkus = katanaProducts.Select(k => k.SKU)
             .Union(lucaProducts.Select(l => l.SKU))
             .Distinct()
@@ -81,7 +81,7 @@ public class DataCorrectionService : IDataCorrectionService
                 Issues = new List<DataIssue>()
             };
 
-            // Detect issues
+            
             if (katana == null)
             {
                 comparison.Issues.Add(new DataIssue
@@ -106,7 +106,7 @@ public class DataCorrectionService : IDataCorrectionService
             }
             else
             {
-                // Compare prices (use SalesPrice if available, fallback to Price)
+                
                 var katanaPrice = katana.SalesPrice ?? katana.Price;
                 if (Math.Abs(katanaPrice - luca.Price) > 0.01m)
                 {
@@ -120,7 +120,7 @@ public class DataCorrectionService : IDataCorrectionService
                     });
                 }
 
-                // Compare names
+                
                 if (!string.Equals(katana.Name.Trim(), luca.Name.Trim(), StringComparison.OrdinalIgnoreCase))
                 {
                     comparison.Issues.Add(new DataIssue
@@ -133,7 +133,7 @@ public class DataCorrectionService : IDataCorrectionService
                     });
                 }
 
-                // Compare active status
+                
                 if (katana.IsActive != luca.IsActive)
                 {
                     comparison.Issues.Add(new DataIssue
@@ -260,7 +260,7 @@ public class DataCorrectionService : IDataCorrectionService
                 var product = await _productService.GetProductBySkuAsync(correction.EntityId);
                 if (product == null) return false;
 
-                // Apply correction based on field
+                
                 switch (correction.FieldName.ToLower())
                 {
                     case "price":
@@ -312,8 +312,8 @@ public class DataCorrectionService : IDataCorrectionService
 
     public Task<bool> ApplyCorrectionToKatanaAsync(int correctionId)
     {
-        // NOTE: Katana API'ye write işlemi için endpoint olup olmadığını kontrol edin
-        // Şimdilik placeholder
+        
+        
         _logger.LogWarning("Katana API write operations not implemented yet");
         return Task.FromResult(false);
     }

@@ -31,7 +31,7 @@ public class Order
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
-    // Navigation
+    
     public virtual Customer? Customer { get; set; }
     public virtual ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
 }

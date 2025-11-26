@@ -4,9 +4,9 @@ namespace Katana.Core.DTOs;
 
 #region Product & Variant
 
-/// <summary>
-/// Katana Product (Ürün)
-/// </summary>
+
+
+
 public class ProductDto
 {
     [JsonPropertyName("id")]
@@ -14,7 +14,7 @@ public class ProductDto
 
     [JsonPropertyName("sku")]
     public string SKU { get; set; } = string.Empty;
-    // Alias for legacy code that used PascalCase Sku
+    
     [JsonIgnore]
     public string Sku
     {
@@ -85,7 +85,7 @@ public class ProductDto
     [JsonPropertyName("custom_field_collection_id")]
     public long? CustomFieldCollectionId { get; set; }
 
-    // Legacy/internal fields used by ProductService
+    
     public decimal Price { get; set; }
     public int Stock { get; set; }
     public int CategoryId { get; set; }
@@ -375,9 +375,9 @@ public class ProductRetrieveQuery
     public List<string>? Extend { get; set; }
 }
 
-/// <summary>
-/// Product operation (recipe operation) DTO.
-/// </summary>
+
+
+
 public class ProductOperationRowDto
 {
     [JsonPropertyName("product_operation_row_id")]
@@ -402,7 +402,7 @@ public class ProductOperationRowDto
     public string? ResourceName { get; set; }
 
     [JsonPropertyName("type")]
-    public string? Type { get; set; } // process, setup, perUnit, fixed
+    public string? Type { get; set; } 
 
     [JsonPropertyName("cost_per_hour")]
     public decimal? CostPerHour { get; set; }
@@ -558,9 +558,9 @@ public class ProductOperationRerankRequest
     public bool? ShouldGroup { get; set; }
 }
 
-/// <summary>
-/// Katana Variant (Varyant)
-/// </summary>
+
+
+
 public class VariantDto
 {
     [JsonPropertyName("id")]
@@ -594,7 +594,7 @@ public class VariantDto
     public List<VariantConfigAttributeDto>? ConfigAttributes { get; set; }
 
     [JsonPropertyName("type")]
-    public string? Type { get; set; } // product | material
+    public string? Type { get; set; } 
 
     [JsonPropertyName("created_at")]
     public DateTime? CreatedAt { get; set; }
@@ -787,12 +787,12 @@ public class VariantBinLocationUnlinkDto
 
 #region Location
 
-/// <summary>
-/// Katana Location (Depo/Lokasyon)
-/// </summary>
-/// <summary>
-/// Lokasyon DTO'su.
-/// </summary>
+
+
+
+
+
+
 public class LocationDto
 {
     [JsonPropertyName("id")]
@@ -835,9 +835,9 @@ public class LocationDto
     public DateTime? DeletedAt { get; set; }
 }
 
-/// <summary>
-/// Lokasyon adres DTO'su.
-/// </summary>
+
+
+
 public class LocationAddressDto
 {
     [JsonPropertyName("id")]
@@ -862,9 +862,9 @@ public class LocationAddressDto
     public string? Country { get; set; }
 }
 
-/// <summary>
-/// Lokasyon listeleme filtreleri.
-/// </summary>
+
+
+
 public class LocationListQuery
 {
     [JsonPropertyName("ids")]
@@ -913,12 +913,12 @@ public class LocationListQuery
     public DateTime? UpdatedAtMax { get; set; }
 }
 
-/// <summary>
-/// Katana Bin Location (Raf Konumu)
-/// </summary>
-/// <summary>
-/// Depo içi raf / storage bin DTO.
-/// </summary>
+
+
+
+
+
+
 public class BinLocationDto
 {
     [JsonPropertyName("id")]
@@ -937,9 +937,9 @@ public class BinLocationDto
     public DateTime UpdatedAt { get; set; }
 }
 
-/// <summary>
-/// Storage bin listeleme filtreleri.
-/// </summary>
+
+
+
 public class BinLocationListQuery
 {
     [JsonPropertyName("location_id")]
@@ -958,9 +958,9 @@ public class BinLocationListQuery
     public int? Page { get; set; }
 }
 
-/// <summary>
-/// Storage bin güncelleme isteği (partial).
-/// </summary>
+
+
+
 public class BinLocationUpdateRequest
 {
     [JsonPropertyName("bin_name")]

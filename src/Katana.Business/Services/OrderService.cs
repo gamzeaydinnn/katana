@@ -74,11 +74,11 @@ public class OrderService : IOrderService
 
         _context.Orders.Add(order);
 
-        // Save order first so we have an ExternalOrderId (order.Id) to reference
+        
         await _context.SaveChangesAsync();
 
-        // Instead of applying stock changes immediately, create pending adjustments
-        // so an admin can approve/reject them. Use negative quantity for sales.
+        
+        
         foreach (var item in order.Items)
         {
             var product = await _context.Products.FindAsync(item.ProductId);
@@ -89,14 +89,14 @@ public class OrderService : IOrderService
                 ExternalOrderId = order.Id.ToString(),
                 ProductId = item.ProductId,
                 Sku = sku,
-                Quantity = -item.Quantity, // negative = decrease stock
+                Quantity = -item.Quantity, 
                 RequestedBy = "system",
                 RequestedAt = DateTimeOffset.UtcNow,
                 Status = "Pending",
                 Notes = $"Order #{order.Id} created: {item.Quantity} x ProductId {item.ProductId}"
             };
 
-            // Use the centralized pending service so notifications and validations run consistently
+            
             await _pendingService.CreateAsync(pending);
         }
 

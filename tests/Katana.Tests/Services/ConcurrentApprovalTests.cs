@@ -26,7 +26,7 @@ public class ConcurrentApprovalTests : IDisposable
         using var ctx = new IntegrationDbContext(_options);
         ctx.Database.EnsureCreated();
 
-        // seed a product and one pending adjustment
+        
         var category = new Category
         {
             Name = "Default",
@@ -36,7 +36,7 @@ public class ConcurrentApprovalTests : IDisposable
         };
         ctx.Categories.Add(category);
         ctx.SaveChanges();
-        // keep foreign key checks off during seeding to avoid incidental FK constraints in model
+        
 
         var product = new Product
         {
@@ -66,8 +66,8 @@ public class ConcurrentApprovalTests : IDisposable
         ctx.SaveChanges();
     }
 
-    // NOTE: Concurrency approval tests require relational FK setup behaving consistently.
-    // This suite uses InMemory provider and serves as a placeholder for future relational tests.
+    
+    
 
     public void Dispose() { }
 }

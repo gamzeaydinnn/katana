@@ -32,7 +32,7 @@ public class OrdersControllerTests
     [Fact]
     public async Task GetAll_ReturnsOkWithOrders()
     {
-        // Arrange
+        
         var orders = new List<OrderDto>
         {
             new() { Id = 1, CustomerId = 1, Status = "Pending", TotalAmount = 100 },
@@ -40,10 +40,10 @@ public class OrdersControllerTests
         };
         _mockOrderService.Setup(s => s.GetAllAsync()).ReturnsAsync(orders);
 
-        // Act
+        
         var result = await _controller.GetAll();
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         var data = okResult.Value.Should().BeAssignableTo<IEnumerable<OrderDto>>().Subject;
         data.Should().HaveCount(2);
@@ -52,14 +52,14 @@ public class OrdersControllerTests
     [Fact]
     public async Task GetById_ReturnsOkWhenOrderExists()
     {
-        // Arrange
+        
         var order = new OrderDto { Id = 1, CustomerId = 1, Status = "Pending", TotalAmount = 150 };
         _mockOrderService.Setup(s => s.GetByIdAsync(1)).ReturnsAsync(order);
 
-        // Act
+        
         var result = await _controller.GetById(1);
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         var data = okResult.Value.Should().BeOfType<OrderDto>().Subject;
         data.Id.Should().Be(1);
@@ -69,20 +69,20 @@ public class OrdersControllerTests
     [Fact]
     public async Task GetById_ReturnsNotFoundWhenOrderDoesNotExist()
     {
-        // Arrange
+        
         _mockOrderService.Setup(s => s.GetByIdAsync(99)).ReturnsAsync((OrderDto?)null);
 
-        // Act
+        
         var result = await _controller.GetById(99);
 
-        // Assert
+        
         result.Should().BeOfType<NotFoundResult>();
     }
 
     [Fact]
     public async Task Create_ReturnsCreatedWhenValid()
     {
-        // Arrange
+        
         var createDto = new CreateOrderDto 
         { 
             CustomerId = 1, 
@@ -104,10 +104,10 @@ public class OrdersControllerTests
         };
         _mockOrderService.Setup(s => s.CreateAsync(createDto)).ReturnsAsync(order);
 
-        // Act
+        
         var result = await _controller.Create(createDto);
 
-        // Assert
+        
         var createdResult = result.Should().BeOfType<CreatedAtActionResult>().Subject;
         var data = createdResult.Value.Should().BeOfType<OrderDto>().Subject;
         data.Id.Should().Be(1);
@@ -122,15 +122,15 @@ public class OrdersControllerTests
     [Fact]
     public async Task Create_ReturnsInternalServerErrorWhenExceptionOccurs()
     {
-        // Arrange
+        
         var createDto = new CreateOrderDto { CustomerId = 1, Items = new() };
         _mockOrderService.Setup(s => s.CreateAsync(createDto))
             .ThrowsAsync(new Exception("Database error"));
 
-        // Act
+        
         var result = await _controller.Create(createDto);
 
-        // Assert
+        
         var statusResult = result.Should().BeOfType<ObjectResult>().Subject;
         statusResult.StatusCode.Should().Be(500);
     }
@@ -138,13 +138,13 @@ public class OrdersControllerTests
     [Fact]
     public async Task UpdateStatus_ReturnsNoContentWhenSuccessful()
     {
-        // Arrange
+        
         _mockOrderService.Setup(s => s.UpdateStatusAsync(1, OrderStatus.Delivered)).ReturnsAsync(true);
 
-        // Act
+        
         var result = await _controller.UpdateStatus(1, OrderStatus.Delivered);
 
-        // Assert
+        
         result.Should().BeOfType<NoContentResult>();
         _mockAuditService.Verify(a => a.LogUpdate(
             "Order", 
@@ -157,26 +157,26 @@ public class OrdersControllerTests
     [Fact]
     public async Task UpdateStatus_ReturnsNotFoundWhenOrderDoesNotExist()
     {
-        // Arrange
+        
         _mockOrderService.Setup(s => s.UpdateStatusAsync(99, OrderStatus.Delivered)).ReturnsAsync(false);
 
-        // Act
+        
         var result = await _controller.UpdateStatus(99, OrderStatus.Delivered);
 
-        // Assert
+        
         result.Should().BeOfType<NotFoundResult>();
     }
 
     [Fact]
     public async Task Delete_ReturnsNoContentWhenSuccessful()
     {
-        // Arrange
+        
         _mockOrderService.Setup(s => s.DeleteAsync(1)).ReturnsAsync(true);
 
-        // Act
+        
         var result = await _controller.Delete(1);
 
-        // Assert
+        
         result.Should().BeOfType<NoContentResult>();
         _mockAuditService.Verify(a => a.LogDelete(
             "Order", 
@@ -188,13 +188,13 @@ public class OrdersControllerTests
     [Fact]
     public async Task Delete_ReturnsNotFoundWhenOrderDoesNotExist()
     {
-        // Arrange
+        
         _mockOrderService.Setup(s => s.DeleteAsync(99)).ReturnsAsync(false);
 
-        // Act
+        
         var result = await _controller.Delete(99);
 
-        // Assert
+        
         result.Should().BeOfType<NotFoundResult>();
     }
 }

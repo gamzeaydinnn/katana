@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 namespace Katana.Data.Models;
-//Eşleştirmenin hangi türe ait olduğunu belirten bir alan (MappingType - örn: "Product", "Customer") eklenmeli.
+
 
 
 public class MappingTable
@@ -10,15 +10,15 @@ public class MappingTable
     
     [Required]
     [MaxLength(50)]
-    public string MappingType { get; set; } = string.Empty; // SKU_ACCOUNT, LOCATION_WAREHOUSE
+    public string MappingType { get; set; } = string.Empty; 
     
     [Required]
     [MaxLength(100)]
-    public string SourceValue { get; set; } = string.Empty; // Katana value
+    public string SourceValue { get; set; } = string.Empty; 
     
     [Required]
     [MaxLength(100)]
-    public string TargetValue { get; set; } = string.Empty; // Luca value
+    public string TargetValue { get; set; } = string.Empty; 
     
     [MaxLength(500)]
     public string? Description { get; set; }

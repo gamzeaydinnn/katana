@@ -55,7 +55,7 @@ public class PendingStockAdjustmentServiceTests : IDisposable
             Id = 1,
             ProductId = 1,
             Sku = "SKU-1",
-            Quantity = -4, // negative means decrease stock
+            Quantity = -4, 
             RequestedAt = DateTimeOffset.UtcNow,
             Status = "Pending",
             ExternalOrderId = "ORDER-1",
@@ -69,10 +69,10 @@ public class PendingStockAdjustmentServiceTests : IDisposable
     [Fact]
     public async Task ApproveAsync_ShouldApplyStockChangeAndPersistMovement()
     {
-        // Act
+        
         var result = await _service.ApproveAsync(_pendingId, "admin");
 
-        // Assert
+        
         result.Should().BeTrue();
 
         var product = await _context.Products.SingleAsync();

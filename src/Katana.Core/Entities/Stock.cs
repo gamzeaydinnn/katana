@@ -16,7 +16,7 @@ public class Stock
     
     [Required]
     [MaxLength(50)]
-    public string Type { get; set; } = string.Empty; // IN, OUT, ADJUSTMENT
+    public string Type { get; set; } = string.Empty; 
     
     [MaxLength(500)]
     public string? Reason { get; set; }
@@ -24,13 +24,13 @@ public class Stock
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     
     [MaxLength(100)]
-    public string? Reference { get; set; } // Order ID, Invoice ID, etc.
+    public string? Reference { get; set; } 
     
     public bool IsSynced { get; set; } = false;
     
     public DateTime? SyncedAt { get; set; }
     
-    // Navigation properties
+    
     public virtual Product Product { get; set; } = null!;
 }
 

@@ -3,9 +3,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Katana.Infrastructure.Utils;
 
-/// <summary>
-/// Handles 429 responses with Retry-After and logs rate limit headers.
-/// </summary>
+
+
+
 public class RateLimitHandler : DelegatingHandler
 {
     private readonly ILogger<RateLimitHandler> _logger;
@@ -19,7 +19,7 @@ public class RateLimitHandler : DelegatingHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        // Buffer content to allow retries.
+        
         string? bufferedContent = null;
         if (request.Content != null)
         {

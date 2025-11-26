@@ -2,22 +2,22 @@ using System.Globalization;
 
 namespace Katana.Core.ValueObjects;
 
-/// <summary>
-/// Immutable money representation that couples value with its ISO currency code.
-/// Provides basic arithmetic helpers that prevent accidental currency mixing.
-/// </summary>
+
+
+
+
 public readonly record struct Money
 {
     private const int CurrencyCodeLength = 3;
 
-    /// <summary>
-    /// Monetary amount represented with two decimal places.
-    /// </summary>
+    
+    
+    
     public decimal Amount { get; }
 
-    /// <summary>
-    /// ISO 4217 currency code (e.g. TRY, USD).
-    /// </summary>
+    
+    
+    
     public string Currency { get; }
 
     public Money(decimal amount, string currency)

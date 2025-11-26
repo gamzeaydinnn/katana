@@ -1,10 +1,10 @@
 ﻿namespace Katana.Core.DTOs;
-/*Arayüzden eşleştirme verilerini almak ve göndermek için CreateMappingDto, UpdateMappingDto gibi sınıflar eklenecek.
 
-*/
-/// <summary>
-/// DTO for SKU to Account mapping
-/// </summary>
+
+
+
+
+
 public class SkuAccountMappingDto
 {
     public string Sku { get; set; } = string.Empty;
@@ -15,9 +15,9 @@ public class SkuAccountMappingDto
     public DateTime UpdatedAt { get; set; }
 }
 
-/// <summary>
-/// DTO for Location to Warehouse mapping
-/// </summary>
+
+
+
 public class LocationWarehouseMappingDto
 {
     public string Location { get; set; } = string.Empty;
@@ -28,9 +28,9 @@ public class LocationWarehouseMappingDto
     public DateTime UpdatedAt { get; set; }
 }
 
-/// <summary>
-/// Generic mapping DTO, if needed for multiple mapping types
-/// </summary>
+
+
+
 public class MappingDto
 {
     public string MappingType { get; set; } = string.Empty;
@@ -42,9 +42,9 @@ public class MappingDto
     public DateTime UpdatedAt { get; set; }
 }
 
-/// <summary>
-/// Mapping doğrulama sonucu (özet).
-/// </summary>
+
+
+
 public class MappingValidationDto
 {
     public bool IsValid { get; set; }
@@ -54,9 +54,9 @@ public class MappingValidationDto
     public List<string> Errors { get; set; } = new();
 }
 
-/// <summary>
-/// Mapping hatası bilgisi.
-/// </summary>
+
+
+
 public class MappingErrorDto
 {
     public string RecordType { get; set; } = string.Empty;
@@ -65,9 +65,9 @@ public class MappingErrorDto
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
 
-/// <summary>
-/// Mapping istatistikleri.
-/// </summary>
+
+
+
 public class MappingStatsDto
 {
     public int TotalMappings { get; set; }

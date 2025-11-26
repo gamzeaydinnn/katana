@@ -14,9 +14,6 @@ using Microsoft.Extensions.Options;
 
 namespace Katana.Business.Services;
 
-/// <summary>
-/// Dönüştürülmüş verileri Luca tarafına aktarır ve işlem sonuçlarını loglar.
-/// </summary>
 public class LoaderService : ILoaderService
 {
     private readonly ILucaService _lucaService;
@@ -210,7 +207,6 @@ public class LoaderService : ILoaderService
                 _lucaSettings.DefaultKategoriKodu))
             .ToList();
 
-        // Basit doğrulama: kartKodu/kartAdi/olcumBirimiId dolu mu kontrol et; hatalıları atla
         var validCards = new List<LucaCreateStokKartiRequest>();
         foreach (var card in lucaStockCards)
         {
@@ -223,7 +219,6 @@ public class LoaderService : ILoaderService
             validCards.Add(card);
         }
 
-        // Diagnostic logging for product push
         try
         {
             var skus = string.Join(',', lucaStockCards.Take(12).Select(p => p.KartKodu));
@@ -265,7 +260,7 @@ public class LoaderService : ILoaderService
         }
         catch
         {
-            // ignore logging issues
+            
         }
     }
 
@@ -335,7 +330,6 @@ public class LoaderService : ILoaderService
             ProcessedRecords = result.ProcessedRecords,
             SuccessfulRecords = result.SuccessfulRecords,
             FailedRecordsCount = result.FailedRecords,
-            // Truncate messages to fit DB column sizes to avoid SaveChanges truncation errors
             ErrorMessage = result.IsSuccess ? null : Truncate(result.Errors is null ? null : string.Join(Environment.NewLine, result.Errors), 1900),
             Details = Truncate(result.Message, 4000)
         };

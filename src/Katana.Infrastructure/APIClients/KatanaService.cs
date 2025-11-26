@@ -12,11 +12,11 @@ using System.Linq;
 using System.Globalization;
 using Microsoft.Extensions.Caching.Memory;
 using System.Net;
-/*Katana API'sından veri okuma operasyonlarını içerecek.
-Amacı: Sadece Katana'dan veri okumaktan sorumlu olmak.
-Sorumlulukları (Yeni):
-Belirli bir tarihten sonraki stok hareketlerini getirme metodu.
-Ödeme durumu değişen faturaları getirme metodu.*/
+
+
+
+
+
 namespace Katana.Infrastructure.APIClients;
 
 public class KatanaService : IKatanaService
@@ -94,7 +94,7 @@ public class KatanaService : IKatanaService
                 return new List<KatanaProductDto>();
             }
 
-            // Parse JSON and map to internal KatanaProductDto shape
+            
             try
             {
                 using var doc = JsonDocument.Parse(responseContent);
@@ -138,7 +138,7 @@ public class KatanaService : IKatanaService
         public List<KatanaProductDto>? Data { get; set; }
     }
 
-    // Helper: safely read decimal from JsonElement property which may be number or string
+    
     private decimal ReadDecimalProperty(JsonElement el, string propName)
     {
         if (!el.TryGetProperty(propName, out var p))
@@ -155,19 +155,19 @@ public class KatanaService : IKatanaService
         return 0m;
     }
 
-    // Map a raw product JsonElement (external API) to internal KatanaProductDto
+    
     private KatanaProductDto MapProductElement(JsonElement prodEl)
     {
         var dto = new KatanaProductDto();
 
-        // ID
+        
         if (prodEl.TryGetProperty("id", out var idEl))
             dto.Id = idEl.ToString();
 
         dto.Name = prodEl.TryGetProperty("name", out var nameEl) ? nameEl.GetString() ?? string.Empty : string.Empty;
         dto.Description = prodEl.TryGetProperty("additional_info", out var ai) ? ai.GetString() : null;
 
-        // Category
+        
         if (prodEl.TryGetProperty("category_id", out var catIdEl) && catIdEl.ValueKind == JsonValueKind.Number)
         {
             try { dto.CategoryId = catIdEl.GetInt32(); } catch { dto.CategoryId = 0; }
@@ -180,29 +180,29 @@ public class KatanaService : IKatanaService
         if (prodEl.TryGetProperty("category_name", out var catNameEl))
             dto.Category = catNameEl.GetString();
 
-        // Default values
+        
         dto.SKU = string.Empty;
         dto.Price = 0m;
         dto.IsActive = true;
         dto.Currency = "TRY";
 
-        // Determine active state from archived_at / deleted_at
+        
         if (prodEl.TryGetProperty("archived_at", out var archived) && archived.ValueKind != JsonValueKind.Null)
             dto.IsActive = false;
         if (prodEl.TryGetProperty("deleted_at", out var deleted) && deleted.ValueKind != JsonValueKind.Null)
             dto.IsActive = false;
 
-        // Try to read image url
+        
         if (prodEl.TryGetProperty("image_url", out var imgEl) && imgEl.ValueKind == JsonValueKind.String)
             dto.ImageUrl = imgEl.GetString();
         else if (prodEl.TryGetProperty("main_image_url", out var mainImg) && mainImg.ValueKind == JsonValueKind.String)
             dto.ImageUrl = mainImg.GetString();
 
-        // Try to read SKU from product level first (some APIs don't have variants)
+        
         if (prodEl.TryGetProperty("sku", out var productSkuEl) && productSkuEl.ValueKind == JsonValueKind.String)
             dto.SKU = productSkuEl.GetString() ?? string.Empty;
 
-        // Try to read stock from product level
+        
         if (prodEl.TryGetProperty("in_stock", out var prodInStockEl) && prodInStockEl.ValueKind == JsonValueKind.Number)
             dto.InStock = prodInStockEl.GetInt32();
         
@@ -215,7 +215,7 @@ public class KatanaService : IKatanaService
         if (prodEl.TryGetProperty("committed", out var prodCommitEl) && prodCommitEl.ValueKind == JsonValueKind.Number)
             dto.Committed = prodCommitEl.GetInt32();
 
-        // Variants: get first variant's sku, prices and stock levels (override product-level if exists)
+        
         if (prodEl.TryGetProperty("variants", out var variantsEl) && variantsEl.ValueKind == JsonValueKind.Array)
         {
             var firstVar = variantsEl.EnumerateArray().FirstOrDefault();
@@ -224,20 +224,20 @@ public class KatanaService : IKatanaService
                 if (firstVar.TryGetProperty("sku", out var skuEl) && skuEl.ValueKind == JsonValueKind.String)
                     dto.SKU = skuEl.GetString() ?? string.Empty;
 
-                // Prices
+                
                 dto.Price = ReadDecimalProperty(firstVar, "sales_price");
                 dto.SalesPrice = ReadDecimalProperty(firstVar, "sales_price");
                 dto.CostPrice = ReadDecimalProperty(firstVar, "cost");
                 dto.PurchasePrice = dto.CostPrice;
 
-                // Unit
+                
                 if (firstVar.TryGetProperty("unit", out var unitEl))
                     dto.Unit = unitEl.GetString();
 
                 if (firstVar.TryGetProperty("barcode", out var barcodeEl) && barcodeEl.ValueKind == JsonValueKind.String)
                     dto.Barcode = barcodeEl.GetString();
 
-                // Stock levels - Katana API provides: in_stock, committed, available, on_hand
+                
                 if (firstVar.TryGetProperty("in_stock", out var inStockEl) && inStockEl.ValueKind == JsonValueKind.Number)
                     dto.InStock = inStockEl.GetInt32();
                 
@@ -255,7 +255,7 @@ public class KatanaService : IKatanaService
         return dto;
     }
 
-    // Resolve a variant's SKU by variant id (with simple in-memory caching)
+    
     private async Task<string?> GetVariantSkuAsync(int variantId)
     {
         var cacheKey = $"variant-sku-{variantId}";
@@ -271,7 +271,7 @@ public class KatanaService : IKatanaService
             var content = await resp.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(content);
             var root = doc.RootElement;
-            // variant endpoint might return object directly or wrapped in data array
+            
             JsonElement varEl = root;
             if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
                 varEl = dataEl.EnumerateArray().FirstOrDefault();
@@ -291,13 +291,13 @@ public class KatanaService : IKatanaService
         return null;
     }
 
-    // Map a raw sales_order JsonElement to external KatanaInvoiceDto
+    
     private KatanaInvoiceDto MapInvoiceElement(JsonElement invEl, out List<int?> variantIds)
     {
         variantIds = new List<int?>();
         var dto = new KatanaInvoiceDto();
 
-        // capture external customer id if available (helps downstream resolution)
+        
         if (invEl.TryGetProperty("customer_id", out var custEl) && custEl.ValueKind == JsonValueKind.Number)
         {
             try { dto.ExternalCustomerId = custEl.GetInt32(); } catch { dto.ExternalCustomerId = null; }
@@ -320,7 +320,7 @@ public class KatanaService : IKatanaService
             foreach (var row in rowsEl.EnumerateArray())
             {
                 var item = new KatanaInvoiceItemDto();
-                // SKU not available here; product info may require separate lookup
+                
                 item.ProductSKU = string.Empty;
                 item.ProductName = string.Empty;
                 item.Quantity = row.TryGetProperty("quantity", out var qEl) && qEl.ValueKind == JsonValueKind.Number ? qEl.GetInt32() : 0;
@@ -365,7 +365,7 @@ public class KatanaService : IKatanaService
                     var invoices = new List<KatanaInvoiceDto>();
                     if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
                     {
-                        // Map invoices and collect variant ids for SKU lookup
+                        
                         var variantLookupEntries = new List<List<int?>>();
                         foreach (var invEl in dataEl.EnumerateArray())
                         {
@@ -374,7 +374,7 @@ public class KatanaService : IKatanaService
                             variantLookupEntries.Add(variantIds);
                         }
 
-                        // Resolve SKUs for collected variant ids
+                        
                         var allVariantIds = variantLookupEntries.SelectMany(x => x).Where(x => x.HasValue).Select(x => x!.Value).Distinct().ToList();
                         var variantSkuMap = new Dictionary<int, string>();
                         foreach (var vid in allVariantIds)
@@ -384,7 +384,7 @@ public class KatanaService : IKatanaService
                                 variantSkuMap[vid] = sku;
                         }
 
-                        // Apply SKUs back to invoice items
+                        
                         for (int i = 0; i < invoices.Count; i++)
                         {
                             var invoice = invoices[i];
@@ -424,7 +424,7 @@ public class KatanaService : IKatanaService
         try
         {
             _logger.LogInformation("Getting product by SKU: {SKU}", sku);
-            // Correct approach: query variants endpoint to find variant by sku, then fetch product by product_id
+            
             var variantUrl = $"{_settings.Endpoints.Variants}?sku={Uri.EscapeDataString(sku)}";
             var varResp = await _httpClient.GetAsync(variantUrl);
             var varContent = await varResp.Content.ReadAsStringAsync();
@@ -446,14 +446,14 @@ public class KatanaService : IKatanaService
                 if (firstVar.ValueKind == JsonValueKind.Undefined || firstVar.ValueKind == JsonValueKind.Null)
                     return null;
 
-                // product_id expected
+                
                 if (!firstVar.TryGetProperty("product_id", out var pidEl))
                     return null;
 
                 int productId = 0;
                 try { productId = pidEl.GetInt32(); } catch { return null; }
 
-                // Fetch product by numeric id
+                
                 var productResp = await _httpClient.GetAsync($"{_settings.Endpoints.Products}/{productId}");
                 var productContent = await productResp.Content.ReadAsStringAsync();
                 if (!productResp.IsSuccessStatusCode)
@@ -464,7 +464,7 @@ public class KatanaService : IKatanaService
 
                 using var prodDoc = JsonDocument.Parse(productContent);
                 var prodRoot = prodDoc.RootElement;
-                // The product endpoint may return the product object directly or wrapped in data
+                
                 JsonElement productElement = prodRoot;
                 if (prodRoot.TryGetProperty("data", out var wrapped) && wrapped.ValueKind == JsonValueKind.Object)
                     productElement = wrapped;

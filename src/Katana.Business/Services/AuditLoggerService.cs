@@ -1,7 +1,7 @@
-/* AuditLoggerService (Application)
- * Uygulama içinde yapılan önemli işlemleri (CREATE, UPDATE, DELETE) kaydeder.
- * Veriler AuditLog tablosuna yazılır. Servis; Sync, Mapping, Admin veya API işlemlerinde izleme sağlar.
- */
+
+
+
+
 
 using Katana.Business.Interfaces;
 using Katana.Core.Entities;
@@ -23,9 +23,9 @@ public class AuditLoggerService : IAuditLoggerService
         _logger = logger;
     }
 
-    /// <summary>
-    /// Veritabanına temel audit kaydı ekler (string ID üzerinden).
-    /// </summary>
+    
+    
+    
     public async Task LogAsync(
         string actionType,
         string entityName,
@@ -57,9 +57,9 @@ public class AuditLoggerService : IAuditLoggerService
         }
     }
 
-    /// <summary>
-    /// Değişiklik öncesi/sonrası bilgilerini içeren gelişmiş audit kaydı oluşturur.
-    /// </summary>
+    
+    
+    
     public async Task LogAsync(
         string actionType,
         string entityName,
@@ -94,9 +94,9 @@ public class AuditLoggerService : IAuditLoggerService
         }
     }
 
-    /// <summary>
-    /// Tüm audit kayıtlarını sayfalama ile getirir.
-    /// </summary>
+    
+    
+    
     public async Task<List<AuditLog>> GetAllAsync(int page = 1, int pageSize = 50)
     {
         return await _context.AuditLogs
@@ -106,9 +106,9 @@ public class AuditLoggerService : IAuditLoggerService
             .ToListAsync();
     }
 
-    /// <summary>
-    /// Belirli bir entity'e ait audit kayıtlarını döndürür.
-    /// </summary>
+    
+    
+    
     public async Task<List<AuditLog>> GetByEntityAsync(string entityName, int entityId)
     {
         return await _context.AuditLogs
@@ -117,9 +117,9 @@ public class AuditLoggerService : IAuditLoggerService
             .ToListAsync();
     }
 
-    /// <summary>
-    /// Eski ve yeni değerleri özet bir metne dönüştürür (opsiyonel).
-    /// </summary>
+    
+    
+    
     private string? BuildChangeSummary(string? oldValues, string? newValues)
     {
         if (string.IsNullOrEmpty(oldValues) && string.IsNullOrEmpty(newValues))
@@ -128,9 +128,9 @@ public class AuditLoggerService : IAuditLoggerService
         return $"Old: {Truncate(oldValues)} | New: {Truncate(newValues)}";
     }
 
-    /// <summary>
-    /// Uzun değerleri keser (DB aşımı olmaması için).
-    /// </summary>
+    
+    
+    
     private string Truncate(string? value, int maxLength = 500)
     {
         if (string.IsNullOrEmpty(value))

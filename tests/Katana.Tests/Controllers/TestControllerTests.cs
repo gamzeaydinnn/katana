@@ -47,10 +47,10 @@ public class TestControllerTests
     [Fact]
     public void GetKatanaConfig_ReturnsConfiguration()
     {
-        // Act
+        
         var result = _controller.GetKatanaConfig();
 
-        // Assert
+        
         result.Should().BeOfType<OkObjectResult>();
         var okResult = result as OkObjectResult;
         okResult!.Value.Should().NotBeNull();
@@ -59,35 +59,35 @@ public class TestControllerTests
     [Fact]
     public void GetKatanaConfig_MasksApiKey()
     {
-        // Act
+        
         var result = _controller.GetKatanaConfig();
 
-        // Assert
+        
         result.Should().BeOfType<OkObjectResult>();
-        // Verifies that full API key is not exposed
+        
     }
 
     [Fact]
     public async Task TestKatanaDirect_ReturnsOkWhenSuccessful()
     {
-        // Arrange
+        
         var products = new List<KatanaProductDto>
         {
             new KatanaProductDto { SKU = "KAT001", Name = "Product 1" }
         };
         _mockKatanaService.Setup(s => s.GetProductsAsync()).ReturnsAsync(products);
 
-        // Act
+        
         var result = await _controller.TestKatanaDirect();
 
-        // Assert
+        
         result.Should().BeOfType<OkObjectResult>();
     }
 
     [Fact]
     public async Task TestKatanaDirect_ReturnsProductCount()
     {
-        // Arrange
+        
         var products = new List<KatanaProductDto>
         {
             new KatanaProductDto { SKU = "KAT001", Name = "Product 1" },
@@ -95,23 +95,23 @@ public class TestControllerTests
         };
         _mockKatanaService.Setup(s => s.GetProductsAsync()).ReturnsAsync(products);
 
-        // Act
+        
         var result = await _controller.TestKatanaDirect();
 
-        // Assert
+        
         result.Should().BeOfType<OkObjectResult>();
     }
 
     [Fact]
     public async Task TestKatanaDirect_Returns500OnException()
     {
-        // Arrange
+        
         _mockKatanaService.Setup(s => s.GetProductsAsync()).ThrowsAsync(new Exception("API error"));
 
-        // Act
+        
         var result = await _controller.TestKatanaDirect();
 
-        // Assert
+        
         result.Should().BeOfType<ObjectResult>();
         var objectResult = result as ObjectResult;
         objectResult!.StatusCode.Should().Be(500);
@@ -120,14 +120,14 @@ public class TestControllerTests
     [Fact]
     public async Task TestKatanaDirect_LogsWarnings()
     {
-        // Arrange
+        
         var products = new List<KatanaProductDto>();
         _mockKatanaService.Setup(s => s.GetProductsAsync()).ReturnsAsync(products);
 
-        // Act
+        
         await _controller.TestKatanaDirect();
 
-        // Assert
+        
         _mockLogger.Verify(
             x => x.Log(
                 LogLevel.Warning,

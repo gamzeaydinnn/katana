@@ -1,4 +1,4 @@
-/*Arayüzün ihtiyaç duyacağı özet verileri taşımak için kullanılacak DTO'lar (örn: SyncSummaryDto, StatsDto).*/
+
 namespace Katana.Core.DTOs;
 
 public class DashboardStatsDto
@@ -23,5 +23,5 @@ public class NotificationDto
     public string Title { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
-    public string Severity { get; set; } = "Info"; // örn: Info, Warning, Error
+    public string Severity { get; set; } = "Info"; 
 }

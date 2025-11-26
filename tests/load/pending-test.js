@@ -18,7 +18,7 @@ const TOKEN = __ENV.K6_TOKEN || '';
 
 export default function () {
   const headers = TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {};
-  // Read workloads for admin pending adjustments
+  
   const res = http.get(`${BASE_URL}/api/adminpanel/pending-adjustments`, { headers });
   check(res, { 'pending list ok': (r) => r.status === 200 });
   sleep(1);

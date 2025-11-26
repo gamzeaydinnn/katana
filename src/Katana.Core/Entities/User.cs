@@ -21,6 +21,6 @@ public class User
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    // ✅ BU ŞART
+    
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

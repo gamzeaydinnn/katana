@@ -2,9 +2,9 @@ using System;
 
 namespace Katana.Core.Entities;
 
-/// <summary>
-/// Envanter hareketi (stocktake/adjustment vb.) için temel temsil.
-/// </summary>
+
+
+
 public class InventoryMovement
 {
     public int Id { get; set; }

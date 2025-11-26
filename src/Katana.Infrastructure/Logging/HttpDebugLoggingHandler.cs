@@ -5,10 +5,10 @@ using Microsoft.Extensions.Logging;
 
 namespace Katana.Infrastructure.Logging;
 
-/// <summary>
-/// DelegatingHandler that logs raw HTTP requests/responses (headers, cookies, bodies) for diagnostics.
-/// Yazılan loglar repo kökündeki logs klasörüne düşer; uzun yanıtlar kesilir.
-/// </summary>
+
+
+
+
 public class HttpDebugLoggingHandler : DelegatingHandler
 {
     private readonly ILogger<HttpDebugLoggingHandler> _logger;

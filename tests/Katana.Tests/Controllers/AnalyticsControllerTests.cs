@@ -35,7 +35,7 @@ public class AnalyticsControllerTests : IDisposable
     [Fact]
     public async Task GetStockReport_ReturnsOkWithReport()
     {
-        // Arrange
+        
         var products = new List<KatanaProductDto>
         {
             new() { SKU = "P001", Name = "Product 1", Price = 100.00m, IsActive = true },
@@ -43,10 +43,10 @@ public class AnalyticsControllerTests : IDisposable
         };
         _mockKatanaService.Setup(s => s.GetProductsAsync()).ReturnsAsync(products);
 
-        // Act
+        
         var result = await _controller.GetStockReport();
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -54,14 +54,14 @@ public class AnalyticsControllerTests : IDisposable
     [Fact]
     public async Task GetStockReport_ReturnsInternalServerErrorWhenExceptionOccurs()
     {
-        // Arrange
+        
         _mockKatanaService.Setup(s => s.GetProductsAsync())
             .ThrowsAsync(new Exception("Service error"));
 
-        // Act
+        
         var result = await _controller.GetStockReport();
 
-        // Assert
+        
         var statusCodeResult = result.Should().BeOfType<ObjectResult>().Subject;
         statusCodeResult.StatusCode.Should().Be(500);
     }
@@ -69,7 +69,7 @@ public class AnalyticsControllerTests : IDisposable
     [Fact]
     public async Task GetSyncReport_ReturnsOkWithLogs()
     {
-        // Arrange
+        
         _context.SyncOperationLogs.Add(new Katana.Core.Entities.SyncOperationLog
         {
             SyncType = "STOCK",
@@ -81,10 +81,10 @@ public class AnalyticsControllerTests : IDisposable
         });
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetSyncReport();
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -92,12 +92,12 @@ public class AnalyticsControllerTests : IDisposable
     [Fact]
     public async Task GetSyncReport_ReturnsOkWithEmptyLogsWhenNoData()
     {
-        // Arrange - No logs added
+        
 
-        // Act
+        
         var result = await _controller.GetSyncReport();
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -105,7 +105,7 @@ public class AnalyticsControllerTests : IDisposable
     [Fact]
     public async Task GetSummaryReport_ReturnsOkWithSummary()
     {
-        // Arrange
+        
         var products = new List<KatanaProductDto>
         {
             new() { SKU = "P001", Name = "Product 1", IsActive = true },
@@ -124,10 +124,10 @@ public class AnalyticsControllerTests : IDisposable
         });
         await _context.SaveChangesAsync();
 
-        // Act
+        
         var result = await _controller.GetSummaryReport();
 
-        // Assert
+        
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
     }
@@ -135,14 +135,14 @@ public class AnalyticsControllerTests : IDisposable
     [Fact]
     public async Task GetSummaryReport_ReturnsInternalServerErrorWhenExceptionOccurs()
     {
-        // Arrange
+        
         _mockKatanaService.Setup(s => s.GetProductsAsync())
             .ThrowsAsync(new Exception("Service error"));
 
-        // Act
+        
         var result = await _controller.GetSummaryReport();
 
-        // Assert
+        
         var statusCodeResult = result.Should().BeOfType<ObjectResult>().Subject;
         statusCodeResult.StatusCode.Should().Be(500);
     }

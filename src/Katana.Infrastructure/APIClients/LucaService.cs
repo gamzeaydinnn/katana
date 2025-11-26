@@ -14,14 +14,14 @@ using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Core.Helpers;
-/*LucaService.cs (Genişletilecek): Luca Koza API'sına veri yazma operasyonlarını içerecek.
-Amacı: Sadece Luca'ya veri yazmaktan sorumlu olmak.
-Sorumlulukları (Yeni):
-Dönüştürülmüş fatura verisini muhasebe kaydı olarak işleme metodu.
-Stok hareketlerini işleme metodu.*/
+
+
+
+
+
 
 namespace Katana.Infrastructure.APIClients;
-//Luca-specific payload, fallback to CSV file export if API not available.
+
 public class LucaService : ILucaService
 {
     private readonly HttpClient _httpClient;
@@ -30,7 +30,7 @@ public class LucaService : ILucaService
     private readonly JsonSerializerOptions _jsonOptions;
     private string? _authToken;
     private DateTime? _tokenExpiry;
-    // Cookie-based auth support for Koza
+    
     private System.Net.CookieContainer? _cookieContainer;
     private HttpClientHandler? _cookieHandler;
     private HttpClient? _cookieHttpClient;
@@ -39,7 +39,7 @@ public class LucaService : ILucaService
     private static readonly Dictionary<long, (int ExpectedCariTur, string ErrorMessage)> FaturaKapamaCariRules =
         new()
         {
-            // Cari Hareketler (BELGE_TUR_ID = 11)
+            
             { 49,  (5, "Tahsilat makbuzu için sadece Kasa Kartı kullanılabilir (cariTur=5)") },
             { 63,  (5, "Tediye makbuzu için sadece Kasa Kartı kullanılabilir (cariTur=5)") },
             { 64,  (3, "Gelen havale için sadece Banka Kartı kullanılabilir (cariTur=3)") },
@@ -48,7 +48,7 @@ public class LucaService : ILucaService
             { 66,  (1, "Alacak dekontu için Cari Kart kullanılmalıdır (cariTur=1)") },
             { 67,  (1, "Borç dekontu için Cari Kart kullanılmalıdır (cariTur=1)") },
 
-            // Kredi Kartı Giriş (BELGE_TUR_ID = 28)
+            
             { 127, (5, "Kredi kartı girişi için sadece Kasa Kartı kullanılabilir (cariTur=5)") }
         };
 
@@ -73,7 +73,7 @@ public class LucaService : ILucaService
         }
         catch (Exception)
         {
-            // Provider may already be registered; ignore.
+            
         }
 
         return Encoding.GetEncoding(1254);
@@ -90,7 +90,7 @@ public class LucaService : ILucaService
             return;
         }
 
-        // Use cookie-based auth (Koza) when UseTokenAuth == false
+        
         if (!_isCookieAuthenticated)
         {
             await AuthenticateWithCookieAsync();
@@ -255,7 +255,7 @@ public class LucaService : ILucaService
 
             _logger.LogDebug("Branches response status: {Status}", branchesResponse.StatusCode);
             _logger.LogDebug("Branches response body: {Body}", branchesContent);
-                try { await SaveHttpTrafficAsync("BRANCHES", null, branchesResponse); } catch (Exception) { /* ignore */ }
+                try { await SaveHttpTrafficAsync("BRANCHES", null, branchesResponse); } catch (Exception) {  }
 
             if (!branchesResponse.IsSuccessStatusCode)
             {
@@ -316,12 +316,12 @@ public class LucaService : ILucaService
 
                     _logger.LogDebug("Branch: id={Id}, name={Name}", branchId, branchName ?? "(unnamed)");
 
-                    // If ForcedBranchId configured, prefer that branch when present
+                    
                     if (_settings.ForcedBranchId.HasValue && _settings.ForcedBranchId.Value == branchId)
                     {
                         selectedBranchId = branchId;
                         _logger.LogInformation("Selected forced branch from config: {Id} - {Name}", branchId, branchName ?? "(unnamed)");
-                        break; // preferred branch found
+                        break; 
                     }
 
                     if (!selectedBranchId.HasValue)
@@ -459,7 +459,7 @@ public class LucaService : ILucaService
 
     private async Task<bool> PerformLoginAsync()
     {
-        // Koza login: prefer JSON to avoid captcha; keep form fallbacks as last resort
+        
         var loginAttempts = new List<(string desc, HttpContent content)>
         {
             ("JSON:orgCode_userName_userPassword", CreateKozaContent(
@@ -495,7 +495,7 @@ public class LucaService : ILucaService
                 response = await _cookieHttpClient!.PostAsync(_settings.Endpoints.Auth, payload);
                 authBody = await ReadResponseContentAsync(response);
                 await AppendRawLogAsync($"AUTH_LOGIN:{desc}", _settings.Endpoints.Auth, payloadText, response.StatusCode, authBody);
-                try { await SaveHttpTrafficAsync($"AUTH_LOGIN:{desc}", null, response); } catch (Exception) { /* ignore */ }
+                try { await SaveHttpTrafficAsync($"AUTH_LOGIN:{desc}", null, response); } catch (Exception) {  }
 
                 if (response.IsSuccessStatusCode && IsKozaLoginSuccess(authBody))
                 {
@@ -517,13 +517,13 @@ public class LucaService : ILucaService
         return await SelectDefaultBranchAsync();
     }
 
-    // Koza login responses vary (HTML or JSON). Detect success with best-effort heuristics.
+    
     private bool IsKozaLoginSuccess(string? body)
     {
         if (string.IsNullOrWhiteSpace(body))
             return false;
 
-        // Try JSON pattern: {"code":0} or {"success":true}
+        
         try
         {
             using var doc = JsonDocument.Parse(body);
@@ -533,7 +533,7 @@ public class LucaService : ILucaService
                 if (root.TryGetProperty("code", out var codeProp) && codeProp.ValueKind == JsonValueKind.Number)
                 {
                     if (codeProp.GetInt32() == 0) return true;
-                    // Explicit non-zero code means failure
+                    
                     return false;
                 }
                 if (root.TryGetProperty("success", out var successProp) && successProp.ValueKind == JsonValueKind.True)
@@ -542,21 +542,21 @@ public class LucaService : ILucaService
         }
         catch
         {
-            // Not JSON, fall back to string heuristics
+            
         }
 
         var text = body.ToLowerInvariant();
-        // Known failure markers from Koza HTML responses
+        
         string[] failTokens = { "hatal", "yanl", "gecersiz", "captcha", "deneme hakk", "beklenmedik", "error", "exception" };
         if (failTokens.Any(text.Contains))
             return false;
 
-        // Success markers
+        
         string[] successTokens = { "anasayfa", "menu", "redirect", "yetki", "hosgeldiniz", "giri\u015f ba\u015far\u0131l", "loginok" };
         if (successTokens.Any(text.Contains))
             return true;
 
-        // If HTTP status was OK and body is non-empty but ambiguous, optimistically treat as success
+        
         return true;
     }
 
@@ -594,7 +594,7 @@ public class LucaService : ILucaService
 
             if (!arrayEl.HasValue || arrayEl.Value.GetArrayLength() == 0) return null;
 
-            // pick default if flagged, otherwise first
+            
             var chosen = arrayEl.Value.EnumerateArray()
                 .FirstOrDefault(el =>
                     (el.TryGetProperty("isDefault", out var isDef) && isDef.ValueKind == JsonValueKind.True) ||
@@ -691,16 +691,16 @@ public class LucaService : ILucaService
     {
         try
         {
-            // Try several ChangeBranch payload formats and log responses for diagnosis.
+            
             var attempts = new List<(string desc, HttpContent content)>();
 
             var jsonPayload = JsonSerializer.Serialize(new { orgSirketSubeId = branchId }, _jsonOptions);
             attempts.Add(("JSON:orgSirketSubeId", CreateKozaContent(jsonPayload)));
 
-            // form-urlencoded fallback
+            
             attempts.Add(("FORM:orgSirketSubeId", new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>("orgSirketSubeId", branchId.ToString()) })));
 
-            // try alternate field naming
+            
             var jsonPayloadAlt = JsonSerializer.Serialize(new { orgSirketSubeID = branchId }, _jsonOptions);
             attempts.Add(("JSON:orgSirketSubeID", CreateKozaContent(jsonPayloadAlt)));
             attempts.Add(("FORM:orgSirketSubeID", new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>("orgSirketSubeID", branchId.ToString()) })));
@@ -715,11 +715,11 @@ public class LucaService : ILucaService
                     var resp = await _cookieHttpClient!.PostAsync(_settings.Endpoints.ChangeBranch, content);
                     var body = await ReadResponseContentAsync(resp);
                     await AppendRawLogAsync("CHANGE_BRANCH:" + desc, _settings.Endpoints.ChangeBranch, payloadText, resp.StatusCode, body);
-                            try { await SaveHttpTrafficAsync("CHANGE_BRANCH:" + desc, null, resp); } catch (Exception) { /* ignore */ }
+                            try { await SaveHttpTrafficAsync("CHANGE_BRANCH:" + desc, null, resp); } catch (Exception) {  }
 
                     if (resp.IsSuccessStatusCode)
                     {
-                        // If Koza returns a JSON 'code' field, ensure it's 0 (success)
+                        
                         try
                         {
                             using var doc = JsonDocument.Parse(body);
@@ -792,7 +792,7 @@ public class LucaService : ILucaService
 
                 _authToken = authResponse.GetProperty("token").GetString();
                 var expiresIn = authResponse.GetProperty("expiresIn").GetInt32();
-                _tokenExpiry = DateTime.UtcNow.AddSeconds(expiresIn - 60); // Refresh 1 minute before expiry
+                _tokenExpiry = DateTime.UtcNow.AddSeconds(expiresIn - 60); 
 
                 _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _authToken);
 
@@ -1098,7 +1098,7 @@ public class LucaService : ILucaService
         }
         catch (JsonException)
         {
-            // fall back to string check
+            
         }
 
         return responseBody.Contains("Başar", StringComparison.OrdinalIgnoreCase)
@@ -1250,7 +1250,7 @@ public class LucaService : ILucaService
             _logger.LogInformation("Sending {Count} stock movements to Luca", stockMovements.Count);
 
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-            // Koza (UseTokenAuth=false) tarafında EkleStkWsHareket.do Action'ı yok; diğer stok hareketi endpoint'ini kullan.
+            
             if (_settings.UseTokenAuth)
             {
                 var json = JsonSerializer.Serialize(stockMovements, _jsonOptions);
@@ -1299,7 +1299,7 @@ public class LucaService : ILucaService
                             continue;
                         }
 
-                        // Koza genelde code=0 dönüyor
+                        
                         try
                         {
                             using var doc = JsonDocument.Parse(body);
@@ -1417,7 +1417,7 @@ public class LucaService : ILucaService
             var fullUrl = string.IsNullOrWhiteSpace(baseUrl) ? endpoint : (endpoint.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? endpoint : baseUrl + "/" + endpoint.TrimStart('/'));
             await AppendRawLogAsync("SEND_PRODUCTS", fullUrl, json, response.StatusCode, responseContent);
 
-            // Koza sometimes returns HTML "Şirket Şube seçimi" when branch is not selected; retry once after re-auth + branch change
+            
             if (!_settings.UseTokenAuth && NeedsBranchSelection(responseContent))
             {
                 _logger.LogWarning("Luca/Koza returned branch-not-selected; re-authenticating and retrying product push once.");
@@ -2108,7 +2108,7 @@ public class LucaService : ILucaService
                     };
                     ApplyManualSessionCookie(httpRequest);
 
-                    try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_REQUEST:{card.KartKodu}", httpRequest, null); } catch (Exception) { /* ignore */ }
+                    try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_REQUEST:{card.KartKodu}", httpRequest, null); } catch (Exception) {  }
 
                     var response = await client.SendAsync(httpRequest);
                     var responseBytes = await response.Content.ReadAsByteArrayAsync();
@@ -2118,7 +2118,7 @@ public class LucaService : ILucaService
                     var baseUrl = client.BaseAddress?.ToString()?.TrimEnd('/') ?? _settings.BaseUrl?.TrimEnd('/') ?? string.Empty;
                     var fullUrl = string.IsNullOrWhiteSpace(baseUrl) ? endpoint : (endpoint.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? endpoint : baseUrl + "/" + endpoint.TrimStart('/'));
                     await AppendRawLogAsync("SEND_STOCK_CARD", fullUrl, payload, response.StatusCode, responseContent);
-                    try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_RESPONSE:{card.KartKodu}", httpRequest, response); } catch (Exception) { /* ignore */ }
+                    try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_RESPONSE:{card.KartKodu}", httpRequest, response); } catch (Exception) {  }
 
                     if (NeedsBranchSelection(responseContent))
                     {
@@ -2143,13 +2143,13 @@ public class LucaService : ILucaService
 
                     if (responseContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
                     {
-                        // HTML response — try additional fallbacks (UTF-8 JSON, then form-urlencoded)
+                        
                         _logger.LogError("Stock card {Card} returned HTML. Snippet: {Snippet}", card.KartKodu, responseContent.Length > 200 ? responseContent.Substring(0, 200) : responseContent);
                         _logger.LogWarning("Stock card {Card} returned HTML. Will attempt UTF-8 JSON retry then form-encoded retry.", card.KartKodu);
                         await AppendRawLogAsync($"SEND_STOCK_CARD_HTML:{card.KartKodu}", fullUrl, payload, response.StatusCode, responseContent);
-                        try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_HTML:{card.KartKodu}", null, response); } catch (Exception) { /* ignore */ }
+                        try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_HTML:{card.KartKodu}", null, response); } catch (Exception) {  }
 
-                        // Retry 1: send as UTF-8 JSON (no windows-1254 charset)
+                        
                         try
                         {
                             var utf8Bytes = Encoding.UTF8.GetBytes(payload);
@@ -2162,13 +2162,13 @@ public class LucaService : ILucaService
                             string utf8RespContent;
                             try { utf8RespContent = Encoding.UTF8.GetString(utf8BytesResp); } catch { utf8RespContent = Windows1254Encoding.GetString(utf8BytesResp); }
                             await AppendRawLogAsync($"SEND_STOCK_CARD_UTF8_RETRY:{card.KartKodu}", fullUrl, payload, utf8Resp.StatusCode, utf8RespContent);
-                            try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_UTF8_RETRY:{card.KartKodu}", utf8Req, utf8Resp); } catch (Exception) { /* ignore */ }
+                            try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_UTF8_RETRY:{card.KartKodu}", utf8Req, utf8Resp); } catch (Exception) {  }
 
                             if (!utf8RespContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
                             {
                                 responseContent = utf8RespContent;
                                 response = utf8Resp;
-                                // proceed to parse below
+                                
                             }
                             else
                             {
@@ -2180,12 +2180,12 @@ public class LucaService : ILucaService
                             _logger.LogWarning(ex, "UTF-8 retry failed for stock card {Card}", card.KartKodu);
                         }
 
-                        // If still HTML, Retry 2: form-urlencoded - flatten JSON properties to strings
+                        
                         if (responseContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
                         {
                             try
                             {
-                                // Build form values by parsing JSON payload and stringifying primitives
+                                
                                 var formPairs = new List<KeyValuePair<string, string>>();
                                 try
                                 {
@@ -2202,11 +2202,11 @@ public class LucaService : ILucaService
                                                 formPairs.Add(new KeyValuePair<string, string>(prop.Name, prop.Value.GetBoolean() ? "true" : "false"));
                                             else if (prop.Value.ValueKind == JsonValueKind.Null)
                                                 formPairs.Add(new KeyValuePair<string, string>(prop.Name, string.Empty));
-                                            // Skip arrays/objects (Koza usually expects flat fields for stock create)
+                                            
                                         }
                                     }
                                 }
-                                catch (Exception) { /* ignore parse errors and proceed with empty form */ }
+                                catch (Exception) {  }
 
                                 var form = new FormUrlEncodedContent(formPairs);
                                 using var formReq = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = form };
@@ -2214,7 +2214,7 @@ public class LucaService : ILucaService
                                 var formResp = await (_cookieHttpClient ?? client).SendAsync(formReq);
                                 var formRespBody = await ReadResponseContentAsync(formResp);
                                 await AppendRawLogAsync($"SEND_STOCK_CARD_FORM_RETRY:{card.KartKodu}", fullUrl, payload, formResp.StatusCode, formRespBody);
-                                try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_FORM_RETRY:{card.KartKodu}", formReq, formResp); } catch (Exception) { /* ignore */ }
+                                try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_FORM_RETRY:{card.KartKodu}", formReq, formResp); } catch (Exception) {  }
 
                                 if (!formRespBody.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
                                 {
@@ -2232,7 +2232,7 @@ public class LucaService : ILucaService
                             }
                         }
 
-                        // If still HTML after retries, record failure and continue
+                        
                         if (responseContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
                         {
                             failedCount++;
@@ -2635,19 +2635,19 @@ public class LucaService : ILucaService
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var endpoint = _settings.UseTokenAuth ? _settings.Endpoints.Products : _settings.Endpoints.StockCardCreate;
 
-        // Prepare three serialization strategies to try sequentially
-        // 1) JSON using original property names (no naming policy)
-        // 2) Wrapped object: { "stkSkart": { ... } }
-        // 3) Form-encoded key/value pairs
+        
+        
+        
+        
 
-        // JSON options with original property names
+        
         var jsonOptionsOriginal = new JsonSerializerOptions
         {
             PropertyNamingPolicy = null,
             DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
         };
 
-        // Attempt 1: JSON with original property names
+        
         try
         {
             _logger.LogInformation("ATTEMPT 1: JSON with original property names");
@@ -2677,7 +2677,7 @@ public class LucaService : ILucaService
             _logger.LogWarning(ex, "ATTEMPT 1 exception");
         }
 
-        // Attempt 2: Wrapped in stkSkart
+        
         try
         {
             _logger.LogInformation("ATTEMPT 2: Wrapped object (stkSkart)");
@@ -2708,7 +2708,7 @@ public class LucaService : ILucaService
             _logger.LogWarning(ex, "ATTEMPT 2 exception");
         }
 
-        // Attempt 3: Form-encoded key/value pairs
+        
         try
         {
             _logger.LogInformation("ATTEMPT 3: Form-encoded key/value pairs");
@@ -2730,7 +2730,7 @@ public class LucaService : ILucaService
                 ["maliyetHesaplanacakFlag"] = request.MaliyetHesaplanacakFlag.ToString()
             };
 
-            // Build form body manually to control charset
+            
             var formPairs = fields.Where(kv => kv.Value != null).Select(kv => Uri.EscapeDataString(kv.Key) + "=" + Uri.EscapeDataString(kv.Value!));
             var formBody = string.Join("&", formPairs);
             var formBytes = Windows1254Encoding.GetBytes(formBody ?? string.Empty);
@@ -2761,7 +2761,7 @@ public class LucaService : ILucaService
             _logger.LogWarning(ex, "ATTEMPT 3 exception");
         }
 
-        // If all attempts failed, throw with helpful diagnostics
+        
         throw new InvalidOperationException("All serialization attempts for CreateStockCardAsync failed. Need working example from Koza. Check logs for ATTEMPT* entries.");
     }
 
@@ -3088,7 +3088,7 @@ public class LucaService : ILucaService
             invoice.ParaBirimKod = "TRY";
         }
 
-        // KDV flag Koza tarafında zorunlu; null/varsayılan kalmasına izin vermeyin
+        
         if (!invoice.KdvFlag.HasValue)
         {
             invoice.KdvFlag = true;
@@ -3307,9 +3307,9 @@ public class LucaService : ILucaService
         {
             if (request == null) return;
             if (string.IsNullOrWhiteSpace(_settings?.ManualSessionCookie)) return;
-            // Always try to add the configured manual session cookie as a request header.
-            // This ensures requests carry the cookie even when CookieContainer is not used
-            // or when an HttpRequestMessage is constructed directly.
+            
+            
+            
             request.Headers.TryAddWithoutValidation("Cookie", _settings.ManualSessionCookie);
         }
         catch (Exception ex)
@@ -3348,7 +3348,7 @@ public class LucaService : ILucaService
         }
     }
 
-    // Luca → Katana (Pull) implementations
+    
     public async Task<List<LucaInvoiceDto>> FetchInvoicesAsync(DateTime? fromDate = null)
     {
         try
@@ -3489,7 +3489,7 @@ public class LucaService : ILucaService
 
             _logger.LogInformation("Fetching products (stock cards) from Luca (Koza)...");
 
-            // Koza / Luca stok kartları listeleme endpoint'ine POST ile boş filtre gönderebiliriz.
+            
             var json = JsonSerializer.Serialize(new { }, _jsonOptions);
             var content = CreateKozaContent(json);
 
@@ -3516,7 +3516,7 @@ public class LucaService : ILucaService
             {
                 using var doc = JsonDocument.Parse(responseContent);
 
-                // Olası kapsayıcı alan adlarını kontrol et
+                
                 if (doc.RootElement.ValueKind == JsonValueKind.Object)
                 {
                     if (doc.RootElement.TryGetProperty("list", out var listEl) && listEl.ValueKind == JsonValueKind.Array)
@@ -3535,7 +3535,7 @@ public class LucaService : ILucaService
                     }
                 }
 
-                // Eğer root array döndüyse direkt deserialize et
+                
                 if (doc.RootElement.ValueKind == JsonValueKind.Array)
                 {
                     return JsonSerializer.Deserialize<List<LucaProductDto>>(responseContent, _jsonOptions) ?? new List<LucaProductDto>();
@@ -3546,7 +3546,7 @@ public class LucaService : ILucaService
                 _logger.LogWarning(ex, "Failed to parse products response from Luca; attempting generic deserialize");
             }
 
-            // Fallback: doğrudan array olarak deserialize etmeye çalış
+            
             return JsonSerializer.Deserialize<List<LucaProductDto>>(responseContent, _jsonOptions) ?? new List<LucaProductDto>();
         }
         catch (Exception ex)
@@ -3567,7 +3567,7 @@ public class LucaService : ILucaService
 
             var results = new List<LucaDespatchDto>();
 
-            // Try to locate array payload in common wrapper fields
+            
             JsonElement arrayEl = default;
             if (element.ValueKind == JsonValueKind.Array)
             {
@@ -3612,7 +3612,7 @@ public class LucaService : ILucaService
                     if (item.TryGetProperty("cariTanim", out var ct))
                         dto.CustomerTitle = ct.GetString();
 
-                    // Lines
+                    
                     if (item.TryGetProperty("detayList", out var detay) && detay.ValueKind == JsonValueKind.Array)
                     {
                         foreach (var line in detay.EnumerateArray())
@@ -3633,7 +3633,7 @@ public class LucaService : ILucaService
 
                                 dto.Lines.Add(li);
                             }
-                            catch (Exception) { /* ignore line parse errors */ }
+                            catch (Exception) {  }
                         }
                     }
 
@@ -3691,8 +3691,8 @@ public class LucaService : ILucaService
 
             await File.AppendAllTextAsync(file, sb.ToString());
 
-            // Also try to write to repository root ./logs when running the API from source (dotnet run),
-            // so tests/scripts that expect ./logs/luca-raw.log can find it.
+            
+            
             try
             {
                 var cwd = Directory.GetCurrentDirectory();
@@ -3706,7 +3706,7 @@ public class LucaService : ILucaService
             }
             catch (Exception)
             {
-                // ignore
+                
             }
         }
         catch (Exception ex)
@@ -3769,7 +3769,7 @@ public class LucaService : ILucaService
                     }
                 }
 
-                // Capture Set-Cookie headers if present
+                
                 if (response.Headers.TryGetValues("Set-Cookie", out var scs))
                 {
                     sb.AppendLine("Set-Cookie:");
@@ -3777,7 +3777,7 @@ public class LucaService : ILucaService
                 }
             }
 
-            // Dump cookie container (for the configured base URL)
+            
             try
             {
                 if (_cookieContainer != null && !string.IsNullOrWhiteSpace(_settings.BaseUrl))
@@ -3811,7 +3811,7 @@ public class LucaService : ILucaService
             sb.AppendLine("----");
             await File.WriteAllTextAsync(filePath, sb.ToString());
 
-            // Also write to repo ./logs for convenience when running from source
+            
             try
             {
                 var cwd = Directory.GetCurrentDirectory();
@@ -3825,7 +3825,7 @@ public class LucaService : ILucaService
             }
             catch (Exception)
             {
-                // ignore
+                
             }
         }
         catch (Exception ex)
@@ -3839,22 +3839,22 @@ public class LucaService : ILucaService
         var charset = response.Content.Headers.ContentType?.CharSet?.Trim().ToLowerInvariant();
         var bytes = await response.Content.ReadAsByteArrayAsync();
 
-        // Prefer explicit charset if provided; Koza sometimes uses windows-1254/iso-8859-9
+        
         if (!string.IsNullOrWhiteSpace(charset))
         {
             if (charset.Contains("1254") || charset.Contains("iso-8859-9"))
             {
-                try { return Windows1254Encoding.GetString(bytes); } catch { /* fall back below */ }
+                try { return Windows1254Encoding.GetString(bytes); } catch {  }
             }
             if (charset.Contains("utf-8"))
             {
-                try { return Encoding.UTF8.GetString(bytes); } catch { /* fall back */ }
+                try { return Encoding.UTF8.GetString(bytes); } catch {  }
             }
         }
 
-        // Fallback: try UTF-8, then cp1254
-        try { return Encoding.UTF8.GetString(bytes); } catch { /* ignore */ }
-        try { return Windows1254Encoding.GetString(bytes); } catch { /* ignore */ }
+        
+        try { return Encoding.UTF8.GetString(bytes); } catch {  }
+        try { return Windows1254Encoding.GetString(bytes); } catch {  }
         return string.Empty;
     }
 
@@ -3883,7 +3883,7 @@ public class LucaService : ILucaService
         }
         catch
         {
-            // ignore parse errors
+            
         }
 
         return 0;

@@ -44,7 +44,7 @@ namespace Katana.Infrastructure.Workers
                                 }
                                 try
                                 {
-                                    // Map PendingAuditInfo -> AuditLog entity
+                                    
                                     var audit = new AuditLog
                                     {
                                         ActionType = pending.ActionType,
@@ -63,12 +63,12 @@ namespace Katana.Infrastructure.Workers
                                 }
                                 catch (OperationCanceledException)
                                 {
-                                    // Host is shutting down
+                                    
                                     return;
                                 }
                                 catch (Exception ex)
                                 {
-                                    // If save fails, re-enqueue and break to avoid tight loop
+                                    
                                     _logger.LogWarning(ex, "RetryPendingDbWritesService: failed to flush audit, re-enqueueing and will retry later.");
                                     _queue.EnqueueAudit(pending);
                                     break;
@@ -80,7 +80,7 @@ namespace Katana.Infrastructure.Workers
                     }
                     catch (OperationCanceledException)
                     {
-                        // Graceful shutdown
+                        
                         break;
                     }
                     catch (Exception ex)
@@ -88,7 +88,7 @@ namespace Katana.Infrastructure.Workers
                         _logger.LogWarning(ex, "Error while flushing pending DB writes");
                     }
 
-                    // Wait before next attempt
+                    
                     try
                     {
                         await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);

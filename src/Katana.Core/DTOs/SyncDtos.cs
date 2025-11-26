@@ -9,7 +9,7 @@ public class SyncResultDto
     public int FailedRecords { get; set; }
     public List<string> Errors { get; set; } = new();
     public DateTime SyncTime { get; set; } = DateTime.UtcNow;
-    public string SyncType { get; set; } = string.Empty; // STOCK, INVOICE, CUSTOMER
+    public string SyncType { get; set; } = string.Empty; 
     public TimeSpan Duration { get; set; }
 }
 

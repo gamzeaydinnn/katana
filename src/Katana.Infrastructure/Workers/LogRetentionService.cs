@@ -29,7 +29,7 @@ public class LogRetentionService : BackgroundService
         _logger.LogInformation("LogRetentionService starting");
         try
         {
-            // Run immediately on startup to enforce retention window
+            
             await CleanupAsync(stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)

@@ -58,6 +58,6 @@ public class PendingNotificationPublisherTests
         publisher.Verify();
     }
 
-    // NOTE: ApproveAsync publish path is validated indirectly via service logic.
-    // Full end-to-end publish test requires relational DB and API build. Skipped due to constraints.
+    
+    
 }

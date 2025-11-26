@@ -1,7 +1,7 @@
-/* ErrorHandlerService (Application)
- * — hataların business-level ele alınması;
- * mevcut hata middleware’i bunu kullanmalı.
- */
+
+
+
+
 
 using Katana.Business.Interfaces;
 using Katana.Core.Enums;
@@ -73,9 +73,9 @@ public class ErrorHandlerService : IErrorHandler
         }
     }
 
-    /// <summary>
-    /// Hata türünü belirler.
-    /// </summary>
+    
+    
+    
     private ErrorType ClassifyError(Exception ex)
     {
         var msg = ex.Message.ToLowerInvariant();

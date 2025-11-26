@@ -35,7 +35,7 @@ public class SyncServiceEdgeCaseTests : IDisposable
     [Fact]
     public async Task SyncStock_EmptyExtraction_IsSuccessTrueWithZeroCounts()
     {
-        // Arrange
+        
         _extractor.Setup(e => e.ExtractProductsAsync(It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ProductDto>());
         _transformer.Setup(t => t.ToProductsAsync(It.IsAny<IEnumerable<ProductDto>>()))
@@ -46,10 +46,10 @@ public class SyncServiceEdgeCaseTests : IDisposable
         var mockLucaService = new Mock<ILucaService>();
         var svc = new SyncService(_extractor.Object, _transformer.Object, _loader.Object, mockLucaService.Object, _db, _logger.Object);
 
-        // Act
+        
         var result = await svc.SyncStockAsync(DateTime.UtcNow.AddDays(-1));
 
-        // Assert
+        
         result.IsSuccess.Should().BeTrue();
         result.ProcessedRecords.Should().Be(0);
         result.SuccessfulRecords.Should().Be(0);
@@ -66,7 +66,7 @@ public class SyncServiceEdgeCaseTests : IDisposable
     [Fact]
     public async Task SyncStock_TransformerThrows_ReturnsFailureAndLogsFailed()
     {
-        // Arrange
+        
         _extractor.Setup(e => e.ExtractProductsAsync(It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ProductDto> { new() { SKU = "SKU-1", Name = "P", Price = 10m, CategoryId = 1, IsActive = true } });
         _transformer.Setup(t => t.ToProductsAsync(It.IsAny<IEnumerable<ProductDto>>()))
@@ -75,10 +75,10 @@ public class SyncServiceEdgeCaseTests : IDisposable
         var mockLucaService = new Mock<ILucaService>();
         var svc = new SyncService(_extractor.Object, _transformer.Object, _loader.Object, mockLucaService.Object, _db, _logger.Object);
 
-        // Act
+        
         var result = await svc.SyncStockAsync();
 
-        // Assert
+        
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("Transform error");
 
@@ -93,7 +93,7 @@ public class SyncServiceEdgeCaseTests : IDisposable
     [Fact]
     public async Task SyncStock_LoaderPartialSuccess_ReturnsPartialAndLogsCounts()
     {
-        // Arrange: 3 incoming, loader succeeds 2
+        
         var dtos = new List<ProductDto>
         {
             new() { SKU = "A", Name = "A", Price = 1m, CategoryId = 1, IsActive = true },
@@ -110,10 +110,10 @@ public class SyncServiceEdgeCaseTests : IDisposable
         var mockLucaService = new Mock<ILucaService>();
         var svc = new SyncService(_extractor.Object, _transformer.Object, _loader.Object, mockLucaService.Object, _db, _logger.Object);
 
-        // Act
+        
         var result = await svc.SyncStockAsync();
 
-        // Assert (partial)
+        
         result.IsSuccess.Should().BeFalse();
         result.ProcessedRecords.Should().Be(3);
         result.SuccessfulRecords.Should().Be(2);
@@ -129,17 +129,17 @@ public class SyncServiceEdgeCaseTests : IDisposable
     [Fact]
     public async Task SyncCustomers_ExtractorThrows_OneFailedLog_NoRetry()
     {
-        // Arrange
+        
         _extractor.Setup(e => e.ExtractCustomersAsync(It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Extractor failure"));
 
         var mockLucaService = new Mock<ILucaService>();
         var svc = new SyncService(_extractor.Object, _transformer.Object, _loader.Object, mockLucaService.Object, _db, _logger.Object);
 
-        // Act
+        
         var result = await svc.SyncCustomersAsync();
 
-        // Assert
+        
         result.IsSuccess.Should().BeFalse();
         var logs = _db.SyncOperationLogs.Where(l => l.SyncType == "CUSTOMER").ToList();
         logs.Count.Should().Be(1);

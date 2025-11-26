@@ -42,7 +42,7 @@ public class Customer
     
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     
-    // Navigation properties
+    
     public virtual ICollection<Invoice> Invoices { get; set; } = new List<Invoice>();
 }
 

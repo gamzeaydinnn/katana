@@ -5,9 +5,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Katana.Data.Repositories;
 
-/// <summary>
-/// Senkronizasyon sırasında başarısız olan kayıtları yönetmek için repository.
-/// </summary>
+
+
+
 public class FailedSyncRecordRepository
 {
     private readonly IntegrationDbContext _context;
@@ -19,9 +19,9 @@ public class FailedSyncRecordRepository
         _logger = logger;
     }
 
-    /// <summary>
-    /// Yeni bir başarısız kayıt oluşturur.
-    /// </summary>
+    
+    
+    
     public async Task AddFailedRecordAsync(int integrationLogId, string recordType, string recordId, string originalData, string errorMessage, string? errorCode = null)
     {
         var failedRecord = new FailedSyncRecord
@@ -42,9 +42,9 @@ public class FailedSyncRecordRepository
         _logger.LogWarning("Failed sync record added: {RecordType} - {RecordId}", recordType, recordId);
     }
 
-    /// <summary>
-    /// Belirli bir zaman aralığında yeniden denenecek kayıtları getirir.
-    /// </summary>
+    
+    
+    
     public async Task<List<FailedSyncRecord>> GetRetryableRecordsAsync()
     {
         var now = DateTime.UtcNow;
@@ -55,9 +55,9 @@ public class FailedSyncRecordRepository
             .ToListAsync();
     }
 
-    /// <summary>
-    /// Kayıt için yeniden deneme planı oluşturur.
-    /// </summary>
+    
+    
+    
     public async Task ScheduleRetryAsync(int recordId, int delayMinutes = 30)
     {
         var record = await _context.FailedSyncRecords.FindAsync(recordId);
@@ -76,9 +76,9 @@ public class FailedSyncRecordRepository
         _logger.LogInformation("Retry scheduled for record {Id} at {Time}", recordId, record.NextRetryAt);
     }
 
-    /// <summary>
-    /// Yeniden deneme sonucu başarılı olan kayıtları çözümlenmiş olarak işaretler.
-    /// </summary>
+    
+    
+    
     public async Task MarkAsResolvedAsync(int recordId, string? resolution = null, string? resolvedBy = "System")
     {
         var record = await _context.FailedSyncRecords.FindAsync(recordId);
@@ -93,9 +93,9 @@ public class FailedSyncRecordRepository
         _logger.LogInformation("Failed record {Id} marked as resolved", recordId);
     }
 
-    /// <summary>
-    /// Çok sayıda başarısız kaydı temizler (ör. arşivleme veya bakım işlemleri için).
-    /// </summary>
+    
+    
+    
     public async Task<int> CleanupOldFailedRecordsAsync(int daysToKeep = 30)
     {
         var threshold = DateTime.UtcNow.AddDays(-daysToKeep);

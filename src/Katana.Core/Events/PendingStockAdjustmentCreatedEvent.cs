@@ -2,10 +2,10 @@ using System;
 
 namespace Katana.Core.Events;
 
-/// <summary>
-/// Lightweight event payload for a newly created pending stock adjustment.
-/// Business layer will publish this to infrastructure implementations (e.g. SignalR, email, webhook).
-/// </summary>
+
+
+
+
 public class PendingStockAdjustmentCreatedEvent
 {
     public long Id { get; }

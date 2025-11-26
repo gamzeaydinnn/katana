@@ -33,7 +33,7 @@ namespace Katana.Business.Services
 
             _logger.LogInformation("Pending stock adjustment created (Id: {Id}, ProductId: {ProductId}, Quantity: {Qty})", creation.Id, creation.ProductId, creation.Quantity);
 
-            // Publish lightweight pending-created notification if a publisher is available
+            
             try
             {
                 if (_publisher != null)
@@ -62,8 +62,8 @@ namespace Katana.Business.Services
 
         public async Task<bool> ApproveAsync(long id, string approvedBy)
         {
-            // If the provider is non-relational (e.g., InMemory for tests),
-            // fallback to a simpler, transaction-less path that preserves semantics.
+            
+            
             if (!_context.Database.IsRelational())
             {
                 try
@@ -86,7 +86,7 @@ namespace Katana.Business.Services
                         return false;
                     }
 
-                    // Create StockMovement to represent the adjustment so Product.Stock getter stays consistent
+                    
                     var movement = new Katana.Core.Entities.StockMovement
                     {
                         ProductId = item.ProductId,
@@ -100,7 +100,7 @@ namespace Katana.Business.Services
                     };
                     _context.StockMovements.Add(movement);
 
-                    // Mirror into Stocks table for admin reporting
+                    
                     var stockEntry = new Stock
                     {
                         ProductId = item.ProductId,
@@ -160,18 +160,18 @@ namespace Katana.Business.Services
 
                 await strategy.ExecuteAsync(async () =>
                 {
-                    // First, attempt an atomic state transition from Pending -> Approving
+                    
                     var rows = await _context.Database.ExecuteSqlInterpolatedAsync($"UPDATE PendingStockAdjustments SET Status = {"Approving"} WHERE Id = {id} AND Status = {"Pending"}");
                     if (rows == 0)
                     {
-                        // Nothing to do (already processed or not pending)
+                        
                         failureReason = "Adjustment not in pending state or already processed";
                         return;
                     }
 
                     await using var tx = await _context.Database.BeginTransactionAsync();
 
-                    // Reload the item now that we have claimed it
+                    
                     var item = await _context.PendingStockAdjustments.FindAsync(id);
                     if (item == null)
                     {
@@ -193,7 +193,7 @@ namespace Katana.Business.Services
                         return;
                     }
 
-                    // Apply adjustment. Quantity may be negative for sales.
+                    
                     var movementRel = new Katana.Core.Entities.StockMovement
                     {
                         ProductId = item.ProductId,
@@ -209,7 +209,7 @@ namespace Katana.Business.Services
                     };
                     _context.StockMovements.Add(movementRel);
 
-                    // Mirror into Stocks table so admin stock movement reports stay accurate
+                    
                     var stockEntryRel = new Stock
                     {
                         ProductId = item.ProductId,
@@ -238,7 +238,7 @@ namespace Katana.Business.Services
                     _logger.LogInformation("Pending stock adjustment {Id} approved by {User}", id, approvedBy);
                     success = true;
 
-                    // Publish approved event (best-effort)
+                    
                     try
                     {
                         if (_publisher != null)
@@ -263,7 +263,7 @@ namespace Katana.Business.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to approve pending stock adjustment {Id}", id);
-                // Try to mark as failed if possible
+                
                 var item = await _context.PendingStockAdjustments.FindAsync(id);
                 if (item != null)
                 {

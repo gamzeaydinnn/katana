@@ -6,9 +6,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Katana.Business.Services;
 
-/// <summary>
-/// DTOLARı domain varlıklarına dönüştürür ve iş kurallarına göre doğrular.
-/// </summary>
+
+
+
 public class TransformerService : ITransformerService
 {
     private readonly ILogger<TransformerService> _logger;
@@ -31,7 +31,7 @@ public class TransformerService : ITransformerService
                     Description = dto.Description ?? string.Empty,
                     CategoryId = dto.CategoryId,
                     Price = dto.Price,
-                    // Set snapshot when creating Product entities from DTOs
+                    
                     StockSnapshot = dto.Stock,
                     MainImageUrl = dto.MainImageUrl,
                     IsActive = dto.IsActive,

@@ -19,12 +19,12 @@ public class Product
     
     public decimal Price { get; set; }
     
-    // Persisted legacy stock snapshot (kept for compatibility with existing migrations/usages)
+    
     [Column("Stock")]
     public int StockSnapshot { get; set; }
 
-    // Exposed Stock property: prefer calculated value from StockMovements when present.
-    // Marked NotMapped so EF won't treat it as a separate column.
+    
+    
     [NotMapped]
     public int Stock
     {
@@ -36,23 +36,23 @@ public class Product
         }
         set
         {
-            // Current computed stock (prefer movements when present)
+            
             var current = (StockMovements != null && StockMovements.Any()) ? StockMovements.Sum(x => x.ChangeQuantity) : StockSnapshot;
 
-            // If there is no change, nothing to do
+            
             var delta = value - current;
             if (delta == 0) return;
 
-            // If this is a brand-new entity (not yet persisted) and there are no movements,
-            // treat the assignment as initial snapshot set.
+            
+            
             if (Id == 0 && (StockMovements == null || !StockMovements.Any()))
             {
                 StockSnapshot = value;
                 return;
             }
 
-            // Otherwise create a StockMovement representing the delta so that the
-            // Stock getter remains consistent (movements preferred over snapshot).
+            
+            
             var movement = new StockMovement
             {
                 ProductId = this.Id,
@@ -84,10 +84,10 @@ public class Product
     
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     
-    // Navigation properties
+    
     public virtual ICollection<StockMovement> StockMovements { get; set; } = new List<StockMovement>();
     
-    // Local stock snapshot/history entries (kept separate from StockMovement used for integration)
+    
     public virtual ICollection<Stock> Stocks { get; set; } = new List<Stock>();
     public virtual ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
     public virtual ICollection<Batch> Batches { get; set; } = new List<Batch>();

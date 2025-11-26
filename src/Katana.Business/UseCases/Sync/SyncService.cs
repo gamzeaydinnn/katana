@@ -12,9 +12,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Katana.Business.UseCases.Sync;
 
-/// <summary>
-/// ETL bileşenlerini koordine ederek Katana ↔ Luca senkronizasyonunu gerçekleştirir.
-/// </summary>
+
+
+
 public class SyncService : ISyncService
 {
     private readonly IExtractorService _extractorService;
@@ -470,7 +470,7 @@ public class SyncService : ISyncService
         }
     }
 
-    // Luca → Katana (Reverse Sync) implementations
+    
     public async Task<SyncResultDto> SyncStockFromLucaAsync(DateTime? fromDate = null)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -480,7 +480,7 @@ public class SyncService : ISyncService
         {
             _logger.LogInformation("Starting Luca → Katana stock sync");
             
-            // Fetch from Luca
+            
             var lucaStockDtos = await _lucaService.FetchStockMovementsAsync(fromDate);
 
             _logger.LogInformation("Fetched {Count} stock movements from Luca", lucaStockDtos.Count);
@@ -507,7 +507,7 @@ public class SyncService : ISyncService
                         continue;
                     }
 
-                    // If Luca sent a BALANCE-type movement, compute the delta against current balance
+                    
                     var movementTypeNormalized = dto.MovementType?.ToUpperInvariant() ?? string.Empty;
                     int changeQuantity;
                     if (movementTypeNormalized == "BALANCE")
@@ -524,7 +524,7 @@ public class SyncService : ISyncService
                     }
 
                     var movement = MappingHelper.MapFromLucaStock(dto, product.Id);
-                    // Override computed change from mapping if BALANCE computed a delta
+                    
                     movement.ChangeQuantity = changeQuantity;
 
                     toInsert.Add(movement);
@@ -601,7 +601,7 @@ public class SyncService : ISyncService
                         continue;
                     }
 
-                    // Ensure customer exists (prefer TaxNo)
+                    
                     var taxNo = dto.CustomerTaxNo ?? dto.CustomerCode ?? string.Empty;
                     Customer? customer = null;
                     if (!string.IsNullOrWhiteSpace(taxNo))
@@ -611,7 +611,7 @@ public class SyncService : ISyncService
 
                     if (customer == null)
                     {
-                        // Create a customer from invoice header info
+                        
                         var custDto = new LucaCustomerDto
                         {
                             CustomerCode = dto.CustomerCode ?? taxNo,
@@ -625,7 +625,7 @@ public class SyncService : ISyncService
                         customer = newCustomer;
                     }
 
-                    // Check existing invoice by invoice no
+                    
                     var existing = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.InvoiceNo == dto.DocumentNo);
                     if (existing == null)
                     {
@@ -634,7 +634,7 @@ public class SyncService : ISyncService
                     }
                     else
                     {
-                        // Update minimal fields
+                        
                         existing.Amount = dto.NetAmount;
                         existing.TaxAmount = dto.TaxAmount;
                         existing.TotalAmount = dto.GrossAmount;
@@ -714,7 +714,7 @@ public class SyncService : ISyncService
                         continue;
                     }
 
-                    // Ensure customer exists (prefer CustomerCode)
+                    
                     var customerCode = dto.CustomerCode ?? dto.CustomerTitle ?? string.Empty;
                     Customer? customer = null;
                     if (!string.IsNullOrWhiteSpace(customerCode))
@@ -737,11 +737,11 @@ public class SyncService : ISyncService
                         customer = newCustomer;
                     }
 
-                    // Check existing invoice/despatch by document no
+                    
                     var existing = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.InvoiceNo == dto.DocumentNo);
                     if (existing == null)
                     {
-                        // Compute totals from lines
+                        
                         decimal net = 0m, tax = 0m, gross = 0m;
                         var invoiceEntity = new Invoice
                         {
@@ -755,7 +755,7 @@ public class SyncService : ISyncService
                             UpdatedAt = DateTime.UtcNow
                         };
 
-                        // Add invoice first to get its Id after SaveChanges
+                        
                         _dbContext.Invoices.Add(invoiceEntity);
                         await _dbContext.SaveChangesAsync();
 
@@ -775,7 +775,7 @@ public class SyncService : ISyncService
 
                                 if (product == null)
                                 {
-                                    // create placeholder product
+                                    
                                     var p = new Product
                                     {
                                         SKU = sku,
@@ -826,7 +826,7 @@ public class SyncService : ISyncService
                             await _dbContext.InvoiceItems.AddRangeAsync(items);
                         }
 
-                        // Update invoice totals
+                        
                         invoiceEntity.Amount = net;
                         invoiceEntity.TaxAmount = tax;
                         invoiceEntity.TotalAmount = gross;
@@ -835,7 +835,7 @@ public class SyncService : ISyncService
                     }
                     else
                     {
-                        // Update existing - minimal
+                        
                         existing.UpdatedAt = DateTime.UtcNow;
                     }
 

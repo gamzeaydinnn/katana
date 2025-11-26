@@ -4,9 +4,9 @@ namespace Katana.Core.DTOs;
 
 #region Sales Order
 
-/// <summary>
-/// Katana Sales Order (Satış Siparişi)
-/// </summary>
+
+
+
 public class SalesOrderDto
 {
     [JsonPropertyName("id")]
@@ -187,7 +187,7 @@ public class SalesOrderAddressDto
     public long SalesOrderId { get; set; }
 
     [JsonPropertyName("entity_type")]
-    public string EntityType { get; set; } = string.Empty; // billing | shipping
+    public string EntityType { get; set; } = string.Empty; 
 
     [JsonPropertyName("first_name")]
     public string? FirstName { get; set; }
@@ -226,16 +226,16 @@ public class SalesOrderAddressDto
     public DateTime UpdatedAt { get; set; }
 }
 
-/// <summary>
-/// Satış siparişi adresi oluşturma isteği.
-/// </summary>
+
+
+
 public class SalesOrderAddressCreateRequest
 {
     [JsonPropertyName("sales_order_id")]
     public long SalesOrderId { get; set; }
 
     [JsonPropertyName("entity_type")]
-    public string EntityType { get; set; } = "billing"; // billing | shipping
+    public string EntityType { get; set; } = "billing"; 
 
     [JsonPropertyName("first_name")]
     public string? FirstName { get; set; }
@@ -268,9 +268,9 @@ public class SalesOrderAddressCreateRequest
     public string? Country { get; set; }
 }
 
-/// <summary>
-/// Satış siparişi adresi güncelleme isteği.
-/// </summary>
+
+
+
 public class SalesOrderAddressUpdateRequest
 {
     [JsonPropertyName("first_name")]
@@ -304,9 +304,9 @@ public class SalesOrderAddressUpdateRequest
     public string? Country { get; set; }
 }
 
-/// <summary>
-/// Satış siparişi adresi listeleme filtreleri.
-/// </summary>
+
+
+
 public class SalesOrderAddressListQuery
 {
     [JsonPropertyName("ids")]
@@ -694,7 +694,7 @@ public class SalesOrderFulfillmentDto
     public DateTime? PickedDate { get; set; }
 
     [JsonPropertyName("status")]
-    public string Status { get; set; } = string.Empty; // PACKED, DELIVERED
+    public string Status { get; set; } = string.Empty; 
 
     [JsonPropertyName("conversion_rate")]
     public decimal? ConversionRate { get; set; }
@@ -1208,16 +1208,16 @@ public class SalesReturnRowListQuery
 
 #region Purchase Order
 
-/// <summary>
-/// Katana Purchase Order (Satınalma Siparişi)
-/// </summary>
+
+
+
 public class PurchaseOrderDto
 {
     [JsonPropertyName("id")]
     public long Id { get; set; }
 
     [JsonPropertyName("status")]
-    public string Status { get; set; } = string.Empty; // NOT_RECEIVED, PARTIALLY_RECEIVED, RECEIVED
+    public string Status { get; set; } = string.Empty; 
 
     [JsonPropertyName("billing_status")]
     public string? BillingStatus { get; set; }
@@ -1229,7 +1229,7 @@ public class PurchaseOrderDto
     public string OrderNo { get; set; } = string.Empty;
 
     [JsonPropertyName("entity_type")]
-    public string EntityType { get; set; } = "regular"; // regular | outsourced
+    public string EntityType { get; set; } = "regular"; 
 
     [JsonPropertyName("supplier_id")]
     public long SupplierId { get; set; }
@@ -1550,9 +1550,9 @@ public class PurchaseOrderRowListQuery
     public DateTime? UpdatedAtMax { get; set; }
 }
 
-/// <summary>
-/// Purchase order receive isteği (basit tanım).
-/// </summary>
+
+
+
 public class PurchaseOrderReceiveRequest
 {
     [JsonPropertyName("purchase_order_id")]
@@ -1565,7 +1565,7 @@ public class PurchaseOrderAccountingMetadataDto
     public long Id { get; set; }
 
     [JsonPropertyName("integration_type")]
-    public string IntegrationType { get; set; } = string.Empty; // xero | quickbooks
+    public string IntegrationType { get; set; } = string.Empty; 
 
     [JsonPropertyName("bill_id")]
     public string? BillId { get; set; }
@@ -1613,7 +1613,7 @@ public class PurchaseOrderAdditionalCostRowDto
     public decimal Price { get; set; }
 
     [JsonPropertyName("distribution_method")]
-    public string DistributionMethod { get; set; } = string.Empty; // BY_VALUE, NON_DISTRIBUTED
+    public string DistributionMethod { get; set; } = string.Empty; 
 
     [JsonPropertyName("currency")]
     public string? Currency { get; set; }
@@ -1700,9 +1700,9 @@ public class PurchaseOrderAdditionalCostRowListQuery
     public DateTime? UpdatedAtMax { get; set; }
 }
 
-/// <summary>
-/// Outsourced purchase order recipe row DTO.
-/// </summary>
+
+
+
 public class OutsourcedPurchaseOrderRecipeRowDto
 {
     [JsonPropertyName("id")]
@@ -1818,16 +1818,16 @@ public class OutsourcedPurchaseOrderRecipeRowListQuery
 
 #region Manufacturing Order
 
-/// <summary>
-/// Katana Manufacturing Order (Üretim Emri)
-/// </summary>
+
+
+
 public class ManufacturingOrderDto
 {
     [JsonPropertyName("id")]
     public long Id { get; set; }
 
     [JsonPropertyName("status")]
-    public string Status { get; set; } = string.Empty; // NOT_STARTED, BLOCKED, IN_PROGRESS, DONE
+    public string Status { get; set; } = string.Empty; 
 
     [JsonPropertyName("order_no")]
     public string OrderNo { get; set; } = string.Empty;
@@ -2019,9 +2019,9 @@ public class ManufacturingOrderListQuery
     public DateTime? UpdatedAtMax { get; set; }
 }
 
-/// <summary>
-/// Make-to-order üretim emri oluşturma isteği.
-/// </summary>
+
+
+
 public class ManufacturingOrderMakeToOrderRequest
 {
     [JsonPropertyName("sales_order_row_id")]
@@ -2031,18 +2031,18 @@ public class ManufacturingOrderMakeToOrderRequest
     public bool CreateSubassemblies { get; set; }
 }
 
-/// <summary>
-/// Üretim emrini satış siparişi satırından unlink etme isteği.
-/// </summary>
+
+
+
 public class ManufacturingOrderUnlinkRequest
 {
     [JsonPropertyName("sales_order_row_id")]
     public long SalesOrderRowId { get; set; }
 }
 
-/// <summary>
-/// Üretim emri üretim kaydı (manufacturing_order_production) DTO'su.
-/// </summary>
+
+
+
 public class ManufacturingOrderProductionDto
 {
     [JsonPropertyName("id")]
@@ -2208,9 +2208,9 @@ public class ManufacturingOrderProductionUpdateRequest
     public DateTime? ProductionDate { get; set; }
 }
 
-/// <summary>
-/// Üretim emri production ingredient update isteği.
-/// </summary>
+
+
+
 public class ManufacturingOrderProductionIngredientUpdateRequest
 {
     [JsonPropertyName("batch_transactions")]
@@ -2223,7 +2223,7 @@ public class ManufacturingOrderOperationRowDto
     public long Id { get; set; }
 
     [JsonPropertyName("status")]
-    public string Status { get; set; } = string.Empty; // NOT_STARTED, BLOCKED, IN_PROGRESS, PAUSED, COMPLETED
+    public string Status { get; set; } = string.Empty; 
 
     [JsonPropertyName("rank")]
     public int? Rank { get; set; }
@@ -2253,7 +2253,7 @@ public class ManufacturingOrderOperationRowDto
     public long? ActiveOperatorId { get; set; }
 
     [JsonPropertyName("type")]
-    public string? Type { get; set; } // process, setup, perUnit, fixed
+    public string? Type { get; set; } 
 
     [JsonPropertyName("planned_time_parameter")]
     public long? PlannedTimeParameter { get; set; }
@@ -2319,7 +2319,7 @@ public class ManufacturingOrderOperationRowCreateRequest
     public string? ResourceName { get; set; }
 
     [JsonPropertyName("type")]
-    public string? Type { get; set; } // process, setup, perUnit, fixed
+    public string? Type { get; set; } 
 
     [JsonPropertyName("planned_time_parameter")]
     public long? PlannedTimeParameter { get; set; }
@@ -2367,9 +2367,9 @@ public class ManufacturingOrderOperationRowListQuery
     public DateTime? UpdatedAtMax { get; set; }
 }
 
-/// <summary>
-/// Üretim emri operasyon satırı güncelleme isteği.
-/// </summary>
+
+
+
 public class ManufacturingOrderOperationRowUpdateRequest
 {
     [JsonPropertyName("status")]
@@ -2424,9 +2424,9 @@ public class ManufacturingOrderOperationRowUpdateRequest
     public DateTime? CompletedAt { get; set; }
 }
 
-/// <summary>
-/// Üretim emri recipe satırı DTO'su.
-/// </summary>
+
+
+
 public class ManufacturingOrderRecipeRowDto
 {
     [JsonPropertyName("id")]

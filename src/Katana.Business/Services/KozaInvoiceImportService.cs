@@ -9,11 +9,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Katana.Business.Services;
-
-/// <summary>
-/// Koza (Luca) fatura başlıklarını ListeleFtrSsFaturaBaslik.do üzerinden okuyup
-/// Invoice ve Customer entity'lerine map eden ve IntegrationDbContext'e yazan servis.
-/// </summary>
 public class KozaInvoiceImportService : IKozaInvoiceImportService
 {
     private readonly ILucaService _lucaService;
@@ -45,7 +40,7 @@ public class KozaInvoiceImportService : IKozaInvoiceImportService
 
         try
         {
-            // 1) Koza'dan fatura başlık listesini al
+            
             var req = BuildListRequest(fromDate, toDate, ustHareketTuru, altHareketTuru);
             var json = await _lucaService.ListInvoicesAsync(req, detayliListe: false);
 
@@ -69,7 +64,7 @@ public class KozaInvoiceImportService : IKozaInvoiceImportService
                         continue;
                     }
 
-                    // Müşteri upsert
+                    
                     var existingCustomer = await _dbContext.Customers
                         .FirstOrDefaultAsync(c => c.TaxNo == customer.TaxNo);
 
@@ -84,7 +79,7 @@ public class KozaInvoiceImportService : IKozaInvoiceImportService
                         invoice.CustomerId = existingCustomer.Id;
                     }
 
-                    // Fatura idempotent: aynı belge numarası varsa atla
+                    
                     var exists = await _dbContext.Invoices
                         .AnyAsync(i => i.InvoiceNo == invoice.InvoiceNo && i.CustomerId == invoice.CustomerId);
                     if (exists)
@@ -139,7 +134,7 @@ public class KozaInvoiceImportService : IKozaInvoiceImportService
 
         if (fromDate.HasValue || toDate.HasValue)
         {
-            // Koza dokümanında tarih formatı dd/MM/yyyy
+            
             if (fromDate.HasValue)
                 filter.BelgeTarihiBas = fromDate.Value.ToString("dd/MM/yyyy");
             if (toDate.HasValue)
@@ -160,8 +155,8 @@ public class KozaInvoiceImportService : IKozaInvoiceImportService
 
     private Task<(Customer customer, Invoice? invoice)> MapKozaInvoiceAsync(JsonElement item)
     {
-        // Dokümandaki response alanları: belgeTarihi, vadeTarihi, belgeSeriNo, vergiKimlikNo, cariTanim, netTutar vb.
-        // Burada temel alanlar okunup LucaInvoiceDto'ya çevrilir, sonra mevcut MapFromLucaInvoice kullanılır.
+        
+        
 
         var customerTaxNo = item.TryGetProperty("vergiKimlikNo", out var taxNoEl) && taxNoEl.ValueKind == JsonValueKind.String
             ? taxNoEl.GetString() ?? string.Empty
@@ -196,7 +191,7 @@ public class KozaInvoiceImportService : IKozaInvoiceImportService
             netTutar = nt;
         }
 
-        // KDV ve brüt tutar Koza response'undan alınamıyorsa basit varsayım: KDV 18%
+        
         decimal grossAmount = netTutar;
         decimal taxAmount = Math.Round(grossAmount * 0.18m, 2);
 

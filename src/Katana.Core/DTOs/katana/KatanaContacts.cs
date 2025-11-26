@@ -4,13 +4,13 @@ namespace Katana.Core.DTOs;
 
 #region Customer (Contact)
 
-/// <summary>
-/// Katana Contact (Müşteri/İlgili Kişi)
-/// NOT: Katana API'de "Customer" değil "Contact" kullanılır
-/// </summary>
-/// <summary>
-/// Katana müşterisi (okuma/listeleme).
-/// </summary>
+
+
+
+
+
+
+
 public class KatanaCustomerDto
 {
     [JsonPropertyName("id")]
@@ -65,9 +65,9 @@ public class KatanaCustomerDto
     public List<KatanaCustomerAddressDto> Addresses { get; set; } = new();
 }
 
-/// <summary>
-/// Katana müşteri adresi.
-/// </summary>
+
+
+
 public class KatanaCustomerAddressDto
 {
     [JsonPropertyName("id")]
@@ -77,7 +77,7 @@ public class KatanaCustomerAddressDto
     public long CustomerId { get; set; }
 
     [JsonPropertyName("entity_type")]
-    public string EntityType { get; set; } = string.Empty; // billing | shipping
+    public string EntityType { get; set; } = string.Empty; 
 
     [JsonPropertyName("default")]
     public bool Default { get; set; }
@@ -119,16 +119,16 @@ public class KatanaCustomerAddressDto
     public DateTime UpdatedAt { get; set; }
 }
 
-/// <summary>
-/// Müşteri adresi oluşturma isteği.
-/// </summary>
+
+
+
 public class KatanaCustomerAddressCreateRequest
 {
     [JsonPropertyName("customer_id")]
     public long CustomerId { get; set; }
 
     [JsonPropertyName("entity_type")]
-    public string EntityType { get; set; } = "billing"; // billing | shipping
+    public string EntityType { get; set; } = "billing"; 
 
     [JsonPropertyName("first_name")]
     public string? FirstName { get; set; }
@@ -161,9 +161,9 @@ public class KatanaCustomerAddressCreateRequest
     public string? Country { get; set; }
 }
 
-/// <summary>
-/// Müşteri adresi listeleme filtreleri.
-/// </summary>
+
+
+
 public class KatanaCustomerAddressListQuery
 {
     [JsonPropertyName("ids")]
@@ -173,7 +173,7 @@ public class KatanaCustomerAddressListQuery
     public List<long>? CustomerIds { get; set; }
 
     [JsonPropertyName("entity_type")]
-    public string? EntityType { get; set; } // billing | shipping
+    public string? EntityType { get; set; } 
 
     [JsonPropertyName("first_name")]
     public string? FirstName { get; set; }
@@ -227,9 +227,9 @@ public class KatanaCustomerAddressListQuery
     public DateTime? UpdatedAtMax { get; set; }
 }
 
-/// <summary>
-/// Müşteri oluşturma isteği.
-/// </summary>
+
+
+
 public class KatanaCustomerCreateRequest
 {
     [JsonPropertyName("name")]
@@ -269,9 +269,9 @@ public class KatanaCustomerCreateRequest
     public List<KatanaCustomerAddressDto>? Addresses { get; set; }
 }
 
-/// <summary>
-/// Müşteri güncelleme isteği (partial).
-/// </summary>
+
+
+
 public class KatanaCustomerUpdateRequest
 {
     [JsonPropertyName("name")]
@@ -314,9 +314,9 @@ public class KatanaCustomerUpdateRequest
     public long? DefaultBillingId { get; set; }
 }
 
-/// <summary>
-/// Müşteri listeleme filtreleri.
-/// </summary>
+
+
+
 public class KatanaCustomerListQuery
 {
     [JsonPropertyName("name")]
@@ -375,9 +375,9 @@ public class KatanaCustomerListQuery
 
 #region Supplier
 
-/// <summary>
-/// Katana Supplier (Tedarikçi)
-/// </summary>
+
+
+
 public class SupplierDto
 {
     [JsonPropertyName("id")]
@@ -451,7 +451,7 @@ public class SupplierUpdateRequest
     public string? Comment { get; set; }
 }
 
-// Internal DTOs for SupplierService
+
 public class CreateSupplierDto
 {
     public string Name { get; set; } = string.Empty;

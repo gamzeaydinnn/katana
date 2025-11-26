@@ -5,10 +5,10 @@ namespace Katana.Data.Configuration;
 
 public class KatanaApiSettings
 {
-    // Ana API adresi (Katana'nın resmi API URL'si)
+    
     public string BaseUrl { get; set; } = "https://api.katanamrp.com/v1/";
 
-    // API anahtarını appsettings veya Secret Manager üzerinden sağlayın
+    
     public string ApiKey { get; set; } = string.Empty;
 
     public bool UseBasicAuth { get; set; } = false;
@@ -16,7 +16,7 @@ public class KatanaApiSettings
     public string? Password { get; set; }
     public int MaxRetryAttempts { get; set; } = 3;
 
-    // Zaman aşımı (isteklerin 30 saniyede yanıt dönmezse iptal olur)
+    
     public int TimeoutSeconds { get; set; } = 30;
 
     public string AuthHeaderType { get; set; } = "X-Api-Key";
@@ -71,7 +71,7 @@ public class KatanaApiEndpoints
     public string PriceLists { get; set; } = "price-lists";
     public string TaxRates { get; set; } = "tax-rates";
 
-    // Legacy/compat fallback values so older codepaths still compile.
+    
     public string Stock => StockAdjustments;
     public string Invoices => SalesOrders;
     public string Health { get; set; } = "health";

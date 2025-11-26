@@ -4,9 +4,9 @@ namespace Katana.Core.DTOs;
 
 #region Inventory
 
-/// <summary>
-/// Katana Inventory (Envanter Durumu)
-/// </summary>
+
+
+
 public class InventoryDto
 {
     [JsonPropertyName("variant_id")]
@@ -43,9 +43,9 @@ public class InventoryDto
     public decimal? QuantityPotential { get; set; }
 }
 
-/// <summary>
-/// Envanter listeleme filtreleri.
-/// </summary>
+
+
+
 public class InventoryListQuery
 {
     [JsonPropertyName("location_id")]
@@ -146,9 +146,9 @@ public class NegativeStockListQuery
 
 #region Stock Adjustment
 
-/// <summary>
-/// Katana Stock Adjustment (Stok Düzeltme) - EN ÖNEMLİ!
-/// </summary>
+
+
+
 public class StockAdjustmentDto
 {
     [JsonPropertyName("id")]
@@ -273,9 +273,9 @@ public class StockAdjustmentListQuery
 
 #region Stocktake
 
-/// <summary>
-/// Katana Stocktake (Sayım)
-/// </summary>
+
+
+
 public class StocktakeDto
 {
     [JsonPropertyName("id")]
@@ -517,9 +517,9 @@ public class StocktakeListQuery
 
 #region Stock Transfer
 
-/// <summary>
-/// Katana Stock Transfer (Depo Transferi)
-/// </summary>
+
+
+
 public class StockTransferDto
 {
     [JsonPropertyName("id")]
@@ -659,9 +659,9 @@ public class StockTransferStatusUpdateRequest
 
 #region Inventory Movement
 
-/// <summary>
-/// Katana Inventory Movement (Envanter Hareketi)
-/// </summary>
+
+
+
 public class InventoryMovementDto
 {
     [JsonPropertyName("id")]

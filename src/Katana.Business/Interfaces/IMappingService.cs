@@ -18,18 +18,18 @@ public interface IMappingService
     Task UpdateSkuMappingAsync(string sku, string accountCode);
     Task UpdateLocationMappingAsync(string location, string warehouseCode);
 
-    // Katana → Luca senkronizasyon
+    
     Task<SyncResultDto> SyncProductsToLucaAsync(DateTime? fromDate = null);
     Task<SyncResultDto> SyncSalesOrdersToLucaAsync(DateTime fromDate, DateTime toDate);
     Task<SyncResultDto> SyncCustomersToLucaAsync(DateTime fromDate, DateTime toDate);
     Task<SyncResultDto> SyncInvoicesToLucaAsync(DateTime fromDate, DateTime toDate);
 
-    // Luca → Katana senkronizasyon
+    
     Task<SyncResultDto> SyncProductsFromLucaAsync(DateTime? fromDate = null);
     Task<SyncResultDto> SyncStockFromLucaAsync(DateTime? fromDate = null);
     Task<SyncResultDto> SyncInvoicesFromLucaAsync(DateTime? fromDate = null);
 
-    // Mapping doğrulama ve raporlama
+    
     Task<MappingValidationDto> ValidateMappingsAsync();
     Task<List<MappingErrorDto>> GetUnmappedRecordsAsync();
 }

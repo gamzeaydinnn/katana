@@ -1,7 +1,7 @@
 using Katana.Data.Context;
 using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
-//mapping tablolarını DB’de yönetir.
+
 namespace Katana.Data.Repositories
 {
     public class MappingRepository
@@ -13,7 +13,7 @@ namespace Katana.Data.Repositories
             _context = context;
         }
 
-        // SKU -> Account mapping
+        
         public async Task<Dictionary<string, string>> GetSkuToAccountMappingsAsync()
         {
             var list = await _context.MappingTables
@@ -23,7 +23,7 @@ namespace Katana.Data.Repositories
             return list.ToDictionary(m => m.SourceValue, m => m.TargetValue, StringComparer.OrdinalIgnoreCase);
         }
 
-        // Location -> Warehouse mapping
+        
         public async Task<Dictionary<string, string>> GetLocationMappingsAsync()
         {
             var list = await _context.MappingTables
@@ -33,7 +33,7 @@ namespace Katana.Data.Repositories
             return list.ToDictionary(m => m.SourceValue, m => m.TargetValue, StringComparer.OrdinalIgnoreCase);
         }
 
-        // Add or update SKU mapping
+        
         public async Task UpsertSkuMappingAsync(string sku, string accountCode)
         {
             var normalizedSku = (sku ?? string.Empty).Trim().ToUpperInvariant();
@@ -61,7 +61,7 @@ namespace Katana.Data.Repositories
             await _context.SaveChangesAsync();
         }
 
-        // Add or update Location mapping
+        
         public async Task UpsertLocationMappingAsync(string location, string warehouseCode)
         {
             var normalizedLocation = (location ?? string.Empty).Trim().ToUpperInvariant();
