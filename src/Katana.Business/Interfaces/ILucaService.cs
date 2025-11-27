@@ -17,6 +17,7 @@ public interface ILucaService
     Task<SyncResultDto> SendProductsAsync(List<LucaProductUpdateDto> products);
     
     Task<SyncResultDto> SendStockCardsAsync(List<LucaCreateStokKartiRequest> stockCards);
+    Task<SyncResultDto> SendStockCardsAsync(string sessionId, List<LucaCreateStokKartiRequest> stockCards);
     Task<SyncResultDto> SendStockCardAsync(LucaStockCardDto stockCard);
     Task<SyncResultDto> SendInvoiceAsync(LucaCreateInvoiceHeaderRequest invoice);
     Task<long> CreateIrsaliyeAsync(LucaIrsaliyeDto dto);

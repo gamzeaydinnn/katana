@@ -280,7 +280,7 @@ public class ProductsController : ControllerBase
     }
 
     
-    [HttpPost("~/api/Luca/sync-products")]
+    [HttpPost("sync-products")]
     public async Task<IActionResult> SyncProductsToLuca([FromBody] SyncOptionsDto options)
     {
         try

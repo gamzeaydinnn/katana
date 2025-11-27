@@ -330,7 +330,8 @@ export const stockAPI = {
   
   startSync: (options?: SyncOptions) =>
     api
-      .post("/Luca/sync-products", options || {})
+      // Stock card sync can take longer; override default 30s axios timeout.
+      .post("/Luca/sync-products", options || {}, { timeout: 120000 })
       .then((res) => res.data as SyncResult),
 
   

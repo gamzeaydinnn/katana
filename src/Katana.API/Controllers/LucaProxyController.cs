@@ -4,7 +4,10 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Linq;
 using Katana.Core.Interfaces;
+using Katana.Business.Interfaces;
+using Katana.Core.DTOs;
 using Microsoft.Extensions.Options;
 using System;
 using Microsoft.Extensions.Logging;
@@ -12,7 +15,10 @@ using Microsoft.Extensions.Logging;
 namespace Katana.API.Controllers
 {
     [ApiController]
+    // Accept legacy paths /api/Luca/... and /api/luca/... in addition to /api/luca-proxy/...
+    [Route("api/luca-proxy")]
     [Route("api/luca")]
+    [Route("api/Luca")]
     public class LucaProxyController : ControllerBase
     {
         private readonly string _lucaBaseUrl;
@@ -20,12 +26,14 @@ namespace Katana.API.Controllers
         private readonly ILucaCookieJarStore _cookieJarStore;
         private readonly ILogger<LucaProxyController> _logger;
         private readonly Katana.Data.Configuration.LucaApiSettings _settings;
+        private readonly ISyncService _syncService;
 
-        public LucaProxyController(ILucaCookieJarStore cookieJarStore, IOptions<Katana.Data.Configuration.LucaApiSettings> settings, ILogger<LucaProxyController> logger)
+        public LucaProxyController(ILucaCookieJarStore cookieJarStore, IOptions<Katana.Data.Configuration.LucaApiSettings> settings, ILogger<LucaProxyController> logger, ISyncService syncService)
         {
             _cookieJarStore = cookieJarStore;
             _logger = logger;
             _settings = settings.Value;
+            _syncService = syncService;
             _lucaBaseUrl = (_settings.BaseUrl ?? string.Empty).TrimEnd('/');
             if (string.IsNullOrWhiteSpace(_lucaBaseUrl))
                 _lucaBaseUrl = "https://akozas.luca.com.tr/Yetki"; 
@@ -58,12 +66,22 @@ namespace Katana.API.Controllers
 
         private string? GetSessionIdFromRequest()
         {
-            
-            if (Request.Headers.TryGetValue("X-Luca-Session", out var headerVals))
+            // Support both legacy/new header names: 'X-Luca-Session' and 'X-Luca-Proxy-Session'
+            try
             {
-                var hdr = headerVals.FirstOrDefault();
-                if (!string.IsNullOrWhiteSpace(hdr)) return hdr;
+                if (Request.Headers.TryGetValue("X-Luca-Session", out var headerVals1))
+                {
+                    var hdr1 = headerVals1.FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(hdr1)) return hdr1;
+                }
+
+                if (Request.Headers.TryGetValue("X-Luca-Proxy-Session", out var headerVals2))
+                {
+                    var hdr2 = headerVals2.FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(hdr2)) return hdr2;
+                }
             }
+            catch { }
 
             if (Request.Cookies.TryGetValue(SessionCookieName, out var cookieVal) && !string.IsNullOrWhiteSpace(cookieVal))
             {
@@ -98,6 +116,8 @@ namespace Katana.API.Controllers
         public async Task<IActionResult> Login([FromBody] JsonElement body)
         {
             var sessionId = EnsureSessionId();
+            // expose the proxy session id to clients explicitly
+            try { Response.Headers["X-Luca-Proxy-Session"] = sessionId; } catch { }
             var cookieContainer = _cookieJarStore.GetOrCreate(sessionId);
             var handler = new HttpClientHandler
             {
@@ -106,12 +126,27 @@ namespace Katana.API.Controllers
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
             };
             var client = new HttpClient(handler);
-            
+            // Allow callers to provide credentials in the request body. If provided, prefer them;
+            // otherwise fall back to configured settings.
+            string orgCodeVal = _settings.MemberNumber ?? string.Empty;
+            string userNameVal = _settings.Username ?? string.Empty;
+            string userPasswordVal = _settings.Password ?? string.Empty;
+            try
+            {
+                if (body.ValueKind == JsonValueKind.Object)
+                {
+                    if (body.TryGetProperty("orgCode", out var o) && o.ValueKind == JsonValueKind.String) { var v = o.GetString(); if (!string.IsNullOrWhiteSpace(v)) orgCodeVal = v; }
+                    if (body.TryGetProperty("userName", out var u) && u.ValueKind == JsonValueKind.String) { var v = u.GetString(); if (!string.IsNullOrWhiteSpace(v)) userNameVal = v; }
+                    if (body.TryGetProperty("userPassword", out var p) && p.ValueKind == JsonValueKind.String) { var v = p.GetString(); if (!string.IsNullOrWhiteSpace(v)) userPasswordVal = v; }
+                }
+            }
+            catch { }
+
             var defaultPayload = new
             {
-                orgCode = string.IsNullOrWhiteSpace(_settings.MemberNumber) ? (object)"" : _settings.MemberNumber,
-                userName = string.IsNullOrWhiteSpace(_settings.Username) ? (object)"" : _settings.Username,
-                userPassword = string.IsNullOrWhiteSpace(_settings.Password) ? (object)"" : _settings.Password
+                orgCode = string.IsNullOrWhiteSpace(orgCodeVal) ? (object)"" : orgCodeVal,
+                userName = string.IsNullOrWhiteSpace(userNameVal) ? (object)"" : userNameVal,
+                userPassword = string.IsNullOrWhiteSpace(userPasswordVal) ? (object)"" : userPasswordVal
             };
             var payloadJson = JsonSerializer.Serialize(defaultPayload);
 
@@ -264,6 +299,83 @@ namespace Katana.API.Controllers
             _logger.LogDebug("LucaProxy: Select-branch response from {Url}. Status: {Status}. Body preview: {Preview}", requestUrl, response.StatusCode, respPreview);
 
             return await ForwardResponse(response);
+        }
+
+        [HttpPost("sync-products")]
+        public async Task<IActionResult> SyncProducts([FromBody] SyncOptionsDto? options)
+        {
+            try
+            {
+                _logger.LogInformation("API /api/luca/sync-products called. Forwarding to SyncService.SyncProductsToLucaAsync");
+                var opts = options ?? new SyncOptionsDto();
+
+                // Try to get sessionId from header or cookie; if missing attempt auto-login using configured credentials
+                var sessionId = GetSessionIdFromRequest();
+                if (string.IsNullOrWhiteSpace(sessionId))
+                {
+                    _logger.LogInformation("No session provided to sync-products; attempting auto-login using configured credentials");
+                    sessionId = await AutoLoginAndReturnSessionId();
+                }
+
+                if (string.IsNullOrWhiteSpace(sessionId))
+                {
+                    return Unauthorized(new { message = "No LucaProxySession found. Please login first via /api/luca/login or provide X-Luca-Session header." });
+                }
+
+                var result = await _syncService.SyncProductsToLucaAsync(sessionId, opts);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while handling /api/luca/sync-products");
+                return StatusCode(500, new { message = "Server error while syncing products to Luca", error = ex.Message });
+            }
+        }
+
+        // Try to perform an automatic login with configured credentials and return the sessionId (or null)
+        private async Task<string?> AutoLoginAndReturnSessionId()
+        {
+            try
+            {
+                var sessionId = EnsureSessionId();
+                var cookieContainer = _cookieJarStore.GetOrCreate(sessionId);
+                var handler = new HttpClientHandler
+                {
+                    UseCookies = true,
+                    CookieContainer = cookieContainer,
+                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+                };
+                using var client = new HttpClient(handler);
+
+                var payload = new
+                {
+                    orgCode = _settings.MemberNumber ?? "",
+                    userName = _settings.Username ?? "",
+                    userPassword = _settings.Password ?? ""
+                };
+                var payloadJson = JsonSerializer.Serialize(payload);
+
+                var requestUrl = $"{_lucaBaseUrl}/{_settings.Endpoints.Auth}";
+                var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
+                request.Content = new StringContent(payloadJson, Encoding.UTF8, "application/json");
+                ApplyManualSessionCookie(request);
+
+                var response = await client.SendAsync(request);
+                if (response.IsSuccessStatusCode)
+                {
+                    _logger.LogInformation("Auto-login successful, sessionId: {SessionId}", sessionId);
+                    try { Response.Headers["X-Luca-Proxy-Session"] = sessionId; } catch { }
+                    return sessionId;
+                }
+
+                _logger.LogWarning("Auto-login failed with status {Status}", response.StatusCode);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Auto-login failed");
+                return null;
+            }
         }
     }
 }

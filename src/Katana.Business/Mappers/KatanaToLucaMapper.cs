@@ -349,9 +349,10 @@ public static class KatanaToLucaMapper
 
         var sku = string.IsNullOrWhiteSpace(product.SKU) ? product.GetProductCode() : product.SKU.Trim();
         var name = string.IsNullOrWhiteSpace(product.Name) ? sku : product.Name.Trim();
-        var category = !string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu)
-            ? lucaSettings.DefaultKategoriKodu
-            : "KATANA";
+        // Prefer product.Category if provided; else fall back to configured default; otherwise leave null (Koza accepts null).
+        var category = !string.IsNullOrWhiteSpace(product.Category)
+            ? product.Category.Trim()
+            : (!string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu) ? lucaSettings.DefaultKategoriKodu : null);
 
         var dto = new LucaCreateStokKartiRequest
         {
