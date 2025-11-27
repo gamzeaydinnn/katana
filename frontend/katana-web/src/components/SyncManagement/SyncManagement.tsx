@@ -28,11 +28,12 @@ import {
   TableHead,
   TableRow,
   Typography,
-  useMediaQuery
+  useMediaQuery,
+  Stack
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { showGlobalToast } from "../../providers/FeedbackProvider";
-import { stockAPI } from "../../services/api";
+import { stockAPI, SyncResult } from "../../services/api";
 
 interface SyncHistory {
   id: number;
@@ -51,8 +52,10 @@ const SyncManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
   
   const [openDialog, setOpenDialog] = useState(false);
-  const [syncType, setSyncType] = useState("STOCK");
+  const [syncType, setSyncType] = useState("PRODUCT");
   const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const isMobile = useMediaQuery("(max-width:900px)");
 
   const loadHistory = async () => {
@@ -85,11 +88,14 @@ const SyncManagement: React.FC = () => {
   const handleStartSync = async () => {
     try {
       setSyncing(true);
-      await stockAPI.startSync(syncType);
+      setSyncStatus("syncing");
+      const result = await stockAPI.startSync({ syncType });
+      setSyncResult(result);
+      setSyncStatus("success");
       setOpenDialog(false);
       await loadHistory();
       showGlobalToast({
-        message: "Senkronizasyon başlatıldı.",
+        message: "Senkronizasyon tamamlandı.",
         severity: "success",
         durationMs: 4000,
       });
@@ -99,6 +105,7 @@ const SyncManagement: React.FC = () => {
         err?.response?.data?.error ||
         err?.message ||
         "Senkronizasyon başlatılamadı";
+      setSyncStatus("error");
       showGlobalToast({
         message: `Sync başlatılamadı: ${msg}`,
         severity: "error",
@@ -473,6 +480,28 @@ const SyncManagement: React.FC = () => {
           </TableContainer>
         )}
       </Paper>
+
+      {syncStatus !== "idle" && (
+        <Paper sx={{ p: { xs: 2, md: 3 }, mt: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+            <Typography variant="h6">Son Senkron Sonucu</Typography>
+            {syncStatus === "syncing" && <CircularProgress size={18} />}
+            {syncStatus === "success" && <CheckCircle color="success" fontSize="small" />}
+            {syncStatus === "error" && <Error color="error" fontSize="small" />}
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {syncResult?.message || (syncStatus === "syncing" ? "Senkronizasyon devam ediyor..." : "Sonuç yok")}
+          </Typography>
+          {syncResult && (
+            <Stack direction="row" spacing={2} flexWrap="wrap">
+              <Chip label={`Toplam: ${syncResult.totalChecked ?? syncResult.processedRecords ?? "-"}`} />
+              <Chip color="success" label={`Yeni: ${syncResult.newCreated ?? 0}`} />
+              <Chip label={`Mevcut: ${syncResult.alreadyExists ?? 0}`} />
+              <Chip color="error" label={`Hata: ${syncResult.failed ?? syncResult.failedRecords ?? 0}`} />
+            </Stack>
+          )}
+        </Paper>
+      )}
 
       {}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>

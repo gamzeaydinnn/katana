@@ -39,6 +39,7 @@ public interface ILucaService
 
     
     Task<System.Text.Json.JsonElement> ListStockCardsAsync(LucaListStockCardsRequest request);
+    Task<List<LucaStockCardSummaryDto>> ListStockCardsAsync(System.Threading.CancellationToken cancellationToken = default);
     Task<System.Text.Json.JsonElement> ListStockCardPriceListsAsync(LucaListStockCardPriceListsRequest request);
     Task<System.Text.Json.JsonElement> ListStockCardAltUnitsAsync(LucaStockCardByIdRequest request);
     Task<System.Text.Json.JsonElement> ListStockCardAltStocksAsync(LucaStockCardByIdRequest request);

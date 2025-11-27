@@ -8,6 +8,8 @@ using Katana.Core.Constants;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Core.Helpers;
+using Katana.Data.Configuration;
+using System.ComponentModel.DataAnnotations;
 
 namespace Katana.Infrastructure.Mappers;
 
@@ -60,20 +62,24 @@ public static class KatanaToLucaMapper
     {
         if (excelRow == null) throw new ArgumentNullException(nameof(excelRow));
 
-        var vatPurchase = excelRow.PurchaseVatRate ?? excelRow.VatRate ?? defaultVatRate ?? 0;
-        var vatSales = excelRow.SalesVatRate ?? excelRow.VatRate ?? defaultVatRate ?? 0;
+        var vatPurchaseDecimal = excelRow.PurchaseVatRate
+            ?? excelRow.VatRate
+            ?? Convert.ToDecimal(defaultVatRate ?? 0, CultureInfo.InvariantCulture);
+        var vatSalesDecimal = excelRow.SalesVatRate
+            ?? excelRow.VatRate
+            ?? Convert.ToDecimal(defaultVatRate ?? 0, CultureInfo.InvariantCulture);
 
         var request = new LucaCreateStokKartiRequest
         {
             KartAdi = excelRow.Name?.Trim() ?? excelRow.SKU?.Trim() ?? string.Empty,
             KartKodu = excelRow.SKU?.Trim() ?? string.Empty,
             KartTuru = 1,
-            BaslangicTarihi = excelRow.StartDate,
+            BaslangicTarihi = excelRow.StartDate.ToString(KozaDateFormat, CultureInfo.InvariantCulture),
             OlcumBirimiId = defaultOlcumBirimiId ?? 5,
             KartTipi = defaultKartTipi ?? 4,
             KategoriAgacKod = !string.IsNullOrWhiteSpace(excelRow.CategoryCode) ? excelRow.CategoryCode : defaultKategoriKod ?? string.Empty,
-            KartAlisKdvOran = ConvertToDouble(vatPurchase),
-            KartSatisKdvOran = ConvertToDouble(vatSales),
+            KartAlisKdvOran = ConvertToDouble(vatPurchaseDecimal),
+            KartSatisKdvOran = ConvertToDouble(vatSalesDecimal),
             PerakendeAlisBirimFiyat = 0,
             PerakendeSatisBirimFiyat = 0,
             SatilabilirFlag = BoolToInt(excelRow.IsActive),
@@ -332,5 +338,62 @@ public static class KatanaToLucaMapper
         if (string.IsNullOrWhiteSpace(taxNo)) return null;
         var digits = new string(taxNo.Where(char.IsDigit).ToArray());
         return string.IsNullOrWhiteSpace(digits) ? null : digits;
+    }
+
+    public static LucaCreateStokKartiRequest MapKatanaProductToStockCard(
+        KatanaProductDto product,
+        LucaApiSettings lucaSettings)
+    {
+        if (product == null) throw new ArgumentNullException(nameof(product));
+        if (lucaSettings == null) throw new ArgumentNullException(nameof(lucaSettings));
+
+        var sku = string.IsNullOrWhiteSpace(product.SKU) ? product.GetProductCode() : product.SKU.Trim();
+        var name = string.IsNullOrWhiteSpace(product.Name) ? sku : product.Name.Trim();
+        var category = !string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu)
+            ? lucaSettings.DefaultKategoriKodu
+            : "KATANA";
+
+        var dto = new LucaCreateStokKartiRequest
+        {
+            KartAdi = name,
+            KartTuru = 1,
+            BaslangicTarihi = DateTime.UtcNow.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
+            OlcumBirimiId = lucaSettings.DefaultOlcumBirimiId,
+            KartKodu = sku,
+            MaliyetHesaplanacakFlag = 1,
+            KartTipi = lucaSettings.DefaultKartTipi,
+            KategoriAgacKod = category,
+            KartAlisKdvOran = lucaSettings.DefaultKdvOran,
+            KartSatisKdvOran = lucaSettings.DefaultKdvOran,
+            Barkod = string.IsNullOrWhiteSpace(product.Barcode) ? sku : product.Barcode.Trim(),
+            UzunAdi = name,
+            SatilabilirFlag = 1,
+            SatinAlinabilirFlag = 1,
+            LotNoFlag = 0,
+            PerakendeAlisBirimFiyat = ConvertToDouble(product.CostPrice ?? product.PurchasePrice ?? 0),
+            PerakendeSatisBirimFiyat = ConvertToDouble(product.SalesPrice ?? product.Price)
+        };
+
+        dto.KartAdi = EncodingHelper.ConvertToIso88599(dto.KartAdi);
+        dto.UzunAdi = EncodingHelper.ConvertToIso88599(dto.UzunAdi);
+        return dto;
+    }
+
+    public static void ValidateLucaStockCard(LucaCreateStokKartiRequest dto)
+    {
+        if (dto == null) throw new ArgumentNullException(nameof(dto));
+
+        if (string.IsNullOrWhiteSpace(dto.KartKodu))
+        {
+            throw new ValidationException("Stok kodu zorunlu");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.KartAdi))
+        {
+            throw new ValidationException("Stok tanımı zorunlu");
+        }
+
+        dto.KartAdi = EncodingHelper.ConvertToIso88599(dto.KartAdi);
+        dto.UzunAdi = EncodingHelper.ConvertToIso88599(dto.UzunAdi);
     }
 }

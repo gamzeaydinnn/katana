@@ -49,6 +49,7 @@ interface KatanaProduct {
   salesPrice?: number;
   costPrice?: number;
   isActive?: boolean;
+  isSyncedToLuca?: boolean;
   
   SKU?: string;
   Name?: string;
@@ -61,6 +62,7 @@ interface KatanaProduct {
   SalesPrice?: number;
   CostPrice?: number;
   IsActive?: boolean;
+  IsSyncedToLuca?: boolean;
 }
 
 const KatanaProducts: React.FC = () => {
@@ -289,6 +291,10 @@ const KatanaProducts: React.FC = () => {
             const category = product.category || product.Category;
             const unit = product.unit || product.Unit || "";
             const stockStatus = getStockStatus(onHand);
+            const isSynced =
+              product.isSyncedToLuca ??
+              product.IsSyncedToLuca ??
+              false;
 
             return (
               <Paper
@@ -310,6 +316,12 @@ const KatanaProducts: React.FC = () => {
                     <Typography variant="body2" color="text.secondary">
                       SKU: <strong>{sku}</strong>
                     </Typography>
+                    <Chip
+                      label={isSynced ? "✓ Luca'da var" : "Henüz eklenmedi"}
+                      color={isSynced ? "success" : "default"}
+                      size="small"
+                      sx={{ mt: 0.5 }}
+                    />
                     {category && (
                       <Chip
                         label={category}
@@ -423,6 +435,9 @@ const KatanaProducts: React.FC = () => {
                 <TableCell>
                   <strong>Durum</strong>
                 </TableCell>
+                <TableCell>
+                  <strong>Luca</strong>
+                </TableCell>
                 <TableCell align="center">
                   <strong>İşlem</strong>
                 </TableCell>
@@ -431,7 +446,7 @@ const KatanaProducts: React.FC = () => {
             <TableBody>
               {filteredProducts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} align="center">
+                  <TableCell colSpan={11} align="center">
                     <Typography color="textSecondary">
                       {searchTerm
                         ? "Arama sonucu bulunamadı"
@@ -450,6 +465,10 @@ const KatanaProducts: React.FC = () => {
                   const name = product.name || product.Name || "";
                   const category = product.category || product.Category;
                   const unit = product.unit || product.Unit || "";
+                  const isSynced =
+                    product.isSyncedToLuca ??
+                    product.IsSyncedToLuca ??
+                    false;
 
                   const stockStatus = getStockStatus(onHand);
                   return (
@@ -486,13 +505,20 @@ const KatanaProducts: React.FC = () => {
                       <TableCell align="right">
                         {costPrice ? `${costPrice.toFixed(2)} ₺` : "-"}
                       </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={stockStatus.label}
-                          color={stockStatus.color}
-                          size="small"
-                        />
-                      </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={stockStatus.label}
+                        color={stockStatus.color}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={isSynced ? "Luca'da var" : "Bekliyor"}
+                        color={isSynced ? "success" : "default"}
+                        size="small"
+                      />
+                    </TableCell>
                       <TableCell align="center">
                         {canEdit ? (
                           <Tooltip title="Düzenle">

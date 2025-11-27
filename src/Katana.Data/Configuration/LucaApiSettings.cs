@@ -19,6 +19,10 @@ public class LucaApiSettings
     
     
     
+    public string Encoding { get; set; } = "windows-1254";
+    
+    
+    public long? DefaultBranchId { get; set; }
     public long? ForcedBranchId { get; set; } = null;
     public string DefaultBelgeSeri { get; set; } = "A";
     public double DefaultKdvOran { get; set; } = 0.20;

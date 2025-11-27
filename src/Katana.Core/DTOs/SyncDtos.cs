@@ -11,6 +11,13 @@ public class SyncResultDto
     public DateTime SyncTime { get; set; } = DateTime.UtcNow;
     public string SyncType { get; set; } = string.Empty; 
     public TimeSpan Duration { get; set; }
+
+    
+    public int TotalChecked { get; set; }
+    public int AlreadyExists { get; set; }
+    public int NewCreated { get; set; }
+    public int Failed { get; set; }
+    public List<string> Details { get; set; } = new();
 }
 
 public class BatchSyncResultDto
@@ -32,5 +39,24 @@ public class SyncStatusDto
     public string? CurrentStatus { get; set; }
     public int PendingRecords { get; set; }
     public DateTime? NextScheduledSync { get; set; }
+}
+
+public class SyncOptionsDto
+{
+    public bool DryRun { get; set; }
+    public bool PreferBarcodeMatch { get; set; } = true;
+    public bool ForceSendDuplicates { get; set; }
+    public int? Limit { get; set; }
+}
+
+public class StockComparisonDto
+{
+    public string Sku { get; set; } = string.Empty;
+    public string? Barcode { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public bool ExistsInLuca { get; set; }
+    public string? LucaCode { get; set; }
+    public string? LucaBarcode { get; set; }
+    public string Status { get; set; } = "UNKNOWN";
 }
 

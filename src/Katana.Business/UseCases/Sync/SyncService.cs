@@ -7,8 +7,13 @@ using Katana.Core.Entities;
 using Katana.Core.Enums;
 using Katana.Core.Helpers;
 using Katana.Data.Context;
+using Katana.Data.Configuration;
+using Katana.Business.Mappers;
+using Katana.Infrastructure.Mappers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System.ComponentModel.DataAnnotations;
 
 namespace Katana.Business.UseCases.Sync;
 
@@ -17,27 +22,33 @@ namespace Katana.Business.UseCases.Sync;
 
 public class SyncService : ISyncService
 {
+    private readonly IKatanaService _katanaService;
     private readonly IExtractorService _extractorService;
     private readonly ITransformerService _transformerService;
     private readonly ILoaderService _loaderService;
     private readonly ILucaService _lucaService;
     private readonly IntegrationDbContext _dbContext;
     private readonly ILogger<SyncService> _logger;
+    private readonly LucaApiSettings _lucaSettings;
 
     public SyncService(
+        IKatanaService katanaService,
         IExtractorService extractorService,
         ITransformerService transformerService,
         ILoaderService loaderService,
         ILucaService lucaService,
         IntegrationDbContext dbContext,
-        ILogger<SyncService> logger)
+        ILogger<SyncService> logger,
+        IOptions<LucaApiSettings> lucaOptions)
     {
+        _katanaService = katanaService;
         _extractorService = extractorService;
         _transformerService = transformerService;
         _loaderService = loaderService;
         _lucaService = lucaService;
         _dbContext = dbContext;
         _logger = logger;
+        _lucaSettings = lucaOptions.Value;
     }
 
     public Task<SyncResultDto> SyncStockAsync(DateTime? fromDate = null) =>
@@ -110,6 +121,130 @@ public class SyncService : ISyncService
             var successful = await _loaderService.LoadCustomersAsync(validCustomers, customerTypeMappings, ct: ct);
             return BuildResult("CUSTOMER", customerDtos.Count, successful);
         });
+
+    public async Task<SyncResultDto> SyncProductsToLucaAsync(SyncOptionsDto options)
+    {
+        options ??= new SyncOptionsDto();
+        var stopwatch = Stopwatch.StartNew();
+        var logEntry = await StartOperationLogAsync("PRODUCT_STOCK_CARD");
+
+        var katanaProducts = await _katanaService.GetProductsAsync();
+        if (options.Limit.HasValue && options.Limit.Value > 0)
+        {
+            katanaProducts = katanaProducts.Take(options.Limit.Value).ToList();
+        }
+
+        var lucaStockCards = await _lucaService.ListStockCardsAsync();
+        var comparisons = katanaProducts
+            .Select(p => new { Product = p, Exists = ExistsInLuca(p, lucaStockCards, options.PreferBarcodeMatch) })
+            .ToList();
+
+        var missingProducts = options.ForceSendDuplicates
+            ? comparisons.Select(c => c.Product).ToList()
+            : comparisons.Where(c => !c.Exists).Select(c => c.Product).ToList();
+        var alreadyExists = comparisons.Count(c => c.Exists);
+
+        var payload = new List<LucaCreateStokKartiRequest>();
+        var details = new List<string>();
+
+        foreach (var product in missingProducts)
+        {
+            try
+            {
+                var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(product, _lucaSettings);
+                KatanaToLucaMapper.ValidateLucaStockCard(dto);
+                payload.Add(dto);
+            }
+            catch (ValidationException ex)
+            {
+                details.Add($"{product.SKU}: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                details.Add($"{product.SKU}: {ex.Message}");
+            }
+        }
+
+        SyncResultDto sendResult = new()
+        {
+            SyncType = "PRODUCT_STOCK_CARD",
+            ProcessedRecords = payload.Count,
+            SuccessfulRecords = 0,
+            FailedRecords = 0,
+            IsSuccess = true,
+            Message = payload.Count == 0 ? "Gönderilecek yeni stok kartı bulunamadı" : "Dry-run"
+        };
+
+        if (!options.DryRun && payload.Any())
+        {
+            sendResult = await _lucaService.SendStockCardsAsync(payload);
+        }
+
+        stopwatch.Stop();
+        var response = new SyncResultDto
+        {
+            SyncType = "PRODUCT_STOCK_CARD",
+            SyncTime = DateTime.UtcNow,
+            Duration = stopwatch.Elapsed,
+            ProcessedRecords = katanaProducts.Count,
+            SuccessfulRecords = options.DryRun ? 0 : sendResult.SuccessfulRecords,
+            FailedRecords = (options.DryRun ? 0 : sendResult.FailedRecords) + details.Count,
+            TotalChecked = katanaProducts.Count,
+            AlreadyExists = alreadyExists,
+            NewCreated = options.DryRun ? payload.Count : sendResult.SuccessfulRecords,
+            Failed = (options.DryRun ? 0 : sendResult.FailedRecords) + details.Count,
+            Details = details.Concat(options.DryRun ? Array.Empty<string>() : sendResult.Errors ?? new List<string>()).ToList(),
+            Errors = details.Concat(options.DryRun ? Array.Empty<string>() : sendResult.Errors ?? new List<string>()).ToList(),
+            IsSuccess = details.Count == 0 && (options.DryRun || sendResult.IsSuccess),
+            Message = options.DryRun
+                ? $"Dry-run tamamlandı. Gönderilecek kart sayısı: {payload.Count}"
+                : sendResult.Message
+        };
+
+        try
+        {
+            await FinalizeOperationAsync(
+                logEntry,
+                response.IsSuccess ? "SUCCESS" : "FAILED",
+                response.ProcessedRecords,
+                response.SuccessfulRecords,
+                response.FailedRecords,
+                BuildResultErrorMessage(response));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to write sync log for PRODUCT_STOCK_CARD");
+        }
+
+        return response;
+    }
+
+    public async Task<List<StockComparisonDto>> CompareStockCardsAsync()
+    {
+        var katanaProducts = await _katanaService.GetProductsAsync();
+        var lucaStockCards = await _lucaService.ListStockCardsAsync();
+
+        var comparisons = new List<StockComparisonDto>();
+        foreach (var product in katanaProducts)
+        {
+            var sku = NormalizeSku(product);
+            var barcode = product.Barcode;
+            var match = FindLucaMatch(lucaStockCards, sku, barcode, preferBarcodeMatch: true);
+
+            comparisons.Add(new StockComparisonDto
+            {
+                Sku = sku,
+                Barcode = barcode,
+                Name = product.Name ?? sku,
+                ExistsInLuca = match != null,
+                LucaCode = match?.Code,
+                LucaBarcode = match?.Barcode,
+                Status = match != null ? "EXISTS" : "MISSING"
+            });
+        }
+
+        return comparisons;
+    }
 
     public async Task<BatchSyncResultDto> SyncAllAsync(DateTime? fromDate = null)
     {
@@ -444,6 +579,45 @@ public class SyncService : ISyncService
 
         reason = string.Empty;
         return true;
+    }
+
+    private static string NormalizeSku(KatanaProductDto product) =>
+        !string.IsNullOrWhiteSpace(product.SKU) ? product.SKU.Trim() : product.GetProductCode();
+
+    private static LucaStockCardSummaryDto? FindLucaMatch(
+        IEnumerable<LucaStockCardSummaryDto> lucaStockCards,
+        string sku,
+        string? barcode,
+        bool preferBarcodeMatch)
+    {
+        var comparer = StringComparer.OrdinalIgnoreCase;
+
+        if (preferBarcodeMatch && !string.IsNullOrWhiteSpace(barcode))
+        {
+            var barcodeMatch = lucaStockCards.FirstOrDefault(c =>
+                !string.IsNullOrWhiteSpace(c.Barcode) && comparer.Equals(c.Barcode, barcode));
+            if (barcodeMatch != null) return barcodeMatch;
+        }
+
+        var codeMatch = lucaStockCards.FirstOrDefault(c => comparer.Equals(c.Code, sku));
+        if (codeMatch != null) return codeMatch;
+
+        if (!preferBarcodeMatch && !string.IsNullOrWhiteSpace(barcode))
+        {
+            return lucaStockCards.FirstOrDefault(c =>
+                !string.IsNullOrWhiteSpace(c.Barcode) && comparer.Equals(c.Barcode, barcode));
+        }
+
+        return null;
+    }
+
+    private static bool ExistsInLuca(
+        KatanaProductDto product,
+        IEnumerable<LucaStockCardSummaryDto> lucaStockCards,
+        bool preferBarcodeMatch)
+    {
+        var sku = NormalizeSku(product);
+        return FindLucaMatch(lucaStockCards, sku, product.Barcode, preferBarcodeMatch) != null;
     }
 
     private async Task<Dictionary<string, string>> GetMappingDictionaryAsync(string mappingType, CancellationToken ct)
