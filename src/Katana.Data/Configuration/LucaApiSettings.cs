@@ -16,6 +16,9 @@ public class LucaApiSettings
     public bool UseCookieContainer { get; set; } = true;
     
     public string? ManualSessionCookie { get; set; } = string.Empty;
+    // If true, use a headless browser (Playwright) to obtain a real JSESSIONID cookie
+    // This is required when the Koza/Luca login flow requires a real browser session
+    public bool UseHeadlessAuth { get; set; } = false;
     
     
     

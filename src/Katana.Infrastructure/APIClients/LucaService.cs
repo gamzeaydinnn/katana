@@ -35,11 +35,13 @@ public class LucaService : ILucaService
     private string? _sessionCookie;
     private string? _authToken;
     private DateTime? _tokenExpiry;
+    private DateTime? _cookieExpiresAt;
     
     private System.Net.CookieContainer? _cookieContainer;
     private HttpClientHandler? _cookieHandler;
     private HttpClient? _cookieHttpClient;
     private bool _isCookieAuthenticated = false;
+    private static readonly System.Threading.SemaphoreSlim _loginSemaphore = new System.Threading.SemaphoreSlim(1, 1);
     private static readonly Dictionary<long, (int ExpectedCariTur, string ErrorMessage)> FaturaKapamaCariRules =
         new()
         {
@@ -129,18 +131,80 @@ public class LucaService : ILucaService
 
     private async Task EnsureSessionAsync()
     {
-        if (_isCookieAuthenticated && !string.IsNullOrWhiteSpace(_sessionCookie)) return;
+        if (_isCookieAuthenticated && !string.IsNullOrWhiteSpace(_sessionCookie))
+        {
+            if (!_cookieExpiresAt.HasValue || DateTime.UtcNow < _cookieExpiresAt.Value)
+            {
+                return;
+            }
+            _logger.LogInformation("Cookie expired or about to expire, re-authenticating");
+        }
+
         await LoginWithServiceAsync();
     }
 
     private async Task LoginWithServiceAsync()
     {
+        await _loginSemaphore.WaitAsync();
         try
         {
-            _logger.LogInformation("=== Starting Koza Authentication ===");
+            _logger.LogInformation("=== Starting Koza Authentication (guarded) ===");
+
+            // If already authenticated and cookie not expired, reuse it
+            if (_isCookieAuthenticated && !string.IsNullOrWhiteSpace(_sessionCookie) && (!_cookieExpiresAt.HasValue || DateTime.UtcNow < _cookieExpiresAt.Value))
+            {
+                _logger.LogDebug("Existing Koza session is valid, skipping login");
+                return;
+            }
 
             var baseUri = new Uri($"{_settings.BaseUrl.TrimEnd('/')}/");
-            var loginUrl = "YdlUserLoginCheckWs.do";
+
+            // Try headless browser login first when enabled
+            if (_settings.UseHeadlessAuth)
+            {
+                try
+                {
+                    var sessionManager = new LucaSessionManager(_settings, _logger);
+                    var jsession = await sessionManager.GetFreshCookieAsync();
+                    if (!string.IsNullOrWhiteSpace(jsession))
+                    {
+                        _sessionCookie = "JSESSIONID=" + jsession;
+                        _cookieExpiresAt = DateTime.UtcNow.AddMinutes(20);
+
+                        
+                        if (_cookieHttpClient == null)
+                        {
+                            _cookieContainer = new System.Net.CookieContainer();
+                            _cookieHandler = new HttpClientHandler
+                            {
+                                CookieContainer = _cookieContainer,
+                                UseCookies = true,
+                                AllowAutoRedirect = true
+                            };
+                            _cookieHttpClient = new HttpClient(_cookieHandler)
+                            {
+                                BaseAddress = baseUri
+                            };
+                        }
+
+                        _cookieHttpClient.DefaultRequestHeaders.Accept.Clear();
+                        _cookieHttpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                        _cookieHttpClient.DefaultRequestHeaders.Remove("Cookie");
+                        _cookieHttpClient.DefaultRequestHeaders.TryAddWithoutValidation("Cookie", _sessionCookie);
+                        _isCookieAuthenticated = true;
+                        await EnsureBranchSelectedAsync();
+                        _logger.LogInformation("=== Koza Authentication Complete (Headless) ===");
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Headless login failed; falling back to WS login");
+                }
+            }
+
+            // Fallback: use the more flexible PerformLoginAsync flow (matches working scripts)
+            _logger.LogInformation("Falling back to login flow via PerformLoginAsync (script-compatible)");
 
             if (_cookieHttpClient == null)
             {
@@ -165,46 +229,59 @@ public class LucaService : ILucaService
                 new MediaTypeWithQualityHeaderValue("application/json")
             );
 
-            var payload = new
+            // PerformLoginAsync tries JSON/form variants including the 'Giris.do' JSON payload
+            var loginOk = await PerformLoginAsync();
+            if (!loginOk)
             {
-                kullaniciAdi = _settings.Username,
-                sifre = _settings.Password,
-                uyeNo = _settings.MemberNumber
-            };
+                _logger.LogError("PerformLoginAsync reports login failure (no usable session established)");
+                throw new UnauthorizedAccessException("Login did not succeed via PerformLoginAsync");
+            }
 
-            var loginContent = new StringContent(JsonSerializer.Serialize(payload), _encoding, "application/json");
-            var loginResponse = await _cookieHttpClient.PostAsync(loginUrl, loginContent);
-            var loginBody = await loginResponse.Content.ReadAsStringAsync();
-            await AppendRawLogAsync("AUTH_LOGIN_WS", loginUrl, JsonSerializer.Serialize(payload), loginResponse.StatusCode, loginBody);
-            loginResponse.EnsureSuccessStatusCode();
-
-            if (loginResponse.Headers.TryGetValues("Set-Cookie", out var cookies))
+            // Attempt to extract JSESSIONID from the cookie container (set by PerformLoginAsync requests)
+            string? jsessionFromContainer = null;
+            try
             {
-                var first = cookies.FirstOrDefault();
-                if (!string.IsNullOrWhiteSpace(first))
+                if (_cookieContainer != null)
                 {
-                    _sessionCookie = first.Split(';')[0];
-                    _logger.LogInformation("Session cookie acquired: {CookiePreview}", _sessionCookie.Length > 12 ? _sessionCookie.Substring(0, 12) + "..." : _sessionCookie);
+                    var cookies = _cookieContainer.GetCookies(baseUri);
+                    var c = cookies.Cast<System.Net.Cookie>().FirstOrDefault(x => string.Equals(x.Name, "JSESSIONID", StringComparison.OrdinalIgnoreCase));
+                    if (c != null)
+                    {
+                        jsessionFromContainer = c.Value;
+                    }
                 }
             }
-
-            if (string.IsNullOrWhiteSpace(_sessionCookie))
+            catch (Exception ex)
             {
-                throw new UnauthorizedAccessException("Login did not return a session cookie");
+                _logger.LogWarning(ex, "Failed to read JSESSIONID from CookieContainer after PerformLoginAsync");
             }
 
-            _cookieHttpClient.DefaultRequestHeaders.Remove("Cookie");
-            _cookieHttpClient.DefaultRequestHeaders.TryAddWithoutValidation("Cookie", _sessionCookie);
-            _isCookieAuthenticated = true;
+            if (!string.IsNullOrWhiteSpace(jsessionFromContainer))
+            {
+                _sessionCookie = "JSESSIONID=" + jsessionFromContainer;
+                _cookieExpiresAt = DateTime.UtcNow.AddMinutes(20);
+                _cookieHttpClient.DefaultRequestHeaders.Remove("Cookie");
+                _cookieHttpClient.DefaultRequestHeaders.TryAddWithoutValidation("Cookie", _sessionCookie);
+                _isCookieAuthenticated = true;
+                _logger.LogInformation("Session cookie acquired from CookieContainer (PerformLoginAsync)");
+            }
+            else
+            {
+                _logger.LogWarning("PerformLoginAsync succeeded but no JSESSIONID found in CookieContainer; proceeding but session may not be valid");
+            }
 
             await EnsureBranchSelectedAsync();
-            _logger.LogInformation("=== Koza Authentication Complete (WS) ===");
+            _logger.LogInformation("=== Koza Authentication Complete (WS/PerformLogin) ===");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "!!! Koza authentication failed !!!");
             _isCookieAuthenticated = false;
             throw;
+        }
+        finally
+        {
+            _loginSemaphore.Release();
         }
     }
 
