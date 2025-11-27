@@ -220,7 +220,6 @@ public class KozaInvoiceImportService : IKozaInvoiceImportService
         };
 
         Invoice? invoice = MappingHelper.MapFromLucaInvoice(lucaDto, 0);
-        return Task.FromResult((customer, invoice));
+        return Task.FromResult<(Customer customer, Invoice? invoice)>((customer, invoice));
     }
 }
-
