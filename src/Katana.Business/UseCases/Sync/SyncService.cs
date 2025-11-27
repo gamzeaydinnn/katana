@@ -122,7 +122,7 @@ public class SyncService : ISyncService
             return BuildResult("CUSTOMER", customerDtos.Count, successful);
         });
 
-    public async Task<SyncResultDto> SyncProductsToLucaAsync(SyncOptionsDto options)
+    public async Task<SyncResultDto> SyncProductsToLucaAsync(string? sessionId = null, SyncOptionsDto? options = null)
     {
         options ??= new SyncOptionsDto();
         var stopwatch = Stopwatch.StartNew();
@@ -203,6 +203,15 @@ public class SyncService : ISyncService
 
         try
         {
+            if (!string.IsNullOrWhiteSpace(sessionId))
+            {
+                sendResult = await _lucaService.SendStockCardsAsync(sessionId, payload);
+            }
+            else
+            {
+                sendResult = await _lucaService.SendStockCardsAsync(payload);
+            }
+
             await FinalizeOperationAsync(
                 logEntry,
                 response.IsSuccess ? "SUCCESS" : "FAILED",
@@ -217,6 +226,12 @@ public class SyncService : ISyncService
         }
 
         return response;
+    }
+
+    // Backwards-compatible overload
+    public Task<SyncResultDto> SyncProductsToLucaAsync(SyncOptionsDto options)
+    {
+        return SyncProductsToLucaAsync(null, options);
     }
 
     public async Task<List<StockComparisonDto>> CompareStockCardsAsync()

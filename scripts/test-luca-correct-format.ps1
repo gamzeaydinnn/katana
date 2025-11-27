@@ -17,7 +17,7 @@ Kullanım (repo kökünden):
 #>
 
 param(
-    [string]$BaseUrl = 'http://85.111.1.49:57005/Yetki/',
+    [string]$BaseUrl = 'https://akozas.luca.com.tr/Yetki/',
     [string]$OrgCode = '1422649',
     [string]$Username = 'Admin',
     [string]$Password = 'WebServis',

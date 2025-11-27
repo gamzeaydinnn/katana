@@ -818,7 +818,7 @@ public class LucaStockCardKey
 public class LucaListStockCardsRequest
 {
     [JsonPropertyName("stkSkart")]
-    public LucaStockCardCodeFilter? StkSkart { get; set; }
+    public LucaStockCardCodeFilter StkSkart { get; set; } = new();
 }
 
 
