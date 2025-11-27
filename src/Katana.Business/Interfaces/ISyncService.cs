@@ -8,6 +8,8 @@ public interface ISyncService
     Task<SyncResultDto> SyncProductsAsync(DateTime? fromDate = null);
     Task<SyncResultDto> SyncInvoicesAsync(DateTime? fromDate = null);
     Task<SyncResultDto> SyncCustomersAsync(DateTime? fromDate = null);
+    Task<SyncResultDto> SyncProductsToLucaAsync(SyncOptionsDto options);
+    Task<List<StockComparisonDto>> CompareStockCardsAsync();
     Task<BatchSyncResultDto> SyncAllAsync(DateTime? fromDate = null);
     
     

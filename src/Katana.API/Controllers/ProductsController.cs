@@ -24,6 +24,7 @@ public class ProductsController : ControllerBase
     private readonly IProductService _productService;
     private readonly ICategoryService _categoryService;
     private readonly ILucaService _lucaService;
+    private readonly ISyncService _syncService;
     private readonly ILogger<ProductsController> _logger;
     private readonly ILoggingService _loggingService;
     private readonly IAuditService _auditService;
@@ -32,6 +33,7 @@ public class ProductsController : ControllerBase
     public ProductsController(
         IKatanaService katanaService,
         ILucaService lucaService,
+        ISyncService syncService,
         IProductService productService,
         ICategoryService categoryService,
         IOptionsSnapshot<CatalogVisibilitySettings> catalogVisibility,
@@ -41,6 +43,7 @@ public class ProductsController : ControllerBase
     {
         _katanaService = katanaService;
         _lucaService = lucaService;
+        _syncService = syncService;
         _productService = productService;
         _categoryService = categoryService;
         _catalogVisibility = catalogVisibility;
@@ -277,6 +280,36 @@ public class ProductsController : ControllerBase
     }
 
     
+    [HttpPost("~/api/Luca/sync-products")]
+    public async Task<IActionResult> SyncProductsToLuca([FromBody] SyncOptionsDto options)
+    {
+        try
+        {
+            var result = await _syncService.SyncProductsToLucaAsync(options ?? new SyncOptionsDto());
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _loggingService.LogError("Sync failed", ex, User?.Identity?.Name, null, LogCategory.ExternalAPI);
+            _logger.LogError(ex, "SyncProductsToLuca failed");
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("~/api/Luca/stock-cards")]
+    public async Task<IActionResult> GetLucaStockCards()
+    {
+        var cards = await _lucaService.ListStockCardsAsync();
+        return Ok(cards);
+    }
+
+    [HttpGet("~/api/Sync/comparison")]
+    public async Task<IActionResult> GetStockComparison()
+    {
+        var comparison = await _syncService.CompareStockCardsAsync();
+        return Ok(comparison);
+    }
+
     
     
     [HttpGet("katana/{sku}")]

@@ -1917,6 +1917,13 @@ public class LucaStockCardDto
     public double? SatisTecilOtv { get; set; }
 }
 
+public class LucaStockCardSummaryDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string? Barcode { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
+
 public class LucaProductUpdateDto
 {
     [JsonPropertyName("productCode")]

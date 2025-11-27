@@ -107,8 +107,8 @@ public class SyncController : ControllerBase
                 "CUSTOMER" => await _syncService.SyncCustomersAsync(null),
                 "DESPATCH" => await _syncService.SyncDespatchFromLucaAsync(null),
 
-                "PRODUCT" => await _syncService.SyncProductsAsync(null),
-                "STOCK_CARD" => await _syncService.SyncProductsAsync(null),
+                "PRODUCT" => await _syncService.SyncProductsToLucaAsync(new SyncOptionsDto()),
+                "STOCK_CARD" => await _syncService.SyncProductsToLucaAsync(new SyncOptionsDto()),
                 
                 "SUPPLIER" => new SyncResultDto { IsSuccess = true, Message = "Tedarikçi senkronizasyonu tetiklendi (placeholder)", SuccessfulRecords = 0, ProcessedRecords = 0, FailedRecords = 0, SyncType = "SUPPLIER" },
                 "CUSTOMER_TRANSACTION" => new SyncResultDto { IsSuccess = true, Message = "Cari hareket senkronizasyonu tetiklendi (placeholder)", SuccessfulRecords = 0, ProcessedRecords = 0, FailedRecords = 0, SyncType = "CUSTOMER_TRANSACTION" },

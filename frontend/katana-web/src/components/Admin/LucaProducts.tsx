@@ -30,25 +30,33 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
-import api from "../../services/api";
+import { stockAPI } from "../../services/api";
 import { decodeJwtPayload, getJwtRoles } from "../../utils/jwt";
 
 interface LucaProduct {
   id: string;
   productCode: string;
   productName: string;
+  barcode?: string;
+  category?: string;
+  measurementUnit?: string;
   unit?: string;
   quantity?: number;
   unitPrice?: number;
   vatRate?: number;
+  lastUpdated?: string;
   isActive?: boolean;
   
   ProductCode?: string;
   ProductName?: string;
+  Barkod?: string;
+  KategoriAgacKod?: string;
+  OlcumBirimi?: string;
   Unit?: string;
   Quantity?: number;
   UnitPrice?: number;
   VatRate?: number;
+  LastUpdated?: string;
   IsActive?: boolean;
 }
 
@@ -69,40 +77,22 @@ const LucaProducts: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const url = "/Products/luca"; 
-      const response = await api.get(url);
-      const responseData: any = response.data;
-      const productData = responseData?.data || responseData || [];
+      const data: any = await stockAPI.getLucaStockCards();
+      const productData = data?.data || data || [];
       setProducts(productData);
       setFilteredProducts(productData);
-      if (!Array.isArray(productData) && !responseData?.data) {
-        console.warn(
-          "Beklenen format 'data: []' değil. Ham yanıt:",
-          responseData
-        );
+      if (!Array.isArray(productData) && !data?.data) {
+        console.warn("Beklenen format 'data: []' değil. Ham yanıt:", data);
       }
     } catch (err: any) {
-      const status = err?.response?.status;
-      const backendMsg = err?.response?.data?.error || err?.message;
       const finalMessage =
-        backendMsg ||
-        "Luca ürünleri yüklenemedi. Endpoint veya reverse proxy yapılandırması eksik olabilir.";
+        err?.response?.data?.error ||
+        err?.message ||
+        "Luca stok kartları yüklenemedi.";
       setError(finalMessage);
-      console.error("[LucaProducts] İstek başarısız", {
-        requestedUrl: "/api/Products/luca",
-        aliasTried: "/api/Luca/products (alias mevcut)",
-        status,
-        message: backendMsg,
-        fullError: err,
-      });
-      
-      if (status === 404) {
-        console.warn(
-          "404 alındı. Nginx 'location /api/' proxy_pass 5055'e yönlendiriyor mu kontrol edin."
-        );
-      }
       setProducts([]);
       setFilteredProducts([]);
+      console.error("[LucaProducts] İstek başarısız", err);
     } finally {
       setLoading(false);
     }
@@ -244,7 +234,15 @@ const LucaProducts: React.FC = () => {
           {filteredProducts.map((product) => {
             const code = product.productCode || product.ProductCode || "";
             const name = product.productName || product.ProductName || "";
-            const unit = product.unit || product.Unit || "";
+            const unit =
+              product.unit ||
+              product.Unit ||
+              product.measurementUnit ||
+              product.OlcumBirimi ||
+              "";
+            const barcode = product.barcode || product.Barkod || "";
+            const category = product.category || product.KategoriAgacKod || "";
+            const lastUpdated = product.lastUpdated || product.LastUpdated || "";
             const quantity = product.quantity ?? product.Quantity ?? 0;
             const unitPrice = product.unitPrice ?? product.UnitPrice ?? 0;
             const vatRate = product.vatRate ?? product.VatRate ?? 0;
@@ -269,6 +267,24 @@ const LucaProducts: React.FC = () => {
                     <Typography variant="body2" color="text.secondary">
                       Kod: <strong>{code}</strong>
                     </Typography>
+                    {barcode && (
+                      <Typography variant="body2" color="text.secondary">
+                        Barkod: {barcode}
+                      </Typography>
+                    )}
+                    {category && (
+                      <Chip
+                        label={category}
+                        size="small"
+                        variant="outlined"
+                        sx={{ mt: 0.5 }}
+                      />
+                    )}
+                    {lastUpdated && (
+                      <Typography variant="caption" color="text.secondary">
+                        Güncelleme: {lastUpdated}
+                      </Typography>
+                    )}
                   </Box>
                   <Chip
                     label={isActive ? "Aktif" : "Pasif"}
@@ -340,7 +356,13 @@ const LucaProducts: React.FC = () => {
                   <strong>Ürün Adı</strong>
                 </TableCell>
                 <TableCell>
-                  <strong>Birim</strong>
+                  <strong>Barkod</strong>
+                </TableCell>
+                <TableCell>
+                  <strong>Kategori</strong>
+                </TableCell>
+                <TableCell>
+                  <strong>Ölçü Birimi</strong>
                 </TableCell>
                 <TableCell align="right">
                   <strong>Miktar</strong>
@@ -354,6 +376,9 @@ const LucaProducts: React.FC = () => {
                 <TableCell>
                   <strong>Durum</strong>
                 </TableCell>
+                <TableCell>
+                  <strong>Son Güncelleme</strong>
+                </TableCell>
                 <TableCell align="center">
                   <strong>İşlemler</strong>
                 </TableCell>
@@ -362,7 +387,7 @@ const LucaProducts: React.FC = () => {
             <TableBody>
               {filteredProducts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell colSpan={11} align="center">
                     <Typography color="textSecondary">
                       {searchTerm
                         ? "Arama sonucu bulunamadı"
@@ -374,7 +399,15 @@ const LucaProducts: React.FC = () => {
                 filteredProducts.map((product) => {
                   const code = product.productCode || product.ProductCode || "";
                   const name = product.productName || product.ProductName || "";
-                  const unit = product.unit || product.Unit || "";
+                  const unit =
+                    product.unit ||
+                    product.Unit ||
+                    product.measurementUnit ||
+                    product.OlcumBirimi ||
+                    "";
+                  const barcode = product.barcode || product.Barkod || "";
+                  const category = product.category || product.KategoriAgacKod || "";
+                  const lastUpdated = product.lastUpdated || product.LastUpdated || "";
                   const quantity = product.quantity ?? product.Quantity ?? 0;
                   const unitPrice = product.unitPrice ?? product.UnitPrice ?? 0;
                   const vatRate = product.vatRate ?? product.VatRate ?? 0;
@@ -388,6 +421,8 @@ const LucaProducts: React.FC = () => {
                         </Typography>
                       </TableCell>
                       <TableCell>{name}</TableCell>
+                      <TableCell>{barcode || "-"}</TableCell>
+                      <TableCell>{category || "-"}</TableCell>
                       <TableCell>{unit}</TableCell>
                       <TableCell align="right">{quantity}</TableCell>
                       <TableCell align="right">
@@ -401,6 +436,7 @@ const LucaProducts: React.FC = () => {
                           size="small"
                         />
                       </TableCell>
+                      <TableCell>{lastUpdated || "-"}</TableCell>
                       <TableCell align="center">
                         {canEdit ? (
                           <Tooltip title="Düzenle">

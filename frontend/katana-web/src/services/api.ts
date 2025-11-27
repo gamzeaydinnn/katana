@@ -271,13 +271,41 @@ export interface UpdateUserRequest {
   email?: string;
 }
 
+export interface SyncOptions {
+  syncType?: string;
+  dryRun?: boolean;
+  preferBarcodeMatch?: boolean;
+  forceSendDuplicates?: boolean;
+  limit?: number;
+}
+
+export interface SyncResult {
+  syncType?: string;
+  processedRecords?: number;
+  successfulRecords?: number;
+  failedRecords?: number;
+  totalChecked?: number;
+  alreadyExists?: number;
+  newCreated?: number;
+  failed?: number;
+  message?: string;
+  errors?: string[];
+  details?: string[];
+}
+
 export const stockAPI = {
   
   getDashboardStats: () => api.get("/Dashboard").then((res) => res.data),
 
   
   getKatanaProducts: () =>
-    api.get("/adminpanel/products?page=1&pageSize=100").then((res) => res.data),
+    api.get("/Products/katana").then((res) => res.data),
+
+  
+  getLucaStockCards: () => api.get("/Luca/stock-cards").then((res) => res.data),
+
+  
+  getComparison: () => api.get("/Sync/comparison").then((res) => res.data),
 
   
   getStockStatus: () => api.get("/Stock/status").then((res) => res.data),
@@ -300,8 +328,10 @@ export const stockAPI = {
   getSyncHistory: () => api.get("/Sync/history").then((res) => res.data),
 
   
-  startSync: (syncType: string) =>
-    api.post("/Sync/start", { syncType }).then((res) => res.data),
+  startSync: (options?: SyncOptions) =>
+    api
+      .post("/Luca/sync-products", options || {})
+      .then((res) => res.data as SyncResult),
 
   
   getStockReport: (queryString?: string) =>
