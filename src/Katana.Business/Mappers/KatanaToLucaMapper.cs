@@ -60,20 +60,27 @@ public static class KatanaToLucaMapper
     {
         if (excelRow == null) throw new ArgumentNullException(nameof(excelRow));
 
-        var vatPurchase = excelRow.PurchaseVatRate ?? excelRow.VatRate ?? defaultVatRate ?? 0;
-        var vatSales = excelRow.SalesVatRate ?? excelRow.VatRate ?? defaultVatRate ?? 0;
+        decimal? defaultVat = defaultVatRate.HasValue ? Convert.ToDecimal(defaultVatRate.Value) : null;
+        var vatPurchaseSource = excelRow.PurchaseVatRate
+            ?? excelRow.VatRate
+            ?? defaultVat
+            ?? 0m;
+        var vatSalesSource = excelRow.SalesVatRate
+            ?? excelRow.VatRate
+            ?? defaultVat
+            ?? 0m;
 
         var request = new LucaCreateStokKartiRequest
         {
             KartAdi = excelRow.Name?.Trim() ?? excelRow.SKU?.Trim() ?? string.Empty,
             KartKodu = excelRow.SKU?.Trim() ?? string.Empty,
             KartTuru = 1,
-            BaslangicTarihi = excelRow.StartDate,
+            BaslangicTarihi = excelRow.StartDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
             OlcumBirimiId = defaultOlcumBirimiId ?? 5,
             KartTipi = defaultKartTipi ?? 4,
             KategoriAgacKod = !string.IsNullOrWhiteSpace(excelRow.CategoryCode) ? excelRow.CategoryCode : defaultKategoriKod ?? string.Empty,
-            KartAlisKdvOran = ConvertToDouble(vatPurchase),
-            KartSatisKdvOran = ConvertToDouble(vatSales),
+            KartAlisKdvOran = ConvertToDouble(vatPurchaseSource),
+            KartSatisKdvOran = ConvertToDouble(vatSalesSource),
             PerakendeAlisBirimFiyat = 0,
             PerakendeSatisBirimFiyat = 0,
             SatilabilirFlag = BoolToInt(excelRow.IsActive),

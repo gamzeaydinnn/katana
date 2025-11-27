@@ -15,7 +15,7 @@ namespace Katana.Business.Models.DTOs
         /// </summary>
         [Required(ErrorMessage = "SKU kolonu zorunludur")]
         [MaxLength(50, ErrorMessage = "SKU maksimum 50 karakter olabilir")]
-        public string SKU { get; set; }
+        public string SKU { get; set; } = string.Empty;
 
         /// <summary>
         /// Ürün Adı (Zorunlu)
@@ -23,7 +23,7 @@ namespace Katana.Business.Models.DTOs
         /// </summary>
         [Required(ErrorMessage = "Name kolonu zorunludur")]
         [MaxLength(200, ErrorMessage = "Name maksimum 200 karakter olabilir")]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         /// <summary>
         /// KDV Oranı (Opsiyonel - Boşsa appsettings'ten default çekilir)
@@ -36,7 +36,7 @@ namespace Katana.Business.Models.DTOs
         /// Örnek: "Adet", "Kg", "Saat", "Lt"
         /// </summary>
         [MaxLength(20)]
-        public string Unit { get; set; }
+        public string? Unit { get; set; }
 
         /// <summary>
         /// Başlangıç Tarihi (Zorunlu)
@@ -78,20 +78,20 @@ namespace Katana.Business.Models.DTOs
         /// Ürün Açıklaması (Opsiyonel)
         /// </summary>
         [MaxLength(500)]
-        public string Description { get; set; }
+        public string? Description { get; set; }
 
         /// <summary>
         /// Barkod (Opsiyonel)
         /// </summary>
         [MaxLength(50)]
-        public string Barcode { get; set; }
+        public string? Barcode { get; set; }
 
         /// <summary>
         /// Kategori Kodu (Opsiyonel)
         /// Koza'daki mevcut kategori kodu
         /// </summary>
         [MaxLength(50)]
-        public string CategoryCode { get; set; }
+        public string? CategoryCode { get; set; }
 
         /// <summary>
         /// Alış KDV Oranı (Opsiyonel - Boşsa VatRate kullanılır)
