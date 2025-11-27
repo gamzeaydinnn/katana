@@ -1,0 +1,12 @@
+HTTP/1.1 200 OK
+Cneonction: close
+Date: Thu, 27 Nov 2025 13:44:18 GMT
+Transfer-Encoding: chunked
+Content-Type: application/json; charset=UTF-8
+X-ORACLE-DMS-ECID: 443ebf5f-0106-4cf4-96be-293c5a6087cf-007f1a23
+X-ORACLE-DMS-RID: 0
+Set-Cookie: JSESSIONID=2G7FjsGXe-WpO-g8NGFpG7dDc5Kc-cmvOvMMgey_yMotlm4Whv2i!-951287165; path=/; HttpOnly
+Set-Cookie: NSC_Lpab_IUUQT_443=ffffffffaf1b353445525d5f4f58455e445a4a422df5;expires=Thu, 27-Nov-2025 14:19:24 GMT;path=/;secure;httponly
+Strict-Transport-Security: max-age=157680000
+
+{"code": 1001, "message":"Login olunmalı."}
