@@ -11,7 +11,6 @@ using Katana.Core.DTOs;
 using Microsoft.Extensions.Options;
 using System;
 using Microsoft.Extensions.Logging;
-using System.Text;
 
 namespace Katana.API.Controllers
 {
@@ -80,21 +79,35 @@ namespace Katana.API.Controllers
                 if (Request.Headers.TryGetValue("X-Luca-Session", out var headerVals1))
                 {
                     var hdr1 = headerVals1.FirstOrDefault();
-                    if (!string.IsNullOrWhiteSpace(hdr1)) return hdr1;
+                    if (!string.IsNullOrWhiteSpace(hdr1))
+                    {
+                        _logger.LogDebug("GetSessionIdFromRequest: found header X-Luca-Session (length={Len})", hdr1?.Length ?? 0);
+                        return hdr1;
+                    }
                 }
 
                 if (Request.Headers.TryGetValue("X-Luca-Proxy-Session", out var headerVals2))
                 {
                     var hdr2 = headerVals2.FirstOrDefault();
-                    if (!string.IsNullOrWhiteSpace(hdr2)) return hdr2;
+                    if (!string.IsNullOrWhiteSpace(hdr2))
+                    {
+                        _logger.LogDebug("GetSessionIdFromRequest: found header X-Luca-Proxy-Session (length={Len})", hdr2?.Length ?? 0);
+                        return hdr2;
+                    }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "GetSessionIdFromRequest: exception while reading headers");
+            }
 
             if (Request.Cookies.TryGetValue(SessionCookieName, out var cookieVal) && !string.IsNullOrWhiteSpace(cookieVal))
             {
+                _logger.LogDebug("GetSessionIdFromRequest: found cookie {CookieName} (length={Len})", SessionCookieName, cookieVal?.Length ?? 0);
                 return cookieVal;
             }
+
+            _logger.LogDebug("GetSessionIdFromRequest: no session found in headers or cookies");
 
             return null;
         }
@@ -330,7 +343,52 @@ namespace Katana.API.Controllers
                 if (!branchSelected)
                 {
                     _logger.LogWarning("SyncProducts: Branch selection failed for session {SessionId}", sessionId);
-                    return StatusCode(500, new { message = "Luca branch selection failed before sync; please retry." });
+
+                    // Attempt automatic re-login once and retry branch selection. This helps when the sessionId
+                    // exists but the Luca-specific cookies are missing/expired: try to recover automatically.
+                    try
+                    {
+                        _logger.LogInformation("SyncProducts: attempting auto-login and retry branch selection for session {SessionId}", sessionId);
+                        var newSession = await AutoLoginAndReturnSessionId();
+                        if (!string.IsNullOrWhiteSpace(newSession) && !string.Equals(newSession, sessionId, StringComparison.Ordinal))
+                        {
+                            sessionId = newSession;
+                            _logger.LogInformation("SyncProducts: retrying EnsureBranchSelectedForSessionAsync with new session {SessionId}", sessionId);
+                            var retried = await EnsureBranchSelectedForSessionAsync(sessionId, _settings.ForcedBranchId ?? _settings.DefaultBranchId);
+                            if (retried)
+                            {
+                                branchSelected = true;
+                                _logger.LogInformation("SyncProducts: branch selection retry succeeded for session {SessionId}", sessionId);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("SyncProducts: branch selection retry failed for session {SessionId}", sessionId);
+                            }
+                        }
+                        else if (!string.IsNullOrWhiteSpace(newSession))
+                        {
+                            // session id unchanged but cookies might have been refreshed; attempt branch selection again
+                            var retried = await EnsureBranchSelectedForSessionAsync(sessionId, _settings.ForcedBranchId ?? _settings.DefaultBranchId);
+                            if (retried)
+                            {
+                                branchSelected = true;
+                                _logger.LogInformation("SyncProducts: branch selection retry (same session) succeeded for session {SessionId}", sessionId);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("SyncProducts: branch selection retry (same session) failed for session {SessionId}", sessionId);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "SyncProducts: automatic retry/login attempt threw an exception for session {SessionId}", sessionId);
+                    }
+
+                    if (!branchSelected)
+                    {
+                        return StatusCode(500, new { message = "Luca branch selection failed before sync; please retry or login manually." });
+                    }
                 }
 
                 if (string.IsNullOrWhiteSpace(sessionId))
@@ -404,6 +462,8 @@ namespace Katana.API.Controllers
 
             try
             {
+                _logger.LogDebug("EnsureBranchSelectedForSessionAsync: session={SessionId}, preferredBranch={BranchId}", sessionId, preferredBranchId);
+
                 var cookieContainer = _cookieJarStore.GetOrCreate(sessionId);
                 var handler = new HttpClientHandler
                 {
@@ -421,13 +481,37 @@ namespace Katana.API.Controllers
                 request.Content = new StringContent(payloadJson, Encoding.GetEncoding(_settings.Encoding ?? "iso-8859-9"), "application/json");
                 ApplyManualSessionCookie(request);
 
+                _logger.LogDebug("EnsureBranchSelectedForSessionAsync: sending branch-change request to {Url}. Payload: {PayloadPreview}", requestUrl, payloadJson?.Length > 1000 ? payloadJson.Substring(0, 1000) + "..." : payloadJson);
+
+                // Attempt to list cookies associated with the Luca base URL for debugging
+                try
+                {
+                    var uri = new Uri(_lucaBaseUrl);
+                    var cookies = cookieContainer.GetCookies(uri);
+                    var cookieSb = new System.Text.StringBuilder();
+                    foreach (System.Net.Cookie c in cookies)
+                    {
+                        cookieSb.Append(c.Name).Append("=").Append(c.Value).Append("; ");
+                    }
+                    var cookieDump = cookieSb.Length > 0 ? cookieSb.ToString() : "(no cookies)";
+                    _logger.LogDebug("EnsureBranchSelectedForSessionAsync: cookies for {Host}: {Cookies}", uri.Host, cookieDump);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "EnsureBranchSelectedForSessionAsync: failed to enumerate cookies for session {SessionId}", sessionId);
+                }
+
                 var response = await client.SendAsync(request);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
+                _logger.LogDebug("EnsureBranchSelectedForSessionAsync: branch-change response status={Status}, length={Len}", response.StatusCode, responseContent?.Length ?? 0);
+
+                var respNonNull = responseContent ?? string.Empty;
+
                 var ok = response.IsSuccessStatusCode &&
-                         (responseContent.Contains("\"code\":0") ||
-                          responseContent.IndexOf("başarı", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                          responseContent.IndexOf("Basari", StringComparison.OrdinalIgnoreCase) >= 0);
+                         (respNonNull.Contains("\"code\":0") ||
+                          respNonNull.IndexOf("başarı", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                          respNonNull.IndexOf("Basari", StringComparison.OrdinalIgnoreCase) >= 0);
 
                 if (!ok)
                 {

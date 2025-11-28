@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Katana.API.Controllers
 {
     [ApiController]
+    // Use a distinct route for compatibility helpers to avoid colliding with the main proxy controller
     [Route("api/luca-compat")]
     public class LucaCompatibilityController : ControllerBase
     {
