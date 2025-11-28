@@ -1,5 +1,4 @@
 namespace Katana.Core.DTOs;
-
 public class OrderDto
 {
     public int Id { get; set; }

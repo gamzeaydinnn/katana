@@ -9,16 +9,8 @@ using Katana.Core.Constants;
 
 namespace Katana.Infrastructure.Helpers;
 
-/// <summary>
-/// Helper factory to create sample Luca request DTOs populated with required fields.
-/// Use these helpers as a starting point when assembling payloads to send to Luca/Koza.
-/// </summary>
 public static class LucaRequestFactory
 {
-    /// <summary>
-    /// Creates a sample `LucaCreateStokKartiRequest` populated with the typical required fields.
-    /// Customize values as needed before sending to the API.
-    /// </summary>
     public static LucaCreateStokKartiRequest CreateSampleStokKarti(
         string kartAdi = "ÜRÜN ADI",
         long kartTuru = 1,
@@ -54,10 +46,6 @@ public static class LucaRequestFactory
         };
     }
 
-    /// <summary>
-    /// Creates a sample `LucaCreateInvoiceHeaderRequest` populated with required fields and one detail line.
-    /// Adjust or expand the `DetayList` as needed for real invoices.
-    /// </summary>
     public static LucaCreateInvoiceHeaderRequest CreateSampleInvoiceHeader(
         DateTime? belgeTarihi = null,
         long belgeTurDetayId = KozaBelgeTurleri.MalSatisFaturasi,
@@ -105,10 +93,6 @@ public static class LucaRequestFactory
 
         return header;
     }
-
-    /// <summary>
-    /// Creates a sample `LucaCreateDshBaslikRequest` (Other Stock Movement) populated with required fields and one detail line.
-    /// </summary>
     public static LucaCreateDshBaslikRequest CreateSampleOtherStockMovement(
         DateTime? belgeTarihi = null,
         long belgeTurDetayId = KozaBelgeTurleri.DigerStokGiris,
@@ -136,9 +120,6 @@ public static class LucaRequestFactory
         return req;
     }
 
-    /// <summary>
-    /// Excel DTO'sundan form-encoded stok kartı isteği üretir.
-    /// </summary>
     public static FormUrlEncodedContent CreateStockCardRequestFromExcel(
         ExcelProductDto dto,
         double defaultVatRate = 0.20,

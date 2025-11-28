@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using Katana.Core.Interfaces;
 
-
 namespace Katana.Data.Context;
 public class IntegrationDbContext : DbContext
 {

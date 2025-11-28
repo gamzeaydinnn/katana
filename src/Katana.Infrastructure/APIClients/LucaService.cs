@@ -19,11 +19,6 @@ using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Core.Helpers;
 
-
-
-
-
-
 namespace Katana.Infrastructure.APIClients;
 
 public class LucaService : ILucaService

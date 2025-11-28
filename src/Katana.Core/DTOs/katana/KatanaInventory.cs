@@ -3,10 +3,6 @@ using System.Text.Json.Serialization;
 namespace Katana.Core.DTOs;
 
 #region Inventory
-
-
-
-
 public class InventoryDto
 {
     [JsonPropertyName("variant_id")]

@@ -1,10 +1,6 @@
 using Katana.Core.Entities;
 
 namespace Katana.Core.Events;
-
-
-
-
 public class StockSyncedEvent
 {
     public int StockId { get; }

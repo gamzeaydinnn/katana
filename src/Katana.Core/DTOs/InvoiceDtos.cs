@@ -1,8 +1,5 @@
 namespace Katana.Core.DTOs;
 
-
-
-
 public class InvoiceDto
 {
     public int Id { get; set; }

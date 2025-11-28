@@ -1,8 +1,5 @@
 using System;
-
-
 namespace Katana.Data.Configuration;
-
 public class KatanaApiSettings
 {
     
@@ -22,14 +19,12 @@ public class KatanaApiSettings
     public string AuthHeaderType { get; set; } = "X-Api-Key";
     public string AcceptHeader { get; set; } = "application/json";
     public string ContentType { get; set; } = "application/json; charset=utf-8";
-
     public RateLimitSettings RateLimit { get; set; } = new();
     public PaginationSettings Pagination { get; set; } = new();
 
     public KatanaApiEndpoints Endpoints { get; set; } = new();
     public KatanaWebhookEvents WebhookEvents { get; set; } = new();
 }
-
 public class RateLimitSettings
 {
     public int RequestsPerSecond { get; set; } = 10;
@@ -37,28 +32,23 @@ public class RateLimitSettings
     public int BurstSize { get; set; } = 20;
     public int RetryAfterSeconds { get; set; } = 5;
 }
-
 public class PaginationSettings
 {
     public int DefaultPageSize { get; set; } = 100;
     public int MaxPageSize { get; set; } = 100;
     public int DefaultStartPage { get; set; } = 1;
 }
-
 public class KatanaApiEndpoints
 {
     public string Products { get; set; } = "products";
     public string Variants { get; set; } = "variants";
     public string Locations { get; set; } = "locations";
     public string BinLocations { get; set; } = "bin-locations";
-
     public string Contacts { get; set; } = "contacts";
     public string ContactAddresses { get; set; } = "contact-addresses";
-
     public string SalesOrders { get; set; } = "sales-orders";
     public string PurchaseOrders { get; set; } = "purchase-orders";
     public string ManufacturingOrders { get; set; } = "manufacturing-orders";
-
     public string StockAdjustments { get; set; } = "stock-adjustments";
     public string Batches { get; set; } = "batches";
     public string Stocktakes { get; set; } = "stocktakes";

@@ -1,10 +1,6 @@
 using System;
 
 namespace Katana.Core.Entities;
-
-
-
-
 public class InventoryMovement
 {
     public int Id { get; set; }

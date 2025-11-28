@@ -4,9 +4,6 @@ using Katana.Business.Enums;
 
 namespace Katana.Business.Mappers
 {
-    /// <summary>
-    /// Koza/Luca belge türü eşleştirmeleri (fatura/irsaliye).
-    /// </summary>
     public static class DocumentTypeMapper
     {
         private static readonly Dictionary<InvoiceType, (int BelgeTurId, int BelgeTurDetayId)> InvoiceMapping = new()

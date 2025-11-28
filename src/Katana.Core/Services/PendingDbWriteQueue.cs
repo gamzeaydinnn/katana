@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 
 namespace Katana.Core.Services
 {
-    
     public class PendingAuditInfo
     {
         public string ActionType { get; set; } = string.Empty;

@@ -2,30 +2,17 @@
 using Katana.Core.Enums;
 
 namespace Katana.Data.Models;
-
-
-
-
-
 public class IntegrationLog
 {
     public int Id { get; set; }
 
-    
-    
-    
     [Required]
     [MaxLength(50)]
     public string SyncType { get; set; } = string.Empty;
 
-    
-    
-    
     [Required]
     public SyncStatus Status { get; set; } = SyncStatus.Pending;
 
-    
-    
     
     public DataSource Source { get; set; } = DataSource.Katana;
 

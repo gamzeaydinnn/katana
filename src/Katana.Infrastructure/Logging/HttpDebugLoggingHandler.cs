@@ -4,11 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Katana.Infrastructure.Logging;
-
-
-
-
-
 public class HttpDebugLoggingHandler : DelegatingHandler
 {
     private readonly ILogger<HttpDebugLoggingHandler> _logger;

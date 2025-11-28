@@ -2,11 +2,6 @@
 using Katana.Core.Enums;
 
 namespace Katana.Core.Entities;
-
-
-
-
-
 public class AuditRecord
 {
     

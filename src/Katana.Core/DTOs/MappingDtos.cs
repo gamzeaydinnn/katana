@@ -1,10 +1,4 @@
 ﻿namespace Katana.Core.DTOs;
-
-
-
-
-
-
 public class SkuAccountMappingDto
 {
     public string Sku { get; set; } = string.Empty;
@@ -15,9 +9,6 @@ public class SkuAccountMappingDto
     public DateTime UpdatedAt { get; set; }
 }
 
-
-
-
 public class LocationWarehouseMappingDto
 {
     public string Location { get; set; } = string.Empty;
@@ -27,9 +18,6 @@ public class LocationWarehouseMappingDto
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
-
-
-
 
 public class MappingDto
 {

@@ -2,9 +2,6 @@ using Katana.Core.Entities;
 
 namespace Katana.Core.Interfaces;
 
-
-
-
 public interface INotificationService
 {
     

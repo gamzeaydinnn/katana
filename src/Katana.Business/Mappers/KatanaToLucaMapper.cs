@@ -379,7 +379,6 @@ public static class KatanaToLucaMapper
         dto.UzunAdi = EncodingHelper.ConvertToIso88599(dto.UzunAdi);
         return dto;
     }
-
     public static void ValidateLucaStockCard(LucaCreateStokKartiRequest dto)
     {
         if (dto == null) throw new ArgumentNullException(nameof(dto));

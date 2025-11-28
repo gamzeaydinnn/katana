@@ -1,8 +1,5 @@
 namespace Katana.Core.Enums;
 
-
-
-
 public enum AuditActionType
 {
     Create = 1,

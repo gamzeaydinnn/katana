@@ -1,8 +1,4 @@
 namespace Katana.Core.DTOs;
-
-
-
-
 public class StockDto
 {
     public int Id { get; set; }
@@ -19,9 +15,6 @@ public class StockDto
     public DateTime? SyncedAt { get; set; }
 }
 
-
-
-
 public class CreateStockMovementDto
 {
     public int ProductId { get; set; }
@@ -31,9 +24,6 @@ public class CreateStockMovementDto
     public string? Reason { get; set; }
     public string? Reference { get; set; }
 }
-
-
-
 
 public class StockSummaryDto
 {

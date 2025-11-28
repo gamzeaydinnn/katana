@@ -3,11 +3,6 @@ using System.Threading.Tasks;
 
 namespace Katana.Core.Interfaces;
 
-
-
-
-
-
 public interface IPendingNotificationPublisher
 {
     Task PublishPendingCreatedAsync(PendingStockAdjustmentCreatedEvent evt);

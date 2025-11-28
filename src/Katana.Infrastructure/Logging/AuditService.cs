@@ -5,10 +5,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Katana.Infrastructure.Logging;
 
-
-
-
-
 public class AuditService : IAuditService
 {
     private readonly ILogger<AuditService> _logger;

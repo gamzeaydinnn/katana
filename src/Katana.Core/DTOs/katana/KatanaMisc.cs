@@ -3,10 +3,6 @@ using System.Text.Json.Serialization;
 namespace Katana.Core.DTOs;
 
 #region Service
-
-
-
-
 public class ServiceDto
 {
     [JsonPropertyName("id")]

@@ -2,9 +2,6 @@ using Katana.Core.DTOs;
 
 namespace Katana.Core.Interfaces;
 
-
-
-
 public interface IStockService
 {
     

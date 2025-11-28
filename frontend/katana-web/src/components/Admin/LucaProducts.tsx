@@ -120,7 +120,7 @@ const LucaProducts: React.FC = () => {
     setSaving(true);
     setError(null);
 
-    try {
+      try {
       const productId = selectedProduct.id;
       
       const updateDto = {
@@ -135,7 +135,7 @@ const LucaProducts: React.FC = () => {
       };
 
       console.log("Sending update DTO:", updateDto); 
-      await api.put(`/Products/luca/${productId}`, updateDto);
+      await (stockAPI as any).put(`/Products/luca/${productId}`, updateDto);
       handleCloseModal();
       fetchProducts();
     } catch (err: any) {

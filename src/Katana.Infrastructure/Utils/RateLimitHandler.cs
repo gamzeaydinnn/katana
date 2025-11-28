@@ -2,10 +2,6 @@ using System.Net.Http.Headers;
 using Microsoft.Extensions.Logging;
 
 namespace Katana.Infrastructure.Utils;
-
-
-
-
 public class RateLimitHandler : DelegatingHandler
 {
     private readonly ILogger<RateLimitHandler> _logger;

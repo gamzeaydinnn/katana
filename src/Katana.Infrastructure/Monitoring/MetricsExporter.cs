@@ -5,10 +5,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Katana.Infrastructure.Monitoring;
 
-
-
-
-
 public class MetricsExporter
 {
     private readonly ILogger<MetricsExporter> _logger;

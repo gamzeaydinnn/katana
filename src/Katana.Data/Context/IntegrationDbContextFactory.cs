@@ -6,10 +6,6 @@ using Microsoft.Extensions.Configuration;
 
 namespace Katana.Data.Context;
 
-
-
-
-
 public class IntegrationDbContextFactory : IDesignTimeDbContextFactory<IntegrationDbContext>
 {
     public IntegrationDbContext CreateDbContext(string[] args)
