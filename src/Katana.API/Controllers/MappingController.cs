@@ -132,6 +132,7 @@ public class MappingController : ControllerBase
         {
             var normalizedType = (request.MappingType ?? string.Empty).Trim().ToUpperInvariant();
             var normalizedSource = (request.SourceValue ?? string.Empty).Trim().ToUpperInvariant();
+            var normalizedTarget = (request.TargetValue ?? string.Empty).Trim();
 
             var existingMapping = await _context.MappingTables
                 .FirstOrDefaultAsync(m => m.MappingType == normalizedType && m.SourceValue == normalizedSource);
@@ -145,7 +146,7 @@ public class MappingController : ControllerBase
             {
                 MappingType = normalizedType,
                 SourceValue = normalizedSource,
-                TargetValue = request.TargetValue,
+                TargetValue = normalizedTarget,
                 Description = request.Description,
                 IsActive = request.IsActive ?? true,
                 CreatedAt = DateTime.UtcNow,
