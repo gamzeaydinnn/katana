@@ -38,6 +38,7 @@ public class LucaService : ILucaService
     private string? _authToken;
     private DateTime? _tokenExpiry;
     private DateTime? _cookieExpiresAt;
+    private static readonly SemaphoreSlim _branchSemaphore = new SemaphoreSlim(1, 1);
     
     private System.Net.CookieContainer? _cookieContainer;
     private HttpClientHandler? _cookieHandler;
@@ -149,6 +150,45 @@ public class LucaService : ILucaService
         }
 
         await EnsureSessionAsync();
+    }
+
+    private string? TryGetJSessionFromContainer()
+    {
+        try
+        {
+            if (_cookieContainer != null && !string.IsNullOrWhiteSpace(_settings.BaseUrl))
+            {
+                var baseUri = new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
+                var cookies = _cookieContainer.GetCookies(baseUri);
+                var c = cookies.Cast<System.Net.Cookie>().FirstOrDefault(x => string.Equals(x.Name, "JSESSIONID", StringComparison.OrdinalIgnoreCase));
+                if (c != null && !string.IsNullOrWhiteSpace(c.Value)) return c.Value;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to read JSESSIONID from CookieContainer");
+        }
+        return null;
+    }
+
+    private void ApplySessionCookie(HttpRequestMessage req)
+    {
+        try
+        {
+            if (!req.Headers.Contains("Cookie"))
+            {
+                var js = TryGetJSessionFromContainer();
+                if (!string.IsNullOrWhiteSpace(js))
+                {
+                    var full = js.StartsWith("JSESSIONID=", StringComparison.OrdinalIgnoreCase) ? js : "JSESSIONID=" + js;
+                    req.Headers.TryAddWithoutValidation("Cookie", full);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to apply session cookie to request");
+        }
     }
 
     private async Task VerifyBranchSelectionAsync()
@@ -298,8 +338,20 @@ public class LucaService : ILucaService
 
                         _cookieHttpClient.DefaultRequestHeaders.Accept.Clear();
                         _cookieHttpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                        _cookieHttpClient.DefaultRequestHeaders.Remove("Cookie");
-                        _cookieHttpClient.DefaultRequestHeaders.TryAddWithoutValidation("Cookie", _sessionCookie);
+
+                        try
+                        {
+                            if (_cookieContainer != null)
+                            {
+                                var cookie = new System.Net.Cookie("JSESSIONID", jsession, "/", baseUri.Host);
+                                _cookieContainer.Add(baseUri, cookie);
+                                _logger.LogDebug("Headless auth: JSESSIONID inserted into CookieContainer for host {Host}", baseUri.Host);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Headless auth: failed to insert JSESSIONID into CookieContainer");
+                        }
                         _isCookieAuthenticated = true;
                         await EnsureBranchSelectedAsync();
                         _logger.LogInformation("=== Koza Authentication Complete (Headless) ===");
@@ -366,10 +418,37 @@ public class LucaService : ILucaService
             {
                 _sessionCookie = "JSESSIONID=" + jsessionFromContainer;
                 _cookieExpiresAt = DateTime.UtcNow.AddMinutes(20);
-                _cookieHttpClient.DefaultRequestHeaders.Remove("Cookie");
-                _cookieHttpClient.DefaultRequestHeaders.TryAddWithoutValidation("Cookie", _sessionCookie);
                 _isCookieAuthenticated = true;
                 _logger.LogInformation("Session cookie acquired from CookieContainer (PerformLoginAsync)");
+                try
+                {
+                    // Ensure CookieContainer contains a cookie with proper Domain/Path
+                    if (_cookieContainer != null && !string.IsNullOrWhiteSpace(_settings.BaseUrl))
+                    {
+                        try
+                        {
+                                var baseUriCookie = new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
+                                var host = baseUriCookie.Host;
+                                var cookieVal = jsessionFromContainer;
+                                var cookie = new System.Net.Cookie("JSESSIONID", cookieVal, "/", host);
+                                try
+                                {
+                                    _cookieContainer.Add(baseUriCookie, cookie);
+                                }
+                                catch
+                                {
+                                    // fallback: add by domain
+                                    _cookieContainer.Add(new Uri(baseUriCookie.GetLeftPart(UriPartial.Authority)), cookie);
+                                }
+                            _logger.LogDebug("Inserted JSESSIONID into CookieContainer for host {Host}", host);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Could not add JSESSIONID to CookieContainer with explicit domain/path");
+                        }
+                    }
+                }
+                catch (Exception) { }
             }
             else
             {
@@ -415,7 +494,14 @@ public class LucaService : ILucaService
                 _logger.LogDebug(ex, "Failed to read DefaultRequestHeaders for debug");
             }
 
-            var branchesResponse = await _cookieHttpClient!.PostAsync(branchesUrl, emptyBody);
+            using var branchesRequest = new HttpRequestMessage(HttpMethod.Post, branchesUrl)
+            {
+                Content = emptyBody
+            };
+            ApplySessionCookie(branchesRequest);
+            ApplyManualSessionCookie(branchesRequest);
+
+            var branchesResponse = await _cookieHttpClient!.SendAsync(branchesRequest);
             var branchesContent = await branchesResponse.Content.ReadAsStringAsync();
 
             _logger.LogDebug("Branches response status: {Status}", branchesResponse.StatusCode);
@@ -520,38 +606,192 @@ public class LucaService : ILucaService
             _logger.LogDebug("ChangeBranch response status: {Status}", changeBranchResponse.StatusCode);
             _logger.LogDebug("ChangeBranch response body: {Body}", changeBranchBody);
 
-            if (!changeBranchResponse.IsSuccessStatusCode)
-            {
-                _logger.LogError("Failed to change branch. Status: {Status}", changeBranchResponse.StatusCode);
-                return false;
-            }
-
-            try
-            {
-                using var changeDoc = JsonDocument.Parse(changeBranchBody);
-
-                if (changeDoc.RootElement.TryGetProperty("code", out var codeProp))
-                {
-                    var code = codeProp.GetInt32();
-
-                    if (code != 0)
+                    if (!changeBranchResponse.IsSuccessStatusCode)
                     {
-                        var message = changeDoc.RootElement.TryGetProperty("message", out var msgProp)
-                            ? msgProp.GetString()
-                            : "Unknown error";
-
-                        _logger.LogError("ChangeBranch returned error code {Code}: {Message}", code, message);
+                        _logger.LogError("Failed to change branch. Status: {Status}", changeBranchResponse.StatusCode);
                         return false;
                     }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to parse ChangeBranch response, assuming success");
-            }
 
-            _logger.LogInformation("✓ Branch selection completed successfully");
-            return true;
+                    // If the response body indicates an auth/session problem, attempt a manual-cookie retry
+                    var lowerBody = (changeBranchBody ?? string.Empty).ToLowerInvariant();
+                    var indicatesLogin = lowerBody.Contains("login olunmalı") || lowerBody.Contains("login olunmali") || lowerBody.Contains("1001") || lowerBody.Contains("1002") || lowerBody.Contains("1003");
+                    if (indicatesLogin)
+                    {
+                        _logger.LogWarning("ChangeBranch response indicates not-authenticated/branch issue (detected in body). Trying manual-cookie retry before failing.");
+
+                        try
+                        {
+                            // Try to obtain JSESSIONID from CookieContainer first
+                            string? jsession = null;
+                            try
+                            {
+                                if (_cookieContainer != null && !string.IsNullOrWhiteSpace(_settings.BaseUrl))
+                                {
+                                    var baseUri = new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
+                                    var cookies = _cookieContainer.GetCookies(baseUri);
+                                    var c = cookies.Cast<System.Net.Cookie>().FirstOrDefault(x => string.Equals(x.Name, "JSESSIONID", StringComparison.OrdinalIgnoreCase));
+                                    if (c != null && !string.IsNullOrWhiteSpace(c.Value)) jsession = c.Value;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug(ex, "Failed to read JSESSIONID from CookieContainer for manual retry");
+                            }
+
+                            // If still not found, try to read Set-Cookie from response headers
+                            if (jsession == null)
+                            {
+                                try
+                                {
+                                    if (changeBranchResponse.Headers.TryGetValues("Set-Cookie", out var scs))
+                                    {
+                                        foreach (var sc in scs)
+                                        {
+                                            if (sc != null && sc.IndexOf("JSESSIONID=", StringComparison.OrdinalIgnoreCase) >= 0)
+                                            {
+                                                var parts = sc.Split(';', StringSplitOptions.RemoveEmptyEntries);
+                                                var kv = parts.Select(p => p.Trim()).FirstOrDefault(p => p.StartsWith("JSESSIONID=", StringComparison.OrdinalIgnoreCase));
+                                                if (!string.IsNullOrWhiteSpace(kv))
+                                                {
+                                                    jsession = kv.Substring("JSESSIONID=".Length);
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogDebug(ex, "Failed to read Set-Cookie headers for JSESSIONID");
+                                }
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(jsession))
+                            {
+                                // Prepare a cookie-less HttpClient that sends Cookie header manually
+                                var manualCookieValue = jsession.StartsWith("JSESSIONID=", StringComparison.OrdinalIgnoreCase) ? jsession : "JSESSIONID=" + jsession;
+                                _logger.LogInformation("Attempting manual-cookie ChangeBranch retry using JSESSIONID (masked): {Preview}", manualCookieValue.Length > 40 ? manualCookieValue.Substring(0, 40) + "..." : manualCookieValue);
+
+                                // Dispose previous manual client if any
+                                try { _cookieHttpClient?.Dispose(); } catch { }
+
+                                var handler = new HttpClientHandler
+                                {
+                                    UseCookies = false,
+                                    AllowAutoRedirect = true,
+                                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+                                };
+                                var manualClient = new HttpClient(handler)
+                                {
+                                    BaseAddress = new Uri(_settings.BaseUrl.TrimEnd('/') + "/")
+                                };
+                                manualClient.DefaultRequestHeaders.Accept.Clear();
+                                manualClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                                manualClient.DefaultRequestHeaders.Remove("Cookie");
+                                manualClient.DefaultRequestHeaders.TryAddWithoutValidation("Cookie", manualCookieValue);
+                                try
+                                {
+                                    // Add common browser-like headers that Koza may expect
+                                    manualClient.DefaultRequestHeaders.Remove("Referer");
+                                    manualClient.DefaultRequestHeaders.TryAddWithoutValidation("Referer", _settings.BaseUrl?.TrimEnd('/') + "/");
+                                    manualClient.DefaultRequestHeaders.Remove("Origin");
+                                    manualClient.DefaultRequestHeaders.TryAddWithoutValidation("Origin", _settings.BaseUrl?.TrimEnd('/') + "/");
+                                    manualClient.DefaultRequestHeaders.Remove("X-Requested-With");
+                                    manualClient.DefaultRequestHeaders.TryAddWithoutValidation("X-Requested-With", "XMLHttpRequest");
+                                    manualClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (compatible; KatanaClient/1.0)");
+                                }
+                                catch (Exception) { }
+
+                                // Build a fresh request message using same payload
+                                using var retryReq = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.ChangeBranch)
+                                {
+                                    Content = CreateKozaContent(changeBranchJson)
+                                };
+                                try
+                                {
+                                    retryReq.Headers.Remove("Referer");
+                                    retryReq.Headers.TryAddWithoutValidation("Referer", _settings.BaseUrl?.TrimEnd('/') + "/");
+                                    retryReq.Headers.Remove("Origin");
+                                    retryReq.Headers.TryAddWithoutValidation("Origin", _settings.BaseUrl?.TrimEnd('/') + "/");
+                                    retryReq.Headers.Remove("X-Requested-With");
+                                    retryReq.Headers.TryAddWithoutValidation("X-Requested-With", "XMLHttpRequest");
+                                }
+                                catch (Exception) { }
+                                var retryResp = await manualClient.SendAsync(retryReq);
+                                var retryBody = await retryResp.Content.ReadAsStringAsync();
+                                await AppendRawLogAsync("CHANGE_BRANCH:MANUAL_RETRY", _settings.Endpoints.ChangeBranch, changeBranchJson, retryResp.StatusCode, retryBody);
+                                try { await SaveHttpTrafficAsync("CHANGE_BRANCH:MANUAL_RETRY", retryReq, retryResp); } catch { }
+
+                                if (retryResp.IsSuccessStatusCode)
+                                {
+                                    try
+                                    {
+                                        using var rdoc = JsonDocument.Parse(retryBody);
+                                        if (rdoc.RootElement.TryGetProperty("code", out var codeProp2) && codeProp2.ValueKind == JsonValueKind.Number && codeProp2.GetInt32() == 0)
+                                        {
+                                            _logger.LogInformation("Manual-cookie ChangeBranch retry succeeded");
+                                            // Adopt manual client for future requests
+                                            _cookieHttpClient = manualClient;
+                                            _cookieContainer = null;
+                                            _isCookieAuthenticated = true;
+                                            _sessionCookie = manualCookieValue;
+                                            return true;
+                                        }
+                                    }
+                                    catch (Exception)
+                                    {
+                                        _logger.LogInformation("Manual-cookie ChangeBranch HTTP OK but response unparseable; treating as success");
+                                        _cookieHttpClient = manualClient;
+                                        _cookieContainer = null;
+                                        _isCookieAuthenticated = true;
+                                        _sessionCookie = manualCookieValue;
+                                        return true;
+                                    }
+                                }
+
+                                try { manualClient.Dispose(); } catch { }
+                            }
+                            else
+                            {
+                                _logger.LogDebug("No JSESSIONID found to attempt manual-cookie retry");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Manual-cookie retry attempt failed");
+                        }
+
+                        _logger.LogError("ChangeBranch returned login/branch error and manual retry did not succeed");
+                        _isCookieAuthenticated = false;
+                        return false;
+                    }
+
+                    try
+                    {
+                        using var changeDoc = JsonDocument.Parse(changeBranchBody);
+
+                        if (changeDoc.RootElement.TryGetProperty("code", out var codeProp))
+                        {
+                            var code = codeProp.GetInt32();
+
+                            if (code != 0)
+                            {
+                                var message = changeDoc.RootElement.TryGetProperty("message", out var msgProp)
+                                    ? msgProp.GetString()
+                                    : "Unknown error";
+
+                                _logger.LogError("ChangeBranch returned error code {Code}: {Message}", code, message);
+                                return false;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse ChangeBranch response, assuming success");
+                    }
+
+                    _logger.LogInformation("✓ Branch selection completed successfully");
+                    return true;
         }
         catch (Exception ex)
         {
@@ -564,12 +804,18 @@ public class LucaService : ILucaService
     {
         branchId = 0;
 
+        // Some Luca environments return branch identifiers under slightly different keys.
+        // Keep the list broad to avoid silently skipping the target branch (e.g., 11746).
         string[] idFields = {
-        "orgSirketSubeId",
-        "orgSirketSubeID",
-        "id",
-        "subeId",
-        "sirketSubeId"
+            "orgSirketSubeId",
+            "orgSirketSubeID",
+            "orgSubeId",
+            "id",
+            "branchId",
+            "branchID",
+            "subeId",
+            "sirketSubeId",
+            "companyId"
         };
 
         foreach (var field in idFields)
@@ -872,7 +1118,7 @@ public class LucaService : ILucaService
         id = 0;
         if (element.ValueKind != JsonValueKind.Object) return false;
 
-        string[] idFields = { "orgSirketSubeId", "orgSirketSubeID", "id", "subeId", "sirketSubeId", "orgSubeId" };
+        string[] idFields = { "orgSirketSubeId", "orgSirketSubeID", "orgSubeId", "id", "branchId", "branchID", "subeId", "sirketSubeId", "companyId" };
         foreach (var field in idFields)
         {
             if (element.TryGetProperty(field, out var prop))
@@ -889,6 +1135,7 @@ public class LucaService : ILucaService
         if (_settings.UseTokenAuth) return;
         if (_cookieHttpClient == null) return;
 
+        await _branchSemaphore.WaitAsync();
         try
         {
             // Fetch current branch list for diagnostics and choice logic
@@ -1026,6 +1273,10 @@ public class LucaService : ILucaService
         {
             _logger.LogWarning(ex, "EnsureBranchSelectedAsync failed; proceeding with existing session");
         }
+        finally
+        {
+            _branchSemaphore.Release();
+        }
     }
 
     private async Task<bool> ChangeBranchAsync(long branchId)
@@ -1048,84 +1299,109 @@ public class LucaService : ILucaService
 
             attempts.Add(("JSON:id", CreateKozaContent(JsonSerializer.Serialize(new { id = branchId }, _jsonOptions))));
 
-            foreach (var (desc, content) in attempts)
+            foreach (var attempt in attempts)
             {
+                var reAuthed = false;
+                var desc = attempt.desc;
+                var content = attempt.content;
                 try
                 {
+retryChangeBranch:
                     var payloadText = await ReadContentPreviewAsync(content);
 
-                    using var req = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.ChangeBranch)
+                    using (var req = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.ChangeBranch)
                     {
                         Content = content
-                    };
-
-                    // Ensure Cookie header is applied (if any) and log cookie container for debugging
-                    ApplyManualSessionCookie(req);
-                    try
+                    })
                     {
-                        var cookieContainerLocal = _cookieContainer;
-                        if (cookieContainerLocal != null && !string.IsNullOrWhiteSpace(_settings.BaseUrl))
+                        ApplySessionCookie(req);
+                        // Ensure Cookie header is applied (if any) and log cookie container for debugging
+                        ApplyManualSessionCookie(req);
+                        try
+                        {
+                            var cookieContainerLocal = _cookieContainer;
+                            if (cookieContainerLocal != null && !string.IsNullOrWhiteSpace(_settings.BaseUrl))
+                            {
+                                try
+                                {
+                                    var uri = new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
+                                    var cookieCol = cookieContainerLocal.GetCookies(uri);
+                                    var cookieList = cookieCol.Cast<System.Net.Cookie>().Select(c => $"{c.Name}={c.Value}").ToArray();
+                                    _logger.LogDebug("ChangeBranch: CookieContainer contents before request: {Cookies}", string.Join(";", cookieList));
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogDebug(ex, "Failed to read CookieContainer for ChangeBranch debug");
+                                }
+                            }
+                        }
+                        catch (Exception) { }
+
+                        var resp = await (_cookieHttpClient ?? _httpClient).SendAsync(req);
+                        var body = await ReadResponseContentAsync(resp);
+                        await AppendRawLogAsync("CHANGE_BRANCH:" + desc, _settings.Endpoints.ChangeBranch, payloadText, resp.StatusCode, body);
+                        try { await SaveHttpTrafficAsync("CHANGE_BRANCH:" + desc, req, resp); } catch (Exception) { }
+
+                        // Detect Koza 'not logged in' / branch error patterns and force re-authentication
+                        if (!string.IsNullOrWhiteSpace(body) && (body.Contains("Login olunmalı", StringComparison.OrdinalIgnoreCase) || body.Contains("login olunmali", StringComparison.OrdinalIgnoreCase) || body.Contains("1001") || body.Contains("1002")))
+                        {
+                            _logger.LogWarning("ChangeBranch response indicates not-authenticated or invalid session: {Preview}", body.Length > 300 ? body.Substring(0, 300) : body);
+                            _isCookieAuthenticated = false;
+
+                            // One-shot re-auth & retry to avoid endless loop
+                            if (!reAuthed)
+                            {
+                                reAuthed = true;
+                                try
+                                {
+                                    await EnsureAuthenticatedAsync();
+                                    // refresh content clone because some HttpContent can be consumed
+                                    content = CreateKozaContent(payloadText);
+                                    _logger.LogInformation("Re-authenticated after ChangeBranch 1001; retrying {Desc}", desc);
+                                    goto retryChangeBranch;
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogWarning(ex, "Re-auth after ChangeBranch 1001 failed");
+                                }
+                            }
+
+                            return false;
+                        }
+
+                        if (resp.IsSuccessStatusCode)
                         {
                             try
                             {
-                                var uri = new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
-                                var cookieCol = cookieContainerLocal.GetCookies(uri);
-                                var cookieList = cookieCol.Cast<System.Net.Cookie>().Select(c => $"{c.Name}={c.Value}").ToArray();
-                                _logger.LogDebug("ChangeBranch: CookieContainer contents before request: {Cookies}", string.Join(";", cookieList));
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogDebug(ex, "Failed to read CookieContainer for ChangeBranch debug");
-                            }
-                        }
-                    }
-                    catch (Exception) { }
-
-                    var resp = await (_cookieHttpClient ?? _httpClient).SendAsync(req);
-                    var body = await ReadResponseContentAsync(resp);
-                    await AppendRawLogAsync("CHANGE_BRANCH:" + desc, _settings.Endpoints.ChangeBranch, payloadText, resp.StatusCode, body);
-                    try { await SaveHttpTrafficAsync("CHANGE_BRANCH:" + desc, req, resp); } catch (Exception) { }
-
-                    // Detect Koza 'not logged in' / branch error patterns and force re-authentication
-                    if (!string.IsNullOrWhiteSpace(body) && (body.Contains("Login olunmalı", StringComparison.OrdinalIgnoreCase) || body.Contains("1001") || body.Contains("1002")))
-                    {
-                        _logger.LogWarning("ChangeBranch response indicates not-authenticated or invalid session: {Preview}", body.Length > 300 ? body.Substring(0, 300) : body);
-                        _isCookieAuthenticated = false;
-                        return false;
-                    }
-
-                    if (resp.IsSuccessStatusCode)
-                    {
-                        try
-                        {
-                            using var doc = JsonDocument.Parse(body);
-                            if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("code", out var codeProp) && codeProp.ValueKind == JsonValueKind.Number)
-                            {
-                                if (codeProp.GetInt32() == 0)
+                                using var doc = JsonDocument.Parse(body);
+                                if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("code", out var codeProp) && codeProp.ValueKind == JsonValueKind.Number)
                                 {
-                                    _logger.LogInformation("ChangeBranch succeeded using {Desc}", desc);
-                                    return true;
+                                    if (codeProp.GetInt32() == 0)
+                                    {
+                                        _logger.LogInformation("ChangeBranch succeeded using {Desc}", desc);
+                                        return true;
+                                    }
+                                    else
+                                    {
+                                        _logger.LogWarning("ChangeBranch attempt {Desc} returned code {Code}", desc, codeProp.GetInt32());
+                                    }
                                 }
                                 else
                                 {
-                                    _logger.LogWarning("ChangeBranch attempt {Desc} returned code {Code}", desc, codeProp.GetInt32());
+                                    _logger.LogInformation("ChangeBranch succeeded (HTTP OK) using {Desc}", desc);
+                                    return true;
                                 }
                             }
-                            else
+                            catch (Exception)
                             {
-                                _logger.LogInformation("ChangeBranch succeeded (HTTP OK) using {Desc}", desc);
+                                _logger.LogInformation("ChangeBranch HTTP OK with unparseable body using {Desc}", desc);
                                 return true;
                             }
                         }
-                        catch (Exception)
+                        else
                         {
-                            _logger.LogInformation("ChangeBranch HTTP OK with unparseable body using {Desc}", desc);
-                            return true;
+                            _logger.LogWarning("ChangeBranch attempt {Desc} failed with status {Status}", desc, resp.StatusCode);
                         }
-                    }
-                    else
-                    {
-                        _logger.LogWarning("ChangeBranch attempt {Desc} failed with status {Status}", desc, resp.StatusCode);
                     }
                 }
                 catch (Exception ex)
@@ -2342,7 +2618,13 @@ public class LucaService : ILucaService
         await EnsureAuthenticatedAsync();
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-        var response = await client.PostAsync(_settings.Endpoints.Branches, CreateKozaContent("{}"));
+        using var req = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.Branches)
+        {
+            Content = CreateKozaContent("{}")
+        };
+        ApplySessionCookie(req);
+        ApplyManualSessionCookie(req);
+        var response = await client.SendAsync(req);
         var body = await ReadResponseContentAsync(response);
         await AppendRawLogAsync("LIST_BRANCHES", _settings.Endpoints.Branches, "{}", response.StatusCode, body);
         response.EnsureSuccessStatusCode();
@@ -2407,6 +2689,7 @@ public class LucaService : ILucaService
             Content = content
         };
         ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2429,6 +2712,7 @@ public class LucaService : ILucaService
             Content = content
         };
         ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2451,6 +2735,7 @@ public class LucaService : ILucaService
             Content = content
         };
         ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2473,6 +2758,7 @@ public class LucaService : ILucaService
             Content = content
         };
         ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2495,6 +2781,7 @@ public class LucaService : ILucaService
             Content = content
         };
         ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2646,6 +2933,7 @@ public class LucaService : ILucaService
             Content = content
         };
         ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2668,6 +2956,7 @@ public class LucaService : ILucaService
             Content = content
         };
         ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2690,6 +2979,7 @@ public class LucaService : ILucaService
             Content = content
         };
         ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2712,6 +3002,7 @@ public class LucaService : ILucaService
             Content = content
         };
         ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2734,6 +3025,7 @@ public class LucaService : ILucaService
             Content = content
         };
         ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2756,6 +3048,7 @@ public class LucaService : ILucaService
             Content = content
         };
         ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2778,6 +3071,7 @@ public class LucaService : ILucaService
             Content = content
         };
         ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -2800,6 +3094,7 @@ public class LucaService : ILucaService
             Content = content
         };
         ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);
@@ -4142,14 +4437,20 @@ public class LucaService : ILucaService
         try
         {
             if (request == null) return;
-            var cookie = !string.IsNullOrWhiteSpace(_settings?.ManualSessionCookie)
-                ? _settings.ManualSessionCookie
-                : _sessionCookie;
-            if (string.IsNullOrWhiteSpace(cookie)) return;
-            
-            
-            
-            request.Headers.TryAddWithoutValidation("Cookie", cookie);
+
+            // Only honor explicitly-configured manual cookie; do NOT fall back to _sessionCookie
+            var manual = _settings?.ManualSessionCookie;
+            if (string.IsNullOrWhiteSpace(manual)) return;
+
+            var trimmed = manual.Trim();
+            // Skip placeholder/default values to avoid sending bogus cookies like "FILL_ME"
+            if (trimmed.IndexOf("FILL_ME", StringComparison.OrdinalIgnoreCase) >= 0) return;
+
+            // Avoid duplicating Cookie header if one is already present
+            if (!request.Headers.Contains("Cookie"))
+            {
+                request.Headers.TryAddWithoutValidation("Cookie", trimmed);
+            }
         }
         catch (Exception ex)
         {

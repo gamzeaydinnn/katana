@@ -11,6 +11,7 @@ using Katana.Core.DTOs;
 using Microsoft.Extensions.Options;
 using System;
 using Microsoft.Extensions.Logging;
+using System.Text;
 
 namespace Katana.API.Controllers
 {
@@ -18,7 +19,6 @@ namespace Katana.API.Controllers
     // Accept legacy paths /api/Luca/... and /api/luca/... in addition to /api/luca-proxy/...
     [Route("api/luca-proxy")]
     [Route("api/luca")]
-    [Route("api/Luca")]
     public class LucaProxyController : ControllerBase
     {
         private readonly string _lucaBaseUrl;
@@ -43,9 +43,17 @@ namespace Katana.API.Controllers
         {
             try
             {
-                if (!string.IsNullOrWhiteSpace(_settings.ManualSessionCookie))
+                if (request == null) return;
+
+                // Only apply explicitly configured manual cookie; do not add anything if empty/placeholder
+                var manual = _settings.ManualSessionCookie ?? string.Empty;
+                manual = manual.Trim();
+                if (string.IsNullOrWhiteSpace(manual)) return;
+                if (manual.IndexOf("FILL_ME", StringComparison.OrdinalIgnoreCase) >= 0) return;
+
+                if (!request.Headers.Contains("Cookie"))
                 {
-                    request.Headers.TryAddWithoutValidation("Cookie", _settings.ManualSessionCookie);
+                    request.Headers.TryAddWithoutValidation("Cookie", manual);
                 }
             }
             catch {  }
@@ -317,6 +325,14 @@ namespace Katana.API.Controllers
                     sessionId = await AutoLoginAndReturnSessionId();
                 }
 
+                // Ensure branch is selected for this session before syncing
+                var branchSelected = await EnsureBranchSelectedForSessionAsync(sessionId, _settings.ForcedBranchId ?? _settings.DefaultBranchId);
+                if (!branchSelected)
+                {
+                    _logger.LogWarning("SyncProducts: Branch selection failed for session {SessionId}", sessionId);
+                    return StatusCode(500, new { message = "Luca branch selection failed before sync; please retry." });
+                }
+
                 if (string.IsNullOrWhiteSpace(sessionId))
                 {
                     return Unauthorized(new { message = "No LucaProxySession found. Please login first via /api/luca/login or provide X-Luca-Session header." });
@@ -365,6 +381,8 @@ namespace Katana.API.Controllers
                 {
                     _logger.LogInformation("Auto-login successful, sessionId: {SessionId}", sessionId);
                     try { Response.Headers["X-Luca-Proxy-Session"] = sessionId; } catch { }
+                    // Attempt to select preferred branch immediately after login
+                    await EnsureBranchSelectedForSessionAsync(sessionId, _settings.ForcedBranchId ?? _settings.DefaultBranchId);
                     return sessionId;
                 }
 
@@ -375,6 +393,57 @@ namespace Katana.API.Controllers
             {
                 _logger.LogError(ex, "Auto-login failed");
                 return null;
+            }
+        }
+
+        // Ensure the desired branch is selected for the given proxy session
+        private async Task<bool> EnsureBranchSelectedForSessionAsync(string? sessionId, long? preferredBranchId)
+        {
+            if (string.IsNullOrWhiteSpace(sessionId)) return false;
+            if (!preferredBranchId.HasValue) return true;
+
+            try
+            {
+                var cookieContainer = _cookieJarStore.GetOrCreate(sessionId);
+                var handler = new HttpClientHandler
+                {
+                    UseCookies = true,
+                    CookieContainer = cookieContainer,
+                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+                };
+
+                using var client = new HttpClient(handler);
+                var payload = new { orgSirketSubeId = preferredBranchId.Value };
+                var payloadJson = JsonSerializer.Serialize(payload);
+
+                var requestUrl = $"{_lucaBaseUrl}/{_settings.Endpoints.ChangeBranch}";
+                var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
+                request.Content = new StringContent(payloadJson, Encoding.GetEncoding(_settings.Encoding ?? "iso-8859-9"), "application/json");
+                ApplyManualSessionCookie(request);
+
+                var response = await client.SendAsync(request);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                var ok = response.IsSuccessStatusCode &&
+                         (responseContent.Contains("\"code\":0") ||
+                          responseContent.IndexOf("başarı", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                          responseContent.IndexOf("Basari", StringComparison.OrdinalIgnoreCase) >= 0);
+
+                if (!ok)
+                {
+                    _logger.LogWarning("EnsureBranchSelectedForSession failed. Status: {Status}, Body: {Body}", response.StatusCode, responseContent);
+                }
+                else
+                {
+                    _logger.LogInformation("Branch selection succeeded for session {SessionId} to branch {BranchId}", sessionId, preferredBranchId.Value);
+                }
+
+                return ok;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "EnsureBranchSelectedForSessionAsync threw an exception");
+                return false;
             }
         }
     }

@@ -31,6 +31,27 @@ using Katana.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// CORS policy for frontend (explicit origins only)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:3000",
+                "https://localhost:3000",
+                "http://localhost:3001",   // React dev server
+                "https://localhost:3001",
+                "http://localhost:5055",
+                "http://bfmmrp.com",
+                "https://bfmmrp.com"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials()
+            .WithExposedHeaders("Authorization");
+    });
+});
+
 
 
 
@@ -267,32 +288,6 @@ builder.Services.AddAuthorization();
 
 
 
-builder.Services.AddCors(o =>
-{
-    o.AddPolicy("AllowFrontend", p =>
-        p.WithOrigins(
-                "http://localhost:3000",
-                "http://localhost:3001",
-                "http://localhost:5055",
-                "http://localhost:5056",
-                "http://localhost:5057",
-                "https://localhost:3000",
-                "https://localhost:3001",
-                "http://bfmmrp.com",
-                "http://bfmmrp.com:3000",
-                "http://bfmmrp.com:3001",
-                "https://bfmmrp.com",
-                "https://bfmmrp.com:3000",
-                "https://bfmmrp.com:3001")
-         .AllowAnyHeader()
-         .AllowAnyMethod()
-         .AllowCredentials()
-         .WithExposedHeaders("Authorization", "X-Luca-Session"));
-});
-
-
-
-
 builder.Services.AddHealthChecks().AddDbContextCheck<IntegrationDbContext>();
 
 
@@ -321,7 +316,6 @@ builder.Services.AddHostedService<AutoSyncWorker>();
 
 
 var app = builder.Build();
-
 
 try
 {
@@ -358,7 +352,7 @@ app.UseMiddleware<ErrorHandlingMiddleware>();
 
 app.MapControllers();
 app.MapHealthChecks("/health");
-app.MapHub<Katana.API.Hubs.NotificationHub>("/hubs/notifications");
+app.MapHub<Katana.API.Hubs.NotificationHub>("/hubs/notifications").RequireCors("AllowFrontend");
 
 
 if (app.Environment.IsDevelopment())

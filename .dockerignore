@@ -1,0 +1,72 @@
+# Git and local editor files
+
+.git
+.gitignore
+.vscode/
+.idea/
+.vs/
+
+# Dotnet build artifacts
+
+bin/
+obj/
+**/bin/
+**/obj/
+
+# Publish outputs (built app artifacts) - heavy
+
+publish/
+publish/\*\*
+
+# Node and frontend deps
+
+node_modules/
+frontend/katana-web/node_modules/
+
+# Playwright / browser binaries and artifacts
+
+.playwright/
+publish/.playwright/
+
+# Tests, e2e and their results
+
+e2e/
+tests/
+test-results/
+coverage/
+
+# Logs and temporary files
+
+logs/
+_.log
+_.tmp
+\*.temp
+tmp/
+temp/
+
+# Large binary artifacts
+
+_.exe
+_.dll
+_.pdb
+_.zip
+_.tar
+_.gz
+_.mp4
+_.mov
+\*.iso
+
+# Misc
+
+_.suo
+_.user
+\*.db
+
+# Do NOT ignore source code, Dockerfile, or project files
+
+# (keep Dockerfile, \*.csproj, solution and source JSON files in context)
+
+# Ignore published config copies
+
+publish/appsettings*.json
+publish/*.json
