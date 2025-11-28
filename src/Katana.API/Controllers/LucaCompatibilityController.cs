@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Katana.API.Controllers
 {
     [ApiController]
-    [Route("api/luca")]
+    [Route("api/luca-compat")]
     public class LucaCompatibilityController : ControllerBase
     {
         private readonly ISyncService _syncService;
