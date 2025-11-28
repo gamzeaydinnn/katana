@@ -3239,7 +3239,7 @@ retryChangeBranch:
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.InvoiceClose, content);
         var responseContent = await response.Content.ReadAsStringAsync();
-        response.EnsureSuccessStatusCode()
+        response.EnsureSuccessStatusCode();
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
 
