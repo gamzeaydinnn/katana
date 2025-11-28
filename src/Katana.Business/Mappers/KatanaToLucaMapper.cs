@@ -350,9 +350,26 @@ public static class KatanaToLucaMapper
         var sku = string.IsNullOrWhiteSpace(product.SKU) ? product.GetProductCode() : product.SKU.Trim();
         var name = string.IsNullOrWhiteSpace(product.Name) ? sku : product.Name.Trim();
         // Prefer product.Category if provided; else fall back to configured default; otherwise leave null (Koza accepts null).
-        var category = !string.IsNullOrWhiteSpace(product.Category)
-            ? product.Category.Trim()
-            : (!string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu) ? lucaSettings.DefaultKategoriKodu : null);
+        // However, some products get assigned an internal default Category.Id (e.g. "1") which is NOT a valid
+        // Luca tree code. Treat that as missing and use the configured DefaultKategoriKodu when available.
+        string? category = null;
+        if (!string.IsNullOrWhiteSpace(product.Category))
+        {
+            var trimmed = product.Category.Trim();
+            if (int.TryParse(trimmed, out var parsed) && parsed == 1 && !string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu))
+            {
+                // Internal default category (Id=1) -> use configured Luca default category code
+                category = lucaSettings.DefaultKategoriKodu;
+            }
+            else
+            {
+                category = trimmed;
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu))
+        {
+            category = lucaSettings.DefaultKategoriKodu;
+        }
 
         var dto = new LucaCreateStokKartiRequest
         {
