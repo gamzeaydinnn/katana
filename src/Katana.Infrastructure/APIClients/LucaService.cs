@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Text;
 using System.IO;
 using System.Linq;
+using HtmlAgilityPack;
 using System.Net.Http.Headers;
 using System.Net;
 using System.Globalization;
@@ -4470,6 +4471,277 @@ retryChangeBranch:
             return new List<LucaProductDto>();
         }
     }
+
+    public async Task<List<LucaProductDto>> FetchProductsAsync(System.Threading.CancellationToken cancellationToken = default)
+    {
+        var result = new List<LucaProductDto>();
+
+        var cookieContainer = new CookieContainer();
+        var handler = new HttpClientHandler
+        {
+            CookieContainer = cookieContainer,
+            UseCookies = true,
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+            AllowAutoRedirect = true
+        };
+
+        var baseAddr = !string.IsNullOrWhiteSpace(_settings.BaseUrl) ? new Uri(_settings.BaseUrl.TrimEnd('/') + "/") : null;
+
+        using var client = new HttpClient(handler)
+        {
+            BaseAddress = baseAddr
+        };
+
+        try
+        {
+            var loggedIn = await PerformLoginOnClientAsync(client, cookieContainer, cancellationToken);
+            if (!loggedIn)
+            {
+                _logger.LogError("[Luca] FetchProductsAsync: Login/branch selection failed.");
+                return result;
+            }
+
+            var url = !string.IsNullOrWhiteSpace(_settings.Endpoints?.StockCards) ? _settings.Endpoints.StockCards : "ListeleStkSkart.do";
+
+            var formPairs = new List<KeyValuePair<string, string>>();
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new FormUrlEncodedContent(formPairs)
+            };
+
+            request.Headers.Accept.Clear();
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.SendAsync(request, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[Luca] FetchProductsAsync: HTTP request failed.");
+                return result;
+            }
+
+            var statusCode = (int)response.StatusCode;
+            var rawBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+
+            var encoding1254 = Encoding.GetEncoding(1254);
+            var bodyText = encoding1254.GetString(rawBytes);
+
+            try { await AppendRawLogAsync("FetchProducts", (client.BaseAddress?.ToString() ?? string.Empty) + url, 
+                $"FORM:{string.Join("&", formPairs.Select(p => $"{p.Key}={p.Value}"))}",
+                response.StatusCode, bodyText); } catch (Exception) { }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("[Luca] FetchProductsAsync: Response not successful. Status: {Status}", statusCode);
+                return result;
+            }
+
+            if (IsJson(bodyText))
+            {
+                result = ParseKozaProductJson(bodyText);
+            }
+            else
+            {
+                result = ParseKozaProductHtml(bodyText);
+            }
+
+            _logger.LogInformation("[Luca] FetchProductsAsync: Parsed {Count} products from Koza.", result.Count);
+            return result;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("[Luca] FetchProductsAsync: cancelled");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Luca] FetchProductsAsync: unexpected error");
+            return result;
+        }
+    }
+
+    private bool IsJson(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        text = text.Trim();
+        return (text.StartsWith("{") && text.EndsWith("}")) ||
+               (text.StartsWith("[") && text.EndsWith("]"));
+    }
+
+    private List<Katana.Core.DTOs.LucaProductDto> ParseKozaProductJson(string json)
+    {
+        var list = new List<Katana.Core.DTOs.LucaProductDto>();
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            JsonElement dataEl = default;
+            if (root.ValueKind == JsonValueKind.Object)
+            {
+                if (root.TryGetProperty("data", out var d) && d.ValueKind == JsonValueKind.Array) dataEl = d;
+                else if (root.TryGetProperty("list", out var l) && l.ValueKind == JsonValueKind.Array) dataEl = l;
+                else if (root.TryGetProperty("stkSkartList", out var s) && s.ValueKind == JsonValueKind.Array) dataEl = s;
+            }
+            else if (root.ValueKind == JsonValueKind.Array)
+            {
+                dataEl = root;
+            }
+
+            if (dataEl.ValueKind != JsonValueKind.Array) return list;
+
+            foreach (var item in dataEl.EnumerateArray())
+            {
+                var code = item.TryGetProperty("kartKodu", out var codeEl) ? codeEl.GetString() ?? string.Empty : string.Empty;
+                var name = item.TryGetProperty("kartAdi", out var nameEl) ? nameEl.GetString() ?? string.Empty : string.Empty;
+                var category = item.TryGetProperty("kategoriAgacKod", out var catEl) ? catEl.GetString() : (item.TryGetProperty("kategori", out var cat2) ? cat2.GetString() : null);
+
+                if (string.IsNullOrWhiteSpace(code)) continue;
+
+                var dto = new Katana.Core.DTOs.LucaProductDto
+                {
+                    ProductCode = code,
+                    ProductName = name,
+                    Unit = item.TryGetProperty("olcumBirimi", out var u) ? u.GetString() : null
+                };
+                list.Add(dto);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ParseKozaProductJson failed");
+        }
+
+        return list;
+    }
+
+    private List<Katana.Core.DTOs.LucaProductDto> ParseKozaProductHtml(string html)
+    {
+        var list = new List<Katana.Core.DTOs.LucaProductDto>();
+        try
+        {
+            var doc = new HtmlAgilityPack.HtmlDocument();
+            doc.LoadHtml(html);
+
+            var rows = doc.DocumentNode.SelectNodes("//table[@id='grid']//tr[position()>1]")
+                       ?? doc.DocumentNode.SelectNodes("//table//tr[position()>1]");
+            if (rows == null) return list;
+
+            foreach (var row in rows)
+            {
+                var cells = row.SelectNodes("./td");
+                if (cells == null || cells.Count < 2) continue;
+
+                var code = cells[0].InnerText.Trim();
+                var name = cells.Count > 1 ? cells[1].InnerText.Trim() : string.Empty;
+                var category = cells.Count > 2 ? cells[2].InnerText.Trim() : null;
+
+                if (string.IsNullOrWhiteSpace(code)) continue;
+
+                list.Add(new Katana.Core.DTOs.LucaProductDto
+                {
+                    ProductCode = WebUtility.HtmlDecode(code),
+                    ProductName = WebUtility.HtmlDecode(name),
+                    Unit = cells.Count > 3 ? WebUtility.HtmlDecode(cells[3].InnerText.Trim()) : null
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ParseKozaProductHtml failed");
+        }
+        return list;
+    }
+
+    private async Task<bool> PerformLoginOnClientAsync(HttpClient client, CookieContainer cookieContainer, System.Threading.CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var baseUri = client.BaseAddress ?? new Uri(_settings.BaseUrl?.TrimEnd('/') + "/");
+
+            try
+            {
+                var getResp = await client.GetAsync(_settings.Endpoints.Auth ?? "Giris.do", cancellationToken);
+                var getBody = await ReadResponseContentAsync(getResp);
+                await AppendRawLogAsync("AUTH_LOGIN_GET_ONCLIENT", _settings.Endpoints.Auth, string.Empty, getResp.StatusCode, getBody);
+            }
+            catch (Exception)
+            {
+            }
+
+            var loginAttempts = new List<(string desc, HttpContent content)>
+            {
+                ("JSON:orgCode_userName_userPassword", CreateKozaContent(
+                    JsonSerializer.Serialize(new
+                    {
+                        orgCode = _settings.MemberNumber,
+                        userName = _settings.Username,
+                        userPassword = _settings.Password
+                    }, _jsonOptions))),
+                ("FORM:orgCode_user_girisForm.userPassword", new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    { "orgCode", _settings.MemberNumber },
+                    { "user", _settings.Username },
+                    { "girisForm.userPassword", _settings.Password },
+                    { "girisForm.captchaInput", string.Empty }
+                })),
+                ("FORM:orgCode_userName_userPassword", new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    { "orgCode", _settings.MemberNumber },
+                    { "userName", _settings.Username },
+                    { "userPassword", _settings.Password }
+                }))
+            };
+
+            foreach (var (desc, payload) in loginAttempts)
+            {
+                try
+                {
+                    var payloadText = await ReadContentPreviewAsync(payload);
+                    var resp = await client.PostAsync(_settings.Endpoints.Auth, payload, cancellationToken);
+                    var body = await ReadResponseContentAsync(resp);
+                    await AppendRawLogAsync($"AUTH_LOGIN_ONCLIENT:{desc}", _settings.Endpoints.Auth, payloadText, resp.StatusCode, body);
+
+                    try
+                    {
+                        if (cookieContainer != null)
+                        {
+                            var cookies = cookieContainer.GetCookies(baseUri);
+                            var c = cookies.Cast<System.Net.Cookie>().FirstOrDefault(x => string.Equals(x.Name, "JSESSIONID", StringComparison.OrdinalIgnoreCase));
+                            if (c != null && !string.IsNullOrWhiteSpace(c.Value))
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                    catch { }
+
+                    if (resp.IsSuccessStatusCode && IsKozaLoginSuccess(body))
+                    {
+                        return true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Login attempt on client failed: {Desc}", desc);
+                }
+            }
+
+            _logger.LogWarning("PerformLoginOnClientAsync: login attempts failed");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PerformLoginOnClientAsync threw");
+            return false;
+        }
+    }
+    
     public async Task<List<LucaDespatchDto>> FetchDeliveryNotesAsync(DateTime? fromDate = null)
     {
         try

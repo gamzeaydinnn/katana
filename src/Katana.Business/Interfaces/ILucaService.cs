@@ -36,7 +36,8 @@ public interface ILucaService
     Task<List<LucaInvoiceDto>> FetchInvoicesAsync(DateTime? fromDate = null);
     Task<List<LucaStockDto>> FetchStockMovementsAsync(DateTime? fromDate = null);
     Task<List<LucaCustomerDto>> FetchCustomersAsync(DateTime? fromDate = null);
-    Task<List<LucaProductDto>> FetchProductsAsync(DateTime? fromDate = null);
+    Task<List<Katana.Core.DTOs.LucaProductDto>> FetchProductsAsync(DateTime? fromDate = null);
+    Task<List<Katana.Core.DTOs.LucaProductDto>> FetchProductsAsync(System.Threading.CancellationToken cancellationToken = default);
 
     
     Task<System.Text.Json.JsonElement> ListStockCardsAsync(LucaListStockCardsRequest request);
