@@ -36,6 +36,7 @@ public class IntegrationDbContext : DbContext
     
     public DbSet<IntegrationLog> IntegrationLogs { get; set; } = null!;
     public DbSet<MappingTable> MappingTables { get; set; } = null!;
+    public DbSet<LucaProduct> LucaProducts { get; set; } = null!;
     public DbSet<FailedSyncRecord> FailedSyncRecords { get; set; } = null!;
     
     public DbSet<ErrorLog> ErrorLogs { get; set; } = null!;
@@ -58,6 +59,16 @@ public class IntegrationDbContext : DbContext
 {
     base.OnModelCreating(modelBuilder);
 
+    modelBuilder.Entity<Katana.Data.Models.LucaProduct>(entity =>
+    {
+        entity.ToTable("LucaProducts");
+        entity.HasKey(e => e.Id);
+        entity.Property(e => e.LucaCode).IsRequired().HasMaxLength(100);
+        entity.Property(e => e.LucaName).IsRequired().HasMaxLength(300);
+        entity.Property(e => e.LucaCategory).HasMaxLength(200);
+        entity.Property(e => e.CreatedAt).IsRequired();
+        entity.Property(e => e.UpdatedAt).IsRequired();
+    });
     
     modelBuilder.Entity<SyncOperationLog>(entity =>
     {
