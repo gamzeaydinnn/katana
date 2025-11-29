@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 namespace Katana.Core.Entities;
-
 public class Invoice
 {
     public int Id { get; set; }

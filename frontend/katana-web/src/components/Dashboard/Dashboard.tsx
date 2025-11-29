@@ -371,8 +371,8 @@ const Dashboard: React.FC = () => {
             icon: <TrendingUp />,
             color: theme.palette.info.main,
           },
-        ].map((item) => (
-          <StatCard key={item.key} {...item} />
+        ].map(({ key, ...rest }) => (
+          <StatCard key={key} {...rest} />
         ))}
       </Box>
 

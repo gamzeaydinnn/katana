@@ -1,5 +1,4 @@
 ﻿namespace Katana.Core.DTOs;
-
 public class SyncResultDto
 {
     public bool IsSuccess { get; set; }
@@ -40,7 +39,6 @@ public class SyncStatusDto
     public int PendingRecords { get; set; }
     public DateTime? NextScheduledSync { get; set; }
 }
-
 public class SyncOptionsDto
 {
     public bool DryRun { get; set; }

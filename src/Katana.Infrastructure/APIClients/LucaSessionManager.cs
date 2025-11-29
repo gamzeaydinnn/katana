@@ -31,7 +31,6 @@ namespace Katana.Infrastructure.APIClients
 
             var context = await browser.NewContextAsync(new BrowserNewContextOptions
             {
-                // Accept compressed content and emulate a normal browser UA
                 UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
             });
 
@@ -44,7 +43,6 @@ namespace Katana.Infrastructure.APIClients
 
             try
             {
-                // Fill form fields - selectors may need adjustment if the login page differs
                 await page.FillAsync("input[name='uyeNo']", _settings.MemberNumber ?? string.Empty);
                 await page.FillAsync("input[name='kullaniciAdi']", _settings.Username ?? string.Empty);
                 await page.FillAsync("input[name='sifre']", _settings.Password ?? string.Empty);
@@ -53,8 +51,6 @@ namespace Katana.Infrastructure.APIClients
                     page.ClickAsync("button[type='submit']"),
                     page.WaitForLoadStateAsync(LoadState.NetworkIdle)
                 );
-
-                // Small delay to allow cookies to be set
                 await page.WaitForTimeoutAsync(1000);
 
                 var cookies = await context.CookiesAsync();

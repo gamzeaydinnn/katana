@@ -1,9 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 namespace Katana.Data.Models;
-
-
-
 public class MappingTable
 {
     public int Id { get; set; }

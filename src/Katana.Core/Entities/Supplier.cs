@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
 namespace Katana.Core.Entities;
-
 public class Supplier
 {
     public int Id { get; set; }
@@ -30,7 +29,5 @@ public class Supplier
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
-
-    
     public virtual ICollection<SupplierPrice> PriceList { get; set; } = new List<SupplierPrice>();
 }

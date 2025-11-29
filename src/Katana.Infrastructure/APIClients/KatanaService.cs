@@ -13,10 +13,6 @@ using System.Globalization;
 using Microsoft.Extensions.Caching.Memory;
 using System.Net;
 
-
-
-
-
 namespace Katana.Infrastructure.APIClients;
 
 public class KatanaService : IKatanaService

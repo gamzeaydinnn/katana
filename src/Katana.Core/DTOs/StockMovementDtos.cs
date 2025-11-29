@@ -2,71 +2,34 @@ using System;
 
 namespace Katana.Core.DTOs;
 
-
-
-
 public class StockMovementDto
 {
     public int Id { get; set; }
-
-    
-    
     
     public string SKU { get; set; } = string.Empty;
 
-    
-    
-    
     public string ProductName { get; set; } = string.Empty;
 
-    
-    
-    
     public string MovementType { get; set; } = "IN";
 
-    
-    
-    
     public int Quantity { get; set; }
 
-    
-    
-    
     public decimal UnitPrice { get; set; }
 
-    
-    
-    
     public decimal TotalAmount { get; set; }
 
-    
-    
-    
     public DateTime MovementDate { get; set; } = DateTime.UtcNow;
 
     
-    
-    
     public string SourceType { get; set; } = string.Empty;
 
-    
-    
-    
     public string SourceReference { get; set; } = string.Empty;
 
     
-    
-    
     public string WarehouseCode { get; set; } = "MAIN";
-
-    
-    
     
     public string? Notes { get; set; }
 }
-
-
-
 
 public class LucaStockMovementDto
 {
@@ -78,10 +41,6 @@ public class LucaStockMovementDto
     public DateTime MovementDate { get; set; } = DateTime.UtcNow;
     public string Warehouse { get; set; } = string.Empty;
 }
-
-
-
-
 public class StockMovementSyncResultDto
 {
     public int ProcessedRecords { get; set; }

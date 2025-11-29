@@ -2,10 +2,6 @@ using System;
 
 namespace Katana.Core.Events;
 
-
-
-
-
 public class PendingStockAdjustmentCreatedEvent
 {
     public long Id { get; }

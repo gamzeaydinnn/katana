@@ -5,9 +5,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Katana.Data.Repositories;
 
-
-
-
 public class FailedSyncRecordRepository
 {
     private readonly IntegrationDbContext _context;

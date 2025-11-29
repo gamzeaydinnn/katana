@@ -3,14 +3,6 @@ using System.Text.Json.Serialization;
 namespace Katana.Core.DTOs;
 
 #region Customer (Contact)
-
-
-
-
-
-
-
-
 public class KatanaCustomerDto
 {
     [JsonPropertyName("id")]

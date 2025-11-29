@@ -1,8 +1,5 @@
 namespace Katana.Core.Enums;
 
-
-
-
 public enum SyncStatus
 {
     

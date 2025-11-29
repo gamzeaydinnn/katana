@@ -6,9 +6,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Katana.Data.Repositories;
 
-
-
-
 public class IntegrationLogRepository
 {
     private readonly IntegrationDbContext _context;

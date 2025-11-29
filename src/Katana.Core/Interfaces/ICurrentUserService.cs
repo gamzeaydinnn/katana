@@ -2,10 +2,6 @@ using System;
 
 namespace Katana.Core.Interfaces;
 
-
-
-
-
 public interface ICurrentUserService
 {
     

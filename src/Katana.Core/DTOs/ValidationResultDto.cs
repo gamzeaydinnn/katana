@@ -1,5 +1,4 @@
 namespace Katana.Core.DTOs;
-
 public class ValidationResultDto
 {
     public bool IsValid { get; set; }

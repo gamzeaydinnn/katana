@@ -1,11 +1,6 @@
 using System.Text.RegularExpressions;
 
 namespace Katana.Core.ValueObjects;
-
-
-
-
-
 public readonly record struct AccountCode
 {
     private const int MaxLength = 50;

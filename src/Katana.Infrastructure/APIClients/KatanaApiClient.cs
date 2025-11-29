@@ -48,7 +48,6 @@ public class KatanaApiClient : IKatanaApiClient
     {
         var start = fromDate ?? DateTime.UtcNow.AddDays(-30);
         var end = DateTime.UtcNow;
-
         var katanaMovements = await _katanaService.GetStockChangesAsync(start, end);
         var mapped = katanaMovements.Select(MapStockMovement).ToList();
 
@@ -76,7 +75,6 @@ public class KatanaApiClient : IKatanaApiClient
                 });
             }
         }
-
         return stocks;
     }
 

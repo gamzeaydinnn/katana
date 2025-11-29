@@ -3,9 +3,6 @@ using Katana.Core.Entities;
 
 namespace Katana.Core.Events;
 
-
-
-
 public class InvoiceSyncedEvent
 {
     public int InvoiceId { get; }

@@ -2,14 +2,8 @@ using System.Globalization;
 
 namespace Katana.Core.ValueObjects;
 
-
-
-
-
 public readonly record struct TaxRate
 {
-    
-    
     
     public decimal Value { get; }
 

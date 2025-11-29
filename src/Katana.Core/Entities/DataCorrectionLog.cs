@@ -1,9 +1,4 @@
 namespace Katana.Core.Entities;
-
-
-
-
-
 public class DataCorrectionLog
 {
     public int Id { get; set; }

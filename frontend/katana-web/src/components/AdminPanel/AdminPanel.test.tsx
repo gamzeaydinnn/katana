@@ -85,10 +85,10 @@ describe("AdminPanel Component", () => {
       </BrowserRouter>
     );
 
-    await waitFor(() => {
-      expect(screen.getAllByText("100")[0]).toBeInTheDocument();
-      expect(screen.getByText("5.000")).toBeInTheDocument();
-    });
+    const hundreds = await screen.findAllByText("100");
+    expect(hundreds[0]).toBeInTheDocument();
+
+    expect(await screen.findByText("5.000")).toBeInTheDocument();
   });
 
   test("displays products table", async () => {
@@ -125,10 +125,8 @@ describe("AdminPanel Component", () => {
       </BrowserRouter>
     );
 
-    await waitFor(() => {
-      expect(screen.getByText("PendingAdjustments Mock")).toBeInTheDocument();
-      expect(screen.getByText("LogsViewer Mock")).toBeInTheDocument();
-      expect(screen.getByText("Settings Mock")).toBeInTheDocument();
-    });
+    expect(await screen.findByText("PendingAdjustments Mock")).toBeInTheDocument();
+    expect(await screen.findByText("LogsViewer Mock")).toBeInTheDocument();
+    expect(await screen.findByText("Settings Mock")).toBeInTheDocument();
   });
 });

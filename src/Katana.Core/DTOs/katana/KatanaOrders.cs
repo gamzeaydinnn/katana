@@ -3,10 +3,6 @@ using System.Text.Json.Serialization;
 namespace Katana.Core.DTOs;
 
 #region Sales Order
-
-
-
-
 public class SalesOrderDto
 {
     [JsonPropertyName("id")]

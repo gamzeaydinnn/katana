@@ -4,12 +4,6 @@ namespace Katana.Core.DTOs;
 
 #region BOM
 
-
-
-
-
-
-
 public class BomRowDto
 {
     [JsonPropertyName("id")]

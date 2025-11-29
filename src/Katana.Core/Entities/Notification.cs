@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
 namespace Katana.Core.Entities;
-
 public class Notification
 {
     public int Id { get; set; }

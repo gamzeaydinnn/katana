@@ -7,10 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Katana.API.Controllers;
 
-
-
-
-
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]

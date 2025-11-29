@@ -3,9 +3,6 @@ using System.Text.Json.Serialization;
 
 namespace Katana.Core.DTOs;
 
-
-
-
 public class LucaBelgeDto
 {
     [JsonPropertyName("belgeSeri")]

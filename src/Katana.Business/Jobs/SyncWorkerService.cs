@@ -5,10 +5,6 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace Katana.Business.Jobs;
-
-
-
-
 public class SyncWorkerService : IHostedService
 {
     private readonly ISchedulerFactory _schedulerFactory;

@@ -3,11 +3,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Katana.Infrastructure.Services;
-
-
-
-
-
 public class CacheService
 {
     private readonly IMemoryCache _cache;
