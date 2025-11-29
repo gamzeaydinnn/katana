@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Text.Json;
 using Katana.Business.Interfaces;
@@ -9,7 +9,12 @@ public class ErrorHandlingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ErrorHandlingMiddleware> _logger;
+
     private const string CorsAllowHeader = "Access-Control-Allow-Origin";
+    private const string CorsAllowCredentialsHeader = "Access-Control-Allow-Credentials";
+    private const string CorsAllowMethodsHeader = "Access-Control-Allow-Methods";
+    private const string CorsAllowHeadersHeader = "Access-Control-Allow-Headers";
+
     private static readonly string[] AllowedOriginPrefixes =
         new[] { "http://localhost", "https://localhost", "http://bfmmrp.com", "https://bfmmrp.com" };
 
@@ -25,28 +30,24 @@ public class ErrorHandlingMiddleware
         {
             await _next(context);
         }
-            catch (Exception ex)
+        catch (Exception ex)
         {
             var user = context.User?.Identity?.Name ?? "Anonymous";
             var path = context.Request.Path;
             _logger.LogError(ex, "Unhandled exception at {Path}", path);
             try
             {
-                
-                var loggingService = context.RequestServices.GetService(typeof(Katana.Business.Interfaces.ILoggingService)) as Katana.Business.Interfaces.ILoggingService;
+                var loggingService = context.RequestServices.GetService(typeof(ILoggingService)) as ILoggingService;
                 loggingService?.LogError($"Unhandled exception at {path}", ex, user, $"Method: {context.Request.Method}");
             }
-            catch
-            {
-                
-            }
+            catch { }
+
             await HandleExceptionAsync(context, ex);
         }
     }
 
     private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        
         if (context.Response.HasStarted)
         {
             return;
@@ -55,7 +56,7 @@ public class ErrorHandlingMiddleware
         EnsureCorsHeaders(context);
 
         context.Response.ContentType = "application/json";
-        
+
         var response = new ErrorResponse
         {
             Message = "An error occurred while processing your request.",
@@ -69,27 +70,22 @@ public class ErrorHandlingMiddleware
                 response.Message = "Invalid request parameters.";
                 context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                 break;
-            
             case UnauthorizedAccessException:
                 response.Message = "Unauthorized access.";
                 context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
                 break;
-            
             case KeyNotFoundException:
                 response.Message = "The requested resource was not found.";
                 context.Response.StatusCode = (int)HttpStatusCode.NotFound;
                 break;
-            
             case InvalidOperationException:
                 response.Message = "The operation is not valid in the current state.";
                 context.Response.StatusCode = (int)HttpStatusCode.Conflict;
                 break;
-            
             case TimeoutException:
                 response.Message = "The request timed out.";
                 context.Response.StatusCode = (int)HttpStatusCode.RequestTimeout;
                 break;
-            
             default:
                 response.Message = "An internal server error occurred.";
                 context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
@@ -123,9 +119,9 @@ public class ErrorHandlingMiddleware
         }
 
         context.Response.Headers[CorsAllowHeader] = origin;
-        context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
-        context.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
-        context.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization";
+        context.Response.Headers[CorsAllowCredentialsHeader] = "true";
+        context.Response.Headers[CorsAllowMethodsHeader] = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
+        context.Response.Headers[CorsAllowHeadersHeader] = "Content-Type, Authorization";
     }
 
     private static bool IsAllowedOrigin(string origin)
@@ -148,4 +144,3 @@ public class ErrorResponse
     public string Details { get; set; } = string.Empty;
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-

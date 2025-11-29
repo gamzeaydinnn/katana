@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 namespace Katana.API.Controllers;
 
 [ApiController]
-[Route("api/luca")]
+[Route("api/luca/cache")]
 public class LucaProductCacheController : ControllerBase
 {
     private readonly LucaProductCacheService _cache;

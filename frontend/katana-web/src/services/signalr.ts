@@ -1,7 +1,7 @@
 import {
-  HubConnection,
-  HubConnectionBuilder,
-  LogLevel,
+    HubConnection,
+    HubConnectionBuilder,
+    LogLevel,
 } from "@microsoft/signalr";
 
 let connection: HubConnection | null = null;
@@ -14,8 +14,11 @@ const getHubUrl = () => {
   const base = process.env.REACT_APP_API_URL?.trim();
   if (base && base.length > 0) {
     try {
-      // Ensure trailing slash logic is correct
-      const baseUrl = base.endsWith("/") ? base.slice(0, -1) : base;
+      // Normalize: remove any trailing slash, and also strip a trailing `/api` or `/api/` if present
+      let baseUrl = base.endsWith("/") ? base.slice(0, -1) : base;
+      baseUrl = baseUrl.replace(/\/api\/?$/i, "");
+      // If the env points to the API root (e.g. http://host:5055 or http://host:5055/api),
+      // append the hub path directly so we don't end up with `/api/hubs/...`.
       return `${baseUrl}/hubs/notifications`;
     } catch {
       return "/hubs/notifications";
