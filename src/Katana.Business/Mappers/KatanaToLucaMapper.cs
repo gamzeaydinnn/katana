@@ -342,7 +342,8 @@ public static class KatanaToLucaMapper
 
     public static LucaCreateStokKartiRequest MapKatanaProductToStockCard(
         KatanaProductDto product,
-        LucaApiSettings lucaSettings)
+        LucaApiSettings lucaSettings,
+        IReadOnlyDictionary<string, string>? productCategoryMappings = null)
     {
         if (product == null) throw new ArgumentNullException(nameof(product));
         if (lucaSettings == null) throw new ArgumentNullException(nameof(lucaSettings));
@@ -352,23 +353,38 @@ public static class KatanaToLucaMapper
         // Prefer product.Category if provided; else fall back to configured default; otherwise leave null (Koza accepts null).
         // However, some products get assigned an internal default Category.Id (e.g. "1") which is NOT a valid
         // Luca tree code. Treat that as missing and use the configured DefaultKategoriKodu when available.
+        // Resolve product category to Luca KategoriAgacKod using provided mapping dictionary
         string? category = null;
-        if (!string.IsNullOrWhiteSpace(product.Category))
+        var rawCategory = !string.IsNullOrWhiteSpace(product.Category) ? product.Category : null;
+
+        if (productCategoryMappings != null && !string.IsNullOrWhiteSpace(rawCategory))
         {
-            var trimmed = product.Category.Trim();
-            if (int.TryParse(trimmed, out var parsed) && parsed == 1 && !string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu))
+            var lookupKey = NormalizeMappingKey(rawCategory);
+            if (productCategoryMappings.TryGetValue(lookupKey, out var mapped) && !string.IsNullOrWhiteSpace(mapped))
             {
-                // Internal default category (Id=1) -> use configured Luca default category code
-                category = lucaSettings.DefaultKategoriKodu;
-            }
-            else
-            {
-                category = trimmed;
+                category = mapped;
             }
         }
-        else if (!string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu))
+
+        // If mapping not found, fall back to configured logic
+        if (string.IsNullOrWhiteSpace(category))
         {
-            category = lucaSettings.DefaultKategoriKodu;
+            if (!string.IsNullOrWhiteSpace(rawCategory))
+            {
+                // If rawCategory is numeric-only (internal id), prefer configured default, otherwise clear it.
+                if (IsNumericOnly(rawCategory))
+                {
+                    category = !string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu) ? lucaSettings.DefaultKategoriKodu : null;
+                }
+                else
+                {
+                    category = rawCategory;
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu))
+            {
+                category = lucaSettings.DefaultKategoriKodu;
+            }
         }
 
         var dto = new LucaCreateStokKartiRequest
@@ -395,6 +411,39 @@ public static class KatanaToLucaMapper
         dto.KartAdi = EncodingHelper.ConvertToIso88599(dto.KartAdi);
         dto.UzunAdi = EncodingHelper.ConvertToIso88599(dto.UzunAdi);
         return dto;
+    }
+
+    private static string NormalizeMappingKey(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+        var s = input.Trim().ToUpperInvariant();
+        s = s.Replace('/', ' ').Replace('\\', ' ').Replace('-', ' ');
+        s = RemoveDiacritics(s);
+        while (s.Contains("  ")) s = s.Replace("  ", " ");
+        return s;
+    }
+
+    private static string RemoveDiacritics(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return text;
+        var normalized = text.Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder();
+        foreach (var ch in normalized)
+        {
+            var uc = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (uc != System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                sb.Append(ch);
+            }
+        }
+        return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
+    }
+
+    // Use regex to reliably detect numeric-only strings (avoid culture/parsing surprises)
+    private static bool IsNumericOnly(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return false;
+        return System.Text.RegularExpressions.Regex.IsMatch(input.Trim(), "^\\d+$");
     }
 
     public static void ValidateLucaStockCard(LucaCreateStokKartiRequest dto)

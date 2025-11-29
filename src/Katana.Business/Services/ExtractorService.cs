@@ -34,6 +34,10 @@ public class ExtractorService : IExtractorService
         var katanaProducts = await _katanaService.GetProductsAsync();
         var result = new List<ProductDto>();
 
+        // Cache default category and category name lookups to avoid N+1 database queries
+        Katana.Core.Entities.Category? defaultCat = null;
+        var categoryNameCache = new Dictionary<int, string>();
+
         foreach (var product in katanaProducts)
         {
             if (ct.IsCancellationRequested)
@@ -79,27 +83,28 @@ public class ExtractorService : IExtractorService
                 {
                     try
                     {
-                        
-                        var defaultCat = await _dbContext.Categories
-                            .FirstOrDefaultAsync(c => c.Name == "Default" || c.Name == "Uncategorized", ct);
-
                         if (defaultCat == null)
                         {
-                            defaultCat = new Katana.Core.Entities.Category
+                            defaultCat = await _dbContext.Categories
+                                .FirstOrDefaultAsync(c => c.Name == "Default" || c.Name == "Uncategorized", ct);
+
+                            if (defaultCat == null)
                             {
-                                Name = "Uncategorized",
-                                Description = "Automatically created default category",
-                                IsActive = true,
-                                CreatedAt = DateTime.UtcNow,
-                                UpdatedAt = DateTime.UtcNow
-                            };
-                            _dbContext.Categories.Add(defaultCat);
-                            await _dbContext.SaveChangesAsync(ct);
+                                defaultCat = new Katana.Core.Entities.Category
+                                {
+                                    Name = "Uncategorized",
+                                    Description = "Automatically created default category",
+                                    IsActive = true,
+                                    CreatedAt = DateTime.UtcNow,
+                                    UpdatedAt = DateTime.UtcNow
+                                };
+                                _dbContext.Categories.Add(defaultCat);
+                                await _dbContext.SaveChangesAsync(ct);
+                            }
                         }
 
                         dto.CategoryId = defaultCat.Id;
 
-                        
                         validationErrors = ProductValidator.ValidateUpdate(new UpdateProductDto
                         {
                             SKU = dto.SKU,
@@ -131,15 +136,20 @@ public class ExtractorService : IExtractorService
                 {
                     if (dto.CategoryId != 0)
                     {
-                        categoryName = await _dbContext.Categories.AsNoTracking()
-                            .Where(c => c.Id == dto.CategoryId)
-                            .Select(c => c.Name)
-                            .FirstOrDefaultAsync(ct);
+                        if (!categoryNameCache.TryGetValue(dto.CategoryId, out var cachedName))
+                        {
+                            cachedName = await _dbContext.Categories.AsNoTracking()
+                                .Where(c => c.Id == dto.CategoryId)
+                                .Select(c => c.Name)
+                                .FirstOrDefaultAsync(ct) ?? string.Empty;
+                            categoryNameCache[dto.CategoryId] = cachedName;
+                        }
+
+                        categoryName = string.IsNullOrWhiteSpace(cachedName) ? null : cachedName;
                     }
                 }
                 catch
                 {
-                    
                 }
 
                 var payload = JsonSerializer.Serialize(new

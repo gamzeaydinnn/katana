@@ -198,14 +198,32 @@ public class LoaderService : ILoaderService
             return 0;
         }
 
-        var lucaStockCards = productList
-            .Select(product => KatanaToLucaMapper.MapProductToStockCard(
-                product,
-                _lucaSettings.DefaultKdvOran,
-                _lucaSettings.DefaultOlcumBirimiId,
-                _lucaSettings.DefaultKartTipi,
-                _lucaSettings.DefaultKategoriKodu))
-            .ToList();
+        // Load PRODUCT_CATEGORY mappings to pass to the mapper.
+        var productCategoryMappings = await ResolveMappingsAsync(null, "PRODUCT_CATEGORY", ct);
+
+        var lucaStockCards = new List<LucaCreateStokKartiRequest>();
+        foreach (var product in productList)
+        {
+            // Create a temporary DTO to reuse the mapper logic from SyncService
+            var productDto = new KatanaProductDto
+            {
+                SKU = product.SKU,
+                Name = product.Name,
+                Category = product.Category, // Assuming Product entity has a string Category property
+                CategoryId = product.CategoryId,
+                Barcode = product.Barcode,
+                Price = product.Price,
+                CostPrice = product.CostPrice,
+                PurchasePrice = product.PurchasePrice
+            };
+
+            var card = KatanaToLucaMapper.MapKatanaProductToStockCard(
+                productDto,
+                _lucaSettings,
+                productCategoryMappings);
+            
+            lucaStockCards.Add(card);
+        }
 
         var validCards = new List<LucaCreateStokKartiRequest>();
         foreach (var card in lucaStockCards)

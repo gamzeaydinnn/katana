@@ -578,7 +578,8 @@ public static class MappingHelper
         }
         var baseName = string.IsNullOrWhiteSpace(product.Name) ? normalizedSku : product.Name;
         var kartAdi = TrimAndTruncate(baseName, 255) ?? normalizedSku;
-        var uzunAdi = TrimAndTruncate(!string.IsNullOrWhiteSpace(product.Description) ? product.Description : baseName, 500) ?? kartAdi;
+        // Per Admin: UzunAdi should include SKU and product name, e.g. "BFM-01 / Metal Levha 10mm"
+        var uzunAdi = TrimAndTruncate($"{normalizedSku} / {kartAdi}", 500) ?? kartAdi;
         var kategoriKod = TrimAndTruncate(product.CategoryId > 0 ? product.CategoryId.ToString() : string.Empty, 50) ?? string.Empty;
         var barkod = normalizedSku;
         var detayAciklama = TrimAndTruncate(product.Description, 1000) ?? string.Empty;
@@ -672,6 +673,10 @@ public static class MappingHelper
         var vatRate = product.VatRate.HasValue ? product.VatRate.Value / 100d : (defaultVat ?? 0.20);
         var startDate = DateTime.UtcNow.Date;
 
+        // Per Admin guidance: KartKodu will be set from category mappings by LoaderService before send.
+        // Ensure UzunAdi contains SKU and product name so product code is preserved in Koza's card record.
+        var uzun = TrimAndTruncate($"{sku} / {TrimAndTruncate(name, 255) ?? sku}", 500) ?? name;
+
         return new LucaCreateStokKartiRequest
         {
             KartAdi = TrimAndTruncate(name, 255) ?? sku,
@@ -685,6 +690,7 @@ public static class MappingHelper
             KartAlisKdvOran = vatRate,
             KartSatisKdvOran = vatRate,
             Barkod = string.IsNullOrWhiteSpace(product.Barcode) ? sku : product.Barcode,
+            UzunAdi = uzun,
             PerakendeAlisBirimFiyat = (double)(product.PurchasePrice ?? product.Price),
             PerakendeSatisBirimFiyat = (double)(product.SalesPrice ?? product.Price),
             SatilabilirFlag = product.IsActive ? 1 : 0,

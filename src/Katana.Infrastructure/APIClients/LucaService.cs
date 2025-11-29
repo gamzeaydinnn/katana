@@ -2048,6 +2048,26 @@ retryChangeBranch:
                     try
                     {
                         var payload = JsonSerializer.Serialize(movement, _jsonOptions);
+
+                        // If the serialized movement JSON does not include 'belgeSeri', inject a default
+                        try
+                        {
+                            if (!payload.Contains("\"belgeSeri\"", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var defaultSeri = string.IsNullOrWhiteSpace(_settings.DefaultBelgeSeri) ? "A" : _settings.DefaultBelgeSeri.Trim();
+                                var quoted = JsonSerializer.Serialize(defaultSeri);
+                                // Build new JSON by inserting belgeSeri after opening brace
+                                var bodyWithoutOpen = payload.TrimStart();
+                                if (bodyWithoutOpen.StartsWith("{"))
+                                {
+                                    payload = "{" + $"\"belgeSeri\":{quoted}," + bodyWithoutOpen.Substring(1);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Failed to inject default belgeSeri into stock movement payload; proceeding with original payload");
+                        }
                         using var req = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.OtherStockMovement)
                         {
                             Content = CreateKozaContent(payload)
@@ -2323,8 +2343,49 @@ retryChangeBranch:
 
             foreach (var card in stockCards)
             {
+                // Central sanitizer: prevent sending numeric-only local Category IDs as Luca KategoriAgacKod
                 try
                 {
+                    if (!string.IsNullOrWhiteSpace(card.KategoriAgacKod))
+                    {
+                        var trimmed = card.KategoriAgacKod.Trim();
+                        if (trimmed.Length > 0 && trimmed.All(ch => char.IsDigit(ch)))
+                        {
+                            if (!string.IsNullOrWhiteSpace(_settings.DefaultKategoriKodu))
+                            {
+                                card.KategoriAgacKod = _settings.DefaultKategoriKodu;
+                            }
+                            else
+                            {
+                                card.KategoriAgacKod = string.Empty;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "LucaService => Error sanitizing KategoriAgacKod for card {KartKodu}", card.KartKodu);
+                }
+
+                try
+                {
+                    // Sanitize numeric-only KategoriAgacKod to configured default to avoid sending internal IDs
+                    try
+                    {
+                        if (!string.IsNullOrWhiteSpace(card.KategoriAgacKod))
+                        {
+                            var trimmed = card.KategoriAgacKod.Trim();
+                            if (trimmed.Length > 0 && trimmed.All(ch => char.IsDigit(ch)))
+                            {
+                                card.KategoriAgacKod = string.IsNullOrWhiteSpace(_settings.DefaultKategoriKodu) ? string.Empty : _settings.DefaultKategoriKodu;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "LucaService => Error sanitizing KategoriAgacKod for {Card}", card.KartKodu);
+                    }
+
                     var payload = JsonSerializer.Serialize(card, _jsonOptions);
                     var content = new ByteArrayContent(enc1254.GetBytes(payload));
                     content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = _encoding.WebName };
@@ -3226,18 +3287,39 @@ retryChangeBranch:
             {
                 try
                 {
-                    var payload = JsonSerializer.Serialize(card, _jsonOptions);
-                    var content = new ByteArrayContent(enc1254.GetBytes(payload));
-                    content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
+                    // Central sanitizer (token/session-agnostic): prevent sending numeric-only local Category IDs
+                    try
                     {
-                        CharSet = _encoding.WebName
-                    };
+                        if (!string.IsNullOrWhiteSpace(card.KategoriAgacKod))
+                        {
+                            var trimmed = card.KategoriAgacKod.Trim();
+                            if (trimmed.Length > 0 && trimmed.All(ch => char.IsDigit(ch)))
+                            {
+                                card.KategoriAgacKod = string.IsNullOrWhiteSpace(_settings.DefaultKategoriKodu) ? string.Empty : _settings.DefaultKategoriKodu;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "LucaService => Error sanitizing KategoriAgacKod for {Card}", card.KartKodu);
+                    }
+
+                    // Serialize to JSON for logging, but send as form-url-encoded CP1254 bytes (Koza expects form-data in windows-1254)
+                    var payload = JsonSerializer.Serialize(card, _jsonOptions);
+                    var content = CreateFormContentCp1254(payload);
 
                     using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
                     {
                         Content = content
                     };
                     ApplyManualSessionCookie(httpRequest);
+
+                    // Debug: log outgoing payload so we can see the exact kategoriAgacKod being sent
+                    try
+                    {
+                        _logger.LogDebug("🔥 SENDING TO LUCA KartKodu={KartKodu} Payload={Payload}", card.KartKodu, payload);
+                    }
+                    catch { }
 
                     try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_REQUEST:{card.KartKodu}", httpRequest, null); } catch (Exception) {  }
 
@@ -4420,6 +4502,89 @@ retryChangeBranch:
         var trimmed = value.Trim();
         return trimmed.Length <= maxLength ? trimmed : trimmed.Substring(0, maxLength);
     }
+        private string UrlEncodeCp1254(string input)
+        {
+            if (input == null) return string.Empty;
+            var enc = Encoding.GetEncoding(1254);
+            var bytes = enc.GetBytes(input);
+
+            var sb = new System.Text.StringBuilder();
+            foreach (var b in bytes)
+            {
+                // space -> +
+                if (b == 0x20) { sb.Append('+'); continue; }
+
+                // unreserved / safe characters: 0-9, A-Z, a-z, '-', '.', '_', '~'
+                if ((b >= 0x30 && b <= 0x39) ||
+                    (b >= 0x41 && b <= 0x5A) ||
+                    (b >= 0x61 && b <= 0x7A) ||
+                    b == 45 || b == 46 || b == 95 || b == 126)
+                {
+                    sb.Append((char)b);
+                }
+                else
+                {
+                    sb.Append('%');
+                    sb.Append(b.ToString("X2"));
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        private ByteArrayContent CreateFormContentCp1254(string payloadJson)
+        {
+            var pairs = new List<string>();
+            try
+            {
+                using var doc = JsonDocument.Parse(payloadJson);
+                if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var prop in doc.RootElement.EnumerateObject())
+                    {
+                        string valueStr;
+                        switch (prop.Value.ValueKind)
+                        {
+                            case JsonValueKind.String:
+                                valueStr = prop.Value.GetString() ?? string.Empty;
+                                break;
+                            case JsonValueKind.Number:
+                                valueStr = prop.Value.GetRawText();
+                                break;
+                            case JsonValueKind.True:
+                                valueStr = "true";
+                                break;
+                            case JsonValueKind.False:
+                                valueStr = "false";
+                                break;
+                            case JsonValueKind.Null:
+                                valueStr = string.Empty;
+                                break;
+                            default:
+                                valueStr = prop.Value.GetRawText();
+                                break;
+                        }
+
+                        var k = UrlEncodeCp1254(prop.Name ?? string.Empty);
+                        var v = UrlEncodeCp1254(valueStr ?? string.Empty);
+                        pairs.Add(k + "=" + v);
+                    }
+                }
+            }
+            catch
+            {
+                // fallback: send raw JSON as single field 'payload'
+                var k = UrlEncodeCp1254("payload");
+                var v = UrlEncodeCp1254(payloadJson ?? string.Empty);
+                pairs.Add(k + "=" + v);
+            }
+
+            var form = string.Join("&", pairs);
+            var bytes = _encoding.GetBytes(form);
+            var content = new ByteArrayContent(bytes);
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/x-www-form-urlencoded") { CharSet = "windows-1254" };
+            return content;
+        }
 
     private HttpContent CreateKozaContent(string json)
     {

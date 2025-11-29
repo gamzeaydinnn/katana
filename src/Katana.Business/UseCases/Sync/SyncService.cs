@@ -147,11 +147,35 @@ public class SyncService : ISyncService
         var payload = new List<LucaCreateStokKartiRequest>();
         var details = new List<string>();
 
+        // Load PRODUCT_CATEGORY mappings once and reuse for mapping product categories to Luca codes
+        var productCategoryMappings = await GetMappingDictionaryAsync("PRODUCT_CATEGORY", CancellationToken.None);
+
         foreach (var product in missingProducts)
         {
             try
             {
-                var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(product, _lucaSettings);
+                // Compute rawCategory for logging and diagnostic purposes. This mirrors mapper behavior.
+                string? rawCategory = null;
+                if (!string.IsNullOrWhiteSpace(product.Category)) rawCategory = product.Category;
+                else if (product.CategoryId > 0) rawCategory = product.CategoryId.ToString();
+
+                var lookupKey = NormalizeMappingKey(rawCategory);
+                var mappingExists = productCategoryMappings != null && productCategoryMappings.ContainsKey(lookupKey);
+
+                _logger.LogDebug("SyncService => SKU={Sku} rawCategory='{RawCategory}' lookupKey='{LookupKey}' mappingExists={MappingExists}",
+                    product.SKU, rawCategory ?? "(null)", lookupKey, mappingExists);
+
+                var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(product, _lucaSettings, productCategoryMappings);
+
+                // If mapping was not found and we fell back to default, log that too
+                if (!mappingExists)
+                {
+                    var usedCategory = string.IsNullOrWhiteSpace(dto.KategoriAgacKod) ? "(empty)" : dto.KategoriAgacKod;
+                    if (!string.IsNullOrWhiteSpace(_lucaSettings.DefaultKategoriKodu) && usedCategory == _lucaSettings.DefaultKategoriKodu)
+                    {
+                        _logger.LogDebug("SyncService => SKU={Sku} used DefaultKategoriKodu='{DefaultKategoriKodu}' as fallback for rawCategory='{RawCategory}'", product.SKU, _lucaSettings.DefaultKategoriKodu, rawCategory);
+                    }
+                }
                 KatanaToLucaMapper.ValidateLucaStockCard(dto);
                 payload.Add(dto);
             }
@@ -203,13 +227,20 @@ public class SyncService : ISyncService
 
         try
         {
-            if (!string.IsNullOrWhiteSpace(sessionId))
+            if (!options.DryRun)
             {
-                sendResult = await _lucaService.SendStockCardsAsync(sessionId, payload);
+                if (!string.IsNullOrWhiteSpace(sessionId))
+                {
+                    sendResult = await _lucaService.SendStockCardsAsync(sessionId, payload);
+                }
+                else
+                {
+                    sendResult = await _lucaService.SendStockCardsAsync(payload);
+                }
             }
             else
             {
-                sendResult = await _lucaService.SendStockCardsAsync(payload);
+                _logger.LogInformation("SyncService => Dry-run enabled - skipping actual SendStockCardsAsync for PRODUCT_STOCK_CARD");
             }
 
             await FinalizeOperationAsync(
@@ -648,15 +679,50 @@ public class SyncService : ISyncService
                 .Select(m => new { m.SourceValue, m.TargetValue })
                 .ToListAsync(ct);
 
-            return entries
+            // Normalize keys (trim + uppercase + remove diacritics + normalize separators)
+            var dict = entries
                 .Where(e => !string.IsNullOrWhiteSpace(e.SourceValue))
-                .ToDictionary(e => e.SourceValue, e => e.TargetValue, StringComparer.OrdinalIgnoreCase);
+                .ToDictionary(
+                    e => NormalizeMappingKey(e.SourceValue),
+                    e => e.TargetValue ?? string.Empty,
+                    StringComparer.OrdinalIgnoreCase);
+
+            return dict;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "SyncService => Failed to load mapping table {MappingType}. Returning empty mapping.", mappingType);
             return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
+    }
+
+    private static string NormalizeMappingKey(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+        var s = input.Trim().ToUpperInvariant();
+        // replace common separators with space
+        s = s.Replace('/', ' ').Replace('\\', ' ').Replace('-', ' ');
+        // remove diacritics
+        s = RemoveDiacritics(s);
+        // collapse multiple spaces
+        while (s.Contains("  ")) s = s.Replace("  ", " ");
+        return s;
+    }
+
+    private static string RemoveDiacritics(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return text;
+        var normalized = text.Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder();
+        foreach (var ch in normalized)
+        {
+            var uc = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (uc != System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                sb.Append(ch);
+            }
+        }
+        return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
     }
 
     

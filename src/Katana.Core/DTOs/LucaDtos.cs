@@ -425,6 +425,9 @@ public class LucaStockDto
     [JsonPropertyName("kategoriAgacKod")]
     public string? KategoriAgacKod { get; set; }
 
+    [JsonPropertyName("belgeSeri")]
+    public string? BelgeSeri { get; set; }
+
     [JsonPropertyName("baslangicTarihi")]
     public string? BaslangicTarihi { get; set; }
 

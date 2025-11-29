@@ -72,6 +72,21 @@ public class Product
     
     public int CategoryId { get; set; }
     
+    [NotMapped]
+    public string? Category { get; set; }
+
+    [NotMapped]
+    public string? Barcode { get; set; }
+
+    [NotMapped]
+    public decimal? CostPrice { get; set; }
+
+    [NotMapped]
+    public decimal? PurchasePrice { get; set; }
+
+    [NotMapped]
+    public decimal? SalesPrice { get; set; }
+    
     [MaxLength(500)]
     public string? MainImageUrl { get; set; }
     

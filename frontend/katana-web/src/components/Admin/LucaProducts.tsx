@@ -46,7 +46,7 @@ interface LucaProduct {
   vatRate?: number;
   lastUpdated?: string;
   isActive?: boolean;
-  
+
   ProductCode?: string;
   ProductName?: string;
   Barkod?: string;
@@ -122,7 +122,7 @@ const LucaProducts: React.FC = () => {
 
     try {
       const productId = selectedProduct.id;
-      
+
       const updateDto = {
         productCode:
           selectedProduct.productCode || selectedProduct.ProductCode || "",
@@ -134,7 +134,7 @@ const LucaProducts: React.FC = () => {
         vatRate: selectedProduct.vatRate ?? selectedProduct.VatRate ?? 20,
       };
 
-      console.log("Sending update DTO:", updateDto); 
+      console.log("Sending update DTO:", updateDto);
       await api.put(`/Products/luca/${productId}`, updateDto);
       handleCloseModal();
       fetchProducts();
@@ -184,9 +184,11 @@ const LucaProducts: React.FC = () => {
               <Typography variant="h5">Luca Ürünleri</Typography>
             </Stack>
             <Tooltip title="Yenile">
-              <IconButton onClick={fetchProducts} disabled={loading}>
-                <RefreshIcon />
-              </IconButton>
+              <span>
+                <IconButton onClick={fetchProducts} disabled={loading}>
+                  <RefreshIcon />
+                </IconButton>
+              </span>
             </Tooltip>
           </Stack>
 
@@ -231,7 +233,7 @@ const LucaProducts: React.FC = () => {
                 : "Luca ürün verisi yok veya endpoint aktif değil"}
             </Typography>
           )}
-          {filteredProducts.map((product) => {
+          {filteredProducts.map((product, _idx) => {
             const code = product.productCode || product.ProductCode || "";
             const name = product.productName || product.ProductName || "";
             const unit =
@@ -242,7 +244,8 @@ const LucaProducts: React.FC = () => {
               "";
             const barcode = product.barcode || product.Barkod || "";
             const category = product.category || product.KategoriAgacKod || "";
-            const lastUpdated = product.lastUpdated || product.LastUpdated || "";
+            const lastUpdated =
+              product.lastUpdated || product.LastUpdated || "";
             const quantity = product.quantity ?? product.Quantity ?? 0;
             const unitPrice = product.unitPrice ?? product.UnitPrice ?? 0;
             const vatRate = product.vatRate ?? product.VatRate ?? 0;
@@ -250,8 +253,13 @@ const LucaProducts: React.FC = () => {
 
             return (
               <Paper
-                key={product.id}
-                sx={{ p: 1.5, borderRadius: 2, border: "1px solid", borderColor: "divider" }}
+                key={product.id ?? product.productCode ?? _idx}
+                sx={{
+                  p: 1.5,
+                  borderRadius: 2,
+                  border: "1px solid",
+                  borderColor: "divider",
+                }}
               >
                 <Box
                   sx={{
@@ -329,7 +337,9 @@ const LucaProducts: React.FC = () => {
                   </Box>
                 </Box>
                 {canEdit && (
-                  <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+                  <Box
+                    sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}
+                  >
                     <Button
                       size="small"
                       variant="outlined"
@@ -396,7 +406,7 @@ const LucaProducts: React.FC = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredProducts.map((product) => {
+                filteredProducts.map((product, _idx) => {
                   const code = product.productCode || product.ProductCode || "";
                   const name = product.productName || product.ProductName || "";
                   const unit =
@@ -406,15 +416,20 @@ const LucaProducts: React.FC = () => {
                     product.OlcumBirimi ||
                     "";
                   const barcode = product.barcode || product.Barkod || "";
-                  const category = product.category || product.KategoriAgacKod || "";
-                  const lastUpdated = product.lastUpdated || product.LastUpdated || "";
+                  const category =
+                    product.category || product.KategoriAgacKod || "";
+                  const lastUpdated =
+                    product.lastUpdated || product.LastUpdated || "";
                   const quantity = product.quantity ?? product.Quantity ?? 0;
                   const unitPrice = product.unitPrice ?? product.UnitPrice ?? 0;
                   const vatRate = product.vatRate ?? product.VatRate ?? 0;
                   const isActive = product.isActive ?? product.IsActive ?? true;
 
                   return (
-                    <TableRow key={product.id} hover>
+                    <TableRow
+                      key={product.id ?? product.productCode ?? _idx}
+                      hover
+                    >
                       <TableCell>
                         <Typography variant="body2" fontWeight="bold">
                           {code}

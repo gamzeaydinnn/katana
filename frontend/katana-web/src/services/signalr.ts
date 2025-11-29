@@ -6,20 +6,35 @@ import {
 
 let connection: HubConnection | null = null;
 
+// Allow overriding backend base URL via `REACT_APP_API_URL` in dev/prod.
+// If `REACT_APP_API_URL` is set, use that as the base; otherwise prefer
+// a relative path (`/hubs/notifications`) so the React dev-server proxy
+// (see package.json "proxy") can forward requests to the backend.
+const getHubUrl = () => {
+  const base = process.env.REACT_APP_API_URL?.trim();
+  if (base && base.length > 0) {
+    try {
+      // Ensure trailing slash logic is correct
+      const baseUrl = base.endsWith("/") ? base.slice(0, -1) : base;
+      return `${baseUrl}/hubs/notifications`;
+    } catch {
+      return "/hubs/notifications";
+    }
+  }
 
-const HUB_URL =
-  process.env.NODE_ENV === "production"
-    ? "/hubs/notifications"
-    : "http://localhost:5055/hubs/notifications";
+  // Default: use relative path so CRA dev proxy can forward it.
+  return "/hubs/notifications";
+};
+
+const HUB_URL = getHubUrl();
 
 export function startConnection() {
   if (connection) {
-    
     const state = connection.state as unknown as string;
     if (state && state !== "Disconnected") {
       return Promise.resolve();
     }
-    
+
     return connection.start();
   }
 
@@ -96,7 +111,6 @@ export function onPendingApproved(handler: (payload: object) => void) {
 export function offPendingApproved(handler: (payload: object) => void) {
   connection?.off("PendingStockAdjustmentApproved", handler);
 }
-
 
 export function onPendingRejected(handler: (payload: object) => void) {
   connection?.on("PendingStockAdjustmentRejected", handler);

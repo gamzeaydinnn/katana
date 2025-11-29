@@ -1,0 +1,355 @@
+﻿{
+    "value":  [
+                  {
+                      "sku":  "sillll3l3ll3l3l",
+                      "kartKodu":  "sillll3l3ll3l3l",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "silllllllll",
+                      "barkod":  "sillll3l3ll3l3l"
+                  },
+                  {
+                      "sku":  "silll12344",
+                      "kartKodu":  "silll12344",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "silll",
+                      "barkod":  "silll12344"
+                  },
+                  {
+                      "sku":  "6250681",
+                      "kartKodu":  "6250681",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "093-58064-083",
+                      "barkod":  "6250681"
+                  },
+                  {
+                      "sku":  "387758",
+                      "kartKodu":  "387758",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "83.9945.3A Ø 38 mm JCI CUPPER DISC D.38",
+                      "barkod":  "387758"
+                  },
+                  {
+                      "sku":  "6250666",
+                      "kartKodu":  "6250666",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "093-58064-032",
+                      "barkod":  "6250666"
+                  },
+                  {
+                      "sku":  "PIPE_52_VWGH_160_V5",
+                      "kartKodu":  "PIPE_52_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "Ø35*1,5 PIPE",
+                      "barkod":  "PIPE_52_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_8_VWGH_160_V5",
+                      "kartKodu":  "PIPE_8_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "Ø35*1,5 PIPE",
+                      "barkod":  "PIPE_8_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_6_VWGH_160_V5",
+                      "kartKodu":  "PIPE_6_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "Ø35*1,5 PIPE",
+                      "barkod":  "PIPE_6_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_7_VWGH_160_V5",
+                      "kartKodu":  "PIPE_7_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "COPPER PIPE",
+                      "barkod":  "PIPE_7_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_24_VWGH_160_V5",
+                      "kartKodu":  "PIPE_24_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "Ø35*1,5 PIPE",
+                      "barkod":  "PIPE_24_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_2_VWGH_160_V5",
+                      "kartKodu":  "PIPE_2_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "COPPER PIPE",
+                      "barkod":  "PIPE_2_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_22_VWGH_160_V5",
+                      "kartKodu":  "PIPE_22_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "COPPER PIPE",
+                      "barkod":  "PIPE_22_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_26_VWGH_160_V5",
+                      "kartKodu":  "PIPE_26_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "Ø35*1,5 PIPE",
+                      "barkod":  "PIPE_26_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_25_VWGH_160_V5",
+                      "kartKodu":  "PIPE_25_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "Ø35*1,5 PIPE",
+                      "barkod":  "PIPE_25_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "CL-29 02 00347 01",
+                      "kartKodu":  "CL-29 02 00347 01",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "32 20 00126 ART3000-3300-4000-4400 LİKİT DEPO ÇIKIŞ-DRYER GİRİŞ BORUSU",
+                      "barkod":  "CL-29 02 00347 01"
+                  },
+                  {
+                      "sku":  "PIPE_4_VWGH_160_V5",
+                      "kartKodu":  "PIPE_4_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "Ø35*1,5 PIPE",
+                      "barkod":  "PIPE_4_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_3_VWGH_160_V5",
+                      "kartKodu":  "PIPE_3_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "Ø35*1,5 PIPE",
+                      "barkod":  "PIPE_3_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_31_VWGH_160_V5",
+                      "kartKodu":  "PIPE_31_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "Ø35*1,5 PIPE",
+                      "barkod":  "PIPE_31_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_27_VWGH_160_V5",
+                      "kartKodu":  "PIPE_27_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "COPPER PIPE",
+                      "barkod":  "PIPE_27_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_42_VWGH_160_V5",
+                      "kartKodu":  "PIPE_42_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "COPPER PIPE",
+                      "barkod":  "PIPE_42_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_5_VWGH_160_V5",
+                      "kartKodu":  "PIPE_5_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "Ø35*1,5 PIPE",
+                      "barkod":  "PIPE_5_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_43_VWGH_160_V5",
+                      "kartKodu":  "PIPE_43_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "COPPER PIPE",
+                      "barkod":  "PIPE_43_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_51_VWGH_160_V5",
+                      "kartKodu":  "PIPE_51_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "Ø35*1,5 PIPE",
+                      "barkod":  "PIPE_51_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "PIPE_41_VWGH_160_V5",
+                      "kartKodu":  "PIPE_41_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "Ø54*2 BAKIR BORU",
+                      "barkod":  "PIPE_41_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "BFM-05",
+                      "kartKodu":  "BFM-05",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "ALÜMİNYUM HURDA",
+                      "barkod":  "BFM-05"
+                  },
+                  {
+                      "sku":  "BFM-07",
+                      "kartKodu":  "BFM-07",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "PİRİNÇ TALAŞ",
+                      "barkod":  "BFM-07"
+                  },
+                  {
+                      "sku":  "HIZ01",
+                      "kartKodu":  "HIZ01",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "%1 KDV Lİ MUHTELİF ALIMLAR",
+                      "barkod":  "HIZ01"
+                  },
+                  {
+                      "sku":  "CL-29 02 00347 01",
+                      "kartKodu":  "CL-29 02 00347 01",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "32 20 00126 ART3000-3300-4000-4400 LİKİT DEPO ÇIKIŞ-DRYER GİRİŞ BORUSU",
+                      "barkod":  "CL-29 02 00347 01"
+                  },
+                  {
+                      "sku":  "BFM-04",
+                      "kartKodu":  "BFM-04",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "DEMİR TALAŞ",
+                      "barkod":  "BFM-04"
+                  },
+                  {
+                      "sku":  "PIPE_23_VWGH_160_V5",
+                      "kartKodu":  "PIPE_23_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "Ø35*1,5 PIPE",
+                      "barkod":  "PIPE_23_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "MZ11.5650471",
+                      "kartKodu":  "MZ11.5650471",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "Ø35 BAKIR BORU-7594913C",
+                      "barkod":  "MZ11.5650471"
+                  },
+                  {
+                      "sku":  "HIZ10",
+                      "kartKodu":  "HIZ10",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "%10 KDVLİ MUHTELİF ALIMLAR",
+                      "barkod":  "HIZ10"
+                  },
+                  {
+                      "sku":  "BFM-03",
+                      "kartKodu":  "BFM-03",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "HURDA DEMİR",
+                      "barkod":  "BFM-03"
+                  },
+                  {
+                      "sku":  "PIPE_1_VWGH_160_V5",
+                      "kartKodu":  "PIPE_1_VWGH_160_V5",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "COPPER PIPE",
+                      "barkod":  "PIPE_1_VWGH_160_V5"
+                  },
+                  {
+                      "sku":  "BFM-06",
+                      "kartKodu":  "BFM-06",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "BAKIR BORU HURDA",
+                      "barkod":  "BFM-06"
+                  },
+                  {
+                      "sku":  "HIZ20",
+                      "kartKodu":  "HIZ20",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "%20 KDVLİ MUHTELİF ALIMLAR",
+                      "barkod":  "HIZ20"
+                  },
+                  {
+                      "sku":  "P-TKZ-SAG-B12",
+                      "kartKodu":  "P-TKZ-SAG-B12",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "PİRİNÇ TAKOZ ( 22*39  boy : 29 mm ) DJ COOL",
+                      "barkod":  "P-TKZ-SAG-B12"
+                  },
+                  {
+                      "sku":  "BFM-01",
+                      "kartKodu":  "BFM-01",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "KROM TALAŞ",
+                      "barkod":  "BFM-01"
+                  },
+                  {
+                      "sku":  "BFM-02",
+                      "kartKodu":  "BFM-02",
+                      "kategoriAgacKod":  "1MAMUL",
+                      "kartAdi":  "KROM HURDA",
+                      "barkod":  "BFM-02"
+                  },
+                  {
+                      "sku":  "9310024",
+                      "kartKodu":  "9310024",
+                      "kategoriAgacKod":  "3YARI MAMUL",
+                      "kartAdi":  "NETSİS KONTROL ET2",
+                      "barkod":  "9310024"
+                  },
+                  {
+                      "sku":  "OIO-AA24-01",
+                      "kartKodu":  "OIO-AA24-01",
+                      "kategoriAgacKod":  "3YARI MAMUL",
+                      "kartAdi":  "NETSİS KONTROL ET6",
+                      "barkod":  "OIO-AA24-01"
+                  },
+                  {
+                      "sku":  "OR-AA22-01",
+                      "kartKodu":  "OR-AA22-01",
+                      "kategoriAgacKod":  "3YARI MAMUL",
+                      "kartAdi":  "NETSİS KONTROL ET7",
+                      "barkod":  "OR-AA22-01"
+                  },
+                  {
+                      "sku":  "OIO-AA19-01",
+                      "kartKodu":  "OIO-AA19-01",
+                      "kategoriAgacKod":  "3YARI MAMUL",
+                      "kartAdi":  "NETSİS KONTROL ET5",
+                      "barkod":  "OIO-AA19-01"
+                  },
+                  {
+                      "sku":  "OR-AA24-01",
+                      "kartKodu":  "OR-AA24-01",
+                      "kategoriAgacKod":  "3YARI MAMUL",
+                      "kartAdi":  "NETSİS KONTROL ET8",
+                      "barkod":  "OR-AA24-01"
+                  },
+                  {
+                      "sku":  "9310030",
+                      "kartKodu":  "9310030",
+                      "kategoriAgacKod":  "3YARI MAMUL",
+                      "kartAdi":  "NETSİS KONTROL ET3",
+                      "barkod":  "9310030"
+                  },
+                  {
+                      "sku":  "9310011",
+                      "kartKodu":  "9310011",
+                      "kategoriAgacKod":  "3YARI MAMUL",
+                      "kartAdi":  "NETSİS KONTROL ET1",
+                      "barkod":  "9310011"
+                  },
+                  {
+                      "sku":  "9320487",
+                      "kartKodu":  "9320487",
+                      "kategoriAgacKod":  "3YARI MAMUL",
+                      "kartAdi":  "NETSİS KONTROL ET4",
+                      "barkod":  "9320487"
+                  },
+                  {
+                      "sku":  "1-1020-KOVAN",
+                      "kartKodu":  "1-1020-KOVAN",
+                      "kategoriAgacKod":  "3YARI MAMUL",
+                      "kartAdi":  "NETSİSTEN KONTROL 5054",
+                      "barkod":  "1-1020-KOVAN"
+                  },
+                  {
+                      "sku":  "A1121-EM",
+                      "kartKodu":  "A1121-EM",
+                      "kategoriAgacKod":  "3YARI MAMUL",
+                      "kartAdi":  "NETSİSTEN KONTROL 5055",
+                      "barkod":  "A1121-EM"
+                  },
+                  {
+                      "sku":  "1-18447-KOVAN",
+                      "kartKodu":  "1-18447-KOVAN",
+                      "kategoriAgacKod":  "3YARI MAMUL",
+                      "kartAdi":  "NETSİSTEN KONTROL 5051",
+                      "barkod":  "1-18447-KOVAN"
+                  }
+              ],
+    "Count":  50
+}
