@@ -39,6 +39,7 @@ public class LucaService : ILucaService
     private HttpClientHandler? _cookieHandler;
     private HttpClient? _cookieHttpClient;
     private bool _isCookieAuthenticated = false;
+    private DateTime? _lastSuccessfulAuthAt = null;
     private static readonly System.Threading.SemaphoreSlim _loginSemaphore = new System.Threading.SemaphoreSlim(1, 1);
     private static readonly Dictionary<long, (int ExpectedCariTur, string ErrorMessage)> FaturaKapamaCariRules =
         new()
@@ -245,6 +246,7 @@ public class LucaService : ILucaService
                 if (manualOk)
                 {
                     _isCookieAuthenticated = true;
+                    _lastSuccessfulAuthAt = DateTime.UtcNow;
                     _logger.LogInformation("=== Koza Authentication Complete (ManualCookie) ===");
                     return;
                 }
@@ -275,16 +277,30 @@ public class LucaService : ILucaService
 
     private async Task LoginWithServiceAsync()
     {
+        // Fast, non-blocking guard to avoid queuing many callers when a valid session exists
+        if (_isCookieAuthenticated && !string.IsNullOrWhiteSpace(_sessionCookie) && (!_cookieExpiresAt.HasValue || DateTime.UtcNow < _cookieExpiresAt.Value))
+        {
+            _logger.LogDebug("Existing Koza session is valid, skipping login (fast-path)");
+            return;
+        }
+
+        // Short cooldown to prevent rapid repeated auth attempts from multiple concurrent callers
+        if (_lastSuccessfulAuthAt.HasValue && (DateTime.UtcNow - _lastSuccessfulAuthAt.Value) < TimeSpan.FromSeconds(10))
+        {
+            _logger.LogDebug("Recent Koza authentication succeeded at {Time}; skipping redundant login", _lastSuccessfulAuthAt.Value);
+            return;
+        }
+
         await _loginSemaphore.WaitAsync();
         try
         {
-            _logger.LogInformation("=== Starting Koza Authentication (guarded) ===");
-
+            // Re-check after acquiring semaphore to avoid races
             if (_isCookieAuthenticated && !string.IsNullOrWhiteSpace(_sessionCookie) && (!_cookieExpiresAt.HasValue || DateTime.UtcNow < _cookieExpiresAt.Value))
             {
                 _logger.LogDebug("Existing Koza session is valid, skipping login");
                 return;
             }
+            _logger.LogInformation("=== Starting Koza Authentication (guarded) ===");
             var baseUri = new Uri($"{_settings.BaseUrl.TrimEnd('/')}/");
 
             if (_settings.UseHeadlessAuth)
@@ -331,6 +347,7 @@ public class LucaService : ILucaService
                         }
                         _isCookieAuthenticated = true;
                         await EnsureBranchSelectedAsync();
+                        _lastSuccessfulAuthAt = DateTime.UtcNow;
                         _logger.LogInformation("=== Koza Authentication Complete (Headless) ===");
                         return;
                     }
@@ -426,6 +443,7 @@ public class LucaService : ILucaService
             }
 
             await EnsureBranchSelectedAsync();
+            _lastSuccessfulAuthAt = DateTime.UtcNow;
             _logger.LogInformation("=== Koza Authentication Complete (WS/PerformLogin) ===");
         }
         catch (Exception ex)
@@ -2083,236 +2101,11 @@ retryChangeBranch:
     }
     public async Task<SyncResultDto> SendStockCardsAsync(string sessionId, List<LucaCreateStokKartiRequest> stockCards)
     {
-        var result = new SyncResultDto
-        {
-            SyncType = "PRODUCT_STOCK_CARD",
-            ProcessedRecords = stockCards.Count
-        };
-
-        var startTime = DateTime.UtcNow;
-        var successCount = 0;
-        var failedCount = 0;
-        try
-        {
-            if (_settings.UseTokenAuth)
-            {
-                return await SendStockCardsAsync(stockCards);
-            }
-
-            if (_externalCookieJarStore == null)
-            {
-                _logger.LogWarning("No ILucaCookieJarStore available in LucaService; falling back to internal cookie client");
-                return await SendStockCardsAsync(stockCards);
-            }
-            var cookieContainer = _externalCookieJarStore.GetOrCreate(sessionId);
-            var baseUri = new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
-            var handler = new HttpClientHandler
-            {
-                CookieContainer = cookieContainer,
-                UseCookies = true,
-                AllowAutoRedirect = true,
-                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
-            };
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = baseUri
-            };
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            try
-            {
-                if (_settings.ForcedBranchId.HasValue)
-                {
-                    var branchesResp = await client.PostAsync(_settings.Endpoints.Branches, CreateKozaContent("{}"));
-                    var branchesBody = await branchesResp.Content.ReadAsStringAsync();
-                    try { await AppendRawLogAsync("BRANCHES_EXTERNAL", _settings.Endpoints.Branches, "{}", branchesResp.StatusCode, branchesBody); } catch { }
-
-                    if (branchesResp.IsSuccessStatusCode)
-                    {
-                        var changePayload = JsonSerializer.Serialize(new { orgSirketSubeId = _settings.ForcedBranchId.Value }, _jsonOptions);
-                        var changeResp = await client.PostAsync(_settings.Endpoints.ChangeBranch, CreateKozaContent(changePayload));
-                        var changeBody = await changeResp.Content.ReadAsStringAsync();
-                        try { await AppendRawLogAsync("CHANGE_BRANCH_EXTERNAL", _settings.Endpoints.ChangeBranch, changePayload, changeResp.StatusCode, changeBody); } catch { }
-                        if (!changeResp.IsSuccessStatusCode || (changeBody?.Contains("Login olunmalı", StringComparison.OrdinalIgnoreCase) ?? false))
-                        {
-                            _logger.LogWarning("External branch change to {Branch} returned non-success or login-needed", _settings.ForcedBranchId.Value);
-                        }
-                        else
-                        {
-                            _logger.LogInformation("External branch change to {Branch} applied", _settings.ForcedBranchId.Value);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "External branch selection attempt failed; proceeding to send stock cards anyway");
-            }
-            _logger.LogInformation("Sending {Count} stock cards to Luca (cookie-jar session) one by one", stockCards.Count);
-            var endpoint = _settings.Endpoints.StockCardCreate;
-            var enc1254 = _encoding;
-            foreach (var card in stockCards)
-            {
-                // Central sanitizer: prevent sending numeric-only local Category IDs as Luca KategoriAgacKod
-                try
-                {
-                    if (!string.IsNullOrWhiteSpace(card.KategoriAgacKod))
-                    {
-                        var trimmed = card.KategoriAgacKod.Trim();
-                        if (trimmed.Length > 0 && trimmed.All(ch => char.IsDigit(ch)))
-                        {
-                            if (!string.IsNullOrWhiteSpace(_settings.DefaultKategoriKodu))
-                            {
-                                card.KategoriAgacKod = _settings.DefaultKategoriKodu;
-                            }
-                            else
-                            {
-                                card.KategoriAgacKod = string.Empty;
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "LucaService => Error sanitizing KategoriAgacKod for card {KartKodu}", card.KartKodu);
-                }
-
-                try
-                {
-                    // Sanitize numeric-only KategoriAgacKod to configured default to avoid sending internal IDs
-                    try
-                    {
-                        if (!string.IsNullOrWhiteSpace(card.KategoriAgacKod))
-                        {
-                            var trimmed = card.KategoriAgacKod.Trim();
-                            if (trimmed.Length > 0 && trimmed.All(ch => char.IsDigit(ch)))
-                            {
-                                card.KategoriAgacKod = string.IsNullOrWhiteSpace(_settings.DefaultKategoriKodu) ? string.Empty : _settings.DefaultKategoriKodu;
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "LucaService => Error sanitizing KategoriAgacKod for {Card}", card.KartKodu);
-                    }
-
-                    var payload = JsonSerializer.Serialize(card, _jsonOptions);
-                    var content = new ByteArrayContent(enc1254.GetBytes(payload));
-                    content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = _encoding.WebName };
-
-                    using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
-                    {
-                        Content = content
-                    };
-                    ApplyManualSessionCookie(httpRequest);
-                    try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_REQUEST:{card.KartKodu}", httpRequest, null); } catch { }
-                    var response = await client.SendAsync(httpRequest);
-                    var responseBytes = await response.Content.ReadAsByteArrayAsync();
-                    string responseContent;
-                    try { responseContent = enc1254.GetString(responseBytes); } catch { responseContent = Encoding.UTF8.GetString(responseBytes); }
-                    var baseUrl = client.BaseAddress?.ToString()?.TrimEnd('/') ?? _settings.BaseUrl?.TrimEnd('/') ?? string.Empty;
-                    var fullUrl = string.IsNullOrWhiteSpace(baseUrl) ? endpoint : (endpoint.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? endpoint : baseUrl + "/" + endpoint.TrimStart('/'));
-                    await AppendRawLogAsync("SEND_STOCK_CARD", fullUrl, payload, response.StatusCode, responseContent);
-                    try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_RESPONSE:{card.KartKodu}", httpRequest, response); } catch { }
-
-                    if (NeedsBranchSelection(responseContent))
-                    {
-                        _logger.LogWarning("Stock card {Card} indicates branch not selected; attempting external branch change and retry", card.KartKodu);
-                    
-                        try
-                        {
-                            if (_settings.ForcedBranchId.HasValue)
-                            {
-                                var changePayload = JsonSerializer.Serialize(new { orgSirketSubeId = _settings.ForcedBranchId.Value }, _jsonOptions);
-                                var changeResp = await client.PostAsync(_settings.Endpoints.ChangeBranch, CreateKozaContent(changePayload));
-                                var changeBody = await changeResp.Content.ReadAsStringAsync();
-                                try { await AppendRawLogAsync("CHANGE_BRANCH_EXTERNAL_RETRY", _settings.Endpoints.ChangeBranch, changePayload, changeResp.StatusCode, changeBody); } catch { }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "External branch change during retry failed");
-                        }
-                        var retryReq = new HttpRequestMessage(HttpMethod.Post, endpoint)
-                        {
-                            Content = new ByteArrayContent(enc1254.GetBytes(payload)) { Headers = { ContentType = new MediaTypeHeaderValue("application/json") { CharSet = _encoding.WebName } } }
-                        };
-                        ApplyManualSessionCookie(retryReq);
-                        response = await client.SendAsync(retryReq);
-                        responseBytes = await response.Content.ReadAsByteArrayAsync();
-                        try { responseContent = enc1254.GetString(responseBytes); } catch { responseContent = Encoding.UTF8.GetString(responseBytes); }
-                        await AppendRawLogAsync("SEND_STOCK_CARD_RETRY", fullUrl, payload, response.StatusCode, responseContent);
-                    }
-                    if (responseContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
-                    {
-                        _logger.LogError("Stock card {Card} returned HTML. Will attempt UTF-8 JSON retry then form-encoded retry.", card.KartKodu);
-                        await AppendRawLogAsync($"SEND_STOCK_CARD_HTML:{card.KartKodu}", fullUrl, payload, response.StatusCode, responseContent);
-                        try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_HTML:{card.KartKodu}", null, response); } catch { }
-                        try
-                        {
-                            var utf8Bytes = Encoding.UTF8.GetBytes(payload);
-                            var utf8Content = new ByteArrayContent(utf8Bytes);
-                            utf8Content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
-                            using var utf8Req = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = utf8Content };
-                            ApplyManualSessionCookie(utf8Req);
-                            var utf8Resp = await client.SendAsync(utf8Req);
-                            var utf8BytesResp = await utf8Resp.Content.ReadAsByteArrayAsync();
-                            string utf8RespContent;
-                            try { utf8RespContent = Encoding.UTF8.GetString(utf8BytesResp); } catch { utf8RespContent = _encoding.GetString(utf8BytesResp); }
-                            await AppendRawLogAsync($"SEND_STOCK_CARD_UTF8_RETRY:{card.KartKodu}", fullUrl, payload, utf8Resp.StatusCode, utf8RespContent);
-                            try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_UTF8_RETRY:{card.KartKodu}", utf8Req, utf8Resp); } catch { }
-                            if (!utf8RespContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
-                            {
-                                responseContent = utf8RespContent;
-                                response = utf8Resp;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "UTF8 retry for stock card {Card} failed", card.KartKodu);
-                        }
-                    }
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        failedCount++;
-                        result.Errors.Add($"{card.KartKodu}: HTTP {response.StatusCode} - {responseContent}");
-                        _logger.LogError("Stock card {Card} failed HTTP {Status}: {Body}", card.KartKodu, response.StatusCode, responseContent);
-                        continue;
-                    }
-                    var (isSuccess, message) = ParseKozaOperationResponse(responseContent);
-                    if (!isSuccess)
-                    {
-                        failedCount++;
-                        result.Errors.Add($"{card.KartKodu}: {message}");
-                        _logger.LogError("Stock card {Card} failed: {Message}", card.KartKodu, message);
-                        continue;
-                    }
-                    successCount++;
-                    _logger.LogInformation("Stock card {Card} sent successfully", card.KartKodu);
-                }
-                catch (Exception ex)
-                {
-                    failedCount++;
-                    result.Errors.Add($"{card.KartKodu}: {ex.Message}");
-                    _logger.LogError(ex, "Error sending stock card {Card}", card.KartKodu);
-                }
-                await Task.Delay(150);
-            }
-            result.SuccessfulRecords = successCount;
-            result.FailedRecords = failedCount;
-            result.IsSuccess = failedCount == 0;
-            result.Message = failedCount == 0 ? "Stock cards sent successfully" : $"{successCount} succeeded, {failedCount} failed";
-        }
-        catch (Exception ex)
-        {
-            result.IsSuccess = false;
-            result.FailedRecords = stockCards.Count;
-            result.Message = ex.Message;
-            result.Errors.Add(ex.ToString());
-            _logger.LogError(ex, "Error sending stock cards to Luca (external cookie jar)");
-        }
-        result.Duration = DateTime.UtcNow - startTime;
-        return result;
+        // Backwards-compat shim: some callers in older deployments may still invoke
+        // the legacy session-based overload. Forward to the per-product implementation
+        // to preserve compatibility and avoid runtime NotSupportedExceptions.
+        _logger?.LogWarning("Legacy SendStockCardsAsync(sessionId, ...) called. Forwarding to per-product SendStockCardsAsync(List<...>). SessionId will be ignored.");
+        return await SendStockCardsAsync(stockCards);
     }
     public async Task DeleteIrsaliyeAsync(long irsaliyeId)
     {
@@ -2983,10 +2776,12 @@ retryChangeBranch:
             await EnsureAuthenticatedAsync();
             await EnsureBranchSelectedAsync();
             await VerifyBranchSelectionAsync();
+            _logger.LogWarning(">>> USING SAFE PER-PRODUCT FLOW <<<");
             _logger.LogInformation("Sending {Count} stock cards to Luca (Koza) one by one (Koza does not accept arrays)", stockCards.Count);
 
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-            var endpoint = _settings.UseTokenAuth ? _settings.Endpoints.Products : _settings.Endpoints.StockCardCreate;
+            // Explicitly use the SKART (stock card) creation endpoint here.
+            var endpoint = _settings.Endpoints.StockCardCreate;
             var enc1254 = _encoding;
 
             foreach (var card in stockCards)
@@ -3508,7 +3303,8 @@ retryChangeBranch:
         await EnsureAuthenticatedAsync();
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-        var endpoint = _settings.UseTokenAuth ? _settings.Endpoints.Products : _settings.Endpoints.StockCardCreate;
+        // Ensure single-stock-card creation always targets the SKART endpoint.
+        var endpoint = _settings.Endpoints.StockCardCreate;
         var jsonOptionsOriginal = new JsonSerializerOptions
         {
             PropertyNamingPolicy = null,

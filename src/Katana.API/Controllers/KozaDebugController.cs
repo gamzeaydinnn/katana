@@ -103,6 +103,33 @@ public class KozaDebugController : ControllerBase
             foreach (var p in selected)
             {
                 var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(p, _lucaSettings, mappings);
+                // Apply DefaultKategoriKodu override to preview so debug output matches actual send behavior
+                if (!string.IsNullOrWhiteSpace(_lucaSettings.DefaultKategoriKodu))
+                {
+                    dto.KategoriAgacKod = _lucaSettings.DefaultKategoriKodu;
+                    // Build KartKodu as 'DefaultKategoriKodu.{SKUOrBarkod}' for preview
+                    var baseCode = !string.IsNullOrWhiteSpace(dto.Barkod) ? dto.Barkod.Trim() : (!string.IsNullOrWhiteSpace(dto.KartKodu) ? dto.KartKodu.Trim() : string.Empty);
+                    if (!string.IsNullOrWhiteSpace(baseCode))
+                    {
+                        dto.KartKodu = $"{_lucaSettings.DefaultKategoriKodu}.{baseCode}";
+                    }
+                    else
+                    {
+                        dto.KartKodu = _lucaSettings.DefaultKategoriKodu;
+                    }
+
+                    var sku = string.IsNullOrWhiteSpace(dto.Barkod) ? string.Empty : dto.Barkod.Trim();
+                    var name = string.IsNullOrWhiteSpace(dto.KartAdi) ? string.Empty : dto.KartAdi.Trim();
+                    if (!string.IsNullOrWhiteSpace(sku) && !string.IsNullOrWhiteSpace(name))
+                    {
+                        dto.UzunAdi = $"{sku} / {name}";
+                    }
+                    else if (!string.IsNullOrWhiteSpace(name))
+                    {
+                        dto.UzunAdi = name;
+                    }
+                }
+
                 output.Add(new { Sku = p.SKU, KartKodu = dto.KartKodu, KategoriAgacKod = dto.KategoriAgacKod, KartAdi = dto.KartAdi, Barkod = dto.Barkod });
             }
 

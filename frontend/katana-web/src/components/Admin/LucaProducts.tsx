@@ -30,7 +30,7 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
-import { stockAPI } from "../../services/api";
+import api, { stockAPI } from "../../services/api";
 import { decodeJwtPayload, getJwtRoles } from "../../utils/jwt";
 
 interface LucaProduct {
@@ -71,6 +71,7 @@ const LucaProducts: React.FC = () => {
   );
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [syncing, setSyncing] = useState(false);
   const isMobile = useMediaQuery("(max-width:900px)");
 
   const fetchProducts = async () => {
@@ -95,6 +96,22 @@ const LucaProducts: React.FC = () => {
       console.error("[LucaProducts] İstek başarısız", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const syncFromKoza = async () => {
+    setSyncing(true);
+    setError(null);
+    try {
+      await stockAPI.startSync();
+      await fetchProducts();
+    } catch (err: any) {
+      const finalMessage =
+        err?.response?.data?.error || err?.message || "Sync failed";
+      setError(finalMessage);
+      console.error("[LucaProducts] Sync failed", err);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -188,6 +205,25 @@ const LucaProducts: React.FC = () => {
                 <IconButton onClick={fetchProducts} disabled={loading}>
                   <RefreshIcon />
                 </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Koza ile Senkronize Et">
+              <span>
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={syncFromKoza}
+                  disabled={syncing || loading}
+                  startIcon={
+                    syncing ? (
+                      <CircularProgress size={16} color="inherit" />
+                    ) : (
+                      <RefreshIcon />
+                    )
+                  }
+                >
+                  {syncing ? "Senkronize ediliyor..." : "Koza'dan Yenile"}
+                </Button>
               </span>
             </Tooltip>
           </Stack>

@@ -1510,7 +1510,10 @@ public class LucaInvoiceItemRequest
 
 public class LucaCreateStokKartiRequest
 {
-    [JsonPropertyName("kartAdi")]
+    // Luca UI stok kartı oluştururken "stokAdi" ve "stokKodu"
+    // alanlarını bekliyor; bu nedenle etiketleri kartAdi/kartKodu
+    // yerine stokAdi/stokKodu olarak gönderiyoruz.
+    [JsonPropertyName("stokAdi")]
     public string KartAdi { get; set; } = string.Empty;
 
     [JsonPropertyName("kartTuru")]
@@ -1522,7 +1525,7 @@ public class LucaCreateStokKartiRequest
     [JsonPropertyName("olcumBirimiId")]
     public long OlcumBirimiId { get; set; }
 
-    [JsonPropertyName("kartKodu")]
+    [JsonPropertyName("stokKodu")]
     public string KartKodu { get; set; } = string.Empty;
 
     [JsonPropertyName("maliyetHesaplanacakFlag")]
@@ -1919,8 +1922,16 @@ public class LucaStockCardDto
 
 public class LucaStockCardSummaryDto
 {
+    // Frontend LucaProducts bileşeni productCode/productName alanlarını bekler.
+    // Bu DTO'yu doğrudan dışarı döktüğümüz için JSON field'larını buna göre
+    // etiketliyoruz.
+    [JsonPropertyName("productCode")]
     public string Code { get; set; } = string.Empty;
+
+    [JsonPropertyName("barcode")]
     public string? Barcode { get; set; }
+
+    [JsonPropertyName("productName")]
     public string Name { get; set; } = string.Empty;
 }
 

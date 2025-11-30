@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { stockAPI } from "../services/api";
+import { stockAPI } from "../../services/api";
 
 type LucaProduct = {
   id: number;
@@ -12,18 +12,13 @@ export function LucaProductsTable() {
   const [products, setProducts] = useState<LucaProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
-    setError(null);
     try {
       const res = await fetch("/api/adminpanel/luca/products");
-      if (!res.ok) throw new Error(`Load failed (${res.status})`);
-      const data = (await res.json()) as LucaProduct[];
+      const data = await res.json();
       setProducts(data);
-    } catch (e: any) {
-      setError(e?.message ?? "Load failed");
     } finally {
       setLoading(false);
     }
@@ -31,13 +26,9 @@ export function LucaProductsTable() {
 
   const syncFromKoza = async () => {
     setSyncing(true);
-    setError(null);
     try {
-      // Use the central API wrapper so baseURL, auth headers and timeouts are applied
       await stockAPI.startSync();
       await load();
-    } catch (e: any) {
-      setError(e?.message ?? "Sync failed");
     } finally {
       setSyncing(false);
     }
@@ -59,8 +50,6 @@ export function LucaProductsTable() {
           {syncing ? "Senkronize ediliyor..." : "Koza'dan Yenile"}
         </button>
       </div>
-
-      {error && <div className="text-sm text-red-600">{error}</div>}
 
       {loading ? (
         <div>Yükleniyor...</div>
@@ -87,5 +76,3 @@ export function LucaProductsTable() {
     </div>
   );
 }
-
-export default LucaProductsTable;

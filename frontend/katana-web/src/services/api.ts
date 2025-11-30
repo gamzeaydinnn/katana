@@ -6,22 +6,17 @@ import {
   isJwtTokenExpired,
 } from "../utils/jwt";
 
-
-
-
 const getDefaultApiBase = () => {
   try {
     if (typeof window !== "undefined") {
       const { protocol, hostname, port } = window.location;
-      
+
       if (port === "3000" || port === "3001") {
         return `${protocol}//${hostname}:5055/api`;
       }
     }
-  } catch {
-    
-  }
-  
+  } catch {}
+
   return "/api";
 };
 
@@ -29,22 +24,22 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || getDefaultApiBase();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  // Increase default timeout to accommodate long-running sync operations
+  // (sync can take >30s when creating many stock cards one-by-one).
+  timeout: 120000,
   headers: {
     "Content-Type": "application/json",
   },
 });
-
 
 api.interceptors.request.use((config) => {
   const token =
     typeof window !== "undefined"
       ? window.localStorage.getItem("authToken")
       : null;
-  
+
   if (!config.headers) config.headers = {} as any;
 
-  
   if (token && typeof token === "string") {
     const payload = decodeJwtPayload(token);
     if (payload && !isJwtExpired(payload)) {
@@ -68,7 +63,6 @@ api.interceptors.response.use(
       const tokenExpiredOrInvalid = isJwtTokenExpired(token);
 
       if (status === 401) {
-        
         try {
           if (path.startsWith("/admin")) {
             showGlobalToast({
@@ -84,9 +78,7 @@ api.interceptors.response.use(
               durationMs: 3000,
             });
           }
-        } catch {
-          
-        }
+        } catch {}
 
         if (!token || tokenExpiredOrInvalid) {
           try {
@@ -94,27 +86,20 @@ api.interceptors.response.use(
               window.localStorage.removeItem("authToken");
               window.location.href = "/login";
             }
-          } catch {
-            
-          }
+          } catch {}
         }
       } else if (status === 403) {
-        
         try {
           showGlobalToast({
             message: "Bu işlem için yetkiniz yok.",
             severity: "warning",
             durationMs: 3500,
           });
-        } catch {
-          
-        }
+        } catch {}
       } else if (status === 400) {
-        
         try {
           const data = error?.response?.data;
           if (data) {
-            
             if (data.errors && typeof data.errors === "object") {
               const firstKey = Object.keys(data.errors)[0];
               const firstMsg = firstKey
@@ -151,9 +136,7 @@ api.interceptors.response.use(
               });
             }
           }
-        } catch {
-          
-        }
+        } catch {}
       }
     } catch (handlerError) {
       console.error("[Axios] Response interceptor error:", handlerError);
@@ -247,7 +230,6 @@ export interface AdminSyncLog {
   errorMessage?: string;
 }
 
-
 export interface UserDto {
   id: number;
   username: string;
@@ -259,7 +241,7 @@ export interface UserDto {
 export interface CreateUserRequest {
   username: string;
   password: string;
-  role: string; 
+  role: string;
   email?: string;
 }
 
@@ -294,27 +276,19 @@ export interface SyncResult {
 }
 
 export const stockAPI = {
-  
   getDashboardStats: () => api.get("/Dashboard").then((res) => res.data),
 
-  
-  getKatanaProducts: () =>
-    api.get("/Products/katana").then((res) => res.data),
+  getKatanaProducts: () => api.get("/Products/katana").then((res) => res.data),
 
-  
   getLucaStockCards: () => api.get("/Luca/stock-cards").then((res) => res.data),
 
-  
   getComparison: () => api.get("/Sync/comparison").then((res) => res.data),
 
-  
   getStockStatus: () => api.get("/Stock/status").then((res) => res.data),
 
-  
   getLocalStockSummary: () =>
     api.get("/Stock/local/summary").then((res) => res.data),
 
-  
   getStockMovements: (fromDate?: string, toDate?: string) => {
     const params = new URLSearchParams();
     if (fromDate) params.append("fromDate", fromDate);
@@ -324,26 +298,21 @@ export const stockAPI = {
       .then((res) => res.data);
   },
 
-  
   getSyncHistory: () => api.get("/Sync/history").then((res) => res.data),
 
-  
   startSync: (options?: SyncOptions) =>
     api
       // Stock card sync can take longer; override default 30s axios timeout.
       .post("/Luca/sync-products", options || {}, { timeout: 120000 })
       .then((res) => res.data as SyncResult),
 
-  
   getStockReport: (queryString?: string) =>
     api
       .get(`/Reports/stock${queryString ? `?${queryString}` : ""}`)
       .then((res) => res.data),
 
-  
   getSyncReport: () => api.get("/Reports/sync").then((res) => res.data),
 
-  
   getHealthStatus: () => api.get("/Health").then((res) => res.data),
 };
 

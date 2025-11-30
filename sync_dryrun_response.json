@@ -1,0 +1,20 @@
+﻿{
+    "isSuccess":  true,
+    "message":  "Dry-run tamamlandı. Gönderilecek kart sayısı: 50",
+    "processedRecords":  50,
+    "successfulRecords":  0,
+    "failedRecords":  0,
+    "errors":  [
+
+               ],
+    "syncTime":  "2025-11-29T10:57:06.2604327Z",
+    "syncType":  "PRODUCT_STOCK_CARD",
+    "duration":  "00:00:01.7946301",
+    "totalChecked":  50,
+    "alreadyExists":  0,
+    "newCreated":  50,
+    "failed":  0,
+    "details":  [
+
+                ]
+}

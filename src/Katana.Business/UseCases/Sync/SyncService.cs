@@ -229,14 +229,8 @@ public class SyncService : ISyncService
         {
             if (!options.DryRun)
             {
-                if (!string.IsNullOrWhiteSpace(sessionId))
-                {
-                    sendResult = await _lucaService.SendStockCardsAsync(sessionId, payload);
-                }
-                else
-                {
-                    sendResult = await _lucaService.SendStockCardsAsync(payload);
-                }
+                // Always use the per-product overload; legacy sessionId-based overload must not be called.
+                sendResult = await _lucaService.SendStockCardsAsync(payload);
             }
             else
             {
@@ -254,6 +248,21 @@ public class SyncService : ISyncService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to write sync log for PRODUCT_STOCK_CARD");
+            try
+            {
+                // Ensure the RUNNING operation is finalized even if sending fails so UI doesn't show perpetual RUNNING
+                await FinalizeOperationAsync(
+                    logEntry,
+                    "FAILED",
+                    katanaProducts?.Count ?? 0,
+                    0,
+                    (payload?.Count ?? 0) + details.Count,
+                    ex.Message);
+            }
+            catch (Exception finalizeEx)
+            {
+                _logger.LogError(finalizeEx, "Failed to finalize sync operation log after exception for PRODUCT_STOCK_CARD");
+            }
         }
 
         return response;
