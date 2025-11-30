@@ -1922,17 +1922,45 @@ public class LucaStockCardDto
 
 public class LucaStockCardSummaryDto
 {
-    // Frontend LucaProducts bileşeni productCode/productName alanlarını bekler.
-    // Bu DTO'yu doğrudan dışarı döktüğümüz için JSON field'larını buna göre
-    // etiketliyoruz.
-    [JsonPropertyName("productCode")]
-    public string Code { get; set; } = string.Empty;
+    // 1) Koza/Luca'dan okurken kullanılan alanlar
+    // ListeleStkSkart.do genelde stokKodu / stokAdi / anaBirimAdi / stokMiktari döner.
+
+    [JsonPropertyName("stokKodu")]
+    public string StokKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("stokAdi")]
+    public string StokAdi { get; set; } = string.Empty;
+
+    [JsonPropertyName("anaBirimAdi")]
+    public string Birim { get; set; } = string.Empty;
+
+    [JsonPropertyName("stokMiktari")]
+    public double Miktar { get; set; }
 
     [JsonPropertyName("barcode")]
     public string? Barcode { get; set; }
 
+    // 2) Frontend'e giderken kullanılan alanlar (React productCode/productName/unit/stockAmount bekliyor)
+
+    [JsonPropertyName("productCode")]
+    public string ProductCode => StokKodu;
+
     [JsonPropertyName("productName")]
-    public string Name { get; set; } = string.Empty;
+    public string ProductName => StokAdi;
+
+    [JsonPropertyName("unit")]
+    public string Unit => Birim;
+
+    [JsonPropertyName("stockAmount")]
+    public double StockAmount => Miktar;
+
+    // Geriye dönük uyumluluk için: eski kod bazı yerlerde Code/Name bekliyor.
+    // Bunlar ProductCode/ProductName alias'ı olarak bırakıldı.
+    [JsonIgnore]
+    public string Code => ProductCode;
+
+    [JsonIgnore]
+    public string Name => ProductName;
 }
 
 public class LucaProductUpdateDto

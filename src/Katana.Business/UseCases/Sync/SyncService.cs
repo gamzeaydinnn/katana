@@ -654,7 +654,7 @@ public class SyncService : ISyncService
             if (barcodeMatch != null) return barcodeMatch;
         }
 
-        var codeMatch = lucaStockCards.FirstOrDefault(c => comparer.Equals(c.Code, sku));
+        var codeMatch = lucaStockCards.FirstOrDefault(c => comparer.Equals(c.ProductCode, sku));
         if (codeMatch != null) return codeMatch;
 
         if (!preferBarcodeMatch && !string.IsNullOrWhiteSpace(barcode))

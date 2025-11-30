@@ -34,9 +34,9 @@ import api, { stockAPI } from "../../services/api";
 import { decodeJwtPayload, getJwtRoles } from "../../utils/jwt";
 
 interface LucaProduct {
-  id: string;
-  productCode: string;
-  productName: string;
+  id: string | number | null;
+  productCode?: string;
+  productName?: string;
   barcode?: string;
   category?: string;
   measurementUnit?: string;
@@ -86,14 +86,29 @@ const LucaProducts: React.FC = () => {
         console.warn("Beklenen format 'data: []' değil. Ham yanıt:", data);
       }
     } catch (err: any) {
-      const finalMessage =
-        err?.response?.data?.error ||
-        err?.message ||
-        "Luca stok kartları yüklenemedi.";
-      setError(finalMessage);
-      setProducts([]);
-      setFilteredProducts([]);
       console.error("[LucaProducts] İstek başarısız", err);
+
+      // Fallback: local Luca-style endpoint (Koza'dan gelmezse en azından local cache gösterelim)
+      try {
+        const local = await api.get<any>("/Products/luca");
+        const localData = local?.data || local || [];
+        setProducts(localData);
+        setFilteredProducts(localData);
+        console.warn(
+          "Luca dış servisi başarısız, local fallback kullanıldı.",
+          err?.message || err
+        );
+      } catch (localErr: any) {
+        const finalMessage =
+          localErr?.response?.data?.error ||
+          err?.response?.data?.error ||
+          err?.message ||
+          "Luca stok kartları yüklenemedi.";
+        setError(finalMessage);
+        setProducts([]);
+        setFilteredProducts([]);
+        console.error("[LucaProducts] Fallback da başarısız oldu", localErr);
+      }
     } finally {
       setLoading(false);
     }
@@ -138,7 +153,34 @@ const LucaProducts: React.FC = () => {
     setError(null);
 
     try {
-      const productId = selectedProduct.id;
+      let productId = selectedProduct.id;
+
+      // Eğer Luca listesindeki satırda local DB id yoksa, SKU/productCode ile çözmeyi dene
+      if (!productId) {
+        const productCode =
+          selectedProduct.productCode || selectedProduct.ProductCode || "";
+        if (productCode) {
+          try {
+            const localResp: any = await api.get(
+              `/Products/by-sku/${encodeURIComponent(productCode)}`
+            );
+            productId = localResp?.data?.id || localResp?.id || productId;
+          } catch (resolveErr) {
+            console.warn(
+              "Local product lookup by SKU failed",
+              resolveErr
+            );
+          }
+        }
+      }
+
+      if (!productId) {
+        setError(
+          "Güncellenecek yerel ürün ID'si bulunamadı. Lütfen önce ürün eşleşmesini kontrol edin."
+        );
+        setSaving(false);
+        return;
+      }
 
       const updateDto = {
         productCode:
@@ -147,7 +189,8 @@ const LucaProducts: React.FC = () => {
           selectedProduct.productName || selectedProduct.ProductName || "",
         unit: selectedProduct.unit || selectedProduct.Unit || "Adet",
         quantity: selectedProduct.quantity ?? selectedProduct.Quantity ?? 0,
-        unitPrice: selectedProduct.unitPrice ?? selectedProduct.UnitPrice ?? 0,
+        unitPrice:
+          selectedProduct.unitPrice ?? selectedProduct.UnitPrice ?? 0,
         vatRate: selectedProduct.vatRate ?? selectedProduct.VatRate ?? 20,
       };
 
@@ -156,13 +199,25 @@ const LucaProducts: React.FC = () => {
       handleCloseModal();
       fetchProducts();
     } catch (err: any) {
-      const errorMsg =
-        err.response?.data?.error ||
-        err.response?.data?.errors?.join(", ") ||
-        err.message ||
-        "Ürün güncellenemedi";
+      let errorMsg = "Ürün güncellenemedi";
+      const data = err?.response?.data;
+      if (data) {
+        if (typeof data === "string") errorMsg = data;
+        else if (data.error) errorMsg = data.error;
+        else if (Array.isArray(data.errors)) errorMsg = data.errors.join(", ");
+        else if (typeof data.errors === "object") {
+          const firstKey = Object.keys(data.errors)[0];
+          const firstVal = (data as any).errors[firstKey];
+          errorMsg = Array.isArray(firstVal)
+            ? firstVal.join(", ")
+            : String(firstVal);
+        } else if ((data as any).title) errorMsg = (data as any).title;
+        else errorMsg = JSON.stringify(data).slice(0, 200);
+      } else {
+        errorMsg = err?.message || errorMsg;
+      }
       setError(errorMsg);
-      console.error("Ürün güncelleme hatası:", err.response?.data);
+      console.error("Ürün güncelleme hatası:", err?.response?.data || err);
     } finally {
       setSaving(false);
     }
@@ -176,10 +231,10 @@ const LucaProducts: React.FC = () => {
     if (searchTerm.trim() === "") {
       setFilteredProducts(products);
     } else {
+      const term = searchTerm.toLowerCase();
       const filtered = products.filter((p) => {
         const name = (p.productName || p.ProductName || "").toLowerCase();
         const code = (p.productCode || p.ProductCode || "").toLowerCase();
-        const term = searchTerm.toLowerCase();
         return name.includes(term) || code.includes(term);
       });
       setFilteredProducts(filtered);
@@ -295,6 +350,8 @@ const LucaProducts: React.FC = () => {
                   borderRadius: 2,
                   border: "1px solid",
                   borderColor: "divider",
+                  mx: 1,
+                  boxSizing: "border-box",
                 }}
               >
                 <Box
@@ -444,7 +501,8 @@ const LucaProducts: React.FC = () => {
               ) : (
                 filteredProducts.map((product, _idx) => {
                   const code = product.productCode || product.ProductCode || "";
-                  const name = product.productName || product.ProductName || "";
+                  const name =
+                    product.productName || product.ProductName || "";
                   const unit =
                     product.unit ||
                     product.Unit ||
@@ -456,10 +514,13 @@ const LucaProducts: React.FC = () => {
                     product.category || product.KategoriAgacKod || "";
                   const lastUpdated =
                     product.lastUpdated || product.LastUpdated || "";
-                  const quantity = product.quantity ?? product.Quantity ?? 0;
-                  const unitPrice = product.unitPrice ?? product.UnitPrice ?? 0;
+                  const quantity =
+                    product.quantity ?? product.Quantity ?? 0;
+                  const unitPrice =
+                    product.unitPrice ?? product.UnitPrice ?? 0;
                   const vatRate = product.vatRate ?? product.VatRate ?? 0;
-                  const isActive = product.isActive ?? product.IsActive ?? true;
+                  const isActive =
+                    product.isActive ?? product.IsActive ?? true;
 
                   return (
                     <TableRow
@@ -500,7 +561,10 @@ const LucaProducts: React.FC = () => {
                             </IconButton>
                           </Tooltip>
                         ) : (
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                          >
                             -
                           </Typography>
                         )}
@@ -514,7 +578,6 @@ const LucaProducts: React.FC = () => {
         </TableContainer>
       )}
 
-      {}
       <Dialog
         open={editModalOpen}
         onClose={handleCloseModal}
@@ -579,7 +642,7 @@ const LucaProducts: React.FC = () => {
                 onChange={(e) =>
                   setSelectedProduct({
                     ...selectedProduct,
-                    quantity: parseInt(e.target.value),
+                    quantity: parseInt(e.target.value, 10),
                   })
                 }
                 size="small"
@@ -608,7 +671,7 @@ const LucaProducts: React.FC = () => {
                 onChange={(e) =>
                   setSelectedProduct({
                     ...selectedProduct,
-                    vatRate: parseInt(e.target.value),
+                    vatRate: parseInt(e.target.value, 10),
                   })
                 }
                 size="small"
@@ -654,3 +717,4 @@ const LucaProducts: React.FC = () => {
 };
 
 export default LucaProducts;
+

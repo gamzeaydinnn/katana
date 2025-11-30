@@ -2505,20 +2505,32 @@ retryChangeBranch:
         {
             if (item.ValueKind != JsonValueKind.Object) continue;
 
-            var code = TryGetProperty(item, "kod", "kartKodu", "code", "skartKod");
+            // Koza farklı endpointlerde stok kart kodu/adı için farklı alan adları kullanabiliyor.
+            // Burada yaygın varyantların hepsini deniyoruz.
+            var code = TryGetProperty(item, "kod", "kartKodu", "code", "skartKod", "stokKartKodu", "stokKodu");
             var barcode = TryGetProperty(item, "barkod", "barcode");
-            var name = TryGetProperty(item, "kartAdi", "tanim", "name") ?? code ?? string.Empty;
+            var name = TryGetProperty(item, "kartAdi", "tanim", "name", "stokKartAdi", "stokAdi") ?? code ?? string.Empty;
+            var unit = TryGetProperty(item, "anaBirimAdi", "olcumBirimi", "birim");
+            var qtyText = TryGetProperty(item, "stokMiktari", "miktar", "quantity");
 
             if (string.IsNullOrWhiteSpace(code) && string.IsNullOrWhiteSpace(barcode))
             {
                 continue;
             }
 
+            double qty = 0;
+            if (!string.IsNullOrWhiteSpace(qtyText))
+            {
+                double.TryParse(qtyText.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out qty);
+            }
+
             result.Add(new LucaStockCardSummaryDto
             {
-                Code = code ?? string.Empty,
-                Barcode = barcode,
-                Name = name
+                StokKodu = code ?? string.Empty,
+                StokAdi = name ?? string.Empty,
+                Birim = unit ?? string.Empty,
+                Miktar = qty,
+                Barcode = barcode
             });
         }
 
