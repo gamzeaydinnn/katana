@@ -50,7 +50,7 @@ interface KatanaProduct {
   costPrice?: number;
   isActive?: boolean;
   isSyncedToLuca?: boolean;
-  
+
   SKU?: string;
   Name?: string;
   Category?: string;
@@ -69,7 +69,7 @@ const KatanaProducts: React.FC = () => {
   const [products, setProducts] = useState<KatanaProduct[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<KatanaProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [searchTerm, setSearchTerm] = useState("");
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<KatanaProduct | null>(
@@ -84,7 +84,7 @@ const KatanaProducts: React.FC = () => {
     setLoading(true);
     try {
       console.log("Fetching Katana products...");
-      
+
       const response = await api.get("/Products/katana?sync=true");
       console.log("Response:", response.data);
       const responseData: any = response.data;
@@ -93,7 +93,6 @@ const KatanaProducts: React.FC = () => {
       setProducts(productData);
       setFilteredProducts(productData);
 
-      
       if (responseData?.sync) {
         const { created, updated, skipped } = responseData.sync;
         if (created > 0 || updated > 0) {
@@ -166,12 +165,36 @@ const KatanaProducts: React.FC = () => {
 
     try {
       const productId = parseInt(selectedProduct.id);
+
+      // Try to read existing product to obtain a valid CategoryId
+      let categoryId = 0;
+      try {
+        const existing = await api.get(`/Products/${productId}`);
+        const existingData = existing?.data || {};
+        categoryId = existingData?.categoryId ?? existingData?.CategoryId ?? 0;
+      } catch (err) {
+        // ignore - we'll try to pick first available category next
+      }
+
+      // If we still don't have a categoryId, fall back to the first category in DB
+      if (!categoryId) {
+        try {
+          const cats = await api.get(`/Categories`);
+          const list = cats?.data || [];
+          if (Array.isArray(list) && list.length > 0) {
+            categoryId = list[0]?.id ?? list[0]?.Id ?? 0;
+          }
+        } catch (err) {
+          // ignore - we'll use 0 and let backend handle validation
+        }
+      }
+
       const updateDto = {
         Name: selectedProduct.name || selectedProduct.Name || "",
         SKU: selectedProduct.sku || selectedProduct.SKU || "",
         Price: selectedProduct.salesPrice || selectedProduct.SalesPrice || 0,
         Stock: selectedProduct.onHand || selectedProduct.OnHand || 0,
-        CategoryId: 1001,
+        CategoryId: categoryId,
         IsActive: selectedProduct.isActive ?? selectedProduct.IsActive ?? true,
       };
 
@@ -199,7 +222,6 @@ const KatanaProducts: React.FC = () => {
     setSelectedProduct({ ...selectedProduct, [field]: value });
   };
 
-  
   const _token =
     typeof window !== "undefined"
       ? window.localStorage.getItem("authToken")
@@ -292,14 +314,17 @@ const KatanaProducts: React.FC = () => {
             const unit = product.unit || product.Unit || "";
             const stockStatus = getStockStatus(onHand);
             const isSynced =
-              product.isSyncedToLuca ??
-              product.IsSyncedToLuca ??
-              false;
+              product.isSyncedToLuca ?? product.IsSyncedToLuca ?? false;
 
             return (
               <Paper
                 key={product.id}
-                sx={{ p: 1.5, borderRadius: 2, border: "1px solid", borderColor: "divider" }}
+                sx={{
+                  p: 1.5,
+                  borderRadius: 2,
+                  border: "1px solid",
+                  borderColor: "divider",
+                }}
               >
                 <Box
                   sx={{
@@ -388,7 +413,9 @@ const KatanaProducts: React.FC = () => {
                   </Box>
                 </Box>
                 {canEdit && (
-                  <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+                  <Box
+                    sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}
+                  >
                     <Button
                       size="small"
                       variant="outlined"
@@ -466,9 +493,7 @@ const KatanaProducts: React.FC = () => {
                   const category = product.category || product.Category;
                   const unit = product.unit || product.Unit || "";
                   const isSynced =
-                    product.isSyncedToLuca ??
-                    product.IsSyncedToLuca ??
-                    false;
+                    product.isSyncedToLuca ?? product.IsSyncedToLuca ?? false;
 
                   const stockStatus = getStockStatus(onHand);
                   return (
@@ -505,20 +530,20 @@ const KatanaProducts: React.FC = () => {
                       <TableCell align="right">
                         {costPrice ? `${costPrice.toFixed(2)} ₺` : "-"}
                       </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={stockStatus.label}
-                        color={stockStatus.color}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={isSynced ? "Luca'da var" : "Bekliyor"}
-                        color={isSynced ? "success" : "default"}
-                        size="small"
-                      />
-                    </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={stockStatus.label}
+                          color={stockStatus.color}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={isSynced ? "Luca'da var" : "Bekliyor"}
+                          color={isSynced ? "success" : "default"}
+                          size="small"
+                        />
+                      </TableCell>
                       <TableCell align="center">
                         {canEdit ? (
                           <Tooltip title="Düzenle">

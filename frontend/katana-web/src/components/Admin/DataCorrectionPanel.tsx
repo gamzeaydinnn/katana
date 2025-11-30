@@ -68,10 +68,8 @@ const DataCorrectionPanel: React.FC = () => {
   );
   const isMobile = useMediaQuery("(max-width:900px)");
 
-  
   const [comparisons, setComparisons] = useState<ComparisonResult[]>([]);
 
-  
   const [katanaIssueProducts, setKatanaIssueProducts] = useState<
     KatanaProduct[]
   >([]);
@@ -85,7 +83,6 @@ const DataCorrectionPanel: React.FC = () => {
     onHand: 0,
   });
 
-  
   const [lucaIssueProducts, setLucaIssueProducts] = useState<LucaProduct[]>([]);
   const [selectedLuca, setSelectedLuca] = useState<LucaProduct | null>(null);
   const [lucaEditOpen, setLucaEditOpen] = useState(false);
@@ -95,7 +92,6 @@ const DataCorrectionPanel: React.FC = () => {
     quantity: 0,
   });
 
-  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -108,12 +104,10 @@ const DataCorrectionPanel: React.FC = () => {
   const _roles = getJwtRoles(decodeJwtPayload(_token));
   const canEdit = _roles.includes("admin") || _roles.includes("stokyonetici");
 
-  
   const performComparison = async () => {
     setLoading(true);
     setError(null);
     try {
-      
       const [katanaResponse, lucaResponse] = await Promise.all([
         api.get<any>("/Products/katana?sync=true"),
         api.get<any>("/Products/luca"),
@@ -122,7 +116,6 @@ const DataCorrectionPanel: React.FC = () => {
       const katanaData = katanaResponse.data?.data || [];
       const lucaData = lucaResponse.data?.data || [];
 
-      
       const comparisonResults: ComparisonResult[] = [];
       const katanaIssues: KatanaProduct[] = [];
       const lucaIssues: LucaProduct[] = [];
@@ -137,7 +130,6 @@ const DataCorrectionPanel: React.FC = () => {
         let hasLucaIssue = false;
 
         if (lucaProduct) {
-          
           if (
             Math.abs((katanaProduct.salesPrice || 0) - lucaProduct.unitPrice) >
             0.01
@@ -152,7 +144,6 @@ const DataCorrectionPanel: React.FC = () => {
             hasLucaIssue = true;
           }
 
-          
           if ((katanaProduct.onHand || 0) !== lucaProduct.quantity) {
             issues.push({
               field: "Stok",
@@ -164,7 +155,6 @@ const DataCorrectionPanel: React.FC = () => {
             hasLucaIssue = true;
           }
 
-          
           if (katanaProduct.name !== lucaProduct.productName) {
             issues.push({
               field: "İsim",
@@ -176,7 +166,6 @@ const DataCorrectionPanel: React.FC = () => {
             hasLucaIssue = true;
           }
         } else {
-          
           issues.push({
             field: "Varlık",
             katanaValue: "Mevcut",
@@ -203,7 +192,6 @@ const DataCorrectionPanel: React.FC = () => {
         }
       });
 
-      
       lucaData.forEach((lucaProduct: LucaProduct) => {
         const katanaExists = katanaData.find(
           (kp: KatanaProduct) => kp.sku === lucaProduct.productCode
@@ -238,10 +226,8 @@ const DataCorrectionPanel: React.FC = () => {
 
   useEffect(() => {
     performComparison();
-    
   }, []);
 
-  
   const handleKatanaEdit = (product: KatanaProduct) => {
     setSelectedKatana(product);
     setKatanaEditData({
@@ -257,17 +243,35 @@ const DataCorrectionPanel: React.FC = () => {
     setSaving(true);
     setError(null);
     try {
+      // Resolve a valid CategoryId instead of using a hardcoded value
+      let categoryId = 0;
+      try {
+        const existing = await api.get(`/Products/${selectedKatana.id}`);
+        const existingData = existing?.data || {};
+        categoryId = existingData?.categoryId ?? existingData?.CategoryId ?? 0;
+      } catch {}
+
+      if (!categoryId) {
+        try {
+          const cats = await api.get(`/Categories`);
+          const list = cats?.data || [];
+          if (Array.isArray(list) && list.length > 0) {
+            categoryId = list[0]?.id ?? list[0]?.Id ?? 0;
+          }
+        } catch {}
+      }
+
       await api.put(`/Products/${selectedKatana.id}`, {
         Name: katanaEditData.name,
         SKU: selectedKatana.sku,
         Price: katanaEditData.salesPrice,
         Stock: katanaEditData.onHand,
-        CategoryId: 1001,
+        CategoryId: categoryId,
         IsActive: true,
       });
       setSuccess("Katana ürünü başarıyla güncellendi!");
       setKatanaEditOpen(false);
-      
+
       performComparison();
     } catch (err: any) {
       setError(err.response?.data?.error || "Güncelleme başarısız");
@@ -276,7 +280,6 @@ const DataCorrectionPanel: React.FC = () => {
     }
   };
 
-  
   const handleLucaEdit = (product: LucaProduct) => {
     setSelectedLuca(product);
     setLucaEditData({
@@ -302,7 +305,7 @@ const DataCorrectionPanel: React.FC = () => {
       });
       setSuccess("Luca ürünü başarıyla güncellendi!");
       setLucaEditOpen(false);
-      
+
       performComparison();
     } catch (err: any) {
       setError(err.response?.data?.error || "Güncelleme başarısız");
@@ -393,7 +396,8 @@ const DataCorrectionPanel: React.FC = () => {
                   >
                     <Typography variant="subtitle1" fontWeight={700}>
                       {comp.sku} •{" "}
-                      {comp.katanaProduct?.name || comp.lucaProduct?.productName}
+                      {comp.katanaProduct?.name ||
+                        comp.lucaProduct?.productName}
                     </Typography>
                     <Box
                       sx={{
@@ -411,7 +415,8 @@ const DataCorrectionPanel: React.FC = () => {
                         {comp.katanaProduct ? (
                           <Typography fontWeight={600}>
                             Fiyat:{" "}
-                            {comp.katanaProduct.salesPrice?.toFixed(2) || "0.00"}{" "}
+                            {comp.katanaProduct.salesPrice?.toFixed(2) ||
+                              "0.00"}{" "}
                             ₺ • Stok: {comp.katanaProduct.onHand || 0}
                           </Typography>
                         ) : (
@@ -454,7 +459,9 @@ const DataCorrectionPanel: React.FC = () => {
                           <Button
                             size="small"
                             variant="outlined"
-                            onClick={() => handleKatanaEdit(comp.katanaProduct!)}
+                            onClick={() =>
+                              handleKatanaEdit(comp.katanaProduct!)
+                            }
                           >
                             Katana Düzelt
                           </Button>
@@ -610,7 +617,11 @@ const DataCorrectionPanel: React.FC = () => {
             (isMobile ? (
               <Stack spacing={1.5}>
                 {katanaIssueProducts.length === 0 && (
-                  <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
+                  <Typography
+                    color="text.secondary"
+                    align="center"
+                    sx={{ py: 2 }}
+                  >
                     Katana sorun yaşayan ürün bulunamadı
                   </Typography>
                 )}
@@ -725,7 +736,10 @@ const DataCorrectionPanel: React.FC = () => {
                                 <EditIcon />
                               </IconButton>
                             ) : (
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
                                 -
                               </Typography>
                             )}
@@ -743,7 +757,11 @@ const DataCorrectionPanel: React.FC = () => {
             (isMobile ? (
               <Stack spacing={1.5}>
                 {lucaIssueProducts.length === 0 && (
-                  <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
+                  <Typography
+                    color="text.secondary"
+                    align="center"
+                    sx={{ py: 2 }}
+                  >
                     Luca sorun yaşayan ürün bulunamadı
                   </Typography>
                 )}
@@ -845,7 +863,9 @@ const DataCorrectionPanel: React.FC = () => {
                           <TableCell align="right">
                             {product.unitPrice.toFixed(2)}
                           </TableCell>
-                          <TableCell align="right">{product.quantity}</TableCell>
+                          <TableCell align="right">
+                            {product.quantity}
+                          </TableCell>
                           <TableCell align="center">
                             {canEdit ? (
                               <IconButton
@@ -856,7 +876,10 @@ const DataCorrectionPanel: React.FC = () => {
                                 <EditIcon />
                               </IconButton>
                             ) : (
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
                                 -
                               </Typography>
                             )}
