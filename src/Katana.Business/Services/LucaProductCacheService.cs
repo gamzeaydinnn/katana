@@ -31,9 +31,13 @@ public class LucaProductCacheService
         foreach (var item in kozaProducts)
         {
             var t = item.GetType();
-            string code = GetStringProp(t, item, "Code") ?? GetStringProp(t, item, "CodeNumber") ?? GetStringProp(t, item, "StockCode") ?? string.Empty;
-            string name = GetStringProp(t, item, "Name") ?? GetStringProp(t, item, "StockName") ?? string.Empty;
+            // Try multiple property names for compatibility
+            string code = GetStringProp(t, item, "ProductCode") ?? GetStringProp(t, item, "Code") ?? GetStringProp(t, item, "CodeNumber") ?? GetStringProp(t, item, "StockCode") ?? string.Empty;
+            string name = GetStringProp(t, item, "ProductName") ?? GetStringProp(t, item, "Name") ?? GetStringProp(t, item, "StockName") ?? string.Empty;
             string? category = GetStringProp(t, item, "Category") ?? GetStringProp(t, item, "CategoryName");
+
+            if (string.IsNullOrWhiteSpace(code))
+                continue;
 
             var entity = await _db.LucaProducts
                 .FirstOrDefaultAsync(x => x.LucaCode == code);

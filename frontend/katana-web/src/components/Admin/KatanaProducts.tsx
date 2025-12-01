@@ -18,6 +18,7 @@ import {
   DialogTitle,
   IconButton,
   InputAdornment,
+  Pagination,
   Paper,
   Stack,
   Table,
@@ -69,6 +70,9 @@ const KatanaProducts: React.FC = () => {
   const [products, setProducts] = useState<KatanaProduct[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<KatanaProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(5000);
+  const [totalCount, setTotalCount] = useState(0);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -80,18 +84,21 @@ const KatanaProducts: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const isMobile = useMediaQuery("(max-width:900px)");
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (currentPage = page) => {
     setLoading(true);
     try {
-      console.log("Fetching Katana products...");
-
-      const response = await api.get("/Products/katana?sync=true");
-      console.log("Response:", response.data);
+      const response = await api.get(
+        `/Products/katana?sync=true&page=${currentPage}&pageSize=${pageSize}`
+      );
       const responseData: any = response.data;
-      const productData = responseData?.data || responseData || [];
-      console.log("Product data:", productData.length, "items");
+      const productData =
+        responseData?.data || responseData?.products || responseData || [];
+      const total =
+        responseData?.total || responseData?.totalCount || productData.length;
+
       setProducts(productData);
       setFilteredProducts(productData);
+      setTotalCount(total);
 
       if (responseData?.sync) {
         const { created, updated, skipped } = responseData.sync;
@@ -120,8 +127,8 @@ const KatanaProducts: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    fetchProducts(page);
+  }, [page]);
 
   useEffect(() => {
     if (searchTerm.trim() === "") {
@@ -139,6 +146,8 @@ const KatanaProducts: React.FC = () => {
       setFilteredProducts(filtered);
     }
   }, [searchTerm, products]);
+
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   const getStockStatus = (onHand?: number) => {
     if (!onHand || onHand === 0)
@@ -245,7 +254,10 @@ const KatanaProducts: React.FC = () => {
               <Typography variant="h5">Katana Ürünleri</Typography>
             </Stack>
             <Tooltip title="Yenile">
-              <IconButton onClick={fetchProducts} disabled={loading}>
+              <IconButton
+                onClick={() => fetchProducts(page)}
+                disabled={loading}
+              >
                 <RefreshIcon />
               </IconButton>
             </Tooltip>
@@ -267,8 +279,8 @@ const KatanaProducts: React.FC = () => {
           />
 
           <Stack direction="row" spacing={2}>
-            <Chip label={`Toplam: ${products.length}`} color="primary" />
-            <Chip label={`Görüntülenen: ${filteredProducts.length}`} />
+            <Chip label={`Toplam: ${totalCount}`} color="primary" />
+            <Chip label={`Bu sayfa: ${filteredProducts.length}`} />
             <Chip
               label={`Stokta: ${
                 filteredProducts.filter((p) => (p.onHand ?? p.OnHand ?? 0) > 0)
@@ -277,6 +289,28 @@ const KatanaProducts: React.FC = () => {
               color="success"
             />
           </Stack>
+
+          {totalPages > 1 && (
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="center"
+              spacing={2}
+              sx={{ mt: 2 }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Sayfa {page} / {totalPages}
+              </Typography>
+              <Pagination
+                count={totalPages}
+                page={page}
+                onChange={(_, newPage) => setPage(newPage)}
+                color="primary"
+                showFirstButton
+                showLastButton
+              />
+            </Stack>
+          )}
         </CardContent>
       </Card>
 

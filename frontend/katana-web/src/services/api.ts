@@ -280,7 +280,8 @@ export const stockAPI = {
 
   getKatanaProducts: () => api.get("/Products/katana").then((res) => res.data),
 
-  getLucaStockCards: () => api.get("/Luca/stock-cards").then((res) => res.data),
+  getLucaStockCards: () =>
+    api.get("/Luca/koza-stock-cards").then((res) => res.data),
 
   getComparison: () => api.get("/Sync/comparison").then((res) => res.data),
 

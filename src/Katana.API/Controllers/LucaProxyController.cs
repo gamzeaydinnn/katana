@@ -481,5 +481,51 @@ namespace Katana.API.Controllers
                 return false;
             }
         }
+
+        /// <summary>
+        /// GET /api/luca/koza-stock-cards - Fetches stock cards from Luca/Koza
+        /// </summary>
+        [HttpGet("koza-stock-cards")]
+        public async Task<IActionResult> GetKozaStockCards()
+        {
+            try
+            {
+                _logger.LogInformation("GetStockCards: Fetching stock cards from Luca/Koza...");
+
+                // Get ILucaService from DI
+                using var scope = _serviceScopeFactory.CreateScope();
+                var lucaService = scope.ServiceProvider.GetRequiredService<ILucaService>();
+
+                // Use FetchProductsAsync to get stock cards from Luca
+                var products = await lucaService.FetchProductsAsync(System.Threading.CancellationToken.None);
+
+                if (products == null || products.Count == 0)
+                {
+                    _logger.LogWarning("GetStockCards: No products returned from Luca/Koza");
+                    return Ok(new List<object>());
+                }
+
+                _logger.LogInformation("GetStockCards: Retrieved {Count} stock cards from Luca/Koza", products.Count);
+
+                // Map to a simpler format for frontend - LucaProductDto has ProductCode, ProductName, Unit
+                var result = products.Select(p => new
+                {
+                    id = p.SkartId,
+                    code = p.ProductCode ?? "",
+                    name = p.ProductName ?? "",
+                    unit = p.Unit ?? "",
+                    barcode = p.Barcode ?? "",
+                    purchaseVatRate = p.PurchaseVatRate,
+                    salesVatRate = p.SalesVatRate
+                }).ToList();
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GetStockCards: Error fetching stock cards");
+                return StatusCode(500, new { error = true, message = ex.Message });
+            }
+        }
     }
 }

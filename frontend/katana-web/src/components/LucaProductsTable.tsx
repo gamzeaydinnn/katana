@@ -33,8 +33,12 @@ export function LucaProductsTable() {
     setSyncing(true);
     setError(null);
     try {
-      // Use the central API wrapper so baseURL, auth headers and timeouts are applied
-      await stockAPI.startSync();
+      // Call the correct Luca product cache sync endpoint (admin panel)
+      const res = await fetch("/api/adminpanel/luca/sync-products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error(`Sync failed (${res.status})`);
       await load();
     } catch (e: any) {
       setError(e?.message ?? "Sync failed");

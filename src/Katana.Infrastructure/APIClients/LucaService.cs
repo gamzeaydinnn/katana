@@ -3100,8 +3100,15 @@ retryChangeBranch:
                                 : "Unknown error";
 
                             // SKIP duplicates as warnings, not failures
-                            if (msg.Contains("daha önce kullanılmış") || msg.Contains("already exists") || 
-                                msg.Contains("duplicate", StringComparison.OrdinalIgnoreCase))
+                            // Check for duplicate message (handle both correct UTF-8 and broken encoding)
+                            var isDuplicate = msg.Contains("daha önce kullanılmış", StringComparison.OrdinalIgnoreCase) || 
+                                              msg.Contains("daha once kullanilmis", StringComparison.OrdinalIgnoreCase) ||
+                                              msg.Contains("nce kullan", StringComparison.OrdinalIgnoreCase) || // partial match for broken encoding
+                                              msg.Contains("already exists", StringComparison.OrdinalIgnoreCase) || 
+                                              msg.Contains("duplicate", StringComparison.OrdinalIgnoreCase) ||
+                                              msg.Contains("Kart kodu daha", StringComparison.OrdinalIgnoreCase); // Turkish prefix
+                            
+                            if (isDuplicate)
                             {
                                 _logger.LogWarning("Stock card {Card} already exists in Luca (skipped): {Message}", card.KartKodu, msg);
                                 successCount++; // Count as success (already exists)

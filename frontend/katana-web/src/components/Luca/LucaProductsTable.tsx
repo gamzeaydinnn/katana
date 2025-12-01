@@ -38,7 +38,6 @@ export function LucaProductsTable() {
       }
 
       const result = await res.json();
-      console.log("Sync result:", result);
 
       // Reload products from cache
       await load();
