@@ -1510,10 +1510,7 @@ public class LucaInvoiceItemRequest
 
 public class LucaCreateStokKartiRequest
 {
-    // Luca UI stok kartı oluştururken "stokAdi" ve "stokKodu"
-    // alanlarını bekliyor; bu nedenle etiketleri kartAdi/kartKodu
-    // yerine stokAdi/stokKodu olarak gönderiyoruz.
-    [JsonPropertyName("stokAdi")]
+    [JsonPropertyName("kartAdi")]
     public string KartAdi { get; set; } = string.Empty;
 
     [JsonPropertyName("kartTuru")]
@@ -1525,7 +1522,7 @@ public class LucaCreateStokKartiRequest
     [JsonPropertyName("olcumBirimiId")]
     public long OlcumBirimiId { get; set; }
 
-    [JsonPropertyName("stokKodu")]
+    [JsonPropertyName("kartKodu")]
     public string KartKodu { get; set; } = string.Empty;
 
     [JsonPropertyName("maliyetHesaplanacakFlag")]

@@ -27,8 +27,24 @@ export function LucaProductsTable() {
   const syncFromKoza = async () => {
     setSyncing(true);
     try {
-      await stockAPI.startSync();
+      // Call the sync endpoint to refresh Luca products from Koza
+      const res = await fetch("/api/adminpanel/luca/sync-products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Sync failed: ${res.status}`);
+      }
+
+      const result = await res.json();
+      console.log("Sync result:", result);
+
+      // Reload products from cache
       await load();
+    } catch (err) {
+      console.error("Sync error:", err);
+      alert("Senkronizasyon başarısız oldu. Lütfen tekrar deneyin.");
     } finally {
       setSyncing(false);
     }

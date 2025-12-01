@@ -11,6 +11,7 @@ using Katana.Core.DTOs;
 using Microsoft.Extensions.Options;
 using System;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Katana.API.Controllers
 {
@@ -25,14 +26,18 @@ namespace Katana.API.Controllers
         private readonly ILucaCookieJarStore _cookieJarStore;
         private readonly ILogger<LucaProxyController> _logger;
         private readonly Katana.Data.Configuration.LucaApiSettings _settings;
-        private readonly ISyncService _syncService;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
 
-        public LucaProxyController(ILucaCookieJarStore cookieJarStore, IOptions<Katana.Data.Configuration.LucaApiSettings> settings, ILogger<LucaProxyController> logger, ISyncService syncService)
+        public LucaProxyController(
+            ILucaCookieJarStore cookieJarStore,
+            IOptions<Katana.Data.Configuration.LucaApiSettings> settings,
+            ILogger<LucaProxyController> logger,
+            IServiceScopeFactory serviceScopeFactory)
         {
             _cookieJarStore = cookieJarStore;
             _logger = logger;
             _settings = settings.Value;
-            _syncService = syncService;
+            _serviceScopeFactory = serviceScopeFactory;
             _lucaBaseUrl = (_settings.BaseUrl ?? string.Empty).TrimEnd('/');
             if (string.IsNullOrWhiteSpace(_lucaBaseUrl))
                 _lucaBaseUrl = "https://akozas.luca.com.tr/Yetki"; 
@@ -323,87 +328,33 @@ namespace Katana.API.Controllers
         }
 
         [HttpPost("sync-products")]
-        public async Task<IActionResult> SyncProducts([FromBody] SyncOptionsDto? options)
+        public IActionResult SyncProducts([FromBody] SyncOptionsDto? options)
         {
-            try
+            var opts = options ?? new SyncOptionsDto();
+            var sessionId = GetSessionIdFromRequest();
+            _logger.LogInformation("[Background Sync] /api/luca/sync-products called. Starting background sync. SessionID: {SessionId}", string.IsNullOrWhiteSpace(sessionId) ? "AUTO-LOGIN" : sessionId);
+
+            Task.Run(async () =>
             {
-                _logger.LogInformation("API /api/luca/sync-products called. Forwarding to SyncService.SyncProductsToLucaAsync");
-                var opts = options ?? new SyncOptionsDto();
-
-                // Try to get sessionId from header or cookie; if missing attempt auto-login using configured credentials
-                var sessionId = GetSessionIdFromRequest();
-                if (string.IsNullOrWhiteSpace(sessionId))
+                using var scope = _serviceScopeFactory.CreateScope();
+                var scopedLogger = scope.ServiceProvider.GetRequiredService<ILogger<LucaProxyController>>();
+                try
                 {
-                    _logger.LogInformation("No session provided to sync-products; attempting auto-login using configured credentials");
-                    sessionId = await AutoLoginAndReturnSessionId();
+                    var scopedSyncService = scope.ServiceProvider.GetRequiredService<ISyncService>();
+                    scopedLogger.LogInformation("[Background Sync] SyncProductsToLucaAsync started.");
+                    await scopedSyncService.SyncProductsToLucaAsync(opts);
+                    scopedLogger.LogInformation("[Background Sync] SyncProductsToLucaAsync completed.");
                 }
-
-                // Ensure branch is selected for this session before syncing
-                var branchSelected = await EnsureBranchSelectedForSessionAsync(sessionId, _settings.ForcedBranchId ?? _settings.DefaultBranchId);
-                if (!branchSelected)
+                catch (Exception ex)
                 {
-                    _logger.LogWarning("SyncProducts: Branch selection failed for session {SessionId}", sessionId);
-
-                    // Attempt automatic re-login once and retry branch selection. This helps when the sessionId
-                    // exists but the Luca-specific cookies are missing/expired: try to recover automatically.
-                    try
-                    {
-                        _logger.LogInformation("SyncProducts: attempting auto-login and retry branch selection for session {SessionId}", sessionId);
-                        var newSession = await AutoLoginAndReturnSessionId();
-                        if (!string.IsNullOrWhiteSpace(newSession) && !string.Equals(newSession, sessionId, StringComparison.Ordinal))
-                        {
-                            sessionId = newSession;
-                            _logger.LogInformation("SyncProducts: retrying EnsureBranchSelectedForSessionAsync with new session {SessionId}", sessionId);
-                            var retried = await EnsureBranchSelectedForSessionAsync(sessionId, _settings.ForcedBranchId ?? _settings.DefaultBranchId);
-                            if (retried)
-                            {
-                                branchSelected = true;
-                                _logger.LogInformation("SyncProducts: branch selection retry succeeded for session {SessionId}", sessionId);
-                            }
-                            else
-                            {
-                                _logger.LogWarning("SyncProducts: branch selection retry failed for session {SessionId}", sessionId);
-                            }
-                        }
-                        else if (!string.IsNullOrWhiteSpace(newSession))
-                        {
-                            // session id unchanged but cookies might have been refreshed; attempt branch selection again
-                            var retried = await EnsureBranchSelectedForSessionAsync(sessionId, _settings.ForcedBranchId ?? _settings.DefaultBranchId);
-                            if (retried)
-                            {
-                                branchSelected = true;
-                                _logger.LogInformation("SyncProducts: branch selection retry (same session) succeeded for session {SessionId}", sessionId);
-                            }
-                            else
-                            {
-                                _logger.LogWarning("SyncProducts: branch selection retry (same session) failed for session {SessionId}", sessionId);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "SyncProducts: automatic retry/login attempt threw an exception for session {SessionId}", sessionId);
-                    }
-
-                    if (!branchSelected)
-                    {
-                        return StatusCode(500, new { message = "Luca branch selection failed before sync; please retry or login manually." });
-                    }
+                    scopedLogger.LogError(ex, "[Background Sync] Error while syncing products to Luca.");
                 }
+            });
 
-                if (string.IsNullOrWhiteSpace(sessionId))
-                {
-                    return Unauthorized(new { message = "No LucaProxySession found. Please login first via /api/luca/login or provide X-Luca-Session header." });
-                }
-
-                var result = await _syncService.SyncProductsToLucaAsync(sessionId, opts);
-                return Ok(result);
-            }
-            catch (Exception ex)
+            return Ok(new
             {
-                _logger.LogError(ex, "Error while handling /api/luca/sync-products");
-                return StatusCode(500, new { message = "Server error while syncing products to Luca", error = ex.Message });
-            }
+                message = "Senkronizasyon arka planda başlatıldı. İşlem bitince ürünler Luca'da görünecektir."
+            });
         }
 
         // Try to perform an automatic login with configured credentials and return the sessionId (or null)

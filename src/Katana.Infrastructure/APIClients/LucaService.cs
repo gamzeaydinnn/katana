@@ -31,6 +31,7 @@ public class LucaService : ILucaService
     private readonly JsonSerializerOptions _jsonOptions;
     private readonly Encoding _encoding;
     private string? _sessionCookie;
+    private string? _manualJSessionId;
     private string? _authToken;
     private DateTime? _tokenExpiry;
     private DateTime? _cookieExpiresAt;
@@ -104,6 +105,33 @@ public class LucaService : ILucaService
         {
             _logger.LogWarning(ex, "Failed to start cookie refresh loop");
         }
+    }
+    private string UrlEncodeCp1254(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+
+        var encoding = Encoding.GetEncoding(1254);
+        var bytes = encoding.GetBytes(value);
+        var sb = new StringBuilder();
+
+        foreach (var b in bytes)
+        {
+            if ((b >= 48 && b <= 57) || (b >= 65 && b <= 90) || (b >= 97 && b <= 122) || b == 45 || b == 46 || b == 95 || b == 126)
+            {
+                sb.Append((char)b);
+            }
+            else if (b == 32)
+            {
+                sb.Append('+');
+            }
+            else
+            {
+                sb.Append('%');
+                sb.Append(b.ToString("X2"));
+            }
+        }
+
+        return sb.ToString();
     }
     private System.Threading.CancellationTokenSource? _cookieRefreshCts;
     private static Encoding InitializeEncoding(string? encodingName)
@@ -895,20 +923,21 @@ public class LucaService : ILucaService
                 try { await SaveHttpTrafficAsync($"AUTH_LOGIN:{desc}", null, response); } catch (Exception) {  }
                 try
                 {
-                    var cookieContainerLocal = _cookieContainer;
-                    if (cookieContainerLocal != null)
-                    {
-                        var baseUri = _cookieHttpClient?.BaseAddress ?? new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
-                        var cookies = cookieContainerLocal.GetCookies(baseUri);
-                        var c = cookies.Cast<System.Net.Cookie>().FirstOrDefault(x => string.Equals(x.Name, "JSESSIONID", StringComparison.OrdinalIgnoreCase));
-                        if (c != null && !string.IsNullOrWhiteSpace(c.Value))
+                        var cookieContainerLocal = _cookieContainer;
+                        if (cookieContainerLocal != null)
                         {
-                            _sessionCookie = "JSESSIONID=" + c.Value;
-                            _cookieExpiresAt = DateTime.UtcNow.AddMinutes(20);
-                            _logger.LogInformation("PerformLoginAsync: JSESSIONID acquired from CookieContainer");
-                            return true;
+                            var baseUri = _cookieHttpClient?.BaseAddress ?? new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
+                            var cookies = cookieContainerLocal.GetCookies(baseUri);
+                            var c = cookies.Cast<System.Net.Cookie>().FirstOrDefault(x => string.Equals(x.Name, "JSESSIONID", StringComparison.OrdinalIgnoreCase));
+                            if (c != null && !string.IsNullOrWhiteSpace(c.Value))
+                            {
+                                _sessionCookie = "JSESSIONID=" + c.Value;
+                                _manualJSessionId = "JSESSIONID=" + c.Value;
+                                _cookieExpiresAt = DateTime.UtcNow.AddMinutes(20);
+                                _logger.LogInformation("PerformLoginAsync: JSESSIONID acquired from CookieContainer (manual cache updated)");
+                                return true;
+                            }
                         }
-                    }
                 }
                 catch (Exception ex)
                 {
@@ -2477,64 +2506,131 @@ retryChangeBranch:
     public async Task<List<LucaStockCardSummaryDto>> ListStockCardsAsync(CancellationToken cancellationToken = default)
     {
         var result = new List<LucaStockCardSummaryDto>();
-        var element = await ListStockCardsAsync(new LucaListStockCardsRequest());
 
-        JsonElement arrayEl = default;
-        if (element.ValueKind == JsonValueKind.Array)
+        try
         {
-            arrayEl = element;
-        }
-        else if (element.ValueKind == JsonValueKind.Object)
-        {
-            foreach (var key in new[] { "stkSkart", "data", "list", "items" })
+            if (string.IsNullOrWhiteSpace(_manualJSessionId) && !_settings.UseTokenAuth)
             {
-                if (element.TryGetProperty(key, out var prop) && prop.ValueKind == JsonValueKind.Array)
+                _logger.LogWarning("ListStockCardsAsync: No manual session id present; results may be empty if Koza requires login cookie.");
+            }
+
+            await EnsureAuthenticatedAsync();
+            await EnsureBranchSelectedAsync();
+
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            var endpoint = _settings.Endpoints.StockCards;
+
+            var sb = new StringBuilder();
+            sb.Append("stkSkart.kodOp=like");
+            sb.Append("&stkSkart.kodBas=");
+            sb.Append("&start=0");
+            sb.Append("&limit=10000");
+
+            var formDataString = sb.ToString();
+            var encoding = Encoding.GetEncoding(1254);
+            var byteContent = new ByteArrayContent(encoding.GetBytes(formDataString));
+            byteContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
+            byteContent.Headers.ContentType.CharSet = "windows-1254";
+
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+            {
+                Content = byteContent
+            };
+            ApplyManualSessionCookie(httpRequest);
+
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.SendAsync(httpRequest, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "ListStockCardsAsync: HTTP call failed");
+                return result;
+            }
+
+            var rawBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            string responseContent;
+            try { responseContent = encoding.GetString(rawBytes); } catch { responseContent = Encoding.UTF8.GetString(rawBytes); }
+
+            if (responseContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogError("ListStockCardsAsync: Koza returned HTML while listing stock cards. Body snippet: {Snippet}",
+                    responseContent.Length > 300 ? responseContent[..300] : responseContent);
+                return result;
+            }
+
+            JsonElement element;
+            try
+            {
+                element = JsonSerializer.Deserialize<JsonElement>(responseContent);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "ListStockCardsAsync: JSON parse failed for stock card list");
+                return result;
+            }
+
+            JsonElement arrayEl = default;
+            if (element.ValueKind == JsonValueKind.Array)
+            {
+                arrayEl = element;
+            }
+            else if (element.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var key in new[] { "stkSkart", "data", "list", "items" })
                 {
-                    arrayEl = prop;
-                    break;
+                    if (element.TryGetProperty(key, out var prop) && prop.ValueKind == JsonValueKind.Array)
+                    {
+                        arrayEl = prop;
+                        break;
+                    }
                 }
             }
-        }
 
-        if (arrayEl.ValueKind != JsonValueKind.Array)
-        {
+            if (arrayEl.ValueKind != JsonValueKind.Array)
+            {
+                return result;
+            }
+
+            foreach (var item in arrayEl.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object) continue;
+
+                var code = TryGetProperty(item, "kod", "kartKodu", "code", "skartKod", "stokKartKodu", "stokKodu");
+                var barcode = TryGetProperty(item, "barkod", "barcode");
+                var name = TryGetProperty(item, "kartAdi", "tanim", "name", "stokKartAdi", "stokAdi") ?? code ?? string.Empty;
+                var unit = TryGetProperty(item, "anaBirimAdi", "olcumBirimi", "birim");
+                var qtyText = TryGetProperty(item, "stokMiktari", "miktar", "quantity");
+
+                if (string.IsNullOrWhiteSpace(code) && string.IsNullOrWhiteSpace(barcode))
+                {
+                    continue;
+                }
+
+                double qty = 0;
+                if (!string.IsNullOrWhiteSpace(qtyText))
+                {
+                    double.TryParse(qtyText.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out qty);
+                }
+
+                result.Add(new LucaStockCardSummaryDto
+                {
+                    StokKodu = code ?? string.Empty,
+                    StokAdi = name ?? string.Empty,
+                    Birim = unit ?? string.Empty,
+                    Miktar = qty,
+                    Barcode = barcode
+                });
+            }
+
             return result;
         }
-
-        foreach (var item in arrayEl.EnumerateArray())
+        catch (Exception ex)
         {
-            if (item.ValueKind != JsonValueKind.Object) continue;
-
-            // Koza farklı endpointlerde stok kart kodu/adı için farklı alan adları kullanabiliyor.
-            // Burada yaygın varyantların hepsini deniyoruz.
-            var code = TryGetProperty(item, "kod", "kartKodu", "code", "skartKod", "stokKartKodu", "stokKodu");
-            var barcode = TryGetProperty(item, "barkod", "barcode");
-            var name = TryGetProperty(item, "kartAdi", "tanim", "name", "stokKartAdi", "stokAdi") ?? code ?? string.Empty;
-            var unit = TryGetProperty(item, "anaBirimAdi", "olcumBirimi", "birim");
-            var qtyText = TryGetProperty(item, "stokMiktari", "miktar", "quantity");
-
-            if (string.IsNullOrWhiteSpace(code) && string.IsNullOrWhiteSpace(barcode))
-            {
-                continue;
-            }
-
-            double qty = 0;
-            if (!string.IsNullOrWhiteSpace(qtyText))
-            {
-                double.TryParse(qtyText.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out qty);
-            }
-
-            result.Add(new LucaStockCardSummaryDto
-            {
-                StokKodu = code ?? string.Empty,
-                StokAdi = name ?? string.Empty,
-                Birim = unit ?? string.Empty,
-                Miktar = qty,
-                Barcode = barcode
-            });
+            _logger.LogWarning(ex, "ListStockCardsAsync failed; returning empty list.");
+            return result;
         }
-
-        return result;
     }
     public async Task<JsonElement> ListStockCardPriceListsAsync(LucaListStockCardPriceListsRequest request)
     {
@@ -2792,58 +2888,75 @@ retryChangeBranch:
             _logger.LogInformation("Sending {Count} stock cards to Luca (Koza) one by one (Koza does not accept arrays)", stockCards.Count);
 
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-            // Explicitly use the SKART (stock card) creation endpoint here.
             var endpoint = _settings.Endpoints.StockCardCreate;
-            var enc1254 = _encoding;
+            var enc1254 = Encoding.GetEncoding(1254);
 
             foreach (var card in stockCards)
             {
                 try
                 {
-                    // Central sanitizer (token/session-agnostic): prevent sending numeric-only local Category IDs
-                    try
+                    var payload = JsonSerializer.Serialize(card, _jsonOptions);
+
+                    // Build form data string using the same rules as the working PowerShell script
+                    var sb = new StringBuilder();
+                    var baslangic = DateTime.Now.ToString("dd'/'MM'/'yyyy", System.Globalization.CultureInfo.InvariantCulture);
+                    sb.Append($"baslangicTarihi={UrlEncodeCp1254(baslangic)}");
+
+                    sb.Append($"&kartKodu={UrlEncodeCp1254(card.KartKodu ?? string.Empty)}");
+
+                    var safeName = (card.KartAdi ?? string.Empty)
+                        .Replace("Ø", "O")
+                        .Replace("ø", "o");
+                    sb.Append($"&kartAdi={UrlEncodeCp1254(safeName)}");
+
+                    sb.Append("&kartTuru=1");
+                    sb.Append("&olcumBirimiId=1");
+                    sb.Append("&kartAlisKdvOran=1");
+                    sb.Append("&kartSatisKdvOran=1");
+                    sb.Append("&kartTipi=1");
+
+                    if (!string.IsNullOrEmpty(card.KategoriAgacKod))
                     {
-                        if (!string.IsNullOrWhiteSpace(card.KategoriAgacKod))
-                        {
-                            var trimmed = card.KategoriAgacKod.Trim();
-                            if (trimmed.Length > 0 && trimmed.All(ch => char.IsDigit(ch)))
-                            {
-                                card.KategoriAgacKod = string.IsNullOrWhiteSpace(_settings.DefaultKategoriKodu) ? string.Empty : _settings.DefaultKategoriKodu;
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "LucaService => Error sanitizing KategoriAgacKod for {Card}", card.KartKodu);
+                        var kAgac = card.KategoriAgacKod;
+                        sb.Append($"&kategoriAgacKod={UrlEncodeCp1254(kAgac)}");
                     }
 
-                    // Serialize to JSON for logging, but send as form-url-encoded CP1254 bytes (Koza expects form-data in windows-1254)
-                    var payload = JsonSerializer.Serialize(card, _jsonOptions);
-                    var content = CreateFormContentCp1254(payload);
+                    sb.Append("&satilabilirFlag=1");
+                    sb.Append("&satinAlinabilirFlag=1");
+                    sb.Append($"&lotNoFlag={card.LotNoFlag}");
+                    sb.Append("&maliyetHesaplanacakFlag=1");
+                    var formDataString = sb.ToString();
+
+                    _logger.LogInformation(">>> LUCA FORM DATA ({Card}): {Form}", card.KartKodu, formDataString);
+
+                    var encoding = enc1254;
+                    var byteContent = new ByteArrayContent(encoding.GetBytes(formDataString));
+                    byteContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
+                    byteContent.Headers.ContentType.CharSet = "windows-1254";
 
                     using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
                     {
-                        Content = content
+                        Content = byteContent
                     };
                     ApplyManualSessionCookie(httpRequest);
 
-                    // Debug: log outgoing payload so we can see the exact kategoriAgacKod being sent
-                    try
-                    {
-                        _logger.LogDebug("🔥 SENDING TO LUCA KartKodu={KartKodu} Payload={Payload}", card.KartKodu, payload);
-                    }
-                    catch { }
-
-                    try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_REQUEST:{card.KartKodu}", httpRequest, null); } catch (Exception) {  }
+                    try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_REQUEST:{card.KartKodu}", httpRequest, null); } catch (Exception) { }
 
                     var response = await client.SendAsync(httpRequest);
                     var responseBytes = await response.Content.ReadAsByteArrayAsync();
                     string responseContent;
-                    try { responseContent = enc1254.GetString(responseBytes); } catch { responseContent = Encoding.UTF8.GetString(responseBytes); }
+                    try { responseContent = encoding.GetString(responseBytes); } catch { responseContent = Encoding.UTF8.GetString(responseBytes); }
+                    try
+                    {
+                        var preview = responseContent.Length > 500 ? responseContent.Substring(0, 500) + "...(truncated)" : responseContent;
+                        _logger.LogInformation("Luca stock card response for {Card} => HTTP {StatusCode}, BODY={Body}", card.KartKodu, response.StatusCode, preview);
+                        Console.WriteLine($">>> LUCA STOCK CARD RESPONSE {card.KartKodu}: HTTP {(int)response.StatusCode} {response.StatusCode} BODY={preview}");
+                    }
+                    catch { }
                     var baseUrl = client.BaseAddress?.ToString()?.TrimEnd('/') ?? _settings.BaseUrl?.TrimEnd('/') ?? string.Empty;
                     var fullUrl = string.IsNullOrWhiteSpace(baseUrl) ? endpoint : (endpoint.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? endpoint : baseUrl + "/" + endpoint.TrimStart('/'));
-                    await AppendRawLogAsync("SEND_STOCK_CARD", fullUrl, payload, response.StatusCode, responseContent);
-                    try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_RESPONSE:{card.KartKodu}", httpRequest, response); } catch (Exception) {  }
+                    await AppendRawLogAsync("SEND_STOCK_CARD", fullUrl, formDataString, response.StatusCode, responseContent);
+                    try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_RESPONSE:{card.KartKodu}", httpRequest, response); } catch (Exception) { }
 
                     if (NeedsBranchSelection(responseContent))
                     {
@@ -2974,27 +3087,56 @@ retryChangeBranch:
                         _logger.LogWarning(ex, "Stock card {Card} response could not be parsed; assuming success on HTTP OK", card.KartKodu);
                     }
 
-                    if (parsedSuccessfully &&
-                        parsedResponse.ValueKind == JsonValueKind.Object &&
-                        parsedResponse.TryGetProperty("code", out var codeProp) &&
-                        codeProp.ValueKind == JsonValueKind.Number)
+                    // Check for Luca error responses (error=true or code!=0)
+                    if (parsedSuccessfully && parsedResponse.ValueKind == JsonValueKind.Object)
                     {
-                        var code = codeProp.GetInt32();
-                        if (code == 1003)
+                        // Handle {"error":true,"message":"..."} format
+                        if (parsedResponse.TryGetProperty("error", out var errorProp) && 
+                            errorProp.ValueKind == JsonValueKind.True)
                         {
-                            _logger.LogError("Stock card {Card} failed with code 1003 (branch selection required / session expired). Stopping.", card.KartKodu);
-                            throw new UnauthorizedAccessException("Session expired or branch not selected (code 1003). Renew manual session cookie.");
+                            var msg = parsedResponse.TryGetProperty("message", out var messageProp) && 
+                                      messageProp.ValueKind == JsonValueKind.String
+                                ? messageProp.GetString() ?? "Unknown error"
+                                : "Unknown error";
+
+                            // SKIP duplicates as warnings, not failures
+                            if (msg.Contains("daha önce kullanılmış") || msg.Contains("already exists") || 
+                                msg.Contains("duplicate", StringComparison.OrdinalIgnoreCase))
+                            {
+                                _logger.LogWarning("Stock card {Card} already exists in Luca (skipped): {Message}", card.KartKodu, msg);
+                                successCount++; // Count as success (already exists)
+                                continue;
+                            }
+
+                            // Other errors are failures
+                            failedCount++;
+                            result.Errors.Add($"{card.KartKodu}: {msg}");
+                            _logger.LogError("Stock card {Card} failed: {Message}", card.KartKodu, msg);
+                            continue;
                         }
 
-                        if (code != 0)
+                        // Handle {"code":1003,...} format
+                        if (parsedResponse.TryGetProperty("code", out var codeProp) && 
+                            codeProp.ValueKind == JsonValueKind.Number)
                         {
-                            failedCount++;
-                            var msg = parsedResponse.TryGetProperty("message", out var messageProp) && messageProp.ValueKind == JsonValueKind.String
-                                ? messageProp.GetString()
-                                : "Unknown error";
-                            result.Errors.Add($"{card.KartKodu}: code={code} message={msg}");
-                            _logger.LogError("Stock card {Card} failed with code {Code}: {Message}", card.KartKodu, code, msg);
-                            continue;
+                            var code = codeProp.GetInt32();
+                            if (code == 1003)
+                            {
+                                _logger.LogError("Stock card {Card} failed with code 1003 (session expired). Stopping.", card.KartKodu);
+                                throw new UnauthorizedAccessException("Session expired or branch not selected (code 1003).");
+                            }
+
+                            if (code != 0)
+                            {
+                                failedCount++;
+                                var msg = parsedResponse.TryGetProperty("message", out var messageProp) && 
+                                          messageProp.ValueKind == JsonValueKind.String
+                                    ? messageProp.GetString()
+                                    : "Unknown error";
+                                result.Errors.Add($"{card.KartKodu}: code={code} message={msg}");
+                                _logger.LogError("Stock card {Card} failed with code {Code}: {Message}", card.KartKodu, code, msg);
+                                continue;
+                            }
                         }
                     }
                     if (!response.IsSuccessStatusCode)
@@ -3932,35 +4074,6 @@ retryChangeBranch:
         var trimmed = value.Trim();
         return trimmed.Length <= maxLength ? trimmed : trimmed.Substring(0, maxLength);
     }
-        private string UrlEncodeCp1254(string input)
-        {
-            if (input == null) return string.Empty;
-            var enc = Encoding.GetEncoding(1254);
-            var bytes = enc.GetBytes(input);
-
-            var sb = new System.Text.StringBuilder();
-            foreach (var b in bytes)
-            {
-                // space -> +
-                if (b == 0x20) { sb.Append('+'); continue; }
-
-                // unreserved / safe characters: 0-9, A-Z, a-z, '-', '.', '_', '~'
-                if ((b >= 0x30 && b <= 0x39) ||
-                    (b >= 0x41 && b <= 0x5A) ||
-                    (b >= 0x61 && b <= 0x7A) ||
-                    b == 45 || b == 46 || b == 95 || b == 126)
-                {
-                    sb.Append((char)b);
-                }
-                else
-                {
-                    sb.Append('%');
-                    sb.Append(b.ToString("X2"));
-                }
-            }
-
-            return sb.ToString();
-        }
 
         private ByteArrayContent CreateFormContentCp1254(string payloadJson)
         {
@@ -4032,7 +4145,9 @@ retryChangeBranch:
         try
         {
             if (request == null) return;
-            var manual = _settings?.ManualSessionCookie;
+            var manual = !string.IsNullOrWhiteSpace(_manualJSessionId)
+                ? _manualJSessionId
+                : _settings?.ManualSessionCookie;
             if (string.IsNullOrWhiteSpace(manual)) return;
 
             var trimmed = manual.Trim();

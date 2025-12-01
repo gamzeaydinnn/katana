@@ -247,7 +247,8 @@ const DataCorrectionPanel: React.FC = () => {
       let categoryId = 0;
       try {
         const existing = await api.get(`/Products/${selectedKatana.id}`);
-        const existingData = existing?.data || {};
+        // explicit any to avoid TS index errors on dynamic API shapes
+        const existingData: any = existing?.data || {};
         categoryId = existingData?.categoryId ?? existingData?.CategoryId ?? 0;
       } catch {}
 

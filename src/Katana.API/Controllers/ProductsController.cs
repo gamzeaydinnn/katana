@@ -6,6 +6,7 @@ using Katana.Core.Enums;
 using Katana.Core.Interfaces;
 using Katana.Core.Helpers;
 using Katana.Data.Configuration;
+using Katana.Infrastructure.Mappers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -28,6 +29,7 @@ public class ProductsController : ControllerBase
     private readonly ILogger<ProductsController> _logger;
     private readonly ILoggingService _loggingService;
     private readonly IAuditService _auditService;
+    private readonly LucaApiSettings _lucaSettings;
     private readonly IOptionsSnapshot<CatalogVisibilitySettings> _catalogVisibility;
 
     public ProductsController(
@@ -36,6 +38,7 @@ public class ProductsController : ControllerBase
         ISyncService syncService,
         IProductService productService,
         ICategoryService categoryService,
+        IOptionsSnapshot<LucaApiSettings> lucaSettings,
         IOptionsSnapshot<CatalogVisibilitySettings> catalogVisibility,
         ILogger<ProductsController> logger,
         ILoggingService loggingService,
@@ -46,6 +49,7 @@ public class ProductsController : ControllerBase
         _syncService = syncService;
         _productService = productService;
         _categoryService = categoryService;
+        _lucaSettings = lucaSettings.Value;
         _catalogVisibility = catalogVisibility;
         _logger = logger;
         _loggingService = loggingService;
@@ -80,6 +84,11 @@ public class ProductsController : ControllerBase
             {
                 _logger.LogWarning($"Removed {allProducts.Count - products.Count} duplicate products from Katana API response");
             }
+            
+            var pageNumber = page.GetValueOrDefault(1);
+            if (pageNumber < 1) pageNumber = 1;
+            var pageSize = limit.GetValueOrDefault(50);
+            if (pageSize <= 0) pageSize = 50;
             
             
             if (sync)
@@ -166,11 +175,20 @@ public class ProductsController : ControllerBase
                         isActive = localProduct?.IsActive ?? katanaProduct.IsActive
                     });
                 }
+
+                var total = enrichedProducts.Count;
+                var paged = enrichedProducts
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
                 
                 return Ok(new 
                 { 
-                    data = enrichedProducts, 
-                    count = enrichedProducts.Count, 
+                    data = paged, 
+                    count = total, 
+                    page = pageNumber,
+                    pageSize,
+                    totalPages = (int)Math.Ceiling(total / (double)pageSize),
                     sync = new 
                     { 
                         created, 
@@ -212,7 +230,20 @@ public class ProductsController : ControllerBase
                 }
             }
             
-            return Ok(new { data = result, count = result.Count });
+            var totalLocal = result.Count;
+            var pagedLocal = result
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+            
+            return Ok(new 
+            { 
+                data = pagedLocal, 
+                count = totalLocal,
+                page = pageNumber,
+                pageSize,
+                totalPages = (int)Math.Ceiling(totalLocal / (double)pageSize)
+            });
         }
         catch (Exception ex)
         {
@@ -299,8 +330,17 @@ public class ProductsController : ControllerBase
     [HttpGet("~/api/Luca/stock-cards")]
     public async Task<IActionResult> GetLucaStockCards()
     {
-        var cards = await _lucaService.ListStockCardsAsync();
-        return Ok(cards);
+        try
+        {
+            var cards = await _lucaService.ListStockCardsAsync();
+            _logger.LogInformation("[CONTROLLER] Frontend'e {Count} adet stok kartı gönderiliyor.", cards?.Count ?? 0);
+            return Ok(cards);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[CONTROLLER] Stok kartları çekilirken hata oldu.");
+            return StatusCode(500, "Luca bağlantı hatası.");
+        }
     }
 
     [HttpGet("~/api/Sync/comparison")]
@@ -479,6 +519,63 @@ public class ProductsController : ControllerBase
             _auditService.LogCreate("Product", product.Id.ToString(), User?.Identity?.Name ?? "system", 
                 $"SKU: {product.SKU}, Name: {product.Name}");
             _loggingService.LogInfo($"Product created: {product.SKU}", User?.Identity?.Name, null, LogCategory.UserAction);
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    _logger.LogInformation("[AUTO-SYNC] Product created, sending stock card to Luca. SKU={Sku}, Id={Id}", product.SKU, product.Id);
+
+                    var entity = new Product
+                    {
+                        Id = product.Id,
+                        SKU = product.SKU,
+                        Name = product.Name,
+                        CategoryId = product.CategoryId,
+                        Description = product.Description,
+                        Price = product.Price,
+                        StockSnapshot = product.Stock,
+                        MainImageUrl = product.MainImageUrl,
+                        IsActive = product.IsActive,
+                        CreatedAt = product.CreatedAt ?? DateTime.UtcNow,
+                        UpdatedAt = product.UpdatedAt ?? DateTime.UtcNow
+                    };
+
+                    var stockCard = KatanaToLucaMapper.MapProductToStockCard(
+                        entity,
+                        defaultVat: _lucaSettings.DefaultKdvOran,
+                        defaultOlcumBirimiId: _lucaSettings.DefaultOlcumBirimiId,
+                        defaultKartTipi: _lucaSettings.DefaultKartTipi,
+                        defaultKategoriKod: _lucaSettings.DefaultKategoriKodu
+                    );
+
+                    KatanaToLucaMapper.ValidateLucaStockCard(stockCard);
+
+                    var sendResult = await _lucaService.SendStockCardsAsync(new List<LucaCreateStokKartiRequest> { stockCard });
+
+                    if (!sendResult.IsSuccess)
+                    {
+                        _logger.LogError("[AUTO-SYNC ERROR] Luca stock card sync failed for SKU={Sku}. Processed={Processed}, Success={Success}, Failed={Failed}, Errors={Errors}",
+                            product.SKU,
+                            sendResult.ProcessedRecords,
+                            sendResult.SuccessfulRecords,
+                            sendResult.FailedRecords,
+                            string.Join("; ", sendResult.Errors ?? new List<string>()));
+                    }
+                    else
+                    {
+                        _logger.LogInformation("[AUTO-SYNC SUCCESS] Luca stock card created for SKU={Sku}. Processed={Processed}, Success={Success}",
+                            product.SKU,
+                            sendResult.ProcessedRecords,
+                            sendResult.SuccessfulRecords);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[AUTO-SYNC EXCEPTION] Error while sending stock card to Luca for SKU={Sku}", product.SKU);
+                }
+            });
+
             return CreatedAtAction(nameof(GetById), new { id = product.Id }, product);
         }
         catch (InvalidOperationException ex)

@@ -70,50 +70,75 @@ public class KatanaService : IKatanaService
 
     public async Task<List<KatanaProductDto>> GetProductsAsync()
     {
+        var allProducts = new List<KatanaProductDto>();
+        var page = 1;
+        const int limit = 100;
+        var moreRecords = true;
+
         try
         {
-            _logger.LogInformation("Getting products from Katana");
+            _logger.LogInformation("Getting products from Katana with pagination (limit={Limit})", limit);
             _logger.LogInformation("DEBUG - BaseAddress: {BaseAddress}", _httpClient.BaseAddress);
             _logger.LogInformation("DEBUG - Endpoint: {Endpoint}", _settings.Endpoints.Products);
             _logger.LogInformation("DEBUG - Authorization: {Auth}", _httpClient.DefaultRequestHeaders.Authorization);
-            _loggingService.LogInfo("Katana API: Fetching products", null, "GetProductsAsync", LogCategory.ExternalAPI);
-            var response = await _httpClient.GetAsync(_settings.Endpoints.Products);
-            var responseContent = await response.Content.ReadAsStringAsync();
+            _loggingService.LogInfo("Katana API: Fetching products (paged)", null, "GetProductsAsync", LogCategory.ExternalAPI);
 
-            _logger.LogWarning("KATANA API RESPONSE - Status: {StatusCode}, Content Length: {Length}, First 500 chars: {Content}", 
-                response.StatusCode, responseContent.Length, responseContent.Substring(0, Math.Min(500, responseContent.Length)));
-
-            if (!response.IsSuccessStatusCode)
+            while (moreRecords)
             {
-                _logger.LogWarning("Katana API failed. Status: {StatusCode}, Response: {Response}", 
-                    response.StatusCode, responseContent);
-                return new List<KatanaProductDto>();
-            }
+                var url = $"{_settings.Endpoints.Products}?limit={limit}&page={page}";
+                var response = await _httpClient.GetAsync(url);
+                var responseContent = await response.Content.ReadAsStringAsync();
 
-            
-            try
-            {
-                using var doc = JsonDocument.Parse(responseContent);
-                var root = doc.RootElement;
-                var products = new List<KatanaProductDto>();
-                if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
+                _logger.LogWarning(
+                    "KATANA API RESPONSE (page={Page}) - Status: {StatusCode}, Content Length: {Length}, First 500 chars: {Content}",
+                    page,
+                    response.StatusCode,
+                    responseContent.Length,
+                    responseContent.Substring(0, Math.Min(500, responseContent.Length)));
+
+                if (!response.IsSuccessStatusCode)
                 {
-                    foreach (var prodEl in dataEl.EnumerateArray())
-                    {
-                        var mapped = MapProductElement(prodEl);
-                        products.Add(mapped);
-                    }
+                    _logger.LogWarning("Katana API failed on page {Page}. Status: {StatusCode}, Response: {Response}",
+                        page, response.StatusCode, responseContent);
+                    break;
                 }
 
-                _logger.LogInformation("Retrieved {Count} products from Katana", products.Count);
-                _loggingService.LogInfo($"Successfully fetched {products.Count} products from Katana", null, "GetProductsAsync", LogCategory.ExternalAPI);
-                return products;
+                try
+                {
+                    using var doc = JsonDocument.Parse(responseContent);
+                    var root = doc.RootElement;
+                    var pageProducts = new List<KatanaProductDto>();
+                    if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var prodEl in dataEl.EnumerateArray())
+                        {
+                            var mapped = MapProductElement(prodEl);
+                            pageProducts.Add(mapped);
+                        }
+                    }
+
+                    _logger.LogInformation("Retrieved {Count} products from Katana (page={Page})", pageProducts.Count, page);
+                    allProducts.AddRange(pageProducts);
+
+                    if (pageProducts.Count < limit)
+                    {
+                        moreRecords = false;
+                    }
+                    else
+                    {
+                        page++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to parse Katana products response on page {Page}", page);
+                    moreRecords = false;
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to parse Katana products response");
-                return new List<KatanaProductDto>();
-            }
+
+            _logger.LogInformation("TOTAL {Count} products loaded from Katana across all pages.", allProducts.Count);
+            _loggingService.LogInfo($"Successfully fetched {allProducts.Count} products from Katana (paged)", null, "GetProductsAsync", LogCategory.ExternalAPI);
+            return allProducts;
         }
         catch (HttpRequestException ex)
         {
@@ -129,10 +154,6 @@ public class KatanaService : IKatanaService
         }
     }
 
-    private class KatanaApiResponse
-    {
-        public List<KatanaProductDto>? Data { get; set; }
-    }
 
     
     private decimal ReadDecimalProperty(JsonElement el, string propName)

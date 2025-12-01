@@ -170,7 +170,8 @@ const KatanaProducts: React.FC = () => {
       let categoryId = 0;
       try {
         const existing = await api.get(`/Products/${productId}`);
-        const existingData = existing?.data || {};
+        // explicit any to avoid TS errors for dynamic API responses
+        const existingData: any = existing?.data || {};
         categoryId = existingData?.categoryId ?? existingData?.CategoryId ?? 0;
       } catch (err) {
         // ignore - we'll try to pick first available category next

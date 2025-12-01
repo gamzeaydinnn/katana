@@ -119,16 +119,37 @@ public static class KatanaToLucaMapper
     {
         var card = MappingHelper.MapToLucaStockCard(product, defaultOlcumBirimiId, defaultVat);
 
-        if (defaultKartTipi.HasValue && defaultKartTipi.Value > 0)
-        {
-            card.KartTipi = defaultKartTipi.Value;
-        }
+        // ========================================================================
+        // SENİN ATTIĞIN "DOĞRU VERİ" ÖRNEĞİNE GÖRE SABİTLENMİŞ AYARLAR
+        // ========================================================================
 
-        if (!string.IsNullOrWhiteSpace(defaultKategoriKod) &&
-            string.IsNullOrWhiteSpace(card.KategoriAgacKod))
-        {
-            card.KategoriAgacKod = defaultKategoriKod!;
-        }
+        // 1. Kart Tipi
+        card.KartTipi = 1;
+
+        // 2. KDV Oran ID'leri
+        card.KartAlisKdvOran = 1;
+        card.KartSatisKdvOran = 1;
+
+        // 3. Ölçüm Birimi
+        card.OlcumBirimiId = 1;
+
+        // 4. Kart Türü (Stok)
+        card.KartTuru = 1;
+
+        // 5. Kategori Ağaç Kodu - NULL bırak (Luca örnekte gösterildiği gibi)
+        // Eğer defaultKategoriKod numeric kod ise ("001" gibi) kullan, yoksa null
+        card.KategoriAgacKod = (!string.IsNullOrWhiteSpace(defaultKategoriKod) && 
+                                 defaultKategoriKod!.All(c => char.IsDigit(c) || c == '.')) 
+                                 ? defaultKategoriKod 
+                                 : null;
+
+        // 6. Tarih Formatı (gg/aa/yyyy)
+        card.BaslangicTarihi = DateTime.Now.ToString(KozaDateFormat, CultureInfo.InvariantCulture);
+
+        // 7. Diğer flag'ler
+        card.SatilabilirFlag = 1;
+        card.SatinAlinabilirFlag = 1;
+        card.MaliyetHesaplanacakFlag = 1;
 
         return card;
     }
@@ -366,22 +387,35 @@ public static class KatanaToLucaMapper
             }
         }
 
-        // If mapping not found, fall back to configured logic
+        // If mapping not found, DO NOT use raw category name as code
+        // Only use numeric codes like "001", "220", etc. Never use category names!
         if (string.IsNullOrWhiteSpace(category))
         {
             if (!string.IsNullOrWhiteSpace(rawCategory))
             {
-                // If rawCategory is numeric-only (internal id), prefer configured default, otherwise clear it.
+                // If rawCategory is numeric-only (internal id), it's still not a valid Luca code
+                // Only use DefaultKategoriKodu if it looks like a numeric code ("001" format)
                 if (IsNumericOnly(rawCategory))
                 {
-                    category = !string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu) ? lucaSettings.DefaultKategoriKodu : null;
+                    // Numeric internal ID - use default if it's a valid code format
+                    if (!string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu) && 
+                        lucaSettings.DefaultKategoriKodu!.All(c => char.IsDigit(c) || c == '.'))
+                    {
+                        category = lucaSettings.DefaultKategoriKodu;
+                    }
+                    else
+                    {
+                        category = null; // No valid code, leave null
+                    }
                 }
                 else
                 {
-                    category = rawCategory;
+                    // rawCategory is a NAME (like "3YARI MAMUL") - NEVER use it as code!
+                    category = null;
                 }
             }
-            else if (!string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu))
+            else if (!string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu) &&
+                     lucaSettings.DefaultKategoriKodu!.All(c => char.IsDigit(c) || c == '.'))
             {
                 category = lucaSettings.DefaultKategoriKodu;
             }
@@ -396,9 +430,10 @@ public static class KatanaToLucaMapper
             KartKodu = sku,
             MaliyetHesaplanacakFlag = 1,
             KartTipi = lucaSettings.DefaultKartTipi,
-            KategoriAgacKod = category,
-            KartAlisKdvOran = lucaSettings.DefaultKdvOran,
-            KartSatisKdvOran = lucaSettings.DefaultKdvOran,
+            // Keep null as per Luca example - category will be resolved later if needed
+            KategoriAgacKod = null,
+            KartAlisKdvOran = 1,
+            KartSatisKdvOran = 1,
             Barkod = string.IsNullOrWhiteSpace(product.Barcode) ? sku : product.Barcode.Trim(),
             UzunAdi = name,
             SatilabilirFlag = 1,
@@ -463,4 +498,5 @@ public static class KatanaToLucaMapper
         dto.KartAdi = EncodingHelper.ConvertToIso88599(dto.KartAdi);
         dto.UzunAdi = EncodingHelper.ConvertToIso88599(dto.UzunAdi);
     }
+    
 }
