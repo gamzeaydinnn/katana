@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Group as UsersIcon,
   Warehouse,
+  SwapHoriz as SwapHorizIcon,
 } from "@mui/icons-material";
 import {
   Alert,
@@ -49,6 +50,7 @@ import LucaProducts from "../Admin/LucaProducts";
 import Orders from "../Admin/Orders";
 import PendingAdjustments from "../Admin/PendingAdjustments";
 import StockManagement from "../Admin/StockManagement";
+import StockMovements from "../Admin/StockMovements";
 import Settings from "../Settings/Settings";
 import LogsViewer from "./LogsViewer";
 import UsersManagement from "./UsersManagement";
@@ -86,7 +88,7 @@ const AdminPanel: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalSyncLogs, setTotalSyncLogs] = useState(0);
-  
+
   const [katanaHealth, setKatanaHealth] = useState<boolean | null>(null);
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(
     null
@@ -122,7 +124,7 @@ const AdminPanel: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const [statsRes, productsRes, logsRes, healthRes] = await Promise.all([
         api.get("/adminpanel/statistics"),
         api.get(
@@ -134,10 +136,8 @@ const AdminPanel: React.FC = () => {
         api.get("/adminpanel/katana-health"),
       ]);
 
-      
       setStatistics(statsRes.data as Statistics);
 
-      
       const productsData = ((productsRes as any).data?.data ??
         (productsRes as any).data?.products ??
         (productsRes as any).data ??
@@ -149,14 +149,13 @@ const AdminPanel: React.FC = () => {
           name: String(p.name ?? p.Name ?? ""),
           stock: Number(p.stock ?? p.stockQuantity ?? p.quantity ?? 0),
           isActive: Boolean(p.isActive ?? p.IsActive ?? true),
-          
+
           createdAt: String(
             p.createdAt ?? p.createdAt ?? new Date().toISOString()
           ),
         }))
       );
 
-      
       const rawLogs = ((logsRes as any).data?.data ??
         (logsRes as any).data?.logs ??
         (logsRes as any).data ??
@@ -190,8 +189,6 @@ const AdminPanel: React.FC = () => {
         )
       );
 
-      
-      
       if (healthRes && typeof (healthRes as any).data !== "undefined") {
         setKatanaHealth(Boolean((healthRes as any).data?.isHealthy ?? false));
       } else {
@@ -209,7 +206,6 @@ const AdminPanel: React.FC = () => {
 
   useEffect(() => {
     loadData();
-    
   }, [page, rowsPerPage]);
 
   const StatCard: React.FC<{
@@ -418,27 +414,26 @@ const AdminPanel: React.FC = () => {
             label={tabLabel("Siparişler")}
             iconPosition="start"
           />
-          {!isMobile &&
-            [
-              <Tab
-                key="katana-products"
-                icon={<ShoppingCart />}
-                label={tabLabel("Katana Ürünleri")}
-                iconPosition="start"
-              />,
-              <Tab
-                key="luca-products"
-                icon={<Inventory />}
-                label={tabLabel("Luca Ürünleri")}
-                iconPosition="start"
-              />,
-              <Tab
-                key="stock-management"
-                icon={<Warehouse />}
-                label={tabLabel("Stok Yönetimi")}
-                iconPosition="start"
-              />,
-            ]}
+          {!isMobile && [
+            <Tab
+              key="katana-products"
+              icon={<ShoppingCart />}
+              label={tabLabel("Katana Ürünleri")}
+              iconPosition="start"
+            />,
+            <Tab
+              key="luca-products"
+              icon={<Inventory />}
+              label={tabLabel("Luca Ürünleri")}
+              iconPosition="start"
+            />,
+            <Tab
+              key="stock-management"
+              icon={<Warehouse />}
+              label={tabLabel("Stok Yönetimi")}
+              iconPosition="start"
+            />,
+          ]}
           <Tab
             icon={<MoreVertIcon />}
             label={tabLabel("Diğer")}
@@ -482,64 +477,75 @@ const AdminPanel: React.FC = () => {
             },
           }}
         >
-          {isMobile &&
-            [
-              <MenuItem
-                key="menu-katana"
-                onClick={() => {
-                  setActiveTab(2);
-                  setMoreMenuAnchor(null);
-                }}
-                sx={overflowMenuItemSx}
+          {isMobile && [
+            <MenuItem
+              key="menu-katana"
+              onClick={() => {
+                setActiveTab(2);
+                setMoreMenuAnchor(null);
+              }}
+              sx={overflowMenuItemSx}
+            >
+              <ShoppingCart sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
+              <Typography
+                variant="body2"
+                translate="no"
+                sx={overflowMenuTextSx}
               >
-                <ShoppingCart sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-                <Typography
-                  variant="body2"
-                  translate="no"
-                  sx={overflowMenuTextSx}
-                >
-                  Katana Ürünleri
-                </Typography>
-              </MenuItem>,
-              <MenuItem
-                key="menu-luca"
-                onClick={() => {
-                  setActiveTab(3);
-                  setMoreMenuAnchor(null);
-                }}
-                sx={overflowMenuItemSx}
+                Katana Ürünleri
+              </Typography>
+            </MenuItem>,
+            <MenuItem
+              key="menu-luca"
+              onClick={() => {
+                setActiveTab(3);
+                setMoreMenuAnchor(null);
+              }}
+              sx={overflowMenuItemSx}
+            >
+              <Inventory sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
+              <Typography
+                variant="body2"
+                translate="no"
+                sx={overflowMenuTextSx}
               >
-                <Inventory sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-                <Typography
-                  variant="body2"
-                  translate="no"
-                  sx={overflowMenuTextSx}
-                >
-                  Luca Ürünleri
-                </Typography>
-              </MenuItem>,
-              <MenuItem
-                key="menu-stock"
-                onClick={() => {
-                  setActiveTab(4);
-                  setMoreMenuAnchor(null);
-                }}
-                sx={overflowMenuItemSx}
+                Luca Ürünleri
+              </Typography>
+            </MenuItem>,
+            <MenuItem
+              key="menu-stock"
+              onClick={() => {
+                setActiveTab(4);
+                setMoreMenuAnchor(null);
+              }}
+              sx={overflowMenuItemSx}
+            >
+              <Warehouse sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
+              <Typography
+                variant="body2"
+                translate="no"
+                sx={overflowMenuTextSx}
               >
-                <Warehouse sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-                <Typography
-                  variant="body2"
-                  translate="no"
-                  sx={overflowMenuTextSx}
-                >
-                  Stok Yönetimi
-                </Typography>
-              </MenuItem>,
-              <Divider key="menu-divider" sx={{ my: 1 }} />,
-            ]}
+                Stok Yönetimi
+              </Typography>
+            </MenuItem>,
+            <Divider key="menu-divider" sx={{ my: 1 }} />,
+          ]}
           <MenuItem
             onClick={() => {
               setActiveTab(5);
+              setMoreMenuAnchor(null);
+            }}
+            sx={overflowMenuItemSx}
+          >
+            <SwapHorizIcon sx={{ mr: 1.5, fontSize: 20, color: "#8b5cf6" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
+              Stok Hareketleri
+            </Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setActiveTab(6);
               setMoreMenuAnchor(null);
             }}
             sx={overflowMenuItemSx}
@@ -551,7 +557,7 @@ const AdminPanel: React.FC = () => {
           </MenuItem>
           <MenuItem
             onClick={() => {
-              setActiveTab(6);
+              setActiveTab(7);
               setMoreMenuAnchor(null);
             }}
             sx={overflowMenuItemSx}
@@ -566,7 +572,7 @@ const AdminPanel: React.FC = () => {
           <Divider sx={{ my: 1 }} />
           <MenuItem
             onClick={() => {
-              setActiveTab(7);
+              setActiveTab(8);
               setMoreMenuAnchor(null);
             }}
             sx={overflowMenuItemSx}
@@ -578,7 +584,7 @@ const AdminPanel: React.FC = () => {
           </MenuItem>
           <MenuItem
             onClick={() => {
-              setActiveTab(8);
+              setActiveTab(9);
               setMoreMenuAnchor(null);
             }}
             sx={overflowMenuItemSx}
@@ -590,7 +596,7 @@ const AdminPanel: React.FC = () => {
           </MenuItem>
           <MenuItem
             onClick={() => {
-              setActiveTab(9);
+              setActiveTab(10);
               setMoreMenuAnchor(null);
             }}
             sx={overflowMenuItemSx}
@@ -818,7 +824,9 @@ const AdminPanel: React.FC = () => {
               </Typography>
               <Divider sx={{ mb: 2 }} />
               {isMobile ? (
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                <Box
+                  sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}
+                >
                   {syncLogs.length === 0 ? (
                     <Typography
                       color="text.secondary"
@@ -934,20 +942,23 @@ const AdminPanel: React.FC = () => {
       {}
       {activeTab === 4 && <StockManagement />}
 
-      {}
-      {activeTab === 5 && <FailedRecords />}
+      {/* Stok Hareketleri Tab */}
+      {activeTab === 5 && <StockMovements />}
 
       {}
-      {activeTab === 6 && <DataCorrectionPanel />}
+      {activeTab === 6 && <FailedRecords />}
 
       {}
-      {activeTab === 7 && <UsersManagement />}
+      {activeTab === 7 && <DataCorrectionPanel />}
 
       {}
-      {activeTab === 8 && <LogsViewer />}
+      {activeTab === 8 && <UsersManagement />}
 
       {}
-      {activeTab === 9 && <Settings />}
+      {activeTab === 9 && <LogsViewer />}
+
+      {}
+      {activeTab === 10 && <Settings />}
     </Container>
   );
 };
