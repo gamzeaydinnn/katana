@@ -42,6 +42,13 @@ import {
 } from "@mui/icons-material";
 import api from "../../services/api";
 
+interface UserFriendlyError {
+  title: string;
+  description: string;
+  suggestion: string;
+  technicalDetails: string;
+}
+
 interface FailedRecord {
   id: number;
   recordType: string;
@@ -56,12 +63,14 @@ interface FailedRecord {
   resolvedBy: string | null;
   integrationLogId: number;
   sourceSystem: string;
+  userFriendlyError?: UserFriendlyError;
 }
 
 interface FailedRecordDetail extends FailedRecord {
   originalData: string;
   nextRetryAt: string | null;
   resolution: string | null;
+  userFriendlyError?: UserFriendlyError;
   integrationLog: {
     id: number;
     syncType: string;
@@ -130,7 +139,6 @@ const FailedRecords: React.FC = () => {
       setDetailDialogOpen(true);
       setCorrectedData(response.data.originalData);
 
-      
       try {
         const parsed = JSON.parse(response.data.originalData);
         setParsedData(parsed);
@@ -339,13 +347,39 @@ const FailedRecords: React.FC = () => {
                           color={getStatusColor(record.status) as any}
                         />
                       </Box>
-                      <Typography
-                        variant="body2"
-                        color="error.main"
-                        sx={{ mt: 1 }}
-                      >
-                        {record.errorMessage}
-                      </Typography>
+                      <Box sx={{ mt: 1 }}>
+                        {record.userFriendlyError ? (
+                          <>
+                            <Typography
+                              variant="body2"
+                              fontWeight={600}
+                              color="error.main"
+                            >
+                              {record.userFriendlyError.title}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ mt: 0.5 }}
+                            >
+                              {record.userFriendlyError.description}
+                            </Typography>
+                            {record.userFriendlyError.suggestion && (
+                              <Typography
+                                variant="caption"
+                                color="info.main"
+                                sx={{ mt: 0.5, display: "block" }}
+                              >
+                                💡 {record.userFriendlyError.suggestion}
+                              </Typography>
+                            )}
+                          </>
+                        ) : (
+                          <Typography variant="body2" color="error.main">
+                            {record.errorMessage}
+                          </Typography>
+                        )}
+                      </Box>
                       <Box
                         sx={{
                           display: "grid",
@@ -464,10 +498,37 @@ const FailedRecords: React.FC = () => {
                           <TableCell>{record.recordId || "-"}</TableCell>
                           <TableCell>{record.sourceSystem}</TableCell>
                           <TableCell>
-                            <Tooltip title={record.errorMessage}>
-                              <Typography noWrap sx={{ maxWidth: 300 }}>
-                                {record.errorMessage}
-                              </Typography>
+                            <Tooltip
+                              title={
+                                record.userFriendlyError
+                                  ? `${record.userFriendlyError.description}${
+                                      record.userFriendlyError.suggestion
+                                        ? ` • ${record.userFriendlyError.suggestion}`
+                                        : ""
+                                    }`
+                                  : record.errorMessage
+                              }
+                            >
+                              <Box>
+                                <Typography
+                                  noWrap
+                                  sx={{ maxWidth: 300, fontWeight: 500 }}
+                                  color="error.main"
+                                >
+                                  {record.userFriendlyError?.title ||
+                                    record.errorMessage}
+                                </Typography>
+                                {record.userFriendlyError && (
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    noWrap
+                                    sx={{ maxWidth: 300, display: "block" }}
+                                  >
+                                    {record.userFriendlyError.description}
+                                  </Typography>
+                                )}
+                              </Box>
                             </Tooltip>
                           </TableCell>
                           <TableCell>
@@ -546,9 +607,40 @@ const FailedRecords: React.FC = () => {
           {selectedRecord && (
             <Box>
               <Alert severity="error" sx={{ mb: 2 }}>
-                <strong>Hata:</strong> {selectedRecord.errorMessage}
-                {selectedRecord.errorCode &&
-                  ` (Kod: ${selectedRecord.errorCode})`}
+                {selectedRecord.userFriendlyError ? (
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      {selectedRecord.userFriendlyError.title}
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      {selectedRecord.userFriendlyError.description}
+                    </Typography>
+                    {selectedRecord.userFriendlyError.suggestion && (
+                      <Typography
+                        variant="body2"
+                        color="info.main"
+                        sx={{ mt: 1 }}
+                      >
+                        💡 <strong>Öneri:</strong>{" "}
+                        {selectedRecord.userFriendlyError.suggestion}
+                      </Typography>
+                    )}
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ mt: 1, display: "block" }}
+                    >
+                      Teknik Detay:{" "}
+                      {selectedRecord.userFriendlyError.technicalDetails}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <>
+                    <strong>Hata:</strong> {selectedRecord.errorMessage}
+                    {selectedRecord.errorCode &&
+                      ` (Kod: ${selectedRecord.errorCode})`}
+                  </>
+                )}
               </Alert>
 
               {parsedData ? (
@@ -571,7 +663,6 @@ const FailedRecords: React.FC = () => {
                             let finalValue: any = rawValue;
 
                             if (isNumber) {
-                              
                               if (rawValue === "" || rawValue === "-") {
                                 finalValue = rawValue;
                               } else {
@@ -583,7 +674,6 @@ const FailedRecords: React.FC = () => {
                             setParsedData({ ...parsedData, [key]: finalValue });
                           }}
                           onBlur={() => {
-                            
                             if (
                               isNumber &&
                               (parsedData[key] === "" ||

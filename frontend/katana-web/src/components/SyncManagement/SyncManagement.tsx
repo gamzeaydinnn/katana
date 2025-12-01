@@ -512,38 +512,42 @@ const SyncManagement: React.FC = () => {
       )}
 
       {}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
-        <DialogTitle>Senkronizasyon Başlat</DialogTitle>
-        <DialogContent sx={{ minWidth: { xs: "auto", sm: 400 }, pt: 2 }}>
-          <FormControl fullWidth>
+      <Dialog
+        open={openDialog}
+        onClose={() => setOpenDialog(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle sx={{ pb: 1.5 }}>Senkronizasyon Başlat</DialogTitle>
+        <DialogContent sx={{ minWidth: { xs: "auto", sm: 400 }, pt: 2.5 }}>
+          <FormControl fullWidth margin="dense" sx={{ mt: 1 }}>
             <InputLabel>Senkronizasyon Tipi</InputLabel>
             <Select
-            value={syncType}
-            label="Senkronizasyon Tipi"
-            onChange={(e) => setSyncType(e.target.value)}
-          >
-            {}
-            <MenuItem value="STOCK">Stok</MenuItem>
-            <MenuItem value="INVOICE">Fatura</MenuItem>
-            <MenuItem value="CUSTOMER">Müşteri</MenuItem>
-            <MenuItem value="DESPATCH">İrsaliye</MenuItem>
-            <MenuItem value="ALL">Tümü</MenuItem>
+              value={syncType}
+              label="Senkronizasyon Tipi"
+              onChange={(e) => setSyncType(e.target.value)}
+            >
+              {/* Katana senkronizasyon tipleri */}
+              <MenuItem value="STOCK">Stok</MenuItem>
+              <MenuItem value="INVOICE">Fatura</MenuItem>
+              <MenuItem value="CUSTOMER">Müşteri</MenuItem>
+              <MenuItem value="DESPATCH">İrsaliye</MenuItem>
+              <MenuItem value="ALL">Tümü</MenuItem>
 
-            {}
-            <MenuItem value="SUPPLIER">Tedarikçi (Luca)</MenuItem>
-            <MenuItem value="STOCK_CARD">Stok Kartları (Luca)</MenuItem>
-            <MenuItem value="CUSTOMER_TRANSACTION">Cari Hareketler (Luca)</MenuItem>
-            <MenuItem value="CREDIT_CARD">Kredi Kartı Girişi (Luca)</MenuItem>
-            <MenuItem value="SALES_ORDER">Satış Siparişi (Luca)</MenuItem>
-            <MenuItem value="PURCHASE_ORDER">Satınalma Siparişi (Luca)</MenuItem>
-            <MenuItem value="WAREHOUSE_TRANSFER">Depo Transferi (Luca)</MenuItem>
-            <MenuItem value="WAREHOUSE">Depo Kartı (Luca)</MenuItem>
-            <MenuItem value="BANK">Banka Kartları (Luca)</MenuItem>
-          </Select>
+              {/* Aktif kullanılan Luca senkronizasyonu */}
+              <MenuItem value="STOCK_CARD">Stok Kartları (Luca)</MenuItem>
+            </Select>
           </FormControl>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>İptal</Button>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button
+            variant="outlined"
+            color="inherit"
+            onClick={() => setOpenDialog(false)}
+            sx={{ fontWeight: 600 }}
+          >
+            İptal
+          </Button>
           <Button
             variant="contained"
             onClick={handleStartSync}

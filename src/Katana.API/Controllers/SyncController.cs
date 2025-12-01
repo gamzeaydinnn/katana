@@ -263,8 +263,6 @@ public class SyncController : ControllerBase
         try
         {
             options ??= new SyncOptionsDto();
-            // Test için default limit=5 (production'da kaldırılabilir)
-            options.Limit ??= 5;
             
             _logger.LogInformation(
                 "API üzerinden Katana → Luca ürün senkronizasyonu tetiklendi. Limit={Limit}, DryRun={DryRun}, ForceSendDuplicates={ForceSendDuplicates}",

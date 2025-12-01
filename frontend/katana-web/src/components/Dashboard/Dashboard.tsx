@@ -301,7 +301,8 @@ const Dashboard: React.FC = () => {
                 key="low"
                 sx={{ borderRadius: 3, fontWeight: 600 }}
               >
-                Düşük Stok: {formatNumber(stats?.lowStock)} ürün kritik seviyede.
+                Düşük Stok: {formatNumber(stats?.lowStock)} ürün kritik
+                seviyede.
               </Alert>
             ),
             stats?.pendingSync > 0 && (
@@ -310,8 +311,8 @@ const Dashboard: React.FC = () => {
                 key="sync"
                 sx={{ borderRadius: 3, fontWeight: 600 }}
               >
-                Bekleyen Senkronizasyon:{" "}
-                {formatNumber(stats?.pendingSync)} kayıt sırada.
+                Bekleyen Senkronizasyon: {formatNumber(stats?.pendingSync)}{" "}
+                kayıt sırada.
               </Alert>
             ),
           ].filter(Boolean)}
@@ -341,23 +342,23 @@ const Dashboard: React.FC = () => {
           {
             key: "activeProducts",
             title: "Aktif Ürün",
-            value: formatNumber(
-              stats?.activeProducts ?? stats?.activeCount ?? stats?.totalStock
-            ),
+            value: formatNumber(stats?.activeProducts ?? stats?.totalProducts),
             icon: <TrendingUp />,
             color: theme.palette.success.main,
           },
           {
             key: "lowStock",
             title: "Düşük Stok",
-            value: formatNumber(stats?.lowStock ?? stats?.criticalStock),
+            value: formatNumber(stats?.lowStock ?? stats?.criticalStock ?? 0),
             icon: <Warning />,
             color: theme.palette.warning.main,
           },
           {
             key: "out",
             title: "Stokta Yok",
-            value: formatNumber(stats?.outOfStock ?? stats?.outOfStockCount),
+            value: formatNumber(
+              stats?.outOfStock ?? stats?.outOfStockCount ?? 0
+            ),
             icon: <Warning />,
             color: theme.palette.error.main,
           },
@@ -365,7 +366,7 @@ const Dashboard: React.FC = () => {
             key: "value",
             title: "Toplam Değer",
             value: `₺ ${formatNumber(
-              stats?.totalValue ?? stats?.totalStockValue,
+              stats?.totalValue ?? stats?.totalStockValue ?? 0,
               { maximumFractionDigits: 0 }
             )}`,
             icon: <TrendingUp />,

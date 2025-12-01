@@ -2,6 +2,9 @@ using Katana.Business.Interfaces;
 using Katana.Core.Interfaces;
 using Katana.Data.Context;
 using Katana.Data.Models;
+using Katana.Core.Entities;
+using Microsoft.AspNetCore.SignalR;
+using Katana.API.Hubs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -162,6 +165,48 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
             {
                 _logger.LogInformation("Synced {OrderCount} new orders with {ItemCount} items from Katana",
                     newOrdersCount, newItemsCount);
+
+                // Yeni sipariş bildirimi oluştur
+                try
+                {
+                    var hubContext = scope.ServiceProvider.GetService<IHubContext<NotificationHub>>();
+                    
+                    var notification = new Notification
+                    {
+                        Type = "NewSalesOrder",
+                        Title = $"🛒 {newOrdersCount} Yeni Sipariş Geldi!",
+                        Payload = System.Text.Json.JsonSerializer.Serialize(new { 
+                            orderCount = newOrdersCount, 
+                            itemCount = newItemsCount,
+                            message = $"Katana'dan {newOrdersCount} yeni sipariş ({newItemsCount} ürün) alındı."
+                        }),
+                        Link = "/admin",
+                        CreatedAt = DateTime.UtcNow,
+                        IsRead = false
+                    };
+                    context.Notifications.Add(notification);
+                    await context.SaveChangesAsync(cancellationToken);
+
+                    // SignalR ile gerçek zamanlı bildirim gönder
+                    if (hubContext != null)
+                    {
+                        await hubContext.Clients.All.SendAsync("NewSalesOrder", new
+                        {
+                            id = notification.Id,
+                            title = notification.Title,
+                            type = notification.Type,
+                            orderCount = newOrdersCount,
+                            itemCount = newItemsCount,
+                            createdAt = notification.CreatedAt
+                        }, cancellationToken);
+                    }
+
+                    _logger.LogInformation("Created notification for {OrderCount} new orders", newOrdersCount);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to create notification for new orders");
+                }
             }
             else
             {

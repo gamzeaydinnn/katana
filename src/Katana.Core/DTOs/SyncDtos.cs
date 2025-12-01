@@ -46,7 +46,7 @@ public class SyncOptionsDto
 {
     public bool DryRun { get; set; }
     public bool PreferBarcodeMatch { get; set; } = true;
-    public bool ForceSendDuplicates { get; set; }
+    public bool ForceSendDuplicates { get; set; } = true;
     public int? Limit { get; set; }
 }
 

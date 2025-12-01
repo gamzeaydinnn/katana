@@ -293,13 +293,6 @@ const LucaProducts: React.FC = () => {
               <InventoryIcon color="secondary" />
               <Typography variant="h5">Luca Ürünleri</Typography>
             </Stack>
-            <Tooltip title="Yenile">
-              <span>
-                <IconButton onClick={fetchProducts} disabled={loading}>
-                  <RefreshIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
             <Tooltip title="Koza ile Senkronize Et">
               <span>
                 <Button

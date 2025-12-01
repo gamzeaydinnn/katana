@@ -41,7 +41,6 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import DataCorrectionPanel from "../Admin/DataCorrectionPanel";
 import FailedRecords from "../Admin/FailedRecords";
@@ -78,7 +77,6 @@ interface AdminSyncLog {
 }
 
 const AdminPanel: React.FC = () => {
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [syncLogs, setSyncLogs] = useState<AdminSyncLog[]>([]);
@@ -327,9 +325,26 @@ const AdminPanel: React.FC = () => {
           sx={{ flexShrink: 0, width: { xs: "100%", md: "auto" } }}
         >
           <IconButton
-            onClick={() => navigate("/admin/logs")}
+            onClick={() => setActiveTab(9)}
             color="primary"
-            title="System Logs"
+            title="Logları Aç"
+            sx={{
+              bgcolor: (theme) =>
+                theme.palette.mode === "dark"
+                  ? "rgba(129, 140, 248, 0.16)"
+                  : "rgba(129, 140, 248, 0.14)",
+              color: (theme) => theme.palette.primary.main,
+              boxShadow: (theme) =>
+                theme.palette.mode === "dark"
+                  ? "0 0 0 1px rgba(129,140,248,0.4)"
+                  : "0 0 0 1px rgba(129,140,248,0.3)",
+              "&:hover": {
+                bgcolor: (theme) =>
+                  theme.palette.mode === "dark"
+                    ? "rgba(129, 140, 248, 0.28)"
+                    : "rgba(129, 140, 248, 0.24)",
+              },
+            }}
           >
             <LogsIcon />
           </IconButton>
@@ -344,11 +359,30 @@ const AdminPanel: React.FC = () => {
           )}
           <IconButton
             onClick={loadData}
+            title="Admin verilerini yenile"
             sx={{
               ml: "auto",
-              color: "#fff",
+              bgcolor: (theme) =>
+                theme.palette.mode === "dark"
+                  ? "rgba(15, 23, 42, 0.9)"
+                  : "#ffffff",
+              color: (theme) =>
+                theme.palette.mode === "dark"
+                  ? theme.palette.primary.light
+                  : theme.palette.primary.main,
+              boxShadow: (theme) =>
+                theme.palette.mode === "dark"
+                  ? "0 0 0 1px rgba(148,163,184,0.5)"
+                  : "0 0 0 1px rgba(148,163,184,0.4)",
               "&:hover": {
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
+                bgcolor: (theme) =>
+                  theme.palette.mode === "dark"
+                    ? "rgba(15, 23, 42, 1)"
+                    : "rgba(248, 250, 252, 1)",
+                boxShadow: (theme) =>
+                  theme.palette.mode === "dark"
+                    ? "0 0 0 1px rgba(165,180,252,0.9)"
+                    : "0 0 0 1px rgba(129,140,248,0.8)",
               },
             }}
           >

@@ -32,7 +32,10 @@ const AnimatedHeader = styled(Box)(({ theme }) => ({
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  background: "#ffffff",
+  background:
+    theme.palette.mode === "dark"
+      ? "linear-gradient(135deg, #020617 0%, #020617 100%)"
+      : "#ffffff",
   borderBottom: `1px solid ${theme.palette.divider}`,
 }));
 
@@ -176,9 +179,18 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         "& .MuiDrawer-paper": {
           width: drawerWidth,
           boxSizing: "border-box",
-          background: "#ffffff",
-          borderRight: `1px solid ${theme.palette.divider}`,
-          boxShadow: "0 0 40px rgba(0,0,0,0.08)",
+          background:
+            theme.palette.mode === "dark"
+              ? "radial-gradient(140% 140% at 0% 0%, #0f172a 0%, #020617 55%, #020617 100%)"
+              : "#ffffff",
+          borderRight:
+            theme.palette.mode === "dark"
+              ? "1px solid rgba(15,23,42,0.85)"
+              : `1px solid ${theme.palette.divider}`,
+          boxShadow:
+            theme.palette.mode === "dark"
+              ? "0 0 40px rgba(15,23,42,0.75)"
+              : "0 0 40px rgba(0,0,0,0.08)",
           transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
         },
       }}
