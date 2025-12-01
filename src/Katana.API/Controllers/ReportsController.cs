@@ -164,13 +164,24 @@ public class ReportsController : ControllerBase
     public async Task<ActionResult<object>> GetFailedRecords(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
-        [FromQuery] string? recordType = null)
+        [FromQuery] string? recordType = null,
+        [FromQuery] string? status = null)
     {
         try
         {
             var query = _context.FailedSyncRecords
                 .Include(f => f.IntegrationLog)
-                .Where(f => f.Status == "FAILED");
+                .AsQueryable();
+
+            // Status filtresi
+            if (!string.IsNullOrEmpty(status))
+            {
+                query = query.Where(f => f.Status == status.ToUpper());
+            }
+            else
+            {
+                query = query.Where(f => f.Status == "FAILED");
+            }
 
             if (!string.IsNullOrEmpty(recordType))
             {
@@ -188,17 +199,21 @@ public class ReportsController : ControllerBase
                     f.RecordType,
                     f.RecordId,
                     f.ErrorMessage,
+                    // Kullanıcı dostu hata mesajı
+                    UserFriendlyError = Katana.Core.Helpers.UserFriendlyMessages.TranslateError(f.ErrorMessage, f.ErrorCode),
                     f.ErrorCode,
                     f.FailedAt,
                     f.RetryCount,
                     f.LastRetryAt,
                     f.NextRetryAt,
                     f.Status,
-                    IntegrationLog = new
+                    SourceSystem = f.IntegrationLog != null ? 
+                        (f.IntegrationLog.SyncType.Contains("Katana") ? "KATANA" : "LUCA") : "SYSTEM",
+                    IntegrationLog = f.IntegrationLog != null ? new
                     {
                         f.IntegrationLog.SyncType,
                         f.IntegrationLog.StartTime
-                    }
+                    } : null
                 })
                 .ToListAsync();
 
@@ -214,7 +229,7 @@ public class ReportsController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving failed records");
-            return StatusCode(500, new { error = "Internal server error retrieving failed records" });
+            return StatusCode(500, new { error = "Hatalı kayıtlar yüklenirken bir sorun oluştu" });
         }
     }
 
@@ -451,17 +466,39 @@ public class ReportsController : ControllerBase
         {
             _logger.LogInformation("Dashboard istatistikleri getiriliyor");
 
-            var products = await _katanaService.GetProductsAsync();
+            // Lokal veritabanından gerçek verileri al
+            var dbProducts = await _context.Products.ToListAsync();
+            var totalProducts = dbProducts.Count;
+            var activeProducts = dbProducts.Count(p => p.IsActive);
+            var inStock = dbProducts.Count(p => p.Stock > 0);
+            var outOfStock = dbProducts.Count(p => p.Stock == 0);
+            var lowStock = dbProducts.Count(p => p.Stock > 0 && p.Stock <= 10);
+            var totalValue = dbProducts.Sum(p => p.Stock * p.Price);
+
+            // Son sync bilgisi
+            var lastSync = await _context.IntegrationLogs
+                .OrderByDescending(l => l.EndTime ?? l.StartTime)
+                .FirstOrDefaultAsync();
+
+            var pendingSync = await _context.PendingStockAdjustments
+                .CountAsync(p => p.Status == "Pending");
 
             var stats = new
             {
-                totalProducts = products.Count,
-                totalStock = products.Count(p => p.IsActive),
-                pendingSync = 0,
-                criticalStock = products.Count(p => !p.IsActive)
+                totalProducts,
+                activeProducts,
+                inStock,
+                outOfStock,
+                lowStock,
+                totalValue,
+                totalStock = activeProducts,
+                pendingSync,
+                criticalStock = lowStock,
+                lastSyncDate = lastSync?.EndTime ?? lastSync?.StartTime
             };
 
-            _logger.LogInformation("Dashboard istatistikleri başarıyla alındı");
+            _logger.LogInformation("Dashboard istatistikleri başarıyla alındı: Total={Total}, Active={Active}, InStock={InStock}, OutOfStock={OutOfStock}", 
+                totalProducts, activeProducts, inStock, outOfStock);
             return Ok(stats);
         }
         catch (Exception ex)

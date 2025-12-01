@@ -130,7 +130,14 @@ const App: React.FC = () => {
             inset: 0,
             zIndex: 0,
             pointerEvents: "none",
-            background: (t) => `
+            background: (t) =>
+              t.palette.mode === "dark"
+                ? `
+              radial-gradient(900px 600px at 0% 0%, rgba(148,163,184,0.20), transparent),
+              radial-gradient(900px 600px at 100% 100%, rgba(56,189,248,0.18), transparent),
+              linear-gradient(180deg, #020617 0%, #020617 100%)
+            `
+                : `
               radial-gradient(800px 400px at 10% -10%, ${
                 t.palette.primary.main
               }26, transparent),
@@ -140,9 +147,7 @@ const App: React.FC = () => {
               radial-gradient(600px 300px at 50% 100%, ${
                 t.palette.success.main
               }1f, transparent),
-              linear-gradient(180deg, ${t.palette.background.default} 0%, ${
-              t.palette.mode === "dark" ? "#0b1020" : "#ecf2f7"
-            } 100%)
+              linear-gradient(180deg, ${t.palette.background.default} 0%, #ecf2f7 100%)
             `,
           }}
         />

@@ -63,8 +63,9 @@ describe("SyncManagement Component", () => {
 
     
     await waitFor(() => {
-      const dialogTitles = screen.getAllByText(/senkronizasyon tipi/i);
-      expect(dialogTitles.length).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText(/senkronizasyon tipi/i).length
+      ).toBeGreaterThan(0);
     });
   });
 
@@ -90,13 +91,11 @@ describe("SyncManagement Component", () => {
       ).toBeGreaterThan(0);
     });
 
-    
     const typeSelect = screen.getByRole("combobox");
     fireEvent.mouseDown(typeSelect);
 
-    
-    const stockOptions = await screen.findAllByText(/stok senkronizasyonu/i);
-    fireEvent.click(stockOptions[stockOptions.length - 1]); 
+    const stockOption = await screen.findByText(/^Stok$/i);
+    fireEvent.click(stockOption);
 
     
     const buttons = screen.getAllByRole("button");

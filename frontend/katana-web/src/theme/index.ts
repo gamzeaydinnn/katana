@@ -10,12 +10,12 @@ export const createAppTheme = (mode: ColorMode) => {
     palette: {
       mode,
       primary: {
-        main: isDark ? "#6366f1" : "#4f46e5", 
+        main: isDark ? "#6366f1" : "#4f46e5",
         light: isDark ? "#818cf8" : "#6366f1",
         dark: isDark ? "#4f46e5" : "#3730a3",
       },
       secondary: {
-        main: isDark ? "#06b6d4" : "#0891b2", 
+        main: isDark ? "#06b6d4" : "#0891b2",
         light: isDark ? "#22d3ee" : "#06b6d4",
         dark: isDark ? "#0891b2" : "#0e7490",
       },
@@ -23,10 +23,8 @@ export const createAppTheme = (mode: ColorMode) => {
       warning: { main: "#f59e0b" },
       error: { main: "#ef4444" },
       background: {
-        default: isDark ? "#0f172a" : "#f1f5f9", 
-        paper: isDark
-          ? alpha("#1e293b", 0.8)
-          : alpha("#ffffff", 0.9),
+        default: isDark ? "#020617" : "#f1f5f9",
+        paper: isDark ? alpha("#020617", 0.96) : alpha("#ffffff", 0.95),
       },
       text: {
         primary: isDark ? "#f1f5f9" : "#0f172a",
@@ -51,7 +49,7 @@ export const createAppTheme = (mode: ColorMode) => {
       MuiCssBaseline: {
         styleOverrides: {
           body: {
-            background: "transparent",
+            backgroundColor: isDark ? "#020617" : "#f1f5f9",
             transition: "background 0.3s ease",
           },
           "::selection": {

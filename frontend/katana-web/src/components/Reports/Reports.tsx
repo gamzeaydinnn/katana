@@ -68,6 +68,7 @@ interface StockReportResponse {
 
 const Reports: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [excelLoading, setExcelLoading] = useState(false);
   const [error, setError] = useState("");
   const [stockReport, setStockReport] = useState<StockReportResponse | null>(
     null
@@ -78,7 +79,6 @@ const Reports: React.FC = () => {
 
   useEffect(() => {
     loadStockReport();
-    
   }, []);
 
   const loadStockReport = async () => {
@@ -106,37 +106,62 @@ const Reports: React.FC = () => {
     }
   };
 
-  const downloadExcel = () => {
-    if (!stockReport?.stockData.length) return;
+  const downloadExcel = async () => {
+    try {
+      setExcelLoading(true);
+      // Tüm ürünleri çekmek için büyük pageSize kullan
+      const params = new URLSearchParams({
+        page: "1",
+        pageSize: "10000",
+        ...(search && { search }),
+        ...(lowStockOnly && { lowStockOnly: "true" }),
+      });
+      const response = (await stockAPI.getStockReport(
+        params.toString()
+      )) as StockReportResponse;
 
-    const worksheet = XLSX.utils.json_to_sheet(
-      stockReport.stockData.map((item) => ({
-        "Ürün Adı": item.name,
-        SKU: item.sku,
-        Stok: item.quantity,
-        Fiyat: item.price.toFixed(2),
-        Değer: item.stockValue.toFixed(2),
-        Durum: item.isOutOfStock
-          ? "Tükendi"
-          : item.isLowStock
-          ? "Düşük Stok"
-          : "Normal",
-        Güncelleme: new Date(item.lastUpdated).toLocaleDateString("tr-TR"),
-      }))
-    );
+      if (!response?.stockData?.length) {
+        setError("İndirilecek veri bulunamadı");
+        return;
+      }
 
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Stok Raporu");
-    XLSX.writeFile(
-      workbook,
-      `stok_raporu_${new Date().toISOString().split("T")[0]}.xlsx`
-    );
+      const worksheet = XLSX.utils.json_to_sheet(
+        response.stockData.map((item) => ({
+          "Ürün Adı": item.name,
+          SKU: item.sku,
+          Stok: item.quantity,
+          Fiyat: item.price.toFixed(2),
+          Değer: item.stockValue.toFixed(2),
+          Durum: item.isOutOfStock
+            ? "Tükendi"
+            : item.isLowStock
+            ? "Düşük Stok"
+            : "Normal",
+          Güncelleme: new Date(item.lastUpdated).toLocaleDateString("tr-TR"),
+        }))
+      );
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Stok Raporu");
+      XLSX.writeFile(
+        workbook,
+        `stok_raporu_${new Date().toISOString().split("T")[0]}.xlsx`
+      );
+    } catch (err: any) {
+      setError("Excel indirme hatası: " + (err?.message || "Bilinmeyen hata"));
+    } finally {
+      setExcelLoading(false);
+    }
   };
 
   return (
     <Container
       maxWidth="lg"
-      sx={{ mt: { xs: 5.5, md: 4 }, mb: { xs: 2.5, md: 4 }, px: { xs: 1.5, sm: 2, md: 0 } }}
+      sx={{
+        mt: { xs: 5.5, md: 4 },
+        mb: { xs: 2.5, md: 4 },
+        px: { xs: 1.5, sm: 2, md: 0 },
+      }}
     >
       <Box
         sx={{
@@ -201,12 +226,22 @@ const Reports: React.FC = () => {
               />
               <Button
                 variant="contained"
-                startIcon={<FileDownload />}
+                startIcon={
+                  excelLoading ? (
+                    <CircularProgress size={20} color="inherit" />
+                  ) : (
+                    <FileDownload />
+                  )
+                }
                 onClick={downloadExcel}
-                disabled={!stockReport || stockReport.stockData.length === 0}
+                disabled={
+                  excelLoading ||
+                  !stockReport ||
+                  stockReport.stockData.length === 0
+                }
                 sx={{ minWidth: 150, width: { xs: "100%", sm: "auto" } }}
               >
-                Excel İndir
+                {excelLoading ? "İndiriliyor..." : "Excel İndir"}
               </Button>
             </Box>
           </Box>
@@ -326,11 +361,18 @@ const Reports: React.FC = () => {
               <Button
                 variant="outlined"
                 size="small"
-                startIcon={<FileDownload />}
+                startIcon={
+                  excelLoading ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <FileDownload />
+                  )
+                }
                 onClick={downloadExcel}
+                disabled={excelLoading}
                 sx={{ width: { xs: "100%", sm: "auto" } }}
               >
-                Excel İndir
+                {excelLoading ? "İndiriliyor..." : "Excel İndir"}
               </Button>
             </Box>
             {isMobile ? (
@@ -447,9 +489,9 @@ const Reports: React.FC = () => {
                               Güncelleme
                             </Typography>
                             <Typography fontWeight={600}>
-                              {new Date(
-                                item.lastUpdated
-                              ).toLocaleDateString("tr-TR")}
+                              {new Date(item.lastUpdated).toLocaleDateString(
+                                "tr-TR"
+                              )}
                             </Typography>
                           </Box>
                         </Box>
