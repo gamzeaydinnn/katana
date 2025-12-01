@@ -2879,6 +2879,8 @@ retryChangeBranch:
         var startTime = DateTime.UtcNow;
         var successCount = 0;
         var failedCount = 0;
+        var duplicateCount = 0;
+        var sentCount = 0;
         try
         {
             await EnsureAuthenticatedAsync();
@@ -2942,6 +2944,7 @@ retryChangeBranch:
 
                     try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_REQUEST:{card.KartKodu}", httpRequest, null); } catch (Exception) { }
 
+                    sentCount++;
                     var response = await client.SendAsync(httpRequest);
                     var responseBytes = await response.Content.ReadAsByteArrayAsync();
                     string responseContent;
@@ -2973,6 +2976,7 @@ retryChangeBranch:
                             }
                         };
                         ApplyManualSessionCookie(retryReq);
+                        sentCount++;
                         response = await (_cookieHttpClient ?? client).SendAsync(retryReq);
                         responseBytes = await response.Content.ReadAsByteArrayAsync();
                         try { responseContent = enc1254.GetString(responseBytes); } catch { responseContent = Encoding.UTF8.GetString(responseBytes); }
@@ -2994,6 +2998,7 @@ retryChangeBranch:
                             utf8Content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
                             using var utf8Req = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = utf8Content };
                             ApplyManualSessionCookie(utf8Req);
+                            sentCount++;
                             var utf8Resp = await (_cookieHttpClient ?? client).SendAsync(utf8Req);
                             var utf8BytesResp = await utf8Resp.Content.ReadAsByteArrayAsync();
                             string utf8RespContent;
@@ -3046,6 +3051,7 @@ retryChangeBranch:
                                 var form = new FormUrlEncodedContent(formPairs);
                                 using var formReq = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = form };
                                 ApplyManualSessionCookie(formReq);
+                                sentCount++;
                                 var formResp = await (_cookieHttpClient ?? client).SendAsync(formReq);
                                 var formRespBody = await ReadResponseContentAsync(formResp);
                                 await AppendRawLogAsync($"SEND_STOCK_CARD_FORM_RETRY:{card.KartKodu}", fullUrl, payload, formResp.StatusCode, formRespBody);
@@ -3111,7 +3117,7 @@ retryChangeBranch:
                             if (isDuplicate)
                             {
                                 _logger.LogWarning("Stock card {Card} already exists in Luca (skipped): {Message}", card.KartKodu, msg);
-                                successCount++; // Count as success (already exists)
+                                duplicateCount++;
                                 continue;
                             }
 
@@ -3185,6 +3191,8 @@ retryChangeBranch:
         }
         result.SuccessfulRecords = successCount;
         result.FailedRecords = failedCount;
+        result.DuplicateRecords = duplicateCount;
+        result.SentRecords = sentCount;
         result.IsSuccess = successCount > 0 && failedCount == 0;
         result.Message = $"{successCount} success, {failedCount} failed";
         result.Duration = DateTime.UtcNow - startTime;

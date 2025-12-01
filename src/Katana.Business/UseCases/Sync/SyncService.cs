@@ -205,22 +205,32 @@ public class SyncService : ISyncService
         }
 
         stopwatch.Stop();
+        var isDryRun = options.DryRun;
+        var lucaSuccess = isDryRun ? 0 : sendResult.SuccessfulRecords;
+        var lucaFailed = isDryRun ? 0 : sendResult.FailedRecords;
+        var lucaDuplicates = isDryRun ? 0 : sendResult.DuplicateRecords;
+        var lucaSent = isDryRun ? 0 : sendResult.SentRecords;
+        var detailFailures = isDryRun ? 0 : details.Count;
+        var combinedErrors = details.Concat(isDryRun ? Array.Empty<string>() : sendResult.Errors ?? new List<string>()).ToList();
         var response = new SyncResultDto
         {
             SyncType = "PRODUCT_STOCK_CARD",
             SyncTime = DateTime.UtcNow,
             Duration = stopwatch.Elapsed,
             ProcessedRecords = katanaProducts.Count,
-            SuccessfulRecords = options.DryRun ? 0 : sendResult.SuccessfulRecords,
-            FailedRecords = (options.DryRun ? 0 : sendResult.FailedRecords) + details.Count,
+            SuccessfulRecords = lucaSuccess,
+            FailedRecords = lucaFailed + detailFailures,
+            DuplicateRecords = lucaDuplicates,
+            SentRecords = lucaSent,
+            IsDryRun = isDryRun,
             TotalChecked = katanaProducts.Count,
             AlreadyExists = alreadyExists,
-            NewCreated = options.DryRun ? payload.Count : sendResult.SuccessfulRecords,
-            Failed = (options.DryRun ? 0 : sendResult.FailedRecords) + details.Count,
-            Details = details.Concat(options.DryRun ? Array.Empty<string>() : sendResult.Errors ?? new List<string>()).ToList(),
-            Errors = details.Concat(options.DryRun ? Array.Empty<string>() : sendResult.Errors ?? new List<string>()).ToList(),
-            IsSuccess = details.Count == 0 && (options.DryRun || sendResult.IsSuccess),
-            Message = options.DryRun
+            NewCreated = isDryRun ? payload.Count : lucaSuccess,
+            Failed = lucaFailed + detailFailures,
+            Details = combinedErrors,
+            Errors = combinedErrors,
+            IsSuccess = details.Count == 0 && (isDryRun || sendResult.IsSuccess),
+            Message = isDryRun
                 ? $"Dry-run tamamlandı. Gönderilecek kart sayısı: {payload.Count}"
                 : sendResult.Message
         };

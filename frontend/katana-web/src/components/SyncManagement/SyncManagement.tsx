@@ -1,35 +1,36 @@
 import {
-  CheckCircle,
-  Error,
-  History,
-  PlayArrow,
-  Refresh,
-  Sync,
+    CheckCircle,
+    Error,
+    History,
+    PlayArrow,
+    Refresh,
+    Sync,
 } from "@mui/icons-material";
 import {
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography,
-  useMediaQuery,
-  Stack
+    Alert,
+    Box,
+    Button,
+    Chip,
+    CircularProgress,
+    Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    FormControl,
+    InputLabel,
+    MenuItem,
+    Paper,
+    Select,
+    Stack,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Typography,
+    useMediaQuery
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { showGlobalToast } from "../../providers/FeedbackProvider";
@@ -492,11 +493,18 @@ const SyncManagement: React.FC = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             {syncResult?.message || (syncStatus === "syncing" ? "Senkronizasyon devam ediyor..." : "Sonuç yok")}
           </Typography>
+          {syncResult?.isDryRun && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <strong>DRY RUN – gerçek gönderim yapılmadı</strong>
+            </Alert>
+          )}
           {syncResult && (
             <Stack direction="row" spacing={2} flexWrap="wrap">
               <Chip label={`Toplam: ${syncResult.totalChecked ?? syncResult.processedRecords ?? "-"}`} />
-              <Chip color="success" label={`Yeni: ${syncResult.newCreated ?? 0}`} />
-              <Chip label={`Mevcut: ${syncResult.alreadyExists ?? 0}`} />
+              <Chip color="success" label={`Yeni Oluşturulan: ${syncResult.newCreated ?? syncResult.successfulRecords ?? 0}`} />
+              <Chip color="info" label={`Zaten vardı: ${syncResult.duplicateRecords ?? 0}`} />
+              <Chip label={`Gönderilen: ${syncResult.sentRecords ?? 0}`} />
+              <Chip label={`Atlandı: ${syncResult.alreadyExists ?? 0}`} />
               <Chip color="error" label={`Hata: ${syncResult.failed ?? syncResult.failedRecords ?? 0}`} />
             </Stack>
           )}

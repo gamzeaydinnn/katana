@@ -256,12 +256,21 @@ public class SyncController : ControllerBase
     
     
     [HttpPost("to-luca/stock-cards")]
-    public async Task<ActionResult<SyncResultDto>> SyncProductsToLuca([FromQuery] DateTime? fromDate = null)
+    public async Task<ActionResult<SyncResultDto>> SyncProductsToLuca(
+        [FromBody] SyncOptionsDto? options = null,
+        [FromQuery] DateTime? fromDate = null)
     {
         try
         {
-            _logger.LogInformation("API üzerinden Katana → Luca ürün (stok kartı) senkronizasyonu tetiklendi");
-            var result = await _syncService.SyncProductsAsync(fromDate);
+            options ??= new SyncOptionsDto();
+            // Test için default limit=5 (production'da kaldırılabilir)
+            options.Limit ??= 5;
+            
+            _logger.LogInformation(
+                "API üzerinden Katana → Luca ürün senkronizasyonu tetiklendi. Limit={Limit}, DryRun={DryRun}, ForceSendDuplicates={ForceSendDuplicates}",
+                options.Limit, options.DryRun, options.ForceSendDuplicates);
+            
+            var result = await _syncService.SyncProductsToLucaAsync(options);
 
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }

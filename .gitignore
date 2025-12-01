@@ -60,3 +60,87 @@ pids
 /obj/
 bin/
 obj/
+
+# ===== SECURITY & TEMP FILES =====
+# Credentials & Cookies
+cookies.txt
+*cookies*.txt
+login.json
+*-headers.txt
+headers.txt
+
+# Conflict files
+conflict_*.cs
+
+# Debug payloads (may contain sensitive data)
+dry_payload*.json
+sync_*.json
+*_response*.json
+
+# Published binaries
+publish/
+
+# Database exports (may contain PII)
+db/*.json
+db/*.csv
+!db/README*.md
+
+# Temp files
+temp_*.txt
+*.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Dev scripts
+start-dev.sh
+
+# ===== KATANA DEPLOY CLEANUP =====
+# Conflict/Backup Files
+conflict_*
+*.bak
+*.orig
+
+# Credentials & Debug Files
+*cookies*.txt
+*headers.txt
+*-body.txt
+login.json
+dry_payload*.json
+sync_*.json
+*_response.json
+*_request.json
+temp_*.txt
+
+# Build Artifacts
+publish/
+dist/
+build/
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Test/Debug Data
+db/*.csv
+db/*.json
+db/luca_responses*
+!db/README*.md
+
+# Docker
+docker-nets.json
+docker-compose.override.yml
+
+# Environment Files
+.env
+.env.local
+.env.*.local
+
+# OS/IDE
+%USERPROFILE%/
+.DS_Store
+.vscode/
+.idea/

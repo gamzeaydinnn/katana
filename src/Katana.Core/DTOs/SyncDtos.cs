@@ -6,6 +6,9 @@ public class SyncResultDto
     public int ProcessedRecords { get; set; }
     public int SuccessfulRecords { get; set; }
     public int FailedRecords { get; set; }
+    public int DuplicateRecords { get; set; }
+    public int SentRecords { get; set; }
+    public bool IsDryRun { get; set; }
     public List<string> Errors { get; set; } = new();
     public DateTime SyncTime { get; set; } = DateTime.UtcNow;
     public string SyncType { get; set; } = string.Empty; 

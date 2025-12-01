@@ -1,9 +1,9 @@
 import axios from "axios";
 import { showGlobalToast } from "../providers/FeedbackProvider";
 import {
-  decodeJwtPayload,
-  isJwtExpired,
-  isJwtTokenExpired,
+    decodeJwtPayload,
+    isJwtExpired,
+    isJwtTokenExpired,
 } from "../utils/jwt";
 
 const getDefaultApiBase = () => {
@@ -273,6 +273,9 @@ export interface SyncResult {
   message?: string;
   errors?: string[];
   details?: string[];
+  duplicateRecords?: number;
+  sentRecords?: number;
+  isDryRun?: boolean;
 }
 
 export const stockAPI = {
