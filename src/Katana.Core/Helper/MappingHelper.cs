@@ -261,6 +261,55 @@ public static class MappingHelper
         };
     }
 
+    /// <summary>
+    /// Maps SalesOrder entity to Luca sales order header request
+    /// </summary>
+    public static LucaCreateOrderHeaderRequest MapToLucaSalesOrderHeader(
+        Entities.SalesOrder order,
+        Customer customer)
+    {
+        var cariKod = !string.IsNullOrWhiteSpace(customer.LucaCode) 
+            ? customer.LucaCode 
+            : GenerateCustomerCode(customer.TaxNo);
+        var belgeTakipNo = string.IsNullOrWhiteSpace(order.OrderNo) ? order.Id.ToString() : order.OrderNo;
+
+        return new LucaCreateOrderHeaderRequest
+        {
+            BelgeSeri = order.BelgeSeri ?? "SAT",
+            BelgeNo = ParseDocumentNo(order.BelgeNo ?? order.OrderNo, order.Id),
+            BelgeTakipNo = belgeTakipNo,
+            BelgeTarihi = order.OrderCreatedDate ?? DateTime.UtcNow,
+            DuzenlemeSaati = order.DuzenlemeSaati ?? DateTime.Now.ToString("HH:mm"),
+            BelgeTurDetayId = order.BelgeTurDetayId ?? 17,
+            TeklifSiparisTur = order.TeklifSiparisTur ?? 1,
+            NakliyeBedeliTuru = order.NakliyeBedeliTuru ?? 0,
+            OnayFlag = order.OnayFlag,
+            ParaBirimKod = string.IsNullOrWhiteSpace(order.Currency) ? "TRY" : order.Currency,
+            KdvFlag = true,
+            TeslimTarihi = order.DeliveryDate,
+            TeslimTarihiFlag = order.DeliveryDate.HasValue,
+            CariKodu = cariKod,
+            CariTanim = customer.Title,
+            CariYasalUnvan = customer.Title,
+            VergiNo = customer.Type == 1 ? customer.TaxNo : null,
+            TcKimlikNo = customer.Type == 2 ? customer.TaxNo : null,
+            VergiDairesi = customer.TaxOffice,
+            CariTip = customer.Type == 1 ? 0 : 1,
+            ReferansNo = order.CustomerRef,
+            BelgeAciklama = order.AdditionalInfo,
+            DetayList = order.Lines.Select(l => new LucaCreateOrderDetailRequest
+            {
+                KartTuru = 1,
+                KartKodu = NormalizeSku(l.SKU),
+                KartAdi = l.ProductName,
+                BirimFiyat = (double)(l.PricePerUnit ?? 0),
+                Miktar = (double)l.Quantity,
+                KdvOran = (double)(l.TaxRate ?? 20),
+                Tutar = (double?)(l.Total)
+            }).ToList()
+        };
+    }
+
     public static LucaCreateOrderHeaderRequest MapToLucaSalesOrderHeader(
         Order order,
         Customer customer,
