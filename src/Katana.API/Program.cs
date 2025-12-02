@@ -35,9 +35,13 @@ var builder = WebApplication.CreateBuilder(args);
 // CORS ayarları - builder.Services.AddControllers()'dan ÖNCE
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", policy =>
+    options.AddPolicy("DevCors", policy =>
     {
-        policy.WithOrigins("http://localhost:3000", "http://localhost:3001")
+        policy.WithOrigins(
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:3001",
+                "http://127.0.0.1:3001")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -306,7 +310,8 @@ app.Use(async (context, next) =>
     }
 });
 // --- end debug middleware ---
-app.UseCors("AllowFrontend");  // ← Bu satırı ekle
+app.UseRouting();
+app.UseCors("DevCors");  // CORS middleware - routing'den sonra, auth'dan önce
 app.UseWebSockets();
 app.Use(async (ctx, next) =>
 {
@@ -322,7 +327,7 @@ app.UseMiddleware<ErrorHandlingMiddleware>();
 
 app.MapControllers();
 app.MapHealthChecks("/health");
-app.MapHub<Katana.API.Hubs.NotificationHub>("/hubs/notifications").RequireCors("AllowFrontend");
+app.MapHub<Katana.API.Hubs.NotificationHub>("/hubs/notifications").RequireCors("DevCors");
 
 if (app.Environment.IsDevelopment())
 {
