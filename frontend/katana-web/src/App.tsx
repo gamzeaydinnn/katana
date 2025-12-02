@@ -15,7 +15,6 @@ import {
 } from "./services/authService";
 import BranchSelector, { Branch } from "./components/Luca/BranchSelector";
 
-
 import Header from "./components/Layout/Header";
 import Sidebar from "./components/Layout/Sidebar";
 import Dashboard from "./components/Dashboard/Dashboard";
@@ -50,7 +49,6 @@ const App: React.FC = () => {
     });
   };
 
-  
   const [branchesToSelect, setBranchesToSelect] = useState<Branch[] | null>(
     null
   );
@@ -138,15 +136,9 @@ const App: React.FC = () => {
               linear-gradient(180deg, #020617 0%, #020617 100%)
             `
                 : `
-              radial-gradient(800px 400px at 10% -10%, ${
-                t.palette.primary.main
-              }26, transparent),
-              radial-gradient(600px 300px at 90% 0%, ${
-                t.palette.secondary.main
-              }22, transparent),
-              radial-gradient(600px 300px at 50% 100%, ${
-                t.palette.success.main
-              }1f, transparent),
+              radial-gradient(800px 400px at 10% -10%, ${t.palette.primary.main}26, transparent),
+              radial-gradient(600px 300px at 90% 0%, ${t.palette.secondary.main}22, transparent),
+              radial-gradient(600px 300px at 50% 100%, ${t.palette.success.main}1f, transparent),
               linear-gradient(180deg, ${t.palette.background.default} 0%, #ecf2f7 100%)
             `,
           }}
@@ -155,82 +147,84 @@ const App: React.FC = () => {
         <FeedbackProvider>
           <BrowserRouter>
             <Routes>
-              {}
+              {/* Public route - Login */}
               <Route path="/login" element={<Login />} />
+              <Route path="/unauthorized" element={<Unauthorized />} />
 
-              {}
+              {/* Protected routes - Require authentication */}
               <Route
                 path="/*"
                 element={
-                  <Box
-                    sx={{
-                      display: "flex",
-                      minHeight: "100vh",
-                      position: "relative",
-                      zIndex: 1,
-                    }}
-                  >
-                    <Header
-                      onMenuClick={() => setSidebarOpen(!sidebarOpen)}
-                      sidebarOpen={sidebarOpen}
-                      currentBranchName={currentBranchName}
-                      onOpenBranchSelector={openBranchSelector}
-                      mode={mode}
-                      onToggleMode={toggleMode}
-                    />
-                    <Sidebar
-                      open={sidebarOpen}
-                      onClose={() => setSidebarOpen(false)}
-                    />
-
-                    {}
+                  <ProtectedRoute>
                     <Box
-                      component="main"
                       sx={{
-                        flexGrow: 1,
-                        bgcolor: "transparent",
-                        p: { xs: 2, sm: 3, md: 4 },
-                        transition: "all 0.3s ease",
-                        minHeight: "100vh",
                         display: "flex",
-                        flexDirection: "column",
-                        alignItems: "flex-start",
+                        minHeight: "100vh",
+                        position: "relative",
+                        zIndex: 1,
                       }}
                     >
-                      <Toolbar />
-                      <Box sx={{ width: "100%", maxWidth: "1440px", mx: 0 }}>
-                        <Routes>
-                          <Route path="/" element={<Dashboard />} />
-                          <Route path="/stock" element={<StockManagement />} />
-                          <Route path="/stock-view" element={<StockView />} />
-                          <Route path="/sync" element={<SyncManagement />} />
-                          <Route path="/reports" element={<Reports />} />
-                          {}
-                          <Route
-                            path="/admin"
-                            element={
-                              <ProtectedRoute>
-                                <AdminPanel />
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/unauthorized"
-                            element={<Unauthorized />}
-                          />
-                          <Route path="/profile" element={<Profile />} />
-                          <Route path="/settings" element={<Settings />} />
-                        </Routes>
-                      </Box>
-                    </Box>
+                      <Header
+                        onMenuClick={() => setSidebarOpen(!sidebarOpen)}
+                        sidebarOpen={sidebarOpen}
+                        currentBranchName={currentBranchName}
+                        onOpenBranchSelector={openBranchSelector}
+                        mode={mode}
+                        onToggleMode={toggleMode}
+                      />
+                      <Sidebar
+                        open={sidebarOpen}
+                        onClose={() => setSidebarOpen(false)}
+                      />
 
-                    <BranchSelector
-                      open={showBranchSelector}
-                      onClose={() => setShowBranchSelector(false)}
-                      branches={branchesToSelect ?? []}
-                      onSelect={handleBranchSelect}
-                    />
-                  </Box>
+                      {}
+                      <Box
+                        component="main"
+                        sx={{
+                          flexGrow: 1,
+                          bgcolor: "transparent",
+                          p: { xs: 2, sm: 3, md: 4 },
+                          transition: "all 0.3s ease",
+                          minHeight: "100vh",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <Toolbar />
+                        <Box sx={{ width: "100%", maxWidth: "1440px", mx: 0 }}>
+                          <Routes>
+                            <Route path="/" element={<Dashboard />} />
+                            <Route
+                              path="/stock"
+                              element={<StockManagement />}
+                            />
+                            <Route path="/stock-view" element={<StockView />} />
+                            <Route path="/sync" element={<SyncManagement />} />
+                            <Route path="/reports" element={<Reports />} />
+                            {/* Admin panel - requires Admin/Manager role */}
+                            <Route
+                              path="/admin"
+                              element={
+                                <ProtectedRoute requiredRole="Admin">
+                                  <AdminPanel />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route path="/profile" element={<Profile />} />
+                            <Route path="/settings" element={<Settings />} />
+                          </Routes>
+                        </Box>
+                      </Box>
+
+                      <BranchSelector
+                        open={showBranchSelector}
+                        onClose={() => setShowBranchSelector(false)}
+                        branches={branchesToSelect ?? []}
+                        onSelect={handleBranchSelect}
+                      />
+                    </Box>
+                  </ProtectedRoute>
                 }
               />
             </Routes>

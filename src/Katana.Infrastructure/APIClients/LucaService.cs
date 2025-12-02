@@ -5233,4 +5233,115 @@ retryChangeBranch:
         }
         return new List<T>();
     }
+
+    /// <summary>
+    /// Search for a stock card by SKU/KartKodu in Luca.
+    /// Returns the skartId if found, null if not found.
+    /// </summary>
+    public async Task<long?> FindStockCardBySkuAsync(string sku)
+    {
+        if (string.IsNullOrWhiteSpace(sku))
+            return null;
+
+        try
+        {
+            await EnsureAuthenticatedAsync();
+            await EnsureBranchSelectedAsync();
+
+            var request = new LucaListStockCardsRequest
+            {
+                StkSkart = new LucaStockCardCodeFilter
+                {
+                    KodBas = sku,
+                    KodBit = sku,
+                    KodOp = "between"
+                }
+            };
+
+            var result = await ListStockCardsAsync(request);
+
+            if (result.ValueKind == JsonValueKind.Object)
+            {
+                // Check for "list" array
+                if (result.TryGetProperty("list", out var listProp) && listProp.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in listProp.EnumerateArray())
+                    {
+                        if (item.TryGetProperty("skartId", out var skartIdProp))
+                        {
+                            if (skartIdProp.ValueKind == JsonValueKind.Number)
+                                return skartIdProp.GetInt64();
+                            if (skartIdProp.ValueKind == JsonValueKind.String && long.TryParse(skartIdProp.GetString(), out var parsed))
+                                return parsed;
+                        }
+                    }
+                }
+            }
+
+            _logger.LogInformation("Stock card with SKU {SKU} not found in Luca", sku);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error searching for stock card by SKU {SKU} in Luca", sku);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// UPSERT: If stock card exists in Luca, mark as duplicate (API doesn't support update).
+    /// If not exists, create new card.
+    /// </summary>
+    public async Task<SyncResultDto> UpsertStockCardAsync(LucaCreateStokKartiRequest stockCard)
+    {
+        var result = new SyncResultDto
+        {
+            SyncType = "STOCK_CARD_UPSERT",
+            ProcessedRecords = 1,
+            SyncTime = DateTime.UtcNow
+        };
+
+        try
+        {
+            var sku = stockCard.KartKodu;
+            
+            // First, check if the card already exists
+            var existingSkartId = await FindStockCardBySkuAsync(sku);
+            
+            if (existingSkartId.HasValue)
+            {
+                // Card already exists in Luca
+                // NOTE: Luca Koza API does NOT support stock card updates!
+                // The card already exists, so we mark it as "duplicate" (already synced)
+                result.DuplicateRecords = 1;
+                result.IsSuccess = true;
+                result.Message = $"Stok kartı '{sku}' zaten Luca'da mevcut (skartId: {existingSkartId.Value}). Luca API stok kartı güncellemesini desteklemiyor.";
+                _logger.LogInformation("Stock card {SKU} already exists in Luca with skartId {SkartId}. Luca API does not support updates.", sku, existingSkartId.Value);
+                return result;
+            }
+
+            // Card doesn't exist, create new
+            var sendResult = await SendStockCardsAsync(new List<LucaCreateStokKartiRequest> { stockCard });
+            
+            result.IsSuccess = sendResult.IsSuccess || sendResult.DuplicateRecords > 0;
+            result.SuccessfulRecords = sendResult.SuccessfulRecords;
+            result.FailedRecords = sendResult.FailedRecords;
+            result.DuplicateRecords = sendResult.DuplicateRecords;
+            result.Errors = sendResult.Errors;
+            result.Message = sendResult.IsSuccess 
+                ? $"Stok kartı '{sku}' Luca'ya başarıyla eklendi."
+                : $"Stok kartı '{sku}' Luca'ya eklenemedi: {string.Join(", ", sendResult.Errors)}";
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error upserting stock card {SKU} to Luca", stockCard.KartKodu);
+            result.IsSuccess = false;
+            result.FailedRecords = 1;
+            result.Errors.Add($"{stockCard.KartKodu}: {ex.Message}");
+            result.Message = $"Stok kartı işlenirken hata: {ex.Message}";
+            return result;
+        }
+    }
 }

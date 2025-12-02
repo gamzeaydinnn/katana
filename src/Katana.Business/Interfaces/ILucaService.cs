@@ -82,6 +82,19 @@ public interface ILucaService
     
     Task<JsonElement> CreateStockCardAsync(LucaCreateStokKartiRequest request);
     
+    /// <summary>
+    /// Search for a stock card by SKU/KartKodu in Luca.
+    /// Returns the skartId if found, null if not found.
+    /// </summary>
+    Task<long?> FindStockCardBySkuAsync(string sku);
+    
+    /// <summary>
+    /// UPSERT: If stock card exists in Luca, skip (API doesn't support update).
+    /// If not exists, create new card.
+    /// Returns success with info about whether it was created or already existed.
+    /// </summary>
+    Task<SyncResultDto> UpsertStockCardAsync(LucaCreateStokKartiRequest stockCard);
+    
     Task<JsonElement> CreateOtherStockMovementAsync(LucaCreateDshBaslikRequest request);
     
     Task<JsonElement> CreateSalesOrderAsync(LucaCreateSalesOrderRequest request);
