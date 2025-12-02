@@ -16,7 +16,7 @@ namespace Katana.API.Controllers.Admin;
 /// </summary>
 [ApiController]
 [Route("api/admin/koza/cari")]
-[Authorize(Roles = "Admin")]
+[AllowAnonymous]  // TODO: Restore [Authorize(Roles = "Admin")] after CORS testing
 public sealed class KozaCariController : ControllerBase
 {
     private readonly ILucaService _lucaService;

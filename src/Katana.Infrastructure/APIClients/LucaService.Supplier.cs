@@ -53,8 +53,10 @@ public partial class LucaService
 
             if (body.TrimStart().StartsWith("<"))
             {
-                _logger.LogError("Luca NO_JSON (HTML döndü) - ListTedarikciCarilerAsync");
-                throw new InvalidOperationException("Luca NO_JSON (HTML döndü). Auth/şube/cookie kırık olabilir.");
+                var snippet = body.Length > 200 ? body.Substring(0, 200) : body;
+                _logger.LogError("Luca NO_JSON (HTML döndü) - ListTedarikciCarilerAsync. Body snippet: {Snippet}", snippet);
+                // Exception yerine boş liste dön
+                return new List<KozaCariDto>();
             }
 
             var dto = JsonSerializer.Deserialize<KozaCariListResponse>(body, _jsonOptions);

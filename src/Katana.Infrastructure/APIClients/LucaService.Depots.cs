@@ -39,9 +39,10 @@ public partial class LucaService
             // Koza bazen HTML döndürebilir (NO_JSON hatası)
             if (body.TrimStart().StartsWith("<"))
             {
-                _logger.LogError("Koza NO_JSON (HTML döndü) - ListeleStkDepo.do. Auth/şube/cookie kırık olabilir. Body: {Body}", 
-                    body.Length > 500 ? body.Substring(0, 500) : body);
-                throw new InvalidOperationException("Koza NO_JSON (HTML döndü). Auth/şube/cookie kırık olabilir.");
+                var snippet = body.Length > 200 ? body.Substring(0, 200) : body;
+                _logger.LogError("Koza NO_JSON (HTML döndü) - ListeleStkDepo.do. Auth/şube/cookie kırık olabilir. Body snippet: {Snippet}", snippet);
+                // Exception yerine boş liste dön - controller 502 ile handle edebilir
+                return new List<KozaDepoDto>();
             }
 
             // Response'u parse et

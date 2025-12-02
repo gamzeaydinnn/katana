@@ -312,6 +312,44 @@ app.Use(async (context, next) =>
 // --- end debug middleware ---
 app.UseRouting();
 app.UseCors("DevCors");  // CORS middleware - routing'den sonra, auth'dan önce
+
+// Development: 500 hatalarında bile CORS header'ları döndür
+if (app.Environment.IsDevelopment())
+{
+    app.Use(async (context, next) =>
+    {
+        try
+        {
+            await next();
+        }
+        catch (Exception ex)
+        {
+            var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "Unhandled exception in request pipeline");
+
+            // Origin kontrolü - localhost:3000'den geliyorsa CORS header ekle
+            var origin = context.Request.Headers["Origin"].ToString();
+            if (!string.IsNullOrEmpty(origin) && 
+                (origin.Contains("localhost:3000") || origin.Contains("127.0.0.1:3000") ||
+                 origin.Contains("localhost:3001") || origin.Contains("127.0.0.1:3001")))
+            {
+                context.Response.Headers["Access-Control-Allow-Origin"] = origin;
+                context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+            }
+
+            context.Response.StatusCode = 500;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                error = "Internal Server Error",
+                message = ex.Message,
+                type = ex.GetType().Name,
+                stackTrace = app.Environment.IsDevelopment() ? ex.StackTrace : null
+            });
+        }
+    });
+}
+
 app.UseWebSockets();
 app.Use(async (ctx, next) =>
 {
@@ -325,7 +363,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<ErrorHandlingMiddleware>();
 
-app.MapControllers();
+app.MapControllers().RequireCors("DevCors");
 app.MapHealthChecks("/health");
 app.MapHub<Katana.API.Hubs.NotificationHub>("/hubs/notifications").RequireCors("DevCors");
 

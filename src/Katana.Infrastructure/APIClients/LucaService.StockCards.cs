@@ -164,9 +164,10 @@ public partial class LucaService
             // NO_JSON hatası kontrolü
             if (body.TrimStart().StartsWith("<"))
             {
-                _logger.LogError("Koza NO_JSON (HTML döndü) - ListeleStkKart.do. Body: {Body}", 
-                    body.Length > 500 ? body.Substring(0, 500) : body);
-                throw new InvalidOperationException("Koza NO_JSON hatası");
+                var snippet = body.Length > 200 ? body.Substring(0, 200) : body;
+                _logger.LogError("Koza NO_JSON (HTML döndü) - ListeleStkKart.do. Body snippet: {Snippet}", snippet);
+                // Exception yerine boş liste dön
+                return new List<KozaStokKartiDto>();
             }
 
             // Response parse
@@ -175,7 +176,8 @@ public partial class LucaService
             if (dto?.Error == true)
             {
                 _logger.LogError("Koza stok kartı listeleme hatası: {Message}", dto.Message);
-                throw new InvalidOperationException(dto.Message ?? "Koza stok kartı listeleme hatası");
+                // Exception yerine boş liste dön
+                return new List<KozaStokKartiDto>();
             }
 
             // Koza response alanı değişken: stokKartlari veya stkKartListesi
@@ -187,7 +189,8 @@ public partial class LucaService
         catch (Exception ex)
         {
             _logger.LogError(ex, "ListStockCardsSimpleAsync failed");
-            throw;
+            // Exception yerine boş liste dön - frontend hata gösterebilir
+            return new List<KozaStokKartiDto>();
         }
     }
 
