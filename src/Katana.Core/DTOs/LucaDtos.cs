@@ -2335,6 +2335,102 @@ public class LucaCreateCustomerRequest
 
     [JsonPropertyName("iletisimTanim")]
     public string? IletisimTanim { get; set; }
+    
+    [JsonPropertyName("ozelKod")]
+    public string? OzelKod { get; set; }
+    
+    [JsonPropertyName("telefon")]
+    public string? Telefon { get; set; }
+    
+    [JsonPropertyName("email")]
+    public string? Email { get; set; }
+}
+
+/// <summary>
+/// Luca cari kart tam güncelleme isteği
+/// </summary>
+public class LucaUpdateCustomerFullRequest
+{
+    [JsonPropertyName("kartKod")]
+    public string KartKod { get; set; } = string.Empty;
+    
+    [JsonPropertyName("tip")]
+    public int Tip { get; set; } = 1;
+    
+    [JsonPropertyName("tanim")]
+    public string? Tanim { get; set; }
+    
+    [JsonPropertyName("kisaAd")]
+    public string? KisaAd { get; set; }
+    
+    [JsonPropertyName("yasalUnvan")]
+    public string? YasalUnvan { get; set; }
+    
+    [JsonPropertyName("vergiNo")]
+    public string? VergiNo { get; set; }
+    
+    [JsonPropertyName("tcKimlikNo")]
+    public string? TcKimlikNo { get; set; }
+    
+    [JsonPropertyName("ad")]
+    public string? Ad { get; set; }
+    
+    [JsonPropertyName("soyad")]
+    public string? Soyad { get; set; }
+    
+    [JsonPropertyName("ulke")]
+    public string? Ulke { get; set; }
+    
+    [JsonPropertyName("il")]
+    public string? Il { get; set; }
+    
+    [JsonPropertyName("ilce")]
+    public string? Ilce { get; set; }
+    
+    [JsonPropertyName("adresSerbest")]
+    public string? AdresSerbest { get; set; }
+    
+    [JsonPropertyName("telefon")]
+    public string? Telefon { get; set; }
+    
+    [JsonPropertyName("email")]
+    public string? Email { get; set; }
+    
+    [JsonPropertyName("ozelKod")]
+    public string? OzelKod { get; set; }
+    
+    [JsonPropertyName("kategoriKod")]
+    public string? KategoriKod { get; set; }
+}
+
+/// <summary>
+/// Luca cari kart kod bazlı arama filtresi
+/// </summary>
+public class LucaCariKartFilter
+{
+    [JsonPropertyName("kodBas")]
+    public string? KodBas { get; set; }
+    
+    [JsonPropertyName("kodBit")]
+    public string? KodBit { get; set; }
+    
+    [JsonPropertyName("kodOp")]
+    public string? KodOp { get; set; } = "between";
+}
+
+/// <summary>
+/// Luca cari kart listesi isteği
+/// </summary>
+public class LucaListCariKartRequest
+{
+    [JsonPropertyName("finMusteri")]
+    public LucaCariKartListFilter? FinMusteri { get; set; }
+}
+
+public class LucaCariKartListFilter
+{
+    [JsonPropertyName("gnlFinansalNesne")]
+    public LucaCariKartFilter? GnlFinansalNesne { get; set; }
 }
 
 public class LucaCreateSupplierRequest : LucaCreateCustomerRequest

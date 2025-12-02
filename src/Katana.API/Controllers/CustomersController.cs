@@ -15,12 +15,14 @@ public class CustomersController : ControllerBase
     private readonly ICustomerService _customerService;
     private readonly ILoggingService _loggingService;
     private readonly IAuditService _auditService;
+    private readonly ILucaService _lucaService;
 
-    public CustomersController(ICustomerService customerService, ILoggingService loggingService, IAuditService auditService)
+    public CustomersController(ICustomerService customerService, ILoggingService loggingService, IAuditService auditService, ILucaService lucaService)
     {
         _customerService = customerService;
         _loggingService = loggingService;
         _auditService = auditService;
+        _lucaService = lucaService;
     }
 
     [HttpGet]
@@ -82,6 +84,33 @@ public class CustomersController : ControllerBase
             _auditService.LogCreate("Customer", customer.Id.ToString(), User?.Identity?.Name ?? "system", 
                 $"Title: {customer.Title}, TaxNo: {customer.TaxNo}");
             _loggingService.LogInfo($"Customer created: {customer.Title}", User?.Identity?.Name, null, LogCategory.UserAction);
+            
+            // Luca'ya cari kart olarak gönder
+            try
+            {
+                var customerEntity = await _customerService.GetCustomerEntityByIdAsync(customer.Id);
+                if (customerEntity != null)
+                {
+                    var lucaResult = await _lucaService.UpsertCariCardAsync(customerEntity);
+                    if (lucaResult.IsSuccess)
+                    {
+                        _loggingService.LogInfo($"Customer {customer.Id} synced to Luca: {lucaResult.Message}", 
+                            User?.Identity?.Name, null, LogCategory.Business);
+                    }
+                    else
+                    {
+                        _loggingService.LogWarning($"Luca sync warning for customer {customer.Id}: {lucaResult.Message}", 
+                            User?.Identity?.Name, null, LogCategory.Business);
+                    }
+                }
+            }
+            catch (Exception lucaEx)
+            {
+                // Luca hatası müşteri oluşturmayı engellemez
+                _loggingService.LogError($"Luca sync failed for customer {customer.Id}", lucaEx, 
+                    User?.Identity?.Name, null, LogCategory.Business);
+            }
+            
             return CreatedAtAction(nameof(GetById), new { id = customer.Id }, customer);
         }
         catch (InvalidOperationException ex)
@@ -105,6 +134,33 @@ public class CustomersController : ControllerBase
             _auditService.LogUpdate("Customer", id.ToString(), User?.Identity?.Name ?? "system", null, 
                 $"Updated: {customer.Title}");
             _loggingService.LogInfo($"Customer updated: {id}", User?.Identity?.Name, null, LogCategory.UserAction);
+            
+            // Luca'ya cari kart güncelle (UPSERT - varsa duplicate, yoksa ekle)
+            try
+            {
+                var customerEntity = await _customerService.GetCustomerEntityByIdAsync(id);
+                if (customerEntity != null)
+                {
+                    var lucaResult = await _lucaService.UpsertCariCardAsync(customerEntity);
+                    if (lucaResult.IsSuccess)
+                    {
+                        _loggingService.LogInfo($"Customer {id} synced to Luca: {lucaResult.Message}", 
+                            User?.Identity?.Name, null, LogCategory.Business);
+                    }
+                    else
+                    {
+                        _loggingService.LogWarning($"Luca sync warning for customer {id}: {lucaResult.Message}", 
+                            User?.Identity?.Name, null, LogCategory.Business);
+                    }
+                }
+            }
+            catch (Exception lucaEx)
+            {
+                // Luca hatası müşteri güncellemeyi engellemez
+                _loggingService.LogError($"Luca sync failed for customer {id}", lucaEx, 
+                    User?.Identity?.Name, null, LogCategory.Business);
+            }
+            
             return Ok(customer);
         }
         catch (KeyNotFoundException ex)

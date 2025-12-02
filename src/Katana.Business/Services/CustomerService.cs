@@ -40,6 +40,11 @@ public class CustomerService : ICustomerService
         return customer == null ? null : MapToDto(customer);
     }
 
+    public async Task<Customer?> GetCustomerEntityByIdAsync(int id)
+    {
+        return await _context.Customers.FindAsync(id);
+    }
+
     public async Task<CustomerDto?> GetCustomerByTaxNoAsync(string taxNo)
     {
         var customer = await _context.Customers

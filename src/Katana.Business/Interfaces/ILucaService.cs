@@ -1,6 +1,7 @@
 ﻿using Katana.Business.DTOs;
 using Katana.Business.Models.DTOs;
 using Katana.Core.DTOs;
+using Katana.Core.Entities;
 using System.Text.Json;
 
 namespace Katana.Business.Interfaces;
@@ -77,6 +78,28 @@ public interface ILucaService
     Task<JsonElement> ListWarehousesAsync(LucaListWarehousesRequest? request = null);
     
     Task<JsonElement> CreateCustomerAsync(LucaCreateCustomerRequest request);
+    
+    /// <summary>
+    /// Luca'da cari kart arar (kartKodu/cariKodu bazlı)
+    /// </summary>
+    /// <param name="kartKodu">Cari kart kodu (örn: CK-102)</param>
+    /// <returns>finansalNesneId bulunursa, bulunamazsa null</returns>
+    Task<long?> FindCariCardByCodeAsync(string kartKodu);
+    
+    /// <summary>
+    /// Luca'da cari kart günceller (GuncelleFinMusteriWS.do)
+    /// </summary>
+    Task<SyncResultDto> UpdateCariCardAsync(LucaUpdateCustomerFullRequest request);
+    
+    /// <summary>
+    /// UPSERT: Cari kart varsa güncelle, yoksa oluştur
+    /// </summary>
+    Task<SyncResultDto> UpsertCariCardAsync(Customer customer);
+    
+    /// <summary>
+    /// Müşteri adreslerini Luca'ya gönderir
+    /// </summary>
+    Task<SyncResultDto> SendCustomerAddressAsync(long finansalNesneId, string address, string? city, string? district, bool isDefault = true);
     
     Task<JsonElement> CreateSupplierAsync(LucaCreateSupplierRequest request);
     

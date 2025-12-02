@@ -149,6 +149,16 @@ public class IntegrationDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.TaxNo).IsUnique();
+            
+            // Luca integration fields
+            entity.Property(e => e.DefaultDiscountRate).HasPrecision(18, 4);
+            entity.Property(e => e.LucaCode).HasMaxLength(50);
+            entity.Property(e => e.GroupCode).HasMaxLength(50);
+            entity.Property(e => e.Currency).HasMaxLength(10);
+            entity.Property(e => e.TaxOffice).HasMaxLength(200);
+            entity.Property(e => e.District).HasMaxLength(100);
+            entity.Property(e => e.ReferenceId).HasMaxLength(100);
+            entity.Property(e => e.LastSyncError).HasMaxLength(1000);
 
             entity.HasMany(e => e.Invoices)
                 .WithOne(e => e.Customer)

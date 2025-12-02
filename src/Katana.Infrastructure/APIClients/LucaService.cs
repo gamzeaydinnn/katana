@@ -5344,4 +5344,267 @@ retryChangeBranch:
             return result;
         }
     }
+
+    #region Cari Kart (Customer) Methods
+
+    /// <summary>
+    /// Luca'da cari kart arar (kartKodu bazlı)
+    /// </summary>
+    public async Task<long?> FindCariCardByCodeAsync(string kartKodu)
+    {
+        if (string.IsNullOrWhiteSpace(kartKodu))
+            return null;
+
+        try
+        {
+            await EnsureAuthenticatedAsync();
+            await EnsureBranchSelectedAsync();
+
+            // ListeleFinMusteri.do ile ara
+            var request = new LucaListCariKartRequest
+            {
+                FinMusteri = new LucaCariKartListFilter
+                {
+                    GnlFinansalNesne = new LucaCariKartFilter
+                    {
+                        KodBas = kartKodu,
+                        KodBit = kartKodu,
+                        KodOp = "between"
+                    }
+                }
+            };
+
+            var result = await ListCustomersAsync(new LucaListCustomersRequest());
+            
+            if (result.ValueKind == JsonValueKind.Object)
+            {
+                if (result.TryGetProperty("list", out var listProp) && listProp.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in listProp.EnumerateArray())
+                    {
+                        // kartKodu kontrolü
+                        if (item.TryGetProperty("kod", out var kodProp) && 
+                            kodProp.ValueKind == JsonValueKind.String &&
+                            string.Equals(kodProp.GetString(), kartKodu, StringComparison.OrdinalIgnoreCase))
+                        {
+                            // finansalNesneId al
+                            if (item.TryGetProperty("finansalNesneId", out var idProp))
+                            {
+                                if (idProp.ValueKind == JsonValueKind.Number)
+                                    return idProp.GetInt64();
+                                if (idProp.ValueKind == JsonValueKind.String && long.TryParse(idProp.GetString(), out var parsed))
+                                    return parsed;
+                            }
+                        }
+                    }
+                }
+            }
+
+            _logger.LogInformation("Cari kart with code {KartKodu} not found in Luca", kartKodu);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error searching for cari kart by code {KartKodu} in Luca", kartKodu);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Luca'da cari kart günceller
+    /// NOT: Luca Koza API'de cari kart güncelleme endpoint'i sınırlı olabilir
+    /// </summary>
+    public async Task<SyncResultDto> UpdateCariCardAsync(LucaUpdateCustomerFullRequest request)
+    {
+        var result = new SyncResultDto
+        {
+            SyncType = "CARI_CARD_UPDATE",
+            ProcessedRecords = 1,
+            SyncTime = DateTime.UtcNow
+        };
+
+        try
+        {
+            await EnsureAuthenticatedAsync();
+            await EnsureBranchSelectedAsync();
+
+            // NOT: Luca Koza API'de GuncelleFinMusteriWS.do yoksa bu çalışmaz
+            // Şu an için sadece log bırakıyoruz
+            _logger.LogWarning("Cari kart güncelleme henüz desteklenmiyor. KartKod: {KartKod}", request.KartKod);
+            
+            result.IsSuccess = false;
+            result.Message = "Luca API cari kart güncelleme desteklemiyor. Manuel güncelleme gerekli.";
+            result.Errors.Add($"{request.KartKod}: API does not support customer updates");
+            
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating cari kart {KartKod} in Luca", request.KartKod);
+            result.IsSuccess = false;
+            result.FailedRecords = 1;
+            result.Errors.Add($"{request.KartKod}: {ex.Message}");
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// UPSERT: Cari kart varsa duplicate olarak işaretle (güncelleme yok), yoksa oluştur
+    /// </summary>
+    public async Task<SyncResultDto> UpsertCariCardAsync(Customer customer)
+    {
+        var result = new SyncResultDto
+        {
+            SyncType = "CARI_CARD_UPSERT",
+            ProcessedRecords = 1,
+            SyncTime = DateTime.UtcNow
+        };
+
+        try
+        {
+            var kartKodu = customer.LucaCode ?? customer.GenerateLucaCode();
+            
+            // Önce Luca'da ara
+            var existingId = await FindCariCardByCodeAsync(kartKodu);
+            
+            if (existingId.HasValue)
+            {
+                // Zaten var - Luca API güncelleme desteklemediği için sadece log
+                result.DuplicateRecords = 1;
+                result.IsSuccess = true;
+                result.Message = $"Cari kart '{kartKodu}' zaten Luca'da mevcut (finansalNesneId: {existingId.Value}). Luca API güncelleme desteklemiyor.";
+                _logger.LogInformation("Cari kart {KartKodu} already exists in Luca with finansalNesneId {Id}. API does not support updates.", 
+                    kartKodu, existingId.Value);
+                return result;
+            }
+
+            // Yeni kart oluştur
+            var createRequest = MappingHelper.MapToLucaCustomerCreate(customer);
+            var createResult = await CreateCustomerAsync(createRequest);
+            
+            // Sonucu kontrol et
+            if (createResult.ValueKind == JsonValueKind.Object)
+            {
+                if (createResult.TryGetProperty("error", out var errorProp) && errorProp.ValueKind == JsonValueKind.True)
+                {
+                    var msg = createResult.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : "Unknown error";
+                    
+                    // Duplicate kontrolü
+                    if (msg?.Contains("daha önce kullanılmış", StringComparison.OrdinalIgnoreCase) == true ||
+                        msg?.Contains("duplicate", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        result.DuplicateRecords = 1;
+                        result.IsSuccess = true;
+                        result.Message = $"Cari kart '{kartKodu}' zaten Luca'da mevcut.";
+                        return result;
+                    }
+                    
+                    result.IsSuccess = false;
+                    result.FailedRecords = 1;
+                    result.Errors.Add($"{kartKodu}: {msg}");
+                    return result;
+                }
+                
+                // Başarılı - finansalNesneId al
+                if (createResult.TryGetProperty("finansalNesneId", out var idProp))
+                {
+                    long newId = 0;
+                    if (idProp.ValueKind == JsonValueKind.Number)
+                        newId = idProp.GetInt64();
+                    else if (idProp.ValueKind == JsonValueKind.String)
+                        long.TryParse(idProp.GetString(), out newId);
+                    
+                    result.IsSuccess = true;
+                    result.SuccessfulRecords = 1;
+                    result.Message = $"Cari kart '{kartKodu}' Luca'ya başarıyla eklendi (finansalNesneId: {newId}).";
+                    result.Details.Add($"finansalNesneId={newId}");
+                    return result;
+                }
+            }
+            
+            result.IsSuccess = true;
+            result.SuccessfulRecords = 1;
+            result.Message = $"Cari kart '{kartKodu}' Luca'ya gönderildi.";
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error upserting cari kart for customer {CustomerId} to Luca", customer.Id);
+            result.IsSuccess = false;
+            result.FailedRecords = 1;
+            result.Errors.Add($"Customer {customer.Id}: {ex.Message}");
+            result.Message = $"Cari kart işlenirken hata: {ex.Message}";
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Müşteri adresini Luca'ya gönderir
+    /// </summary>
+    public async Task<SyncResultDto> SendCustomerAddressAsync(long finansalNesneId, string address, string? city, string? district, bool isDefault = true)
+    {
+        var result = new SyncResultDto
+        {
+            SyncType = "CUSTOMER_ADDRESS",
+            ProcessedRecords = 1,
+            SyncTime = DateTime.UtcNow
+        };
+
+        try
+        {
+            await EnsureAuthenticatedAsync();
+            await EnsureBranchSelectedAsync();
+
+            // EkleWSGnlSsAdres.do endpoint'i
+            var endpoint = "EkleWSGnlSsAdres.do";
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+
+            var payload = new
+            {
+                finansalNesneId = finansalNesneId,
+                adresTipId = 1, // 1=Fatura adresi
+                ulke = "TURKIYE",
+                il = city,
+                ilce = district,
+                adresSerbest = address,
+                varsayilanFlag = isDefault ? 1 : 0
+            };
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content };
+            ApplyManualSessionCookie(request);
+
+            var response = await client.SendAsync(request);
+            var responseContent = await ReadResponseContentAsync(response);
+
+            _logger.LogInformation("SendCustomerAddress response: {Response}", responseContent);
+
+            if (response.IsSuccessStatusCode)
+            {
+                result.IsSuccess = true;
+                result.SuccessfulRecords = 1;
+                result.Message = "Adres başarıyla eklendi.";
+            }
+            else
+            {
+                result.IsSuccess = false;
+                result.FailedRecords = 1;
+                result.Errors.Add($"HTTP {response.StatusCode}: {responseContent}");
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending customer address to Luca");
+            result.IsSuccess = false;
+            result.FailedRecords = 1;
+            result.Errors.Add(ex.Message);
+            return result;
+        }
+    }
+
+    #endregion
 }

@@ -882,19 +882,37 @@ public static class MappingHelper
     {
         var title = TrimAndTruncate(customer.Title, 200) ?? GenerateCustomerCode(customer.TaxNo);
         var address = TrimAndTruncate(customer.Address, 500);
-        var tip = !string.IsNullOrWhiteSpace(customer.TaxNo) && customer.TaxNo.Length == 11 ? 2 : 1;
+        
+        // Tip belirleme: 1=Şirket (VKN 10 hane), 2=Şahıs (TCKN 11 hane)
+        // Önce customer.Type'a bak, yoksa TaxNo uzunluğuna göre belirle
+        int tip;
+        if (customer.Type > 0)
+        {
+            tip = customer.Type; // Entity'den gelen değer
+        }
+        else
+        {
+            // TaxNo uzunluğuna göre otomatik belirle
+            tip = !string.IsNullOrWhiteSpace(customer.TaxNo) && customer.TaxNo.Length == 11 ? 2 : 1;
+        }
+        
         var vergiNo = tip == 1 && !string.IsNullOrWhiteSpace(customer.TaxNo) ? customer.TaxNo : null;
         var tcKimlikNo = tip == 2 ? customer.TaxNo : null;
         var shortTitle = TrimAndTruncate(title, 50);
+        
+        // Luca cari kart kodu - CK-{Id} formatında
+        var kartKodu = !string.IsNullOrWhiteSpace(customer.LucaCode) 
+            ? customer.LucaCode 
+            : customer.GenerateLucaCode();
 
         return new LucaCreateCustomerRequest
         {
             Tip = tip,
-            CariTipId = 1,
+            CariTipId = 1, // Müşteri
             Tanim = title,
-            KartKod = string.Empty, // boş gönderildiğinde Koza kod üretir
-            KategoriKod = kategoriKod,
-            ParaBirimKod = "TRY",
+            KartKod = kartKodu, // ÖNEMLİ: Artık boş değil, CK-{Id} formatında
+            KategoriKod = kategoriKod ?? customer.GroupCode,
+            ParaBirimKod = "TRY", // Luca'da TRY zorunlu, customer.Currency DB'de saklanır
             VergiNo = vergiNo,
             KisaAd = tip == 1 ? shortTitle : null,
             YasalUnvan = tip == 1 ? title : null,
@@ -902,13 +920,64 @@ public static class MappingHelper
             Ad = tip == 2 ? title : null,
             Soyad = null,
             VergiDairesiId = vergiDairesiId,
-            Ulke = string.IsNullOrWhiteSpace(customer.Country) ? "TURKIYE" : customer.Country,
+            Ulke = string.IsNullOrWhiteSpace(customer.Country) ? "TURKIYE" : NormalizeCountry(customer.Country),
             Il = customer.City,
+            Ilce = customer.District,
             AdresSerbest = address,
             IletisimTanim = customer.Phone ?? customer.Email,
             EfaturaTuru = null,
             TakipNoFlag = true,
-            MutabakatMektubuGonderilecek = null
+            MutabakatMektubuGonderilecek = null,
+            // Ek alanlar
+            OzelKod = customer.ReferenceId // Katana reference_id → Luca özel kod
+        };
+    }
+    
+    /// <summary>
+    /// Luca cari kart güncelleme DTO'su oluşturur
+    /// </summary>
+    public static LucaUpdateCustomerFullRequest MapToLucaCustomerFullUpdate(Customer customer, string kartKodu)
+    {
+        var title = TrimAndTruncate(customer.Title, 200) ?? kartKodu;
+        var address = TrimAndTruncate(customer.Address, 500);
+        var tip = customer.Type > 0 ? customer.Type : 
+            (!string.IsNullOrWhiteSpace(customer.TaxNo) && customer.TaxNo.Length == 11 ? 2 : 1);
+
+        return new LucaUpdateCustomerFullRequest
+        {
+            KartKod = kartKodu,
+            Tip = tip,
+            Tanim = title,
+            KisaAd = TrimAndTruncate(title, 50),
+            YasalUnvan = tip == 1 ? title : null,
+            VergiNo = tip == 1 ? customer.TaxNo : null,
+            TcKimlikNo = tip == 2 ? customer.TaxNo : null,
+            Ad = tip == 2 ? title : null,
+            Ulke = NormalizeCountry(customer.Country ?? "Turkey"),
+            Il = customer.City,
+            Ilce = customer.District,
+            AdresSerbest = address,
+            Telefon = customer.Phone,
+            Email = customer.Email,
+            OzelKod = customer.ReferenceId,
+            KategoriKod = customer.GroupCode
+        };
+    }
+    
+    /// <summary>
+    /// Ülke adını normalize eder (Luca formatına uygun)
+    /// </summary>
+    private static string NormalizeCountry(string? country)
+    {
+        if (string.IsNullOrWhiteSpace(country)) return "TURKIYE";
+        
+        var normalized = country.Trim().ToUpperInvariant();
+        return normalized switch
+        {
+            "TURKEY" => "TURKIYE",
+            "TÜRKİYE" => "TURKIYE",
+            "TR" => "TURKIYE",
+            _ => normalized
         };
     }
 
