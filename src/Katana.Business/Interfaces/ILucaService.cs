@@ -1,4 +1,5 @@
 ﻿using Katana.Business.DTOs;
+using Katana.Business.DTOs.Koza;
 using Katana.Business.Models.DTOs;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
@@ -150,4 +151,24 @@ public interface ILucaService
     Task<JsonElement> ListStockCardPurchaseTermsAsync(LucaStockCardByIdRequest request);
     
     Task<JsonElement> ListSalesOrdersAsync(LucaListSalesOrdersRequest? request = null, bool detayliListe = false);
+    
+    // Koza Depo (Depot) işlemleri
+    Task<IReadOnlyList<KozaDepoDto>> ListDepotsAsync(CancellationToken ct = default);
+    Task<KozaResult> CreateDepotAsync(KozaCreateDepotRequest req, CancellationToken ct = default);
+    
+    // Koza Stok Kartı işlemleri
+    Task<IReadOnlyList<KozaStokKartiDto>> ListStockCardsSimpleAsync(CancellationToken ct = default);
+    Task<KozaResult> CreateStockCardSimpleAsync(KozaCreateStokKartiRequest req, CancellationToken ct = default);
+    
+    // Koza Cari (Müşteri/Tedarikçi) işlemleri
+    Task<JsonElement> ListCariAddressesAsync(long finansalNesneId, CancellationToken ct = default);
+    Task<JsonElement> GetCariCalismaKosulAsync(long calismaKosulId, CancellationToken ct = default);
+    Task<JsonElement> ListCariYetkililerAsync(long finansalNesneId, CancellationToken ct = default);
+    Task<KozaResult> CreateCariHareketAsync(KozaCariHareketRequest req, CancellationToken ct = default);
+    
+    // Koza Tedarikçi Listesi
+    Task<IReadOnlyList<KozaCariDto>> ListTedarikciCarilerAsync(CancellationToken ct = default);
+    
+    // Katana Supplier → Koza Tedarikçi Cari Sync
+    Task<KozaResult> EnsureSupplierCariAsync(KatanaSupplierToCariDto supplier, CancellationToken ct = default);
 }

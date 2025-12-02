@@ -1,8 +1,10 @@
 import {
   CheckCircle,
   CompareArrows as CompareArrowsIcon,
+  People as CustomersIcon,
   Error as ErrorIcon,
   Inventory,
+  IntegrationInstructions as KozaIcon,
   Article as LogsIcon,
   MoreVert as MoreVertIcon,
   Receipt,
@@ -10,11 +12,10 @@ import {
   ReportProblem,
   Settings as SettingsIcon,
   ShoppingCart,
+  SwapHoriz as SwapHorizIcon,
   TrendingUp,
   Group as UsersIcon,
-  People as CustomersIcon,
   Warehouse,
-  SwapHoriz as SwapHorizIcon,
 } from "@mui/icons-material";
 import {
   Alert,
@@ -47,6 +48,7 @@ import Customers from "../Admin/Customers";
 import DataCorrectionPanel from "../Admin/DataCorrectionPanel";
 import FailedRecords from "../Admin/FailedRecords";
 import KatanaProducts from "../Admin/KatanaProducts";
+import KozaIntegration from "../Admin/KozaIntegration";
 import LucaProducts from "../Admin/LucaProducts";
 import Orders from "../Admin/Orders";
 import PendingAdjustments from "../Admin/PendingAdjustments";
@@ -642,6 +644,7 @@ const AdminPanel: React.FC = () => {
               Ayarlar
             </Typography>
           </MenuItem>
+          <Divider sx={{ my: 1 }} />
           <MenuItem
             onClick={() => {
               setActiveTab(11);
@@ -652,6 +655,18 @@ const AdminPanel: React.FC = () => {
             <CustomersIcon sx={{ mr: 1.5, fontSize: 20, color: "#8b5cf6" }} />
             <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
               Müşteriler
+            </Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setActiveTab(12);
+              setMoreMenuAnchor(null);
+            }}
+            sx={overflowMenuItemSx}
+          >
+            <KozaIcon sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
+              Koza Entegrasyon
             </Typography>
           </MenuItem>
         </Menu>
@@ -1010,6 +1025,9 @@ const AdminPanel: React.FC = () => {
 
       {/* Müşteriler Tab */}
       {activeTab === 11 && <Customers />}
+
+      {/* Koza Entegrasyon Tab */}
+      {activeTab === 12 && <KozaIntegration />}
     </Container>
   );
 };

@@ -55,6 +55,9 @@ public class IntegrationDbContext : DbContext
     public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
     public DbSet<PurchaseOrderItem> PurchaseOrderItems { get; set; }
     public DbSet<Katana.Core.Entities.User> Users { get; set; } = null!;
+    public DbSet<LocationKozaDepotMapping> LocationKozaDepotMappings => Set<LocationKozaDepotMapping>();
+    public DbSet<SupplierKozaCariMapping> SupplierKozaCariMappings => Set<SupplierKozaCariMapping>();
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     base.OnModelCreating(modelBuilder);
@@ -440,6 +443,47 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.CorrectionReason).HasMaxLength(500);
             entity.HasIndex(e => new { e.SourceSystem, e.EntityType, e.IsApproved });
             entity.HasIndex(e => e.IsSynced);
+        });
+
+        // Koza Depo Mapping
+        modelBuilder.Entity<LocationKozaDepotMapping>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.KatanaLocationId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.KozaDepoKodu).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.KatanaLocationName).HasMaxLength(200);
+            entity.Property(e => e.KozaDepoTanim).HasMaxLength(200);
+            entity.Property(e => e.UpdatedAt).IsRequired();
+            
+            // KatanaLocationId unique olmalı (her location sadece bir Koza depo'ya map olur)
+            entity.HasIndex(e => e.KatanaLocationId).IsUnique();
+            
+            // KozaDepoKodu'na göre arama için index
+            entity.HasIndex(e => e.KozaDepoKodu);
+            
+            // KozaDepoId'ye göre arama için index
+            entity.HasIndex(e => e.KozaDepoId);
+        });
+
+        // Koza Supplier Cari Mapping
+        modelBuilder.Entity<SupplierKozaCariMapping>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.KatanaSupplierId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.KozaCariKodu).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.KatanaSupplierName).HasMaxLength(200);
+            entity.Property(e => e.KozaCariTanim).HasMaxLength(200);
+            entity.Property(e => e.UpdatedAt).IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            
+            // KatanaSupplierId unique olmalı
+            entity.HasIndex(e => e.KatanaSupplierId).IsUnique();
+            
+            // KozaCariKodu'na göre arama için index
+            entity.HasIndex(e => e.KozaCariKodu);
+            
+            // KozaFinansalNesneId'ye göre arama için index
+            entity.HasIndex(e => e.KozaFinansalNesneId);
         });
 
         

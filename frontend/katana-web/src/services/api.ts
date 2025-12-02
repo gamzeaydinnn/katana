@@ -398,4 +398,29 @@ export const usersAPI = {
     api.delete<void>(`/Users/${id}`).then((res) => res.data),
 };
 
+/**
+ * Koza Entegrasyon API'leri
+ * Backend üzerinden Koza API'ye güvenli erişim sağlar
+ * GÜVENLIK: Frontend asla direkt Koza'ya bağlanmaz, backend proxy kullanır
+ */
+export const kozaAPI = {
+  // Depo Kartı İşlemleri
+  depots: {
+    list: () => api.get("/admin/koza/depots").then((res) => res.data),
+    create: (payload: any) =>
+      api.post("/admin/koza/depots/create", payload).then((res) => res.data),
+  },
+
+  // Stok Kartı İşlemleri
+  stockCards: {
+    list: () => api.get("/admin/koza/stocks").then((res) => res.data),
+    create: (payload: any) =>
+      api.post("/admin/koza/stocks/create", payload).then((res) => res.data),
+  },
+
+  // Legacy endpoint - geriye dönük uyumluluk için
+  getLucaStockCards: () =>
+    api.get("/Luca/koza-stock-cards").then((res) => res.data),
+};
+
 export default api;

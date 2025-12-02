@@ -22,7 +22,7 @@ using Katana.Core.Helpers;
 
 namespace Katana.Infrastructure.APIClients;
 
-public class LucaService : ILucaService
+public partial class LucaService : ILucaService
 {
     private readonly Katana.Core.Interfaces.ILucaCookieJarStore? _externalCookieJarStore;
     private readonly HttpClient _httpClient;
