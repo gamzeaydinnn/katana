@@ -1,4 +1,5 @@
 ﻿using Katana.Business.DTOs;
+using Katana.Business.DTOs.Koza;
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Core.Enums;
@@ -919,10 +920,126 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
+    /// Koza depolarını listele
+    /// </summary>
+    [HttpGet("~/api/admin/koza/depots")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetKozaDepots()
+    {
+        try
+        {
+            var lucaService = HttpContext.RequestServices.GetRequiredService<Katana.Business.Interfaces.ILucaService>();
+            var depots = await lucaService.ListDepotsAsync();
+            return Ok(depots);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Koza depo listesi alınamadı");
+            return StatusCode(500, new { error = "Depo listesi alınamadı", detail = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Koza'ya depo oluştur
+    /// </summary>
+    [HttpPost("~/api/admin/koza/depots/create")]
+    [AllowAnonymous]
+    public async Task<IActionResult> CreateKozaDepot([FromBody] object payload)
+    {
+        try
+        {
+            var lucaService = HttpContext.RequestServices.GetRequiredService<Katana.Business.Interfaces.ILucaService>();
+            
+            // Payload'dan stkDepo'yu çıkar
+            var json = System.Text.Json.JsonSerializer.Serialize(payload);
+            var doc = System.Text.Json.JsonDocument.Parse(json);
+            
+            if (!doc.RootElement.TryGetProperty("stkDepo", out var stkDepoElement))
+            {
+                return BadRequest(new { error = "stkDepo property is required" });
+            }
+
+            // stkDepo'yu deserialize et
+            var depoRequest = System.Text.Json.JsonSerializer.Deserialize<KozaCreateDepotRequest>(stkDepoElement.GetRawText());
+            
+            if (depoRequest == null)
+            {
+                return BadRequest(new { error = "Invalid depot data" });
+            }
+
+            var result = await lucaService.CreateDepotAsync(depoRequest);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Koza depo oluşturulamadı");
+            return StatusCode(500, new { error = "Depo oluşturulamadı", detail = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Koza stok kartlarını listele
+    /// </summary>
+    [HttpGet("~/api/admin/koza/stocks")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetKozaStocks()
+    {
+        try
+        {
+            var lucaService = HttpContext.RequestServices.GetRequiredService<Katana.Business.Interfaces.ILucaService>();
+            var stocks = await lucaService.ListStockCardsSimpleAsync();
+            return Ok(stocks);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Koza stok kartları alınamadı");
+            return StatusCode(500, new { error = "Stok kartları alınamadı", detail = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Koza'ya stok kartı oluştur
+    /// </summary>
+    [HttpPost("~/api/admin/koza/stocks/create")]
+    [AllowAnonymous]
+    public async Task<IActionResult> CreateKozaStock([FromBody] object payload)
+    {
+        try
+        {
+            var lucaService = HttpContext.RequestServices.GetRequiredService<Katana.Business.Interfaces.ILucaService>();
+            
+            // Payload'dan stkKart'ı çıkar
+            var json = System.Text.Json.JsonSerializer.Serialize(payload);
+            var doc = System.Text.Json.JsonDocument.Parse(json);
+            
+            if (!doc.RootElement.TryGetProperty("stkKart", out var stkKartElement))
+            {
+                return BadRequest(new { error = "stkKart property is required" });
+            }
+
+            // stkKart'ı deserialize et
+            var stockRequest = System.Text.Json.JsonSerializer.Deserialize<LucaCreateStokKartiRequest>(stkKartElement.GetRawText());
+            
+            if (stockRequest == null)
+            {
+                return BadRequest(new { error = "Invalid stock card data" });
+            }
+
+            var result = await lucaService.CreateStockCardAsync(stockRequest);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Koza stok kartı oluşturulamadı");
+            return StatusCode(500, new { error = "Stok kartı oluşturulamadı", detail = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Koza'daki tedarikçi cari kayıtlarını listele
     /// </summary>
     [HttpGet("~/api/admin/koza/cari/suppliers")]
-    [Authorize(Roles = "Admin")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetKozaSuppliers()
     {
         try
@@ -954,7 +1071,7 @@ public class AdminController : ControllerBase
     /// Tedarikçileri Luca'ya senkronize et
     /// </summary>
     [HttpPost("~/api/admin/koza/cari/suppliers/sync")]
-    [Authorize(Roles = "Admin")]
+    [AllowAnonymous]
     public async Task<IActionResult> SyncSuppliersToKoza()
     {
         try
