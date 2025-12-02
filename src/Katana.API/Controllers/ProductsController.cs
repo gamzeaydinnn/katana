@@ -88,10 +88,10 @@ public class ProductsController : ControllerBase
             if (allProducts == null || allProducts.Count == 0)
             {
                 _logger.LogInformation("Katana API returned no products, fetching from local database");
-                var localProducts = await _productService.GetAllProductsAsync();
+                var dbProducts = await _productService.GetAllProductsAsync();
                 
                 // Local product'ları KatanaProductDto formatına çevir
-                allProducts = localProducts.Select(p => new KatanaProductDto
+                allProducts = dbProducts.Select(p => new KatanaProductDto
                 {
                     Id = p.Id.ToString(),
                     SKU = p.SKU,
