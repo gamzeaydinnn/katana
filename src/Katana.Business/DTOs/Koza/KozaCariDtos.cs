@@ -233,11 +233,38 @@ public sealed class SupplierSyncItem
 public sealed class KatanaSupplierToCariDto
 {
     public string KatanaSupplierId { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public string? TaxNo { get; set; }
+    public string? TaxNumber { get; set; }
+    public string? TaxOffice { get; set; }
     public string? Address { get; set; }
+}
+
+/// <summary>
+/// Katana Location'dan Koza Depo'ya dönüşüm için DTO
+/// </summary>
+public sealed class KatanaLocationToDepoDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Address { get; set; }
+}
+
+/// <summary>
+/// Katana Customer'dan Luca Cari'ye dönüşüm için DTO
+/// </summary>
+public sealed class KatanaCustomerToCariDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? TaxNumber { get; set; }
+    public string? TaxOffice { get; set; }
+    public string? Address { get; set; }
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
 }
 
 #endregion

@@ -22,5 +22,10 @@ public interface ISyncService
     Task<BatchSyncResultDto> SyncAllFromLucaAsync(DateTime? fromDate = null);
     Task<List<SyncStatusDto>> GetSyncStatusAsync();
     Task<bool> IsSyncRunningAsync(string syncType);
+    
+    // Koza Cari Sync
+    Task<SyncResultDto> SyncSuppliersToKozaAsync(CancellationToken ct = default);
+    Task<SyncResultDto> SyncWarehousesToKozaAsync(CancellationToken ct = default);
+    Task<SyncResultDto> SyncCustomersToLucaAsync(CancellationToken ct = default);
 }
 

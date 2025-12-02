@@ -527,15 +527,18 @@ const SyncManagement: React.FC = () => {
               label="Senkronizasyon Tipi"
               onChange={(e) => setSyncType(e.target.value)}
             >
-              {/* Katana senkronizasyon tipleri */}
-              <MenuItem value="STOCK">Stok</MenuItem>
+              {/* Katana ↔ Luca Temel Senkronizasyonlar */}
+              <MenuItem value="STOCK">Stok Hareketleri</MenuItem>
               <MenuItem value="INVOICE">Fatura</MenuItem>
-              <MenuItem value="CUSTOMER">Müşteri</MenuItem>
+              <MenuItem value="CUSTOMER">Müşteri (Cari)</MenuItem>
               <MenuItem value="DESPATCH">İrsaliye</MenuItem>
               <MenuItem value="ALL">Tümü</MenuItem>
-
-              {/* Aktif kullanılan Luca senkronizasyonu */}
+              
+              {/* Koza/Luca Kart Senkronizasyonları */}
               <MenuItem value="STOCK_CARD">Stok Kartları (Luca)</MenuItem>
+              <MenuItem value="SUPPLIER">Tedarikçi Kartları (Koza)</MenuItem>
+              <MenuItem value="WAREHOUSE">Depo Kartları (Koza)</MenuItem>
+              <MenuItem value="CUSTOMER_LUCA">Müşteri Kartları (Luca Cari)</MenuItem>
             </Select>
           </FormControl>
         </DialogContent>

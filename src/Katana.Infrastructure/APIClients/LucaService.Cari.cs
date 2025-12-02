@@ -256,6 +256,54 @@ public partial class LucaService
     }
 
     /// <summary>
+    /// Koza Müşteri Carilerini Listele (ListeleFinMusteri.do)
+    /// </summary>
+    public async Task<IReadOnlyList<KozaCariDto>> ListMusteriCarilerAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            await EnsureAuthenticatedAsync();
+
+            var req = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.CustomerList ?? "/api/finMusteri/listele")
+            {
+                Content = new StringContent("{}", Encoding.UTF8, "application/json")
+            };
+            req.Headers.TryAddWithoutValidation("No-Paging", "true");
+
+            ApplySessionCookie(req);
+            ApplyManualSessionCookie(req);
+
+            var client = _cookieHttpClient ?? _httpClient;
+            var res = await client.SendAsync(req, ct);
+            var body = await res.Content.ReadAsStringAsync(ct);
+
+            if (body.TrimStart().StartsWith("<"))
+            {
+                _logger.LogError("Koza NO_JSON (HTML döndü) - ListMusteriCarilerAsync");
+                throw new InvalidOperationException("Koza NO_JSON (HTML döndü). Auth/şube/cookie kırık olabilir.");
+            }
+
+            var dto = JsonSerializer.Deserialize<KozaCariListResponse>(body, _jsonOptions);
+            
+            if (dto?.Error == true)
+            {
+                _logger.LogError("Koza müşteri listeleme hatası: {Message}", dto.Message ?? "Unknown error");
+                throw new InvalidOperationException(dto.Message ?? "Koza müşteri listeleme hatası");
+            }
+
+            var müsteriler = dto?.FinMusteriListesi ?? new List<KozaCariDto>();
+            
+            _logger.LogInformation("Koza'dan {Count} müşteri cari listelendi", müsteriler.Count);
+            return müsteriler;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ListMusteriCarilerAsync failed");
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Katana Supplier → Koza Tedarikçi Cari
     /// Varsa güncelle, yoksa oluştur (EkleFinTedarikciWS.do)
     /// </summary>
@@ -374,6 +422,197 @@ public partial class LucaService
         {
             _logger.LogError(ex, "EnsureSupplierCariAsync failed for supplier: {Id} - {Name}", 
                 supplier.KatanaSupplierId, supplier.Name);
+            return new KozaResult { Success = false, Message = ex.Message };
+        }
+    }
+
+    /// <summary>
+    /// Katana Location'u Koza Depo olarak senkronize eder
+    /// Yoksa oluşturur, varsa atlar
+    /// </summary>
+    public async Task<KozaResult> EnsureDepotAsync(KatanaLocationToDepoDto depot, CancellationToken ct = default)
+    {
+        try
+        {
+            _logger.LogInformation("EnsureDepotAsync: Processing depot {Code} - {Name}", depot.Code, depot.Name);
+            
+            // Mevcut depoları listele ve kontrol et
+            var existingDepots = await ListDepotsAsync(ct);
+            var existing = existingDepots.FirstOrDefault(d => 
+                string.Equals(d.Kod, depot.Code, StringComparison.OrdinalIgnoreCase));
+
+            if (existing != null)
+            {
+                _logger.LogInformation("Depo zaten mevcut: {Code} (Id: {Id})", depot.Code, existing.DepoId);
+                return new KozaResult 
+                { 
+                    Success = true, 
+                    Message = "ALREADY_EXISTS",
+                    Data = new { DepoKodu = existing.Kod, DepoId = existing.DepoId }
+                };
+            }
+
+            // Yeni depo oluştur
+            var payload = new
+            {
+                depo = new
+                {
+                    kod = depot.Code,
+                    tanim = depot.Name,
+                    adres = depot.Address ?? "",
+                    aktif = true
+                }
+            };
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            _logger.LogDebug("EnsureDepotAsync creating: {Json}", json);
+
+            var response = await _httpClient.PostAsync(
+                "/api/depo/kaydet",
+                new StringContent(json, Encoding.UTF8, "application/json"),
+                ct);
+
+            var body = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogDebug("EnsureDepotAsync response: {Status}, {Body}", response.StatusCode, body?.Substring(0, Math.Min(500, body?.Length ?? 0)));
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Depo oluşturulamadı: {Code} - Status: {Status}, Body: {Body}", 
+                    depot.Code, response.StatusCode, body);
+                return new KozaResult { Success = false, Message = $"HTTP {response.StatusCode}: {body}" };
+            }
+
+            long? depoId = null;
+            try
+            {
+                var respJson = JsonSerializer.Deserialize<JsonElement>(body);
+                if (respJson.TryGetProperty("depoId", out var did))
+                {
+                    depoId = did.GetInt64();
+                }
+                else if (respJson.TryGetProperty("depo", out var d) && 
+                         d.TryGetProperty("depoId", out var dId))
+                {
+                    depoId = dId.GetInt64();
+                }
+            }
+            catch { /* Ignore parse errors */ }
+
+            _logger.LogInformation("Depo başarıyla oluşturuldu: {Code} - {Name} (DepoId: {Id})", 
+                depot.Code, depot.Name, depoId);
+            
+            return new KozaResult 
+            { 
+                Success = true, 
+                Message = "OK",
+                Data = new { DepoKodu = depot.Code, DepoId = depoId }
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "EnsureDepotAsync failed for depot: {Code} - {Name}", depot.Code, depot.Name);
+            return new KozaResult { Success = false, Message = ex.Message };
+        }
+    }
+
+    /// <summary>
+    /// Katana Customer'ı Luca Müşteri Cari olarak senkronize eder
+    /// Yoksa oluşturur, varsa atlar
+    /// </summary>
+    public async Task<KozaResult> EnsureCustomerCariAsync(KatanaCustomerToCariDto customer, CancellationToken ct = default)
+    {
+        try
+        {
+            _logger.LogInformation("EnsureCustomerCariAsync: Processing customer {Code} - {Name}", customer.Code, customer.Name);
+
+            // Mevcut müşteri carilerini listele ve kontrol et
+            var existingCustomers = await ListMusteriCarilerAsync(ct);
+            var existing = existingCustomers.FirstOrDefault(c => 
+                string.Equals(c.Kod, customer.Code, StringComparison.OrdinalIgnoreCase));
+
+            if (existing != null)
+            {
+                _logger.LogInformation("Müşteri cari zaten mevcut: {Code} (FinansalNesneId: {Id})", 
+                    customer.Code, existing.FinansalNesneId);
+                return new KozaResult 
+                { 
+                    Success = true, 
+                    Message = "ALREADY_EXISTS",
+                    Data = new { CariKodu = existing.Kod, FinansalNesneId = existing.FinansalNesneId }
+                };
+            }
+
+            // Koza'da cari kodu oluştur (TED_ prefix yerine MUS_ prefix)
+            var cariKodu = $"MUS_{customer.Code}";
+
+            // Yeni müşteri cari oluştur
+            var payload = new
+            {
+                finMusteri = new
+                {
+                    kod = cariKodu,
+                    tanim = customer.Name,
+                    kisaAd = customer.Name?.Length > 30 ? customer.Name.Substring(0, 30) : customer.Name,
+                    yasalUnvan = customer.Name,
+                    vergiNo = customer.TaxNumber ?? "",
+                    vergiDairesi = customer.TaxOffice ?? "",
+                    email = customer.Email ?? "",
+                    telefon = customer.Phone ?? "",
+                    adres = customer.Address ?? "",
+                    aktif = true,
+                    paraBirimKod = "TRY"
+                }
+            };
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            _logger.LogDebug("EnsureCustomerCariAsync creating: {Json}", json);
+
+            var response = await _httpClient.PostAsync(
+                "/api/finMusteri/kaydet",
+                new StringContent(json, Encoding.UTF8, "application/json"),
+                ct);
+
+            var body = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogDebug("EnsureCustomerCariAsync response: {Status}, {Body}", 
+                response.StatusCode, body?.Substring(0, Math.Min(500, body?.Length ?? 0)));
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Müşteri cari oluşturulamadı: {Code} - Status: {Status}, Body: {Body}", 
+                    customer.Code, response.StatusCode, body);
+                return new KozaResult { Success = false, Message = $"HTTP {response.StatusCode}: {body}" };
+            }
+
+            long? finansalNesneId = null;
+            try
+            {
+                var respJson = JsonSerializer.Deserialize<JsonElement>(body);
+                if (respJson.TryGetProperty("finansalNesneId", out var fnId))
+                {
+                    finansalNesneId = fnId.GetInt64();
+                }
+                else if (respJson.TryGetProperty("finMusteri", out var fm) && 
+                         fm.TryGetProperty("finansalNesneId", out var fmId))
+                {
+                    finansalNesneId = fmId.GetInt64();
+                }
+            }
+            catch { /* Ignore parse errors */ }
+
+            _logger.LogInformation("Müşteri cari başarıyla oluşturuldu: {CariKodu} - {Name} (FinansalNesneId: {Id})", 
+                cariKodu, customer.Name, finansalNesneId);
+            
+            return new KozaResult 
+            { 
+                Success = true, 
+                Message = "OK",
+                Data = new { CariKodu = cariKodu, FinansalNesneId = finansalNesneId }
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "EnsureCustomerCariAsync failed for customer: {Code} - {Name}", 
+                customer.Code, customer.Name);
             return new KozaResult { Success = false, Message = ex.Message };
         }
     }

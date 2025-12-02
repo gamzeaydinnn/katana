@@ -9,6 +9,7 @@ using Katana.Core.Helpers;
 using Katana.Data.Context;
 using Katana.Data.Configuration;
 using Katana.Business.Mappers;
+using Katana.Business.DTOs.Koza;
 using Katana.Infrastructure.Mappers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -1337,4 +1338,308 @@ public class SyncService : ISyncService
             };
         }
     }
+
+    #region Koza Cari Sync Methods
+
+    /// <summary>
+    /// Katana tedarikçilerini Koza'ya senkronize eder
+    /// </summary>
+    public async Task<SyncResultDto> SyncSuppliersToKozaAsync(CancellationToken ct = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var logEntry = await StartOperationLogAsync("SUPPLIER");
+        
+        int total = 0, successful = 0, skipped = 0, errors = 0;
+        var errorMessages = new List<string>();
+
+        try
+        {
+            _logger.LogInformation("🔄 Starting Katana → Koza supplier sync");
+
+            var katanaSuppliers = await _katanaService.GetSuppliersAsync();
+            total = katanaSuppliers.Count;
+            _logger.LogInformation("📥 Found {Count} suppliers in Katana", total);
+
+            foreach (var supplier in katanaSuppliers)
+            {
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(supplier.Id))
+                    {
+                        _logger.LogWarning("Supplier {Name} has no ID, skipping", supplier.Name);
+                        skipped++;
+                        continue;
+                    }
+
+                    var supplierDto = new KatanaSupplierToCariDto
+                    {
+                        KatanaSupplierId = supplier.Id,
+                        Code = supplier.Id,
+                        Name = supplier.Name ?? supplier.Id,
+                        TaxNumber = supplier.TaxNo,
+                        Phone = supplier.Phone,
+                        Email = supplier.Email
+                    };
+
+                    var kozaResult = await _lucaService.EnsureSupplierCariAsync(supplierDto, ct);
+                    
+                    if (kozaResult.Success)
+                    {
+                        successful++;
+                        _logger.LogDebug("✅ Supplier {Code} synced successfully", supplier.Id);
+                    }
+                    else
+                    {
+                        errors++;
+                        errorMessages.Add($"{supplier.Id}: {kozaResult.Message}");
+                        _logger.LogWarning("⚠️ Supplier {Code} sync failed: {Error}", supplier.Id, kozaResult.Message);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errors++;
+                    errorMessages.Add($"{supplier.Id}: {ex.Message}");
+                    _logger.LogError(ex, "❌ Error syncing supplier {Code}", supplier.Id);
+                }
+            }
+
+            stopwatch.Stop();
+            var status = errors == 0 ? "SUCCESS" : (successful > 0 ? "PARTIAL" : "FAILED");
+            await FinalizeOperationAsync(logEntry, status, total, successful, errors, errorMessages.Any() ? string.Join("; ", errorMessages.Take(5)) : null);
+
+            _logger.LogInformation("✅ Supplier sync completed: Total={Total}, Success={Success}, Skipped={Skipped}, Error={Error}",
+                total, successful, skipped, errors);
+
+            return new SyncResultDto
+            {
+                SyncType = "SUPPLIER",
+                IsSuccess = errors == 0,
+                ProcessedRecords = total,
+                SuccessfulRecords = successful,
+                FailedRecords = errors,
+                Message = $"Tedarikçi senkronizasyonu tamamlandı. Başarılı: {successful}, Atlanan: {skipped}, Hata: {errors}",
+                Duration = stopwatch.Elapsed,
+                Errors = errorMessages
+            };
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            await FinalizeOperationAsync(logEntry, "FAILED", total, successful, errors, ex.Message);
+            _logger.LogError(ex, "❌ Supplier sync failed completely");
+
+            return new SyncResultDto
+            {
+                SyncType = "SUPPLIER",
+                IsSuccess = false,
+                ProcessedRecords = total,
+                SuccessfulRecords = successful,
+                FailedRecords = errors,
+                Message = $"Tedarikçi senkronizasyonu başarısız: {ex.Message}",
+                Duration = stopwatch.Elapsed,
+                Errors = { ex.ToString() }
+            };
+        }
+    }
+
+    /// <summary>
+    /// Katana depolarını (Location) Koza'ya senkronize eder
+    /// </summary>
+    public async Task<SyncResultDto> SyncWarehousesToKozaAsync(CancellationToken ct = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var logEntry = await StartOperationLogAsync("WAREHOUSE");
+        
+        int total = 0, successful = 0, skipped = 0, errors = 0;
+        var errorMessages = new List<string>();
+
+        try
+        {
+            _logger.LogInformation("🔄 Starting Katana → Koza warehouse (depot) sync");
+
+            var katanaLocations = await _katanaService.GetLocationsAsync();
+            total = katanaLocations.Count;
+            _logger.LogInformation("📥 Found {Count} locations in Katana", total);
+
+            foreach (var location in katanaLocations)
+            {
+                try
+                {
+                    // Location ID is long, convert to string for code
+                    var locationCode = location.Id.ToString();
+                    
+                    var depoDto = new KatanaLocationToDepoDto
+                    {
+                        Code = locationCode,
+                        Name = location.Name ?? locationCode,
+                        Address = location.Address?.Line1
+                    };
+
+                    var kozaResult = await _lucaService.EnsureDepotAsync(depoDto, ct);
+                    
+                    if (kozaResult.Success)
+                    {
+                        successful++;
+                        _logger.LogDebug("✅ Warehouse {Code} synced successfully", locationCode);
+                    }
+                    else
+                    {
+                        errors++;
+                        errorMessages.Add($"{locationCode}: {kozaResult.Message}");
+                        _logger.LogWarning("⚠️ Warehouse {Code} sync failed: {Error}", locationCode, kozaResult.Message);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errors++;
+                    errorMessages.Add($"{location.Id}: {ex.Message}");
+                    _logger.LogError(ex, "❌ Error syncing warehouse {Code}", location.Id);
+                }
+            }
+
+            stopwatch.Stop();
+            var status = errors == 0 ? "SUCCESS" : (successful > 0 ? "PARTIAL" : "FAILED");
+            await FinalizeOperationAsync(logEntry, status, total, successful, errors, errorMessages.Any() ? string.Join("; ", errorMessages.Take(5)) : null);
+
+            _logger.LogInformation("✅ Warehouse sync completed: Total={Total}, Success={Success}, Skipped={Skipped}, Error={Error}",
+                total, successful, skipped, errors);
+
+            return new SyncResultDto
+            {
+                SyncType = "WAREHOUSE",
+                IsSuccess = errors == 0,
+                ProcessedRecords = total,
+                SuccessfulRecords = successful,
+                FailedRecords = errors,
+                Message = $"Depo senkronizasyonu tamamlandı. Başarılı: {successful}, Atlanan: {skipped}, Hata: {errors}",
+                Duration = stopwatch.Elapsed,
+                Errors = errorMessages
+            };
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            await FinalizeOperationAsync(logEntry, "FAILED", total, successful, errors, ex.Message);
+            _logger.LogError(ex, "❌ Warehouse sync failed completely");
+
+            return new SyncResultDto
+            {
+                SyncType = "WAREHOUSE",
+                IsSuccess = false,
+                ProcessedRecords = total,
+                SuccessfulRecords = successful,
+                FailedRecords = errors,
+                Message = $"Depo senkronizasyonu başarısız: {ex.Message}",
+                Duration = stopwatch.Elapsed,
+                Errors = { ex.ToString() }
+            };
+        }
+    }
+
+    /// <summary>
+    /// Katana müşterilerini Luca'ya cari olarak senkronize eder
+    /// </summary>
+    public async Task<SyncResultDto> SyncCustomersToLucaAsync(CancellationToken ct = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var logEntry = await StartOperationLogAsync("CUSTOMER_LUCA");
+        
+        int total = 0, successful = 0, skipped = 0, errors = 0;
+        var errorMessages = new List<string>();
+
+        try
+        {
+            _logger.LogInformation("🔄 Starting Local DB → Luca customer (cari) sync");
+
+            // Get customers from local database (Customers table)
+            var localCustomers = await _dbContext.Customers
+                .Where(c => c.IsActive)
+                .ToListAsync(ct);
+            
+            total = localCustomers.Count;
+            _logger.LogInformation("📥 Found {Count} customers in local database", total);
+
+            foreach (var customer in localCustomers)
+            {
+                try
+                {
+                    // Use TaxNo as code, or generate one from Id
+                    var customerCode = !string.IsNullOrWhiteSpace(customer.TaxNo) 
+                        ? customer.TaxNo 
+                        : $"CK-{customer.Id}";
+
+                    var customerDto = new KatanaCustomerToCariDto
+                    {
+                        Code = customerCode,
+                        Name = customer.Title ?? customerCode,
+                        TaxNumber = customer.TaxNo,
+                        TaxOffice = customer.TaxOffice,
+                        Address = customer.Address,
+                        Phone = customer.Phone,
+                        Email = customer.Email
+                    };
+
+                    var lucaResult = await _lucaService.EnsureCustomerCariAsync(customerDto, ct);
+                    
+                    if (lucaResult.Success)
+                    {
+                        successful++;
+                        _logger.LogDebug("✅ Customer {Code} synced successfully", customerCode);
+                    }
+                    else
+                    {
+                        errors++;
+                        errorMessages.Add($"{customerCode}: {lucaResult.Message}");
+                        _logger.LogWarning("⚠️ Customer {Code} sync failed: {Error}", customerCode, lucaResult.Message);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errors++;
+                    errorMessages.Add($"{customer.Id}: {ex.Message}");
+                    _logger.LogError(ex, "❌ Error syncing customer {Code}", customer.Id);
+                }
+            }
+
+            stopwatch.Stop();
+            var status = errors == 0 ? "SUCCESS" : (successful > 0 ? "PARTIAL" : "FAILED");
+            await FinalizeOperationAsync(logEntry, status, total, successful, errors, errorMessages.Any() ? string.Join("; ", errorMessages.Take(5)) : null);
+
+            _logger.LogInformation("✅ Customer sync completed: Total={Total}, Success={Success}, Skipped={Skipped}, Error={Error}",
+                total, successful, skipped, errors);
+
+            return new SyncResultDto
+            {
+                SyncType = "CUSTOMER_LUCA",
+                IsSuccess = errors == 0,
+                ProcessedRecords = total,
+                SuccessfulRecords = successful,
+                FailedRecords = errors,
+                Message = $"Müşteri senkronizasyonu tamamlandı. Başarılı: {successful}, Atlanan: {skipped}, Hata: {errors}",
+                Duration = stopwatch.Elapsed,
+                Errors = errorMessages
+            };
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            await FinalizeOperationAsync(logEntry, "FAILED", total, successful, errors, ex.Message);
+            _logger.LogError(ex, "❌ Customer sync failed completely");
+
+            return new SyncResultDto
+            {
+                SyncType = "CUSTOMER_LUCA",
+                IsSuccess = false,
+                ProcessedRecords = total,
+                SuccessfulRecords = successful,
+                FailedRecords = errors,
+                Message = $"Müşteri senkronizasyonu başarısız: {ex.Message}",
+                Duration = stopwatch.Elapsed,
+                Errors = { ex.ToString() }
+            };
+        }
+    }
+
+    #endregion
 }
+

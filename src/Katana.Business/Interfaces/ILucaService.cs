@@ -171,4 +171,10 @@ public interface ILucaService
     
     // Katana Supplier → Koza Tedarikçi Cari Sync
     Task<KozaResult> EnsureSupplierCariAsync(KatanaSupplierToCariDto supplier, CancellationToken ct = default);
+    
+    // Katana Location → Koza Depo Sync
+    Task<KozaResult> EnsureDepotAsync(KatanaLocationToDepoDto depot, CancellationToken ct = default);
+    
+    // Katana Customer → Luca Müşteri Cari Sync
+    Task<KozaResult> EnsureCustomerCariAsync(KatanaCustomerToCariDto customer, CancellationToken ct = default);
 }
