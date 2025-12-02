@@ -72,7 +72,37 @@ public class ProductsController : ControllerBase
         try
         {
             _loggingService.LogInfo("Fetching products from Katana API", User?.Identity?.Name, $"Page: {page}, Limit: {limit}, Sync: {sync}", LogCategory.ExternalAPI);
-            var allProducts = await _katanaService.GetProductsAsync();
+            
+            List<KatanaProductDto> allProducts;
+            try
+            {
+                allProducts = await _katanaService.GetProductsAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch products from Katana API, falling back to local database");
+                allProducts = new List<KatanaProductDto>();
+            }
+            
+            // Eğer Katana API boş dönüyorsa, local database'den çek
+            if (allProducts == null || allProducts.Count == 0)
+            {
+                _logger.LogInformation("Katana API returned no products, fetching from local database");
+                var localProducts = await _productService.GetAllProductsAsync();
+                
+                // Local product'ları KatanaProductDto formatına çevir
+                allProducts = localProducts.Select(p => new KatanaProductDto
+                {
+                    Id = p.Id.ToString(),
+                    SKU = p.SKU,
+                    Name = p.Name,
+                    SalesPrice = p.Price,
+                    OnHand = (int)p.Stock,
+                    Category = p.CategoryId.ToString()
+                }).ToList();
+                
+                _logger.LogInformation("Retrieved {Count} products from local database", allProducts.Count);
+            }
             
             
             var products = allProducts
