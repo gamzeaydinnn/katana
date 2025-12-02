@@ -230,4 +230,67 @@ public class CustomersController : ControllerBase
         var balance = await _customerService.GetCustomerBalanceAsync(id);
         return Ok(balance);
     }
+
+    /// <summary>
+    /// Manuel olarak müşteriyi Luca'ya senkronize eder
+    /// </summary>
+    [HttpPost("{id}/sync")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<SyncResultDto>> SyncToLuca(int id)
+    {
+        try
+        {
+            var customer = await _customerService.GetCustomerEntityByIdAsync(id);
+            if (customer == null)
+                return NotFound($"Müşteri bulunamadı: {id}");
+
+            var result = await _lucaService.UpsertCariCardAsync(customer);
+            
+            // LastSyncError güncelle
+            await _customerService.UpdateLastSyncErrorAsync(id, 
+                result.IsSuccess ? null : result.Message,
+                result.IsSuccess && result.Details.Count > 0 ? 
+                    long.TryParse(result.Details[0].Replace("finansalNesneId=", ""), out var finId) ? finId : null 
+                    : null);
+            
+            _loggingService.LogInfo($"Customer {id} manual sync to Luca: {result.Message}", 
+                User?.Identity?.Name, null, LogCategory.Business);
+            
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _loggingService.LogError($"Manual Luca sync failed for customer {id}", ex, 
+                User?.Identity?.Name, null, LogCategory.Business);
+            
+            // Hata kaydı
+            await _customerService.UpdateLastSyncErrorAsync(id, ex.Message, null);
+            
+            return StatusCode(500, new SyncResultDto 
+            { 
+                IsSuccess = false, 
+                Message = ex.Message,
+                SyncType = "MANUAL_CARI_SYNC"
+            });
+        }
+    }
+
+    /// <summary>
+    /// Müşterinin Luca senkronizasyon durumunu döner
+    /// </summary>
+    [HttpGet("{id}/luca-info")]
+    public async Task<ActionResult<CustomerLucaSyncInfo>> GetLucaInfo(int id)
+    {
+        var customer = await _customerService.GetCustomerEntityByIdAsync(id);
+        if (customer == null)
+            return NotFound($"Müşteri bulunamadı: {id}");
+
+        return Ok(new CustomerLucaSyncInfo
+        {
+            LucaCode = customer.LucaCode ?? customer.GenerateLucaCode(),
+            LucaFinansalNesneId = customer.LucaFinansalNesneId,
+            LastSyncError = customer.LastSyncError,
+            LastSyncAt = customer.UpdatedAt
+        });
+    }
 }

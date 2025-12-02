@@ -981,6 +981,52 @@ public static class MappingHelper
         };
     }
 
+    /// <summary>
+    /// Customer adresi → Luca adres DTO
+    /// NOT: Katana state → atlanır, city → ilce, district → Luca'da yok
+    /// </summary>
+    public static LucaAdresDto MapToLucaAddress(
+        string? addressLine1, 
+        string? addressLine2, 
+        string? city, 
+        string? zipCode, 
+        string? country, 
+        string? phone,
+        long finansalNesneId,
+        string addressType = "billing",
+        bool isDefault = true)
+    {
+        return new LucaAdresDto
+        {
+            AdresTipId = addressType.Equals("billing", StringComparison.OrdinalIgnoreCase) ? 1 : 2,
+            AdresSerbest = addressLine1,
+            Adres2 = addressLine2,
+            Ilce = city, // Luca'da şehir = ilçe olarak gönderilir
+            PostaKodu = zipCode,
+            Ulke = NormalizeCountry(country),
+            Telefon = phone,
+            VarsayilanFlag = isDefault ? 1 : 0,
+            FinansalNesneId = finansalNesneId
+        };
+    }
+    
+    /// <summary>
+    /// Customer entity'den Luca adres DTO oluşturur
+    /// </summary>
+    public static LucaAdresDto MapCustomerToLucaAddress(Customer customer, long finansalNesneId)
+    {
+        return new LucaAdresDto
+        {
+            AdresTipId = 1, // Fatura adresi
+            AdresSerbest = customer.Address,
+            Ilce = customer.City, // Luca'da city → ilce
+            Ulke = NormalizeCountry(customer.Country),
+            Telefon = customer.Phone,
+            VarsayilanFlag = 1,
+            FinansalNesneId = finansalNesneId
+        };
+    }
+
     public static LucaCreateSupplierRequest MapToLucaSupplierCreate(Supplier supplier, long? vergiDairesiId = null, string? kategoriKod = null)
     {
         var name = TrimAndTruncate(supplier.Name, 200) ?? "TEDARIKCI";

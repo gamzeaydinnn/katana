@@ -5462,6 +5462,10 @@ retryChangeBranch:
 
         try
         {
+            // ÖNEMLİ: Branch seçimi zorunlu (1003 hatası önleme)
+            await EnsureAuthenticatedAsync();
+            await EnsureBranchSelectedAsync();
+            
             var kartKodu = customer.LucaCode ?? customer.GenerateLucaCode();
             
             // Önce Luca'da ara

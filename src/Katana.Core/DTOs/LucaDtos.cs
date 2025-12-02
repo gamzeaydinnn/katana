@@ -3732,3 +3732,54 @@ public class LucaListCashTransactionsRequest
     [JsonPropertyName("tarihOp")]
     public string? TarihOp { get; set; }
 }
+
+/// <summary>
+/// Luca Adres DTO - Müşteri adresi için
+/// </summary>
+public class LucaAdresDto
+{
+    /// <summary>Adres tipi: 1=Fatura, 2=Teslimat</summary>
+    [JsonPropertyName("adresTipId")]
+    public int AdresTipId { get; set; } = 1;
+    
+    [JsonPropertyName("adresSerbest")]
+    public string? AdresSerbest { get; set; }
+    
+    [JsonPropertyName("adres2")]
+    public string? Adres2 { get; set; }
+    
+    /// <summary>Luca'da şehir = ilçe olarak gönderilir</summary>
+    [JsonPropertyName("ilce")]
+    public string? Ilce { get; set; }
+    
+    [JsonPropertyName("postaKodu")]
+    public string? PostaKodu { get; set; }
+    
+    [JsonPropertyName("ulke")]
+    public string Ulke { get; set; } = "TURKIYE";
+    
+    [JsonPropertyName("telefon")]
+    public string? Telefon { get; set; }
+    
+    /// <summary>Varsayılan adres mi: 1=Evet, 0=Hayır</summary>
+    [JsonPropertyName("varsayilanFlag")]
+    public int VarsayilanFlag { get; set; } = 1;
+    
+    /// <summary>FinansalNesneId - cari kart ID</summary>
+    [JsonPropertyName("finansalNesneId")]
+    public long FinansalNesneId { get; set; }
+}
+
+/// <summary>
+/// Müşteri sync sonucu - CustomerDto'ya ek Luca alanları
+/// </summary>
+public class CustomerLucaSyncInfo
+{
+    public string? LucaCode { get; set; }
+    public long? LucaFinansalNesneId { get; set; }
+    public string? LastSyncError { get; set; }
+    public DateTime? LastSyncAt { get; set; }
+    public bool IsSynced => LucaFinansalNesneId.HasValue && string.IsNullOrEmpty(LastSyncError);
+    public string SyncStatus => IsSynced ? "success" : (string.IsNullOrEmpty(LastSyncError) ? "pending" : "error");
+}
+

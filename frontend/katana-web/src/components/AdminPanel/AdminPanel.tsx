@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   TrendingUp,
   Group as UsersIcon,
+  People as CustomersIcon,
   Warehouse,
   SwapHoriz as SwapHorizIcon,
 } from "@mui/icons-material";
@@ -42,6 +43,7 @@ import {
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
+import Customers from "../Admin/Customers";
 import DataCorrectionPanel from "../Admin/DataCorrectionPanel";
 import FailedRecords from "../Admin/FailedRecords";
 import KatanaProducts from "../Admin/KatanaProducts";
@@ -640,6 +642,18 @@ const AdminPanel: React.FC = () => {
               Ayarlar
             </Typography>
           </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setActiveTab(11);
+              setMoreMenuAnchor(null);
+            }}
+            sx={overflowMenuItemSx}
+          >
+            <CustomersIcon sx={{ mr: 1.5, fontSize: 20, color: "#8b5cf6" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
+              Müşteriler
+            </Typography>
+          </MenuItem>
         </Menu>
       </Paper>
 
@@ -993,6 +1007,9 @@ const AdminPanel: React.FC = () => {
 
       {}
       {activeTab === 10 && <Settings />}
+
+      {/* Müşteriler Tab */}
+      {activeTab === 11 && <Customers />}
     </Container>
   );
 };

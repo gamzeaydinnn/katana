@@ -18,4 +18,9 @@ public interface ICustomerService
     Task<bool> DeactivateCustomerAsync(int id);
     Task<CustomerStatisticsDto> GetCustomerStatisticsAsync();
     Task<decimal> GetCustomerBalanceAsync(int customerId);
+    
+    /// <summary>
+    /// Luca senkronizasyon hatasını ve finansalNesneId'yi günceller
+    /// </summary>
+    Task UpdateLastSyncErrorAsync(int customerId, string? errorMessage, long? lucaFinansalNesneId);
 }

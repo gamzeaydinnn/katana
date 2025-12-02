@@ -73,6 +73,10 @@ public class CustomerService : ICustomerService
         if (existingCustomer != null)
             throw new InvalidOperationException($"Bu vergi numarasına sahip müşteri zaten mevcut: {dto.TaxNo}");
 
+        // Type otomatik belirle: TaxNo 11 hane ise Şahıs (2), değilse Şirket (1)
+        var type = dto.Type > 0 ? dto.Type : 
+            (!string.IsNullOrWhiteSpace(dto.TaxNo) && dto.TaxNo.Length == 11 ? 2 : 1);
+
         var customer = new Customer
         {
             TaxNo = dto.TaxNo,
@@ -84,8 +88,16 @@ public class CustomerService : ICustomerService
             City = dto.City,
             Country = dto.Country,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            // Luca fields
+            Type = type,
+            TaxOffice = dto.TaxOffice,
+            District = dto.District,
+            GroupCode = dto.GroupCode
         };
+        
+        // LucaCode oluştur
+        customer.LucaCode = customer.GenerateLucaCode();
 
         _context.Customers.Add(customer);
         await _context.SaveChangesAsync();
@@ -105,6 +117,10 @@ public class CustomerService : ICustomerService
         if (existingCustomer != null)
             throw new InvalidOperationException($"Bu vergi numarasına sahip başka bir müşteri mevcut: {dto.TaxNo}");
 
+        // Type otomatik belirle
+        var type = dto.Type > 0 ? dto.Type : 
+            (!string.IsNullOrWhiteSpace(dto.TaxNo) && dto.TaxNo.Length == 11 ? 2 : 1);
+
         customer.TaxNo = dto.TaxNo;
         customer.Title = dto.Title;
         customer.ContactPerson = dto.ContactPerson;
@@ -115,6 +131,11 @@ public class CustomerService : ICustomerService
         customer.Country = dto.Country;
         customer.IsActive = dto.IsActive;
         customer.UpdatedAt = DateTime.UtcNow;
+        // Luca fields
+        customer.Type = type;
+        customer.TaxOffice = dto.TaxOffice;
+        customer.District = dto.District;
+        customer.GroupCode = dto.GroupCode;
 
         await _context.SaveChangesAsync();
         return MapToDto(customer);
@@ -202,7 +223,15 @@ public class CustomerService : ICustomerService
             CurrentBalance = 0,
             IsActive = customer.IsActive,
             CreatedAt = customer.CreatedAt,
-            UpdatedAt = customer.UpdatedAt
+            UpdatedAt = customer.UpdatedAt,
+            // Luca fields
+            Type = customer.Type,
+            TaxOffice = customer.TaxOffice,
+            District = customer.District,
+            LucaCode = customer.LucaCode ?? customer.GenerateLucaCode(),
+            LucaFinansalNesneId = customer.LucaFinansalNesneId,
+            LastSyncError = customer.LastSyncError,
+            GroupCode = customer.GroupCode
         };
     }
 
@@ -216,7 +245,28 @@ public class CustomerService : ICustomerService
             Phone = customer.Phone,
             Email = customer.Email,
             CurrentBalance = 0,
-            IsActive = customer.IsActive
+            IsActive = customer.IsActive,
+            // Luca status fields
+            LucaCode = customer.LucaCode ?? customer.GenerateLucaCode(),
+            LucaFinansalNesneId = customer.LucaFinansalNesneId,
+            LastSyncError = customer.LastSyncError
         };
+    }
+
+    public async Task UpdateLastSyncErrorAsync(int customerId, string? errorMessage, long? lucaFinansalNesneId)
+    {
+        var customer = await _context.Customers.FindAsync(customerId);
+        if (customer == null) return;
+
+        customer.LastSyncError = errorMessage;
+        customer.UpdatedAt = DateTime.UtcNow;
+        
+        if (lucaFinansalNesneId.HasValue)
+        {
+            customer.LucaFinansalNesneId = lucaFinansalNesneId.Value;
+            customer.LucaCode = customer.GenerateLucaCode();
+        }
+        
+        await _context.SaveChangesAsync();
     }
 }
