@@ -1,5 +1,6 @@
 using Katana.Business.Interfaces;
 using Katana.Core.Interfaces;
+using Katana.Core.DTOs;
 using Katana.Data.Context;
 using Katana.Data.Models;
 using Katana.Core.Entities;
@@ -165,6 +166,37 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
             {
                 _logger.LogInformation("Synced {OrderCount} new orders with {ItemCount} items from Katana",
                     newOrdersCount, newItemsCount);
+
+                // Yeni siparişler için Luca'ya stok kartı senkronizasyonu tetikle
+                try
+                {
+                    var syncService = scope.ServiceProvider.GetService<ISyncService>();
+                    if (syncService != null)
+                    {
+                        _logger.LogInformation("Triggering Luca sync for new orders...");
+                        var syncResult = await syncService.SyncProductsToLucaAsync(new SyncOptionsDto
+                        {
+                            DryRun = false,
+                            ForceSendDuplicates = false,
+                            PreferBarcodeMatch = true
+                        });
+
+                        if (syncResult.IsSuccess)
+                        {
+                            _logger.LogInformation("Luca sync completed after new orders. New cards: {New}, Sent: {Sent}",
+                                syncResult.NewCreated, syncResult.SentRecords);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Luca sync completed with issues: {Message}", syncResult.Message);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to trigger Luca sync after new orders");
+                    // Sync hatası sipariş işlemini etkilememeli
+                }
 
                 // Yeni sipariş bildirimi oluştur
                 try

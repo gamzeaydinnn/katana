@@ -225,7 +225,9 @@ const LucaStatusBadge: React.FC<{
   );
 };
 
-const getSyncStatus = (order: PurchaseOrderListItem | PurchaseOrderDetail): LucaSyncStatus => {
+const getSyncStatus = (
+  order: PurchaseOrderListItem | PurchaseOrderDetail
+): LucaSyncStatus => {
   if (order.isSyncedToLuca && !order.lastSyncError) return "synced";
   if (order.lastSyncError) return "error";
   return "not_synced";
@@ -257,7 +259,9 @@ const PurchaseOrders: React.FC = () => {
   const [stats, setStats] = useState<OrderStats | null>(null);
 
   // Detail state
-  const [orderDetail, setOrderDetail] = useState<PurchaseOrderDetail | null>(null);
+  const [orderDetail, setOrderDetail] = useState<PurchaseOrderDetail | null>(
+    null
+  );
   const [detailLoading, setDetailLoading] = useState(false);
 
   // Create/Edit state
@@ -312,11 +316,11 @@ const PurchaseOrders: React.FC = () => {
       if (filterSupplierId > 0) {
         params.supplierId = filterSupplierId.toString();
       }
-      
-      const response = await api.get<{ data: PurchaseOrderListItem[]; total: number }>(
-        "/purchase-orders",
-        { params }
-      );
+
+      const response = await api.get<{
+        data: PurchaseOrderListItem[];
+        total: number;
+      }>("/purchase-orders", { params });
       setOrders(response.data.data || []);
     } catch (err) {
       console.error("Failed to fetch purchase orders:", err);
@@ -342,7 +346,9 @@ const PurchaseOrders: React.FC = () => {
   const fetchOrderDetail = async (id: number) => {
     try {
       setDetailLoading(true);
-      const response = await api.get<PurchaseOrderDetail>(`/purchase-orders/${id}`);
+      const response = await api.get<PurchaseOrderDetail>(
+        `/purchase-orders/${id}`
+      );
       setOrderDetail(response.data);
     } catch (err) {
       console.error("Failed to fetch order detail:", err);
@@ -405,7 +411,10 @@ const PurchaseOrders: React.FC = () => {
       errors.orderDate = "Sipariş tarihi gerekli";
     }
 
-    if (formData.items.length === 0 || formData.items.every((i) => i.productId === 0)) {
+    if (
+      formData.items.length === 0 ||
+      formData.items.every((i) => i.productId === 0)
+    ) {
       errors.items = "En az bir ürün eklenmelidir";
     }
 
@@ -529,7 +538,8 @@ const PurchaseOrders: React.FC = () => {
     if (field === "productId") {
       const product = products.find((p) => p.id === value);
       if (product) {
-        newItems[index].lucaStockCode = product.lucaStockCode || product.sku || "";
+        newItems[index].lucaStockCode =
+          product.lucaStockCode || product.sku || "";
       }
     }
 
@@ -547,7 +557,9 @@ const PurchaseOrders: React.FC = () => {
         severity: "info",
       });
 
-      const response = await api.post<SyncResult>(`/purchase-orders/${id}/sync`);
+      const response = await api.post<SyncResult>(
+        `/purchase-orders/${id}/sync`
+      );
 
       if (response.data.success) {
         setSnackbar({
@@ -586,7 +598,8 @@ const PurchaseOrders: React.FC = () => {
   // ===== DELETE HANDLER =====
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Bu siparişi silmek istediğinize emin misiniz?")) return;
+    if (!window.confirm("Bu siparişi silmek istediğinize emin misiniz?"))
+      return;
 
     try {
       setDeleting(id);
@@ -603,9 +616,11 @@ const PurchaseOrders: React.FC = () => {
       await fetchStats();
     } catch (err: unknown) {
       console.error("Failed to delete:", err);
-      const errorMessage = err instanceof Error && 'response' in err 
-        ? (err as { response?: { data?: { message?: string } } }).response?.data?.message 
-        : "Sipariş silinemedi";
+      const errorMessage =
+        err instanceof Error && "response" in err
+          ? (err as { response?: { data?: { message?: string } } }).response
+              ?.data?.message
+          : "Sipariş silinemedi";
       setSnackbar({
         open: true,
         message: errorMessage || "Sipariş silinemedi",
@@ -640,7 +655,10 @@ const PurchaseOrders: React.FC = () => {
   };
 
   const calculateFormTotal = () => {
-    return formData.items.reduce((sum, item) => sum + calculateLineTotal(item), 0);
+    return formData.items.reduce(
+      (sum, item) => sum + calculateLineTotal(item),
+      0
+    );
   };
 
   // ===== RENDER: STATS BAR =====
@@ -695,7 +713,10 @@ const PurchaseOrders: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={<RefreshIcon />}
-            onClick={() => { fetchOrders(); fetchStats(); }}
+            onClick={() => {
+              fetchOrders();
+              fetchStats();
+            }}
             disabled={loading}
           >
             Yenile
@@ -703,7 +724,10 @@ const PurchaseOrders: React.FC = () => {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => { resetForm(); setView("create"); }}
+            onClick={() => {
+              resetForm();
+              setView("create");
+            }}
           >
             Yeni Sipariş
           </Button>
@@ -778,9 +802,7 @@ const PurchaseOrders: React.FC = () => {
               orders.map((order) => (
                 <TableRow key={order.id} hover>
                   <TableCell>
-                    <Typography fontWeight="medium">
-                      {order.orderNo}
-                    </Typography>
+                    <Typography fontWeight="medium">{order.orderNo}</Typography>
                     {order.lucaDocumentNo && (
                       <Typography variant="caption" color="textSecondary">
                         Luca: {order.lucaDocumentNo}
@@ -860,9 +882,7 @@ const PurchaseOrders: React.FC = () => {
     }
 
     if (!orderDetail) {
-      return (
-        <Alert severity="error">Sipariş bulunamadı</Alert>
-      );
+      return <Alert severity="error">Sipariş bulunamadı</Alert>;
     }
 
     const syncStatus = getSyncStatus(orderDetail);
@@ -891,51 +911,89 @@ const PurchaseOrders: React.FC = () => {
               <CardHeader title="Sipariş Bilgileri" />
               <Divider />
               <CardContent>
-                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "1fr 1fr" }}>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gap: 2,
+                    gridTemplateColumns: "1fr 1fr",
+                  }}
+                >
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Sipariş No</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Sipariş No
+                    </Typography>
                     <Typography>{orderDetail.orderNo}</Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Durum</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Durum
+                    </Typography>
                     <Typography>{orderDetail.status}</Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Tedarikçi</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Tedarikçi
+                    </Typography>
                     <Typography>{orderDetail.supplierName}</Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Tedarikçi Kodu</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Tedarikçi Kodu
+                    </Typography>
                     <Typography>{orderDetail.supplierCode || "-"}</Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Sipariş Tarihi</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Sipariş Tarihi
+                    </Typography>
                     <Typography>{formatDate(orderDetail.orderDate)}</Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Teslim Tarihi</Typography>
-                    <Typography>{formatDate(orderDetail.expectedDate)}</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Teslim Tarihi
+                    </Typography>
+                    <Typography>
+                      {formatDate(orderDetail.expectedDate)}
+                    </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Toplam</Typography>
-                    <Typography fontWeight="bold">{formatCurrency(orderDetail.totalAmount)}</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Toplam
+                    </Typography>
+                    <Typography fontWeight="bold">
+                      {formatCurrency(orderDetail.totalAmount)}
+                    </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">KDV Dahil</Typography>
-                    <Typography>{orderDetail.vatIncluded ? "Evet" : "Hayır"}</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      KDV Dahil
+                    </Typography>
+                    <Typography>
+                      {orderDetail.vatIncluded ? "Evet" : "Hayır"}
+                    </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Oluşturulma</Typography>
-                    <Typography>{formatDateTime(orderDetail.createdAt)}</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Oluşturulma
+                    </Typography>
+                    <Typography>
+                      {formatDateTime(orderDetail.createdAt)}
+                    </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Güncelleme</Typography>
-                    <Typography>{formatDateTime(orderDetail.updatedAt)}</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Güncelleme
+                    </Typography>
+                    <Typography>
+                      {formatDateTime(orderDetail.updatedAt)}
+                    </Typography>
                   </Box>
                 </Box>
                 {orderDetail.description && (
                   <Box sx={{ mt: 2 }}>
-                    <Typography variant="caption" color="textSecondary">Açıklama</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Açıklama
+                    </Typography>
                     <Typography>{orderDetail.description}</Typography>
                   </Box>
                 )}
@@ -945,24 +1003,43 @@ const PurchaseOrders: React.FC = () => {
 
           {/* B) Luca Sync Panel */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Card sx={{ 
-              borderColor: syncStatus === "synced" ? "success.main" : syncStatus === "error" ? "error.main" : "grey.300",
-              borderWidth: 2,
-              borderStyle: "solid"
-            }}>
-              <CardHeader 
-                title="Luca Senkron Durumu" 
+            <Card
+              sx={{
+                borderColor:
+                  syncStatus === "synced"
+                    ? "success.main"
+                    : syncStatus === "error"
+                    ? "error.main"
+                    : "grey.300",
+                borderWidth: 2,
+                borderStyle: "solid",
+              }}
+            >
+              <CardHeader
+                title="Luca Senkron Durumu"
                 avatar={
-                  syncStatus === "synced" ? <CheckCircleIcon color="success" /> :
-                  syncStatus === "error" ? <ErrorIcon color="error" /> :
-                  <PendingIcon color="disabled" />
+                  syncStatus === "synced" ? (
+                    <CheckCircleIcon color="success" />
+                  ) : syncStatus === "error" ? (
+                    <ErrorIcon color="error" />
+                  ) : (
+                    <PendingIcon color="disabled" />
+                  )
                 }
               />
               <Divider />
               <CardContent>
-                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "1fr 1fr" }}>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gap: 2,
+                    gridTemplateColumns: "1fr 1fr",
+                  }}
+                >
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Durum</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Durum
+                    </Typography>
                     <Box sx={{ mt: 0.5 }}>
                       <LucaStatusBadge
                         status={syncStatus}
@@ -972,25 +1049,37 @@ const PurchaseOrders: React.FC = () => {
                     </Box>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Luca ID</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Luca ID
+                    </Typography>
                     <Typography fontWeight="bold">
                       {orderDetail.lucaPurchaseOrderId || "-"}
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Luca Belge No</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Luca Belge No
+                    </Typography>
                     <Typography>{orderDetail.lucaDocumentNo || "-"}</Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Son Sync</Typography>
-                    <Typography>{formatDateTime(orderDetail.lastSyncAt)}</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Son Sync
+                    </Typography>
+                    <Typography>
+                      {formatDateTime(orderDetail.lastSyncAt)}
+                    </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Belge Seri</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Belge Seri
+                    </Typography>
                     <Typography>{orderDetail.documentSeries || "-"}</Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Deneme Sayısı</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Deneme Sayısı
+                    </Typography>
                     <Typography>{orderDetail.syncRetryCount}</Typography>
                   </Box>
                 </Box>
@@ -998,7 +1087,9 @@ const PurchaseOrders: React.FC = () => {
                 {orderDetail.lastSyncError && (
                   <Alert severity="error" sx={{ mt: 2 }}>
                     <Typography variant="subtitle2">Hata Detayı:</Typography>
-                    <Typography variant="body2">{orderDetail.lastSyncError}</Typography>
+                    <Typography variant="body2">
+                      {orderDetail.lastSyncError}
+                    </Typography>
                   </Alert>
                 )}
 
@@ -1007,18 +1098,26 @@ const PurchaseOrders: React.FC = () => {
                     <Button
                       variant="contained"
                       color="primary"
-                      startIcon={syncing ? <CircularProgress size={16} color="inherit" /> : <CloudUploadIcon />}
+                      startIcon={
+                        syncing ? (
+                          <CircularProgress size={16} color="inherit" />
+                        ) : (
+                          <CloudUploadIcon />
+                        )
+                      }
                       onClick={() => handleSyncOrder(orderDetail.id)}
                       disabled={syncing}
                     >
-                      {orderDetail.lastSyncError ? "Tekrar Dene" : "Luca'ya Gönder"}
+                      {orderDetail.lastSyncError
+                        ? "Tekrar Dene"
+                        : "Luca'ya Gönder"}
                     </Button>
                   )}
                   {orderDetail.isSyncedToLuca && (
-                    <Chip 
-                      icon={<CheckCircleIcon />} 
-                      label="Senkronizasyon Tamamlandı" 
-                      color="success" 
+                    <Chip
+                      icon={<CheckCircleIcon />}
+                      label="Senkronizasyon Tamamlandı"
+                      color="success"
                     />
                   )}
                 </Box>
@@ -1055,18 +1154,34 @@ const PurchaseOrders: React.FC = () => {
                         <TableCell>{item.productSku || "-"}</TableCell>
                         <TableCell>
                           {item.lucaStockCode ? (
-                            <Chip label={item.lucaStockCode} size="small" color="primary" variant="outlined" />
+                            <Chip
+                              label={item.lucaStockCode}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
                           ) : (
-                            <Chip label="Yok" size="small" color="warning" icon={<WarningIcon />} />
+                            <Chip
+                              label="Yok"
+                              size="small"
+                              color="warning"
+                              icon={<WarningIcon />}
+                            />
                           )}
                         </TableCell>
                         <TableCell>{item.warehouseCode}</TableCell>
                         <TableCell align="right">{item.quantity}</TableCell>
-                        <TableCell align="right">{formatCurrency(item.unitPrice)}</TableCell>
+                        <TableCell align="right">
+                          {formatCurrency(item.unitPrice)}
+                        </TableCell>
                         <TableCell align="right">%{item.vatRate}</TableCell>
-                        <TableCell align="right">{formatCurrency(item.discountAmount)}</TableCell>
+                        <TableCell align="right">
+                          {formatCurrency(item.discountAmount)}
+                        </TableCell>
                         <TableCell align="right" sx={{ fontWeight: "bold" }}>
-                          {formatCurrency(item.quantity * item.unitPrice - item.discountAmount)}
+                          {formatCurrency(
+                            item.quantity * item.unitPrice - item.discountAmount
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1128,26 +1243,47 @@ const PurchaseOrders: React.FC = () => {
               <CardContent>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 6 }}>
-                    <FormControl fullWidth size="small" error={!!formErrors.supplierId}>
+                    <FormControl
+                      fullWidth
+                      size="small"
+                      error={!!formErrors.supplierId}
+                    >
                       <InputLabel>Tedarikçi *</InputLabel>
                       <Select
                         value={formData.supplierId}
                         label="Tedarikçi *"
                         onChange={(e) =>
-                          setFormData({ ...formData, supplierId: e.target.value as number })
+                          setFormData({
+                            ...formData,
+                            supplierId: e.target.value as number,
+                          })
                         }
                       >
                         <MenuItem value={0}>Seçiniz</MenuItem>
                         {validSuppliers.map((s) => (
                           <MenuItem key={s.id} value={s.id}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                              }}
+                            >
                               {s.name}
                               {s.code && (
-                                <Chip label={s.code} size="small" color="primary" variant="outlined" />
+                                <Chip
+                                  label={s.code}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                />
                               )}
                               {!s.code && (
                                 <Tooltip title="Bu tedarikçinin Luca kodu yok">
-                                  <WarningIcon fontSize="small" color="warning" />
+                                  <WarningIcon
+                                    fontSize="small"
+                                    color="warning"
+                                  />
                                 </Tooltip>
                               )}
                             </Box>
@@ -1165,7 +1301,9 @@ const PurchaseOrders: React.FC = () => {
                       label="Sipariş Tarihi *"
                       type="date"
                       value={formData.orderDate}
-                      onChange={(e) => setFormData({ ...formData, orderDate: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, orderDate: e.target.value })
+                      }
                       size="small"
                       fullWidth
                       slotProps={{ inputLabel: { shrink: true } }}
@@ -1179,7 +1317,12 @@ const PurchaseOrders: React.FC = () => {
                       label="Teslim Tarihi"
                       type="date"
                       value={formData.expectedDate}
-                      onChange={(e) => setFormData({ ...formData, expectedDate: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          expectedDate: e.target.value,
+                        })
+                      }
                       size="small"
                       fullWidth
                       slotProps={{ inputLabel: { shrink: true } }}
@@ -1190,7 +1333,12 @@ const PurchaseOrders: React.FC = () => {
                     <TextField
                       label="Belge Serisi"
                       value={formData.documentSeries}
-                      onChange={(e) => setFormData({ ...formData, documentSeries: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          documentSeries: e.target.value,
+                        })
+                      }
                       size="small"
                       fullWidth
                     />
@@ -1203,7 +1351,10 @@ const PurchaseOrders: React.FC = () => {
                         value={formData.documentTypeDetailId}
                         label="Belge Türü"
                         onChange={(e) =>
-                          setFormData({ ...formData, documentTypeDetailId: e.target.value as number })
+                          setFormData({
+                            ...formData,
+                            documentTypeDetailId: e.target.value as number,
+                          })
                         }
                       >
                         {DOCUMENT_TYPES.map((dt) => (
@@ -1219,7 +1370,12 @@ const PurchaseOrders: React.FC = () => {
                     <TextField
                       label="Proje Kodu"
                       value={formData.projectCode}
-                      onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          projectCode: e.target.value,
+                        })
+                      }
                       size="small"
                       fullWidth
                     />
@@ -1230,7 +1386,12 @@ const PurchaseOrders: React.FC = () => {
                       control={
                         <Checkbox
                           checked={formData.vatIncluded}
-                          onChange={(e) => setFormData({ ...formData, vatIncluded: e.target.checked })}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              vatIncluded: e.target.checked,
+                            })
+                          }
                         />
                       }
                       label="KDV Dahil"
@@ -1241,7 +1402,12 @@ const PurchaseOrders: React.FC = () => {
                     <TextField
                       label="Açıklama"
                       value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          description: e.target.value,
+                        })
+                      }
                       size="small"
                       fullWidth
                       multiline
@@ -1259,14 +1425,20 @@ const PurchaseOrders: React.FC = () => {
               <CardHeader
                 title="Sipariş Satırları"
                 action={
-                  <Button startIcon={<AddIcon />} onClick={addLineItem} size="small">
+                  <Button
+                    startIcon={<AddIcon />}
+                    onClick={addLineItem}
+                    size="small"
+                  >
                     Satır Ekle
                   </Button>
                 }
               />
               <Divider />
               {formErrors.items && (
-                <Alert severity="error" sx={{ m: 2 }}>{formErrors.items}</Alert>
+                <Alert severity="error" sx={{ m: 2 }}>
+                  {formErrors.items}
+                </Alert>
               )}
               <TableContainer>
                 <Table size="small">
@@ -1280,37 +1452,63 @@ const PurchaseOrders: React.FC = () => {
                       <TableCell sx={{ width: 80 }}>KDV %</TableCell>
                       <TableCell sx={{ width: 80 }}>Birim</TableCell>
                       <TableCell sx={{ width: 90 }}>İndirim</TableCell>
-                      <TableCell sx={{ width: 100 }} align="right">Toplam</TableCell>
+                      <TableCell sx={{ width: 100 }} align="right">
+                        Toplam
+                      </TableCell>
                       <TableCell sx={{ width: 50 }}></TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {formData.items.map((item, index) => {
-                      const product = products.find((p) => p.id === item.productId);
-                      const hasLucaCode = !!item.lucaStockCode || !!product?.sku;
+                      const product = products.find(
+                        (p) => p.id === item.productId
+                      );
+                      const hasLucaCode =
+                        !!item.lucaStockCode || !!product?.sku;
 
                       return (
                         <TableRow key={index}>
                           <TableCell>
-                            <FormControl fullWidth size="small" error={!!formErrors[`item_${index}_product`]}>
+                            <FormControl
+                              fullWidth
+                              size="small"
+                              error={!!formErrors[`item_${index}_product`]}
+                            >
                               <Select
                                 value={item.productId}
-                                onChange={(e) => updateLineItem(index, "productId", e.target.value as number)}
+                                onChange={(e) =>
+                                  updateLineItem(
+                                    index,
+                                    "productId",
+                                    e.target.value as number
+                                  )
+                                }
                                 displayEmpty
                               >
                                 <MenuItem value={0}>Ürün Seçin</MenuItem>
-                                {products.filter((p) => p.isActive !== false).map((p) => (
-                                  <MenuItem key={p.id} value={p.id}>
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                      {p.name}
-                                      {!p.sku && !p.lucaStockCode && (
-                                        <Tooltip title="Luca stok kodu yok">
-                                          <WarningIcon fontSize="small" color="warning" />
-                                        </Tooltip>
-                                      )}
-                                    </Box>
-                                  </MenuItem>
-                                ))}
+                                {products
+                                  .filter((p) => p.isActive !== false)
+                                  .map((p) => (
+                                    <MenuItem key={p.id} value={p.id}>
+                                      <Box
+                                        sx={{
+                                          display: "flex",
+                                          alignItems: "center",
+                                          gap: 1,
+                                        }}
+                                      >
+                                        {p.name}
+                                        {!p.sku && !p.lucaStockCode && (
+                                          <Tooltip title="Luca stok kodu yok">
+                                            <WarningIcon
+                                              fontSize="small"
+                                              color="warning"
+                                            />
+                                          </Tooltip>
+                                        )}
+                                      </Box>
+                                    </MenuItem>
+                                  ))}
                               </Select>
                             </FormControl>
                           </TableCell>
@@ -1318,7 +1516,13 @@ const PurchaseOrders: React.FC = () => {
                             <TextField
                               size="small"
                               value={item.lucaStockCode}
-                              onChange={(e) => updateLineItem(index, "lucaStockCode", e.target.value)}
+                              onChange={(e) =>
+                                updateLineItem(
+                                  index,
+                                  "lucaStockCode",
+                                  e.target.value
+                                )
+                              }
                               fullWidth
                               placeholder={product?.sku || ""}
                               error={!hasLucaCode && item.productId > 0}
@@ -1328,7 +1532,13 @@ const PurchaseOrders: React.FC = () => {
                             <Select
                               size="small"
                               value={item.warehouseCode}
-                              onChange={(e) => updateLineItem(index, "warehouseCode", e.target.value)}
+                              onChange={(e) =>
+                                updateLineItem(
+                                  index,
+                                  "warehouseCode",
+                                  e.target.value
+                                )
+                              }
                               fullWidth
                             >
                               {WAREHOUSES.map((w) => (
@@ -1343,7 +1553,13 @@ const PurchaseOrders: React.FC = () => {
                               size="small"
                               type="number"
                               value={item.quantity}
-                              onChange={(e) => updateLineItem(index, "quantity", parseInt(e.target.value) || 0)}
+                              onChange={(e) =>
+                                updateLineItem(
+                                  index,
+                                  "quantity",
+                                  parseInt(e.target.value) || 0
+                                )
+                              }
                               fullWidth
                               slotProps={{ htmlInput: { min: 0 } }}
                               error={!!formErrors[`item_${index}_quantity`]}
@@ -1354,7 +1570,13 @@ const PurchaseOrders: React.FC = () => {
                               size="small"
                               type="number"
                               value={item.unitPrice}
-                              onChange={(e) => updateLineItem(index, "unitPrice", parseFloat(e.target.value) || 0)}
+                              onChange={(e) =>
+                                updateLineItem(
+                                  index,
+                                  "unitPrice",
+                                  parseFloat(e.target.value) || 0
+                                )
+                              }
                               fullWidth
                               slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
                               error={!!formErrors[`item_${index}_price`]}
@@ -1364,7 +1586,13 @@ const PurchaseOrders: React.FC = () => {
                             <Select
                               size="small"
                               value={item.vatRate}
-                              onChange={(e) => updateLineItem(index, "vatRate", e.target.value as number)}
+                              onChange={(e) =>
+                                updateLineItem(
+                                  index,
+                                  "vatRate",
+                                  e.target.value as number
+                                )
+                              }
                               fullWidth
                             >
                               {VAT_RATES.map((rate) => (
@@ -1378,7 +1606,13 @@ const PurchaseOrders: React.FC = () => {
                             <Select
                               size="small"
                               value={item.unitCode}
-                              onChange={(e) => updateLineItem(index, "unitCode", e.target.value)}
+                              onChange={(e) =>
+                                updateLineItem(
+                                  index,
+                                  "unitCode",
+                                  e.target.value
+                                )
+                              }
                               fullWidth
                             >
                               {UNIT_CODES.map((u) => (
@@ -1393,7 +1627,13 @@ const PurchaseOrders: React.FC = () => {
                               size="small"
                               type="number"
                               value={item.discountAmount}
-                              onChange={(e) => updateLineItem(index, "discountAmount", parseFloat(e.target.value) || 0)}
+                              onChange={(e) =>
+                                updateLineItem(
+                                  index,
+                                  "discountAmount",
+                                  parseFloat(e.target.value) || 0
+                                )
+                              }
                               fullWidth
                               slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
                             />
@@ -1436,14 +1676,22 @@ const PurchaseOrders: React.FC = () => {
         </Grid>
 
         {/* Actions */}
-        <Box sx={{ mt: 3, display: "flex", gap: 1, justifyContent: "flex-end" }}>
+        <Box
+          sx={{ mt: 3, display: "flex", gap: 1, justifyContent: "flex-end" }}
+        >
           <Button variant="outlined" onClick={() => setView("list")}>
             İptal
           </Button>
           <Button
             variant="contained"
             color="primary"
-            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
+            startIcon={
+              saving ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <SaveIcon />
+              )
+            }
             onClick={handleCreate}
             disabled={saving}
           >

@@ -1937,6 +1937,22 @@ public class LucaStockCardSummaryDto
     [JsonPropertyName("barcode")]
     public string? Barcode { get; set; }
 
+    // Değişiklik tespiti için ek alanlar (Luca'da güncelleme olmadığı için karşılaştırma amaçlı)
+    [JsonPropertyName("alisFiyat")]
+    public decimal? AlisFiyat { get; set; }
+
+    [JsonPropertyName("satisFiyat")]
+    public decimal? SatisFiyat { get; set; }
+
+    [JsonPropertyName("kartAlisKdvOran")]
+    public double? AlisKdvOran { get; set; }
+
+    [JsonPropertyName("kartSatisKdvOran")]
+    public double? SatisKdvOran { get; set; }
+
+    [JsonPropertyName("kategoriAgacKod")]
+    public string? KategoriKodu { get; set; }
+
     // 2) Frontend'e giderken kullanılan alanlar (React productCode/productName/unit/stockAmount bekliyor)
 
     [JsonPropertyName("productCode")]
