@@ -397,6 +397,57 @@ public static class MappingHelper
         };
     }
 
+    /// <summary>
+    /// Maps PurchaseOrder entity (with Luca fields) to Luca purchase order request.
+    /// Uses entity's own Luca-related properties.
+    /// </summary>
+    public static LucaCreatePurchaseOrderRequest MapToLucaPurchaseOrderFromEntity(PurchaseOrder po, Supplier supplier)
+    {
+        var cariKod = !string.IsNullOrWhiteSpace(supplier.Code) 
+            ? supplier.Code 
+            : $"TED{supplier.Id:D6}";
+        
+        var belgeTakipNo = string.IsNullOrWhiteSpace(po.OrderNo) ? po.Id.ToString() : po.OrderNo;
+        
+        return new LucaCreatePurchaseOrderRequest
+        {
+            BelgeSeri = po.DocumentSeries ?? "A",
+            BelgeNo = po.LucaDocumentNo ?? belgeTakipNo,
+            BelgeTakipNo = belgeTakipNo,
+            BelgeTarihi = po.OrderDate == default ? DateTime.UtcNow : po.OrderDate,
+            BelgeTurDetayId = po.DocumentTypeDetailId > 0 ? po.DocumentTypeDetailId : 2,
+            TeklifSiparisTur = 1,
+            OnayFlag = 0,
+            ParaBirimKod = "TRY",
+            KdvFlag = po.VatIncluded,
+            TeslimTarihi = po.ExpectedDate ?? DateTime.UtcNow.AddDays(7),
+            TeslimTarihiFlag = po.ExpectedDate.HasValue,
+            CariKodu = cariKod,
+            CariTanim = supplier.Name,
+            CariYasalUnvan = supplier.Name,
+            VergiNo = supplier.TaxNo,
+            OzelKod = po.ReferenceCode ?? $"KAT-PO-{po.Id}",
+            ProjeKodu = po.ProjectCode,
+            BelgeAciklama = po.Description,
+            SevkAdresiId = po.ShippingAddressId,
+            DetayList = po.Items.Select(item => new LucaCreatePurchaseOrderDetailRequest
+            {
+                KartTuru = 1, // Stok
+                KartKodu = !string.IsNullOrWhiteSpace(item.LucaStockCode) 
+                    ? item.LucaStockCode 
+                    : NormalizeSku(item.Product?.SKU ?? string.Empty),
+                KartAdi = item.Product?.Name,
+                DepoKodu = item.WarehouseCode ?? "01",
+                BirimKodu = item.UnitCode ?? "AD",
+                BirimFiyat = (double)item.UnitPrice,
+                Miktar = item.Quantity,
+                KdvOran = (double)item.VatRate,
+                IskontoTutar = (double)item.DiscountAmount,
+                Tutar = (double)(item.UnitPrice * item.Quantity - item.DiscountAmount)
+            }).ToList()
+        };
+    }
+
     public static LucaCreateSupplierRequest MapToLucaSupplierCreate(Supplier supplier)
     {
         return new LucaCreateSupplierRequest

@@ -141,12 +141,7 @@ const LucaStatusBadge: React.FC<{
   if (status === "error") {
     return (
       <Tooltip title={error || "Hata oluştu"}>
-        <Chip
-          icon={<ErrorIcon />}
-          label="Hata"
-          color="error"
-          size="small"
-        />
+        <Chip icon={<ErrorIcon />} label="Hata" color="error" size="small" />
       </Tooltip>
     );
   }
@@ -187,7 +182,9 @@ const SalesOrders: React.FC = () => {
   const [syncStatusFilter, setSyncStatusFilter] = useState<string>("");
 
   // Detail state
-  const [selectedOrder, setSelectedOrder] = useState<SalesOrderDetail | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<SalesOrderDetail | null>(
+    null
+  );
   const [detailLoading, setDetailLoading] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
 
@@ -226,7 +223,9 @@ const SalesOrders: React.FC = () => {
       if (statusFilter) params.append("status", statusFilter);
       if (syncStatusFilter) params.append("syncStatus", syncStatusFilter);
 
-      const response = await api.get<SalesOrderSummary[]>(`/sales-orders?${params}`);
+      const response = await api.get<SalesOrderSummary[]>(
+        `/sales-orders?${params}`
+      );
       setOrders(response.data);
     } catch (err) {
       console.error("Failed to fetch orders:", err);
@@ -250,7 +249,7 @@ const SalesOrders: React.FC = () => {
       setDetailLoading(true);
       const response = await api.get<SalesOrderDetail>(`/sales-orders/${id}`);
       setSelectedOrder(response.data);
-      
+
       // Populate form
       setLucaFields({
         belgeSeri: response.data.belgeSeri || "",
@@ -262,7 +261,7 @@ const SalesOrders: React.FC = () => {
         onayFlag: response.data.onayFlag ?? true,
         belgeAciklama: response.data.additionalInfo || "",
       });
-      
+
       setShowDetail(true);
     } catch (err) {
       console.error("Failed to fetch order detail:", err);
@@ -279,10 +278,13 @@ const SalesOrders: React.FC = () => {
   // Save Luca fields
   const saveLucaFields = async () => {
     if (!selectedOrder) return;
-    
+
     try {
       setSaving(true);
-      await api.patch(`/sales-orders/${selectedOrder.id}/luca-fields`, lucaFields);
+      await api.patch(
+        `/sales-orders/${selectedOrder.id}/luca-fields`,
+        lucaFields
+      );
       setSnackbar({
         open: true,
         message: "Luca alanları kaydedildi",
@@ -306,8 +308,10 @@ const SalesOrders: React.FC = () => {
   const syncToLuca = async (orderId: number) => {
     try {
       setSyncing(orderId);
-      const response = await api.post<SyncResult>(`/sales-orders/${orderId}/sync`);
-      
+      const response = await api.post<SyncResult>(
+        `/sales-orders/${orderId}/sync`
+      );
+
       if (response.data.isSuccess) {
         setSnackbar({
           open: true,
@@ -321,7 +325,7 @@ const SalesOrders: React.FC = () => {
           severity: "error",
         });
       }
-      
+
       // Refresh data
       if (showDetail && selectedOrder?.id === orderId) {
         await fetchOrderDetail(orderId);
@@ -369,7 +373,14 @@ const SalesOrders: React.FC = () => {
   const renderList = () => (
     <Box>
       {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+        }}
+      >
         <Typography variant="h5">Satış Siparişleri</Typography>
         <Button
           variant="outlined"
@@ -439,7 +450,9 @@ const SalesOrders: React.FC = () => {
             ) : orders.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  <Typography color="textSecondary">Sipariş bulunamadı</Typography>
+                  <Typography color="textSecondary">
+                    Sipariş bulunamadı
+                  </Typography>
                 </TableCell>
               </TableRow>
             ) : (
@@ -529,16 +542,20 @@ const SalesOrders: React.FC = () => {
           <IconButton onClick={handleBackToList}>
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h5">
-            Sipariş: {selectedOrder.orderNo}
-          </Typography>
+          <Typography variant="h5">Sipariş: {selectedOrder.orderNo}</Typography>
           <LucaStatusBadge
             status={selectedOrder.lucaSyncStatus}
             error={selectedOrder.lastSyncError}
           />
         </Box>
 
-        <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" } }}>
+        <Box
+          sx={{
+            display: "grid",
+            gap: 3,
+            gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" },
+          }}
+        >
           {/* Left Column */}
           <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
             {/* (A) Katana Info */}
@@ -548,44 +565,69 @@ const SalesOrders: React.FC = () => {
               <CardContent>
                 <Box sx={gridStyles.container}>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Sipariş No</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Sipariş No
+                    </Typography>
                     <Typography>{selectedOrder.orderNo}</Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Katana ID</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Katana ID
+                    </Typography>
                     <Typography>{selectedOrder.katanaOrderId}</Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Müşteri</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Müşteri
+                    </Typography>
                     <Typography>{selectedOrder.customerName || "-"}</Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Sipariş Tarihi</Typography>
-                    <Typography>{formatDate(selectedOrder.orderCreatedDate)}</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Sipariş Tarihi
+                    </Typography>
+                    <Typography>
+                      {formatDate(selectedOrder.orderCreatedDate)}
+                    </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Teslim Tarihi</Typography>
-                    <Typography>{formatDate(selectedOrder.deliveryDate)}</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Teslim Tarihi
+                    </Typography>
+                    <Typography>
+                      {formatDate(selectedOrder.deliveryDate)}
+                    </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Durum</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Durum
+                    </Typography>
                     <Chip label={selectedOrder.status} size="small" />
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Para Birimi</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Para Birimi
+                    </Typography>
                     <Typography>{selectedOrder.currency || "TRY"}</Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="textSecondary">Toplam</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Toplam
+                    </Typography>
                     <Typography fontWeight="bold">
-                      {formatCurrency(selectedOrder.total, selectedOrder.currency)}
+                      {formatCurrency(
+                        selectedOrder.total,
+                        selectedOrder.currency
+                      )}
                     </Typography>
                   </Box>
                 </Box>
 
                 {selectedOrder.additionalInfo && (
                   <Box sx={{ mt: 2 }}>
-                    <Typography variant="caption" color="textSecondary">Ek Bilgi</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Ek Bilgi
+                    </Typography>
                     <Typography>{selectedOrder.additionalInfo}</Typography>
                   </Box>
                 )}
@@ -619,9 +661,14 @@ const SalesOrders: React.FC = () => {
                         <TableCell>{line.productName || "-"}</TableCell>
                         <TableCell align="right">{line.quantity}</TableCell>
                         <TableCell align="right">
-                          {formatCurrency(line.pricePerUnit, selectedOrder.currency)}
+                          {formatCurrency(
+                            line.pricePerUnit,
+                            selectedOrder.currency
+                          )}
                         </TableCell>
-                        <TableCell align="right">{line.taxRate || 0}%</TableCell>
+                        <TableCell align="right">
+                          {line.taxRate || 0}%
+                        </TableCell>
                         <TableCell align="right">
                           {formatCurrency(line.total, selectedOrder.currency)}
                         </TableCell>
@@ -642,7 +689,10 @@ const SalesOrders: React.FC = () => {
                     label="Belge Seri"
                     value={lucaFields.belgeSeri}
                     onChange={(e) =>
-                      setLucaFields({ ...lucaFields, belgeSeri: e.target.value })
+                      setLucaFields({
+                        ...lucaFields,
+                        belgeSeri: e.target.value,
+                      })
                     }
                     size="small"
                     placeholder="SAT"
@@ -659,7 +709,10 @@ const SalesOrders: React.FC = () => {
                     label="Düzenleme Saati"
                     value={lucaFields.duzenlemeSaati}
                     onChange={(e) =>
-                      setLucaFields({ ...lucaFields, duzenlemeSaati: e.target.value })
+                      setLucaFields({
+                        ...lucaFields,
+                        duzenlemeSaati: e.target.value,
+                      })
                     }
                     size="small"
                     placeholder="HH:mm"
@@ -673,7 +726,10 @@ const SalesOrders: React.FC = () => {
                       value={lucaFields.onayFlag ? 1 : 0}
                       label="Onay Durumu"
                       onChange={(e) =>
-                        setLucaFields({ ...lucaFields, onayFlag: e.target.value === 1 })
+                        setLucaFields({
+                          ...lucaFields,
+                          onayFlag: e.target.value === 1,
+                        })
                       }
                     >
                       <MenuItem value={1}>Onaylı</MenuItem>
@@ -722,7 +778,10 @@ const SalesOrders: React.FC = () => {
                     label="Belge Açıklaması"
                     value={lucaFields.belgeAciklama}
                     onChange={(e) =>
-                      setLucaFields({ ...lucaFields, belgeAciklama: e.target.value })
+                      setLucaFields({
+                        ...lucaFields,
+                        belgeAciklama: e.target.value,
+                      })
                     }
                     size="small"
                     fullWidth
@@ -731,7 +790,9 @@ const SalesOrders: React.FC = () => {
                   />
                 </Box>
 
-                <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
+                <Box
+                  sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}
+                >
                   <Button
                     variant="contained"
                     onClick={saveLucaFields}

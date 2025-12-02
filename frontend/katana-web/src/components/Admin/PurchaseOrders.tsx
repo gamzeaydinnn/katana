@@ -1,13 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Box,
   Button,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   FormControlLabel,
   Checkbox,
@@ -31,6 +27,8 @@ import {
   CardContent,
   CardHeader,
   Divider,
+  Grid,
+  FormHelperText,
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -40,42 +38,73 @@ import {
   Error as ErrorIcon,
   HourglassEmpty as PendingIcon,
   Save as SaveIcon,
+  Visibility as ViewIcon,
+  ArrowBack as BackIcon,
+  Warning as WarningIcon,
+  CloudUpload as CloudUploadIcon,
 } from "@mui/icons-material";
 import api from "../../services/api";
 
-// Types
-interface PurchaseOrder {
+// ===== TYPES =====
+
+type LucaSyncStatus = "synced" | "error" | "not_synced";
+
+interface PurchaseOrderListItem {
+  id: number;
+  orderNo: string;
+  supplierName?: string;
+  orderDate: string;
+  expectedDate?: string;
+  status: string;
+  totalAmount: number;
+  lucaPurchaseOrderId?: number;
+  lucaDocumentNo?: string;
+  isSyncedToLuca: boolean;
+  lastSyncError?: string;
+  lastSyncAt?: string;
+}
+
+interface PurchaseOrderDetail {
   id: number;
   orderNo: string;
   supplierId: number;
-  supplierName?: string;
   supplierCode?: string;
+  supplierName?: string;
   status: string;
   totalAmount: number;
   orderDate: string;
   expectedDate?: string;
-  isSynced: boolean;
   createdAt: string;
-  lucaOrderId?: number;
-  belgeSeri?: string;
-  belgeNo?: string;
-  currency?: string;
+  updatedAt?: string;
+  // Luca alanları
+  lucaPurchaseOrderId?: number;
+  lucaDocumentNo?: string;
+  documentSeries?: string;
+  documentTypeDetailId: number;
+  vatIncluded: boolean;
+  referenceCode?: string;
+  projectCode?: string;
+  description?: string;
+  isSyncedToLuca: boolean;
   lastSyncAt?: string;
   lastSyncError?: string;
-  items: PurchaseOrderItem[];
-  lucaSyncStatus: "synced" | "error" | "not_synced";
+  syncRetryCount: number;
+  items: PurchaseOrderItemDetail[];
 }
 
-interface PurchaseOrderItem {
+interface PurchaseOrderItemDetail {
   id: number;
-  purchaseOrderId: number;
   productId: number;
   productName?: string;
-  sku?: string;
+  productSku?: string;
   quantity: number;
   unitPrice: number;
-  taxRate?: number;
-  totalPrice: number;
+  lucaStockCode?: string;
+  warehouseCode?: string;
+  vatRate: number;
+  unitCode?: string;
+  discountAmount: number;
+  lucaDetailId?: number;
 }
 
 interface Supplier {
@@ -83,6 +112,8 @@ interface Supplier {
   name: string;
   code?: string;
   taxNo?: string;
+  lucaCode?: string;
+  isActive: boolean;
 }
 
 interface Product {
@@ -90,97 +121,170 @@ interface Product {
   name: string;
   sku: string;
   lucaCode?: string;
+  lucaStockCode?: string;
+  isActive: boolean;
 }
 
 interface CreatePurchaseOrderForm {
   supplierId: number;
   orderDate: string;
   expectedDate: string;
-  currency: string;
-  belgeSeri: string;
-  belgeTurDetayId: number;
-  kdvFlag: boolean;
-  items: CreatePurchaseOrderItem[];
+  documentSeries: string;
+  documentTypeDetailId: number;
+  vatIncluded: boolean;
+  projectCode: string;
+  description: string;
+  items: CreatePurchaseOrderItemForm[];
 }
 
-interface CreatePurchaseOrderItem {
+interface CreatePurchaseOrderItemForm {
   productId: number;
-  kartKodu: string;
+  lucaStockCode: string;
   quantity: number;
   unitPrice: number;
-  taxRate: number;
-  depoKodu: string;
+  vatRate: number;
+  warehouseCode: string;
+  unitCode: string;
+  discountAmount: number;
 }
 
-// Status badge component
+interface SyncResult {
+  success: boolean;
+  lucaPurchaseOrderId?: number;
+  lucaDocumentNo?: string;
+  message?: string;
+}
+
+interface OrderStats {
+  total: number;
+  synced: number;
+  notSynced: number;
+  withErrors: number;
+  pending: number;
+  approved: number;
+  received: number;
+  cancelled: number;
+}
+
+// ===== CONSTANTS =====
+
+const DOCUMENT_TYPES = [
+  { id: 2, label: "Satınalma Siparişi" },
+  { id: 18, label: "Satınalma Siparişi (Standart)" },
+];
+
+const VAT_RATES = [0, 1, 10, 18, 20];
+
+const WAREHOUSES = [
+  { code: "01", label: "Ana Depo" },
+  { code: "02", label: "Şube Depo" },
+  { code: "03", label: "Depo 3" },
+];
+
+const UNIT_CODES = [
+  { code: "AD", label: "Adet" },
+  { code: "KG", label: "Kilogram" },
+  { code: "MT", label: "Metre" },
+  { code: "LT", label: "Litre" },
+  { code: "PK", label: "Paket" },
+];
+
+// ===== HELPER COMPONENTS =====
+
 const LucaStatusBadge: React.FC<{
-  status: "synced" | "error" | "not_synced";
+  status: LucaSyncStatus;
   error?: string;
-}> = ({ status, error }) => {
+  lucaId?: number;
+}> = ({ status, error, lucaId }) => {
   if (status === "synced") {
     return (
-      <Chip
-        icon={<CheckCircleIcon />}
-        label="Senkronize"
-        color="success"
-        size="small"
-      />
+      <Tooltip title={`Luca ID: ${lucaId || "-"}`}>
+        <Chip
+          icon={<CheckCircleIcon />}
+          label="Senkronize"
+          color="success"
+          size="small"
+        />
+      </Tooltip>
     );
   }
   if (status === "error") {
     return (
-      <Tooltip title={error || "Hata oluştu"}>
+      <Tooltip title={error || "Bilinmeyen hata"}>
         <Chip icon={<ErrorIcon />} label="Hata" color="error" size="small" />
       </Tooltip>
     );
   }
   return (
-    <Chip icon={<PendingIcon />} label="Bekliyor" color="default" size="small" />
+    <Chip
+      icon={<PendingIcon />}
+      label="Gönderilmedi"
+      color="default"
+      size="small"
+    />
   );
 };
 
-const gridStyles = {
-  container: {
-    display: "grid",
-    gap: 2,
-    gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
-  },
-  threeCol: {
-    display: "grid",
-    gap: 2,
-    gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" },
-  },
+const getSyncStatus = (order: PurchaseOrderListItem | PurchaseOrderDetail): LucaSyncStatus => {
+  if (order.isSyncedToLuca && !order.lastSyncError) return "synced";
+  if (order.lastSyncError) return "error";
+  return "not_synced";
 };
 
-const emptyItem: CreatePurchaseOrderItem = {
+// ===== EMPTY ITEM TEMPLATE =====
+
+const emptyItem: CreatePurchaseOrderItemForm = {
   productId: 0,
-  kartKodu: "",
+  lucaStockCode: "",
   quantity: 1,
   unitPrice: 0,
-  taxRate: 20,
-  depoKodu: "",
+  vatRate: 20,
+  warehouseCode: "01",
+  unitCode: "AD",
+  discountAmount: 0,
 };
 
-const PurchaseOrders: React.FC = () => {
-  // List state
-  const [orders, setOrders] = useState<PurchaseOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+// ===== MAIN COMPONENT =====
 
-  // Dialog state
-  const [openDialog, setOpenDialog] = useState(false);
+const PurchaseOrders: React.FC = () => {
+  // View state
+  const [view, setView] = useState<"list" | "detail" | "create">("list");
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+
+  // List state
+  const [orders, setOrders] = useState<PurchaseOrderListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<OrderStats | null>(null);
+
+  // Detail state
+  const [orderDetail, setOrderDetail] = useState<PurchaseOrderDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // Create/Edit state
   const [formData, setFormData] = useState<CreatePurchaseOrderForm>({
     supplierId: 0,
     orderDate: new Date().toISOString().split("T")[0],
     expectedDate: "",
-    currency: "TRY",
-    belgeSeri: "SAT",
-    belgeTurDetayId: 18,
-    kdvFlag: true,
+    documentSeries: "A",
+    documentTypeDetailId: 2,
+    vatIncluded: true,
+    projectCode: "",
+    description: "",
     items: [{ ...emptyItem }],
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+
+  // Reference data
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+
+  // Sync state
+  const [syncing, setSyncing] = useState(false);
+
+  // Filter state
+  const [filterSyncStatus, setFilterSyncStatus] = useState<string>("all");
+  const [filterSupplierId, setFilterSupplierId] = useState<number>(0);
 
   // Delete state
   const [deleting, setDeleting] = useState<number | null>(null);
@@ -189,32 +293,69 @@ const PurchaseOrders: React.FC = () => {
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
-    severity: "success" | "error" | "info";
+    severity: "success" | "error" | "info" | "warning";
   }>({
     open: false,
     message: "",
     severity: "success",
   });
 
-  // Fetch orders
-  const fetchOrders = async () => {
+  // ===== DATA FETCHING =====
+
+  const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.get<PurchaseOrder[]>("/purchase-orders");
-      setOrders(response.data);
+      const params: Record<string, string> = {};
+      if (filterSyncStatus !== "all") {
+        params.syncStatus = filterSyncStatus;
+      }
+      if (filterSupplierId > 0) {
+        params.supplierId = filterSupplierId.toString();
+      }
+      
+      const response = await api.get<{ data: PurchaseOrderListItem[]; total: number }>(
+        "/purchase-orders",
+        { params }
+      );
+      setOrders(response.data.data || []);
     } catch (err) {
       console.error("Failed to fetch purchase orders:", err);
       setSnackbar({
         open: true,
-        message: "Satın alma siparişleri yüklenemedi",
+        message: "Satınalma siparişleri yüklenemedi",
         severity: "error",
       });
     } finally {
       setLoading(false);
     }
+  }, [filterSyncStatus, filterSupplierId]);
+
+  const fetchStats = async () => {
+    try {
+      const response = await api.get<OrderStats>("/purchase-orders/stats");
+      setStats(response.data);
+    } catch (err) {
+      console.error("Failed to fetch stats:", err);
+    }
   };
 
-  // Fetch suppliers
+  const fetchOrderDetail = async (id: number) => {
+    try {
+      setDetailLoading(true);
+      const response = await api.get<PurchaseOrderDetail>(`/purchase-orders/${id}`);
+      setOrderDetail(response.data);
+    } catch (err) {
+      console.error("Failed to fetch order detail:", err);
+      setSnackbar({
+        open: true,
+        message: "Sipariş detayı yüklenemedi",
+        severity: "error",
+      });
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   const fetchSuppliers = async () => {
     try {
       const response = await api.get<Supplier[]>("/suppliers");
@@ -224,7 +365,6 @@ const PurchaseOrders: React.FC = () => {
     }
   };
 
-  // Fetch products
   const fetchProducts = async () => {
     try {
       const response = await api.get<Product[]>("/products");
@@ -236,62 +376,63 @@ const PurchaseOrders: React.FC = () => {
 
   useEffect(() => {
     fetchOrders();
+    fetchStats();
     fetchSuppliers();
     fetchProducts();
-  }, []);
+  }, [fetchOrders]);
 
-  // Add line item
-  const addLineItem = () => {
-    setFormData({
-      ...formData,
-      items: [...formData.items, { ...emptyItem }],
-    });
-  };
+  useEffect(() => {
+    if (selectedOrderId && view === "detail") {
+      fetchOrderDetail(selectedOrderId);
+    }
+  }, [selectedOrderId, view]);
 
-  // Remove line item
-  const removeLineItem = (index: number) => {
-    const newItems = formData.items.filter((_, i) => i !== index);
-    setFormData({ ...formData, items: newItems.length > 0 ? newItems : [{ ...emptyItem }] });
-  };
+  // ===== FORM HANDLERS =====
 
-  // Update line item
-  const updateLineItem = (index: number, field: keyof CreatePurchaseOrderItem, value: string | number) => {
-    const newItems = [...formData.items];
-    newItems[index] = { ...newItems[index], [field]: value };
-    
-    // Auto-fill kartKodu when product is selected
-    if (field === "productId") {
-      const product = products.find((p) => p.id === value);
-      if (product) {
-        newItems[index].kartKodu = product.lucaCode || product.sku;
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (formData.supplierId === 0) {
+      errors.supplierId = "Tedarikçi seçilmeli";
+    } else {
+      const supplier = suppliers.find((s) => s.id === formData.supplierId);
+      if (supplier && !supplier.code) {
+        errors.supplierId = "Seçili tedarikçinin Luca kodu yok";
       }
     }
-    
-    setFormData({ ...formData, items: newItems });
-  };
 
-  // Calculate total
-  const calculateTotal = () => {
-    return formData.items.reduce((sum, item) => {
-      return sum + item.quantity * item.unitPrice;
-    }, 0);
-  };
-
-  // Create order
-  const handleCreate = async () => {
-    if (formData.supplierId === 0) {
-      setSnackbar({
-        open: true,
-        message: "Lütfen tedarikçi seçin",
-        severity: "error",
-      });
-      return;
+    if (!formData.orderDate) {
+      errors.orderDate = "Sipariş tarihi gerekli";
     }
 
-    if (formData.items.every((i) => i.productId === 0)) {
+    if (formData.items.length === 0 || formData.items.every((i) => i.productId === 0)) {
+      errors.items = "En az bir ürün eklenmelidir";
+    }
+
+    formData.items.forEach((item, index) => {
+      if (item.productId > 0) {
+        const product = products.find((p) => p.id === item.productId);
+        if (product && !product.sku && !item.lucaStockCode) {
+          errors[`item_${index}_product`] = "Bu ürünün Luca stok kodu yok";
+        }
+        if (item.quantity <= 0) {
+          errors[`item_${index}_quantity`] = "Miktar 0'dan büyük olmalı";
+        }
+        if (item.unitPrice < 0) {
+          errors[`item_${index}_price`] = "Fiyat negatif olamaz";
+        }
+      }
+    });
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleCreate = async () => {
+    if (!validateForm()) {
       setSnackbar({
         open: true,
-        message: "En az bir ürün ekleyin",
+        message: "Lütfen form hatalarını düzeltin",
         severity: "error",
       });
       return;
@@ -299,15 +440,39 @@ const PurchaseOrders: React.FC = () => {
 
     try {
       setSaving(true);
-      await api.post("/purchase-orders", formData);
+      const payload = {
+        supplierId: formData.supplierId,
+        orderDate: formData.orderDate,
+        expectedDate: formData.expectedDate || null,
+        documentSeries: formData.documentSeries,
+        documentTypeDetailId: formData.documentTypeDetailId,
+        vatIncluded: formData.vatIncluded,
+        projectCode: formData.projectCode || null,
+        description: formData.description || null,
+        items: formData.items
+          .filter((i) => i.productId > 0)
+          .map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            lucaStockCode: i.lucaStockCode || null,
+            warehouseCode: i.warehouseCode,
+            vatRate: i.vatRate,
+            unitCode: i.unitCode,
+            discountAmount: i.discountAmount,
+          })),
+      };
+
+      await api.post("/purchase-orders", payload);
       setSnackbar({
         open: true,
-        message: "Satın alma siparişi oluşturuldu",
+        message: "Satınalma siparişi oluşturuldu",
         severity: "success",
       });
-      setOpenDialog(false);
       resetForm();
+      setView("list");
       await fetchOrders();
+      await fetchStats();
     } catch (err) {
       console.error("Failed to create purchase order:", err);
       setSnackbar({
@@ -320,7 +485,106 @@ const PurchaseOrders: React.FC = () => {
     }
   };
 
-  // Delete order
+  const resetForm = () => {
+    setFormData({
+      supplierId: 0,
+      orderDate: new Date().toISOString().split("T")[0],
+      expectedDate: "",
+      documentSeries: "A",
+      documentTypeDetailId: 2,
+      vatIncluded: true,
+      projectCode: "",
+      description: "",
+      items: [{ ...emptyItem }],
+    });
+    setFormErrors({});
+  };
+
+  // ===== LINE ITEM HANDLERS =====
+
+  const addLineItem = () => {
+    setFormData({
+      ...formData,
+      items: [...formData.items, { ...emptyItem }],
+    });
+  };
+
+  const removeLineItem = (index: number) => {
+    const newItems = formData.items.filter((_, i) => i !== index);
+    setFormData({
+      ...formData,
+      items: newItems.length > 0 ? newItems : [{ ...emptyItem }],
+    });
+  };
+
+  const updateLineItem = (
+    index: number,
+    field: keyof CreatePurchaseOrderItemForm,
+    value: string | number
+  ) => {
+    const newItems = [...formData.items];
+    newItems[index] = { ...newItems[index], [field]: value };
+
+    // Auto-fill lucaStockCode when product is selected
+    if (field === "productId") {
+      const product = products.find((p) => p.id === value);
+      if (product) {
+        newItems[index].lucaStockCode = product.lucaStockCode || product.sku || "";
+      }
+    }
+
+    setFormData({ ...formData, items: newItems });
+  };
+
+  // ===== SYNC HANDLERS =====
+
+  const handleSyncOrder = async (id: number) => {
+    try {
+      setSyncing(true);
+      setSnackbar({
+        open: true,
+        message: "Luca'ya gönderiliyor...",
+        severity: "info",
+      });
+
+      const response = await api.post<SyncResult>(`/purchase-orders/${id}/sync`);
+
+      if (response.data.success) {
+        setSnackbar({
+          open: true,
+          message: `Başarıyla senkronize edildi. Luca ID: ${response.data.lucaPurchaseOrderId}`,
+          severity: "success",
+        });
+        // Refresh detail if viewing
+        if (selectedOrderId === id) {
+          await fetchOrderDetail(id);
+        }
+        await fetchOrders();
+        await fetchStats();
+      } else {
+        setSnackbar({
+          open: true,
+          message: response.data.message || "Senkronizasyon başarısız",
+          severity: "error",
+        });
+        if (selectedOrderId === id) {
+          await fetchOrderDetail(id);
+        }
+      }
+    } catch (err) {
+      console.error("Sync failed:", err);
+      setSnackbar({
+        open: true,
+        message: "Senkronizasyon hatası",
+        severity: "error",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // ===== DELETE HANDLER =====
+
   const handleDelete = async (id: number) => {
     if (!window.confirm("Bu siparişi silmek istediğinize emin misiniz?")) return;
 
@@ -332,12 +596,19 @@ const PurchaseOrders: React.FC = () => {
         message: "Sipariş silindi",
         severity: "success",
       });
+      if (view === "detail") {
+        setView("list");
+      }
       await fetchOrders();
-    } catch (err) {
-      console.error("Failed to delete purchase order:", err);
+      await fetchStats();
+    } catch (err: unknown) {
+      console.error("Failed to delete:", err);
+      const errorMessage = err instanceof Error && 'response' in err 
+        ? (err as { response?: { data?: { message?: string } } }).response?.data?.message 
+        : "Sipariş silinemedi";
       setSnackbar({
         open: true,
-        message: "Sipariş silinemedi",
+        message: errorMessage || "Sipariş silinemedi",
         severity: "error",
       });
     } finally {
@@ -345,24 +616,16 @@ const PurchaseOrders: React.FC = () => {
     }
   };
 
-  // Reset form
-  const resetForm = () => {
-    setFormData({
-      supplierId: 0,
-      orderDate: new Date().toISOString().split("T")[0],
-      expectedDate: "",
-      currency: "TRY",
-      belgeSeri: "SAT",
-      belgeTurDetayId: 18,
-      kdvFlag: true,
-      items: [{ ...emptyItem }],
-    });
-  };
+  // ===== FORMAT HELPERS =====
 
-  // Format
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "-";
     return new Date(dateStr).toLocaleDateString("tr-TR");
+  };
+
+  const formatDateTime = (dateStr?: string) => {
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleString("tr-TR");
   };
 
   const formatCurrency = (amount: number) => {
@@ -372,16 +635,67 @@ const PurchaseOrders: React.FC = () => {
     }).format(amount);
   };
 
-  return (
-    <Box sx={{ p: 3 }}>
+  const calculateLineTotal = (item: CreatePurchaseOrderItemForm) => {
+    return item.quantity * item.unitPrice - item.discountAmount;
+  };
+
+  const calculateFormTotal = () => {
+    return formData.items.reduce((sum, item) => sum + calculateLineTotal(item), 0);
+  };
+
+  // ===== RENDER: STATS BAR =====
+
+  const renderStats = () => {
+    if (!stats) return null;
+
+    return (
+      <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
+        <Chip
+          label={`Toplam: ${stats.total}`}
+          color="default"
+          variant="outlined"
+        />
+        <Chip
+          icon={<CheckCircleIcon />}
+          label={`Senkronize: ${stats.synced}`}
+          color="success"
+          variant="outlined"
+        />
+        <Chip
+          icon={<PendingIcon />}
+          label={`Bekliyor: ${stats.notSynced}`}
+          color="default"
+          variant="outlined"
+        />
+        <Chip
+          icon={<ErrorIcon />}
+          label={`Hatalı: ${stats.withErrors}`}
+          color="error"
+          variant="outlined"
+        />
+      </Box>
+    );
+  };
+
+  // ===== RENDER: LIST VIEW =====
+
+  const renderListView = () => (
+    <Box>
       {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-        <Typography variant="h5">Satın Alma Siparişleri</Typography>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+        }}
+      >
+        <Typography variant="h5">Satınalma Siparişleri</Typography>
         <Box sx={{ display: "flex", gap: 1 }}>
           <Button
             variant="outlined"
             startIcon={<RefreshIcon />}
-            onClick={fetchOrders}
+            onClick={() => { fetchOrders(); fetchStats(); }}
             disabled={loading}
           >
             Yenile
@@ -389,11 +703,46 @@ const PurchaseOrders: React.FC = () => {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => setOpenDialog(true)}
+            onClick={() => { resetForm(); setView("create"); }}
           >
             Yeni Sipariş
           </Button>
         </Box>
+      </Box>
+
+      {/* Stats */}
+      {renderStats()}
+
+      {/* Filters */}
+      <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>Sync Durumu</InputLabel>
+          <Select
+            value={filterSyncStatus}
+            label="Sync Durumu"
+            onChange={(e) => setFilterSyncStatus(e.target.value)}
+          >
+            <MenuItem value="all">Tümü</MenuItem>
+            <MenuItem value="synced">Senkronize</MenuItem>
+            <MenuItem value="not_synced">Gönderilmedi</MenuItem>
+            <MenuItem value="error">Hatalı</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Tedarikçi</InputLabel>
+          <Select
+            value={filterSupplierId}
+            label="Tedarikçi"
+            onChange={(e) => setFilterSupplierId(e.target.value as number)}
+          >
+            <MenuItem value={0}>Tümü</MenuItem>
+            {suppliers.map((s) => (
+              <MenuItem key={s.id} value={s.id}>
+                {s.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
 
       {/* Table */}
@@ -401,12 +750,12 @@ const PurchaseOrders: React.FC = () => {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Belge No</TableCell>
+              <TableCell>Sipariş No</TableCell>
               <TableCell>Tedarikçi</TableCell>
               <TableCell>Tarih</TableCell>
-              <TableCell>Beklenen Tarih</TableCell>
+              <TableCell>Teslim Tarihi</TableCell>
               <TableCell align="right">Toplam</TableCell>
-              <TableCell>Luca</TableCell>
+              <TableCell>Luca Durumu</TableCell>
               <TableCell align="center">İşlemler</TableCell>
             </TableRow>
           </TableHead>
@@ -420,7 +769,9 @@ const PurchaseOrders: React.FC = () => {
             ) : orders.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  <Typography color="textSecondary">Sipariş bulunamadı</Typography>
+                  <Typography color="textSecondary">
+                    Sipariş bulunamadı
+                  </Typography>
                 </TableCell>
               </TableRow>
             ) : (
@@ -428,8 +779,13 @@ const PurchaseOrders: React.FC = () => {
                 <TableRow key={order.id} hover>
                   <TableCell>
                     <Typography fontWeight="medium">
-                      {order.belgeSeri}-{order.belgeNo || order.orderNo}
+                      {order.orderNo}
                     </Typography>
+                    {order.lucaDocumentNo && (
+                      <Typography variant="caption" color="textSecondary">
+                        Luca: {order.lucaDocumentNo}
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell>{order.supplierName || "-"}</TableCell>
                   <TableCell>{formatDate(order.orderDate)}</TableCell>
@@ -439,17 +795,41 @@ const PurchaseOrders: React.FC = () => {
                   </TableCell>
                   <TableCell>
                     <LucaStatusBadge
-                      status={order.lucaSyncStatus}
+                      status={getSyncStatus(order)}
                       error={order.lastSyncError}
+                      lucaId={order.lucaPurchaseOrderId}
                     />
                   </TableCell>
                   <TableCell align="center">
+                    <Tooltip title="Görüntüle">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setSelectedOrderId(order.id);
+                          setView("detail");
+                        }}
+                      >
+                        <ViewIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    {!order.isSyncedToLuca && (
+                      <Tooltip title="Luca'ya Gönder">
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => handleSyncOrder(order.id)}
+                          disabled={syncing}
+                        >
+                          <CloudUploadIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                     <Tooltip title="Sil">
                       <IconButton
                         size="small"
                         color="error"
                         onClick={() => handleDelete(order.id)}
-                        disabled={deleting === order.id}
+                        disabled={deleting === order.id || order.isSyncedToLuca}
                       >
                         {deleting === order.id ? (
                           <CircularProgress size={16} />
@@ -465,255 +845,634 @@ const PurchaseOrders: React.FC = () => {
           </TableBody>
         </Table>
       </TableContainer>
+    </Box>
+  );
 
-      {/* Create Dialog */}
-      <Dialog
-        open={openDialog}
-        onClose={() => setOpenDialog(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Yeni Satın Alma Siparişi</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            {/* Header Fields */}
-            <Card sx={{ mb: 3 }}>
+  // ===== RENDER: DETAIL VIEW =====
+
+  const renderDetailView = () => {
+    if (detailLoading) {
+      return (
+        <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    if (!orderDetail) {
+      return (
+        <Alert severity="error">Sipariş bulunamadı</Alert>
+      );
+    }
+
+    const syncStatus = getSyncStatus(orderDetail);
+
+    return (
+      <Box>
+        {/* Header */}
+        <Box sx={{ display: "flex", alignItems: "center", mb: 3, gap: 2 }}>
+          <IconButton onClick={() => setView("list")}>
+            <BackIcon />
+          </IconButton>
+          <Typography variant="h5" sx={{ flex: 1 }}>
+            Sipariş Detayı: {orderDetail.orderNo}
+          </Typography>
+          <LucaStatusBadge
+            status={syncStatus}
+            error={orderDetail.lastSyncError}
+            lucaId={orderDetail.lucaPurchaseOrderId}
+          />
+        </Box>
+
+        <Grid container spacing={3}>
+          {/* A) Temel Bilgiler */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card>
               <CardHeader title="Sipariş Bilgileri" />
               <Divider />
               <CardContent>
-                <Box sx={gridStyles.container}>
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>Tedarikçi *</InputLabel>
-                    <Select
-                      value={formData.supplierId}
-                      label="Tedarikçi *"
-                      onChange={(e) =>
-                        setFormData({ ...formData, supplierId: e.target.value as number })
-                      }
-                    >
-                      <MenuItem value={0}>Seçiniz</MenuItem>
-                      {suppliers.map((s) => (
-                        <MenuItem key={s.id} value={s.id}>
-                          {s.name} {s.code ? `(${s.code})` : ""}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "1fr 1fr" }}>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Sipariş No</Typography>
+                    <Typography>{orderDetail.orderNo}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Durum</Typography>
+                    <Typography>{orderDetail.status}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Tedarikçi</Typography>
+                    <Typography>{orderDetail.supplierName}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Tedarikçi Kodu</Typography>
+                    <Typography>{orderDetail.supplierCode || "-"}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Sipariş Tarihi</Typography>
+                    <Typography>{formatDate(orderDetail.orderDate)}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Teslim Tarihi</Typography>
+                    <Typography>{formatDate(orderDetail.expectedDate)}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Toplam</Typography>
+                    <Typography fontWeight="bold">{formatCurrency(orderDetail.totalAmount)}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">KDV Dahil</Typography>
+                    <Typography>{orderDetail.vatIncluded ? "Evet" : "Hayır"}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Oluşturulma</Typography>
+                    <Typography>{formatDateTime(orderDetail.createdAt)}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Güncelleme</Typography>
+                    <Typography>{formatDateTime(orderDetail.updatedAt)}</Typography>
+                  </Box>
+                </Box>
+                {orderDetail.description && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="caption" color="textSecondary">Açıklama</Typography>
+                    <Typography>{orderDetail.description}</Typography>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
 
-                  <TextField
-                    label="Belge Tarihi"
-                    type="date"
-                    value={formData.orderDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, orderDate: e.target.value })
-                    }
-                    size="small"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                  />
-
-                  <TextField
-                    label="Teslim Tarihi"
-                    type="date"
-                    value={formData.expectedDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, expectedDate: e.target.value })
-                    }
-                    size="small"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                  />
-
-                  <TextField
-                    label="Belge Seri"
-                    value={formData.belgeSeri}
-                    onChange={(e) =>
-                      setFormData({ ...formData, belgeSeri: e.target.value })
-                    }
-                    size="small"
-                    fullWidth
-                  />
-
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>Para Birimi</InputLabel>
-                    <Select
-                      value={formData.currency}
-                      label="Para Birimi"
-                      onChange={(e) =>
-                        setFormData({ ...formData, currency: e.target.value })
-                      }
-                    >
-                      <MenuItem value="TRY">TRY</MenuItem>
-                      <MenuItem value="USD">USD</MenuItem>
-                      <MenuItem value="EUR">EUR</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={formData.kdvFlag}
-                        onChange={(e) =>
-                          setFormData({ ...formData, kdvFlag: e.target.checked })
-                        }
+          {/* B) Luca Sync Panel */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card sx={{ 
+              borderColor: syncStatus === "synced" ? "success.main" : syncStatus === "error" ? "error.main" : "grey.300",
+              borderWidth: 2,
+              borderStyle: "solid"
+            }}>
+              <CardHeader 
+                title="Luca Senkron Durumu" 
+                avatar={
+                  syncStatus === "synced" ? <CheckCircleIcon color="success" /> :
+                  syncStatus === "error" ? <ErrorIcon color="error" /> :
+                  <PendingIcon color="disabled" />
+                }
+              />
+              <Divider />
+              <CardContent>
+                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "1fr 1fr" }}>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Durum</Typography>
+                    <Box sx={{ mt: 0.5 }}>
+                      <LucaStatusBadge
+                        status={syncStatus}
+                        error={orderDetail.lastSyncError}
+                        lucaId={orderDetail.lucaPurchaseOrderId}
                       />
-                    }
-                    label="KDV Dahil"
-                  />
+                    </Box>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Luca ID</Typography>
+                    <Typography fontWeight="bold">
+                      {orderDetail.lucaPurchaseOrderId || "-"}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Luca Belge No</Typography>
+                    <Typography>{orderDetail.lucaDocumentNo || "-"}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Son Sync</Typography>
+                    <Typography>{formatDateTime(orderDetail.lastSyncAt)}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Belge Seri</Typography>
+                    <Typography>{orderDetail.documentSeries || "-"}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Deneme Sayısı</Typography>
+                    <Typography>{orderDetail.syncRetryCount}</Typography>
+                  </Box>
+                </Box>
+
+                {orderDetail.lastSyncError && (
+                  <Alert severity="error" sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2">Hata Detayı:</Typography>
+                    <Typography variant="body2">{orderDetail.lastSyncError}</Typography>
+                  </Alert>
+                )}
+
+                <Box sx={{ mt: 3, display: "flex", gap: 1 }}>
+                  {!orderDetail.isSyncedToLuca && (
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      startIcon={syncing ? <CircularProgress size={16} color="inherit" /> : <CloudUploadIcon />}
+                      onClick={() => handleSyncOrder(orderDetail.id)}
+                      disabled={syncing}
+                    >
+                      {orderDetail.lastSyncError ? "Tekrar Dene" : "Luca'ya Gönder"}
+                    </Button>
+                  )}
+                  {orderDetail.isSyncedToLuca && (
+                    <Chip 
+                      icon={<CheckCircleIcon />} 
+                      label="Senkronizasyon Tamamlandı" 
+                      color="success" 
+                    />
+                  )}
                 </Box>
               </CardContent>
             </Card>
+          </Grid>
 
-            {/* Line Items */}
+          {/* C) Sipariş Satırları */}
+          <Grid size={{ xs: 12 }}>
             <Card>
-              <CardHeader
-                title="Sipariş Kalemleri"
-                action={
-                  <Button
-                    size="small"
-                    startIcon={<AddIcon />}
-                    onClick={addLineItem}
-                  >
-                    Satır Ekle
-                  </Button>
-                }
-              />
+              <CardHeader title="Sipariş Satırları" />
               <Divider />
               <TableContainer>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
+                      <TableCell>#</TableCell>
                       <TableCell>Ürün</TableCell>
-                      <TableCell>Kart Kodu</TableCell>
+                      <TableCell>SKU</TableCell>
+                      <TableCell>Luca Stok Kodu</TableCell>
+                      <TableCell>Depo</TableCell>
                       <TableCell align="right">Miktar</TableCell>
                       <TableCell align="right">Birim Fiyat</TableCell>
                       <TableCell align="right">KDV %</TableCell>
+                      <TableCell align="right">İndirim</TableCell>
                       <TableCell align="right">Toplam</TableCell>
-                      <TableCell></TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {formData.items.map((item, index) => (
-                      <TableRow key={index}>
+                    {orderDetail.items.map((item, index) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{index + 1}</TableCell>
+                        <TableCell>{item.productName || "-"}</TableCell>
+                        <TableCell>{item.productSku || "-"}</TableCell>
                         <TableCell>
-                          <FormControl size="small" fullWidth sx={{ minWidth: 150 }}>
-                            <Select
-                              value={item.productId}
-                              onChange={(e) =>
-                                updateLineItem(index, "productId", e.target.value as number)
-                              }
-                              displayEmpty
-                            >
-                              <MenuItem value={0}>Seçiniz</MenuItem>
-                              {products.map((p) => (
-                                <MenuItem key={p.id} value={p.id}>
-                                  {p.sku} - {p.name}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
+                          {item.lucaStockCode ? (
+                            <Chip label={item.lucaStockCode} size="small" color="primary" variant="outlined" />
+                          ) : (
+                            <Chip label="Yok" size="small" color="warning" icon={<WarningIcon />} />
+                          )}
                         </TableCell>
-                        <TableCell>
-                          <TextField
-                            value={item.kartKodu}
-                            onChange={(e) =>
-                              updateLineItem(index, "kartKodu", e.target.value)
-                            }
-                            size="small"
-                            sx={{ width: 100 }}
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          <TextField
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) =>
-                              updateLineItem(index, "quantity", parseFloat(e.target.value) || 0)
-                            }
-                            size="small"
-                            sx={{ width: 80 }}
-                            inputProps={{ min: 0, step: 1 }}
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          <TextField
-                            type="number"
-                            value={item.unitPrice}
-                            onChange={(e) =>
-                              updateLineItem(index, "unitPrice", parseFloat(e.target.value) || 0)
-                            }
-                            size="small"
-                            sx={{ width: 100 }}
-                            inputProps={{ min: 0, step: 0.01 }}
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          <TextField
-                            type="number"
-                            value={item.taxRate}
-                            onChange={(e) =>
-                              updateLineItem(index, "taxRate", parseFloat(e.target.value) || 0)
-                            }
-                            size="small"
-                            sx={{ width: 60 }}
-                            inputProps={{ min: 0, max: 100 }}
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          {formatCurrency(item.quantity * item.unitPrice)}
-                        </TableCell>
-                        <TableCell>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => removeLineItem(index)}
-                            disabled={formData.items.length === 1}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
+                        <TableCell>{item.warehouseCode}</TableCell>
+                        <TableCell align="right">{item.quantity}</TableCell>
+                        <TableCell align="right">{formatCurrency(item.unitPrice)}</TableCell>
+                        <TableCell align="right">%{item.vatRate}</TableCell>
+                        <TableCell align="right">{formatCurrency(item.discountAmount)}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: "bold" }}>
+                          {formatCurrency(item.quantity * item.unitPrice - item.discountAmount)}
                         </TableCell>
                       </TableRow>
                     ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Actions */}
+        <Box sx={{ mt: 3, display: "flex", gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<BackIcon />}
+            onClick={() => setView("list")}
+          >
+            Listeye Dön
+          </Button>
+          {!orderDetail.isSyncedToLuca && (
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => handleDelete(orderDetail.id)}
+              disabled={deleting === orderDetail.id}
+            >
+              Sil
+            </Button>
+          )}
+        </Box>
+      </Box>
+    );
+  };
+
+  // ===== RENDER: CREATE VIEW =====
+
+  const renderCreateView = () => {
+    // Filter suppliers that have code (for Luca compatibility)
+    const validSuppliers = suppliers.filter((s) => s.isActive !== false);
+
+    return (
+      <Box>
+        {/* Header */}
+        <Box sx={{ display: "flex", alignItems: "center", mb: 3, gap: 2 }}>
+          <IconButton onClick={() => setView("list")}>
+            <BackIcon />
+          </IconButton>
+          <Typography variant="h5">Yeni Satınalma Siparişi</Typography>
+        </Box>
+
+        {/* Form */}
+        <Grid container spacing={3}>
+          {/* A) Sipariş Bilgileri */}
+          <Grid size={{ xs: 12 }}>
+            <Card>
+              <CardHeader title="Sipariş Bilgileri" />
+              <Divider />
+              <CardContent>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <FormControl fullWidth size="small" error={!!formErrors.supplierId}>
+                      <InputLabel>Tedarikçi *</InputLabel>
+                      <Select
+                        value={formData.supplierId}
+                        label="Tedarikçi *"
+                        onChange={(e) =>
+                          setFormData({ ...formData, supplierId: e.target.value as number })
+                        }
+                      >
+                        <MenuItem value={0}>Seçiniz</MenuItem>
+                        {validSuppliers.map((s) => (
+                          <MenuItem key={s.id} value={s.id}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              {s.name}
+                              {s.code && (
+                                <Chip label={s.code} size="small" color="primary" variant="outlined" />
+                              )}
+                              {!s.code && (
+                                <Tooltip title="Bu tedarikçinin Luca kodu yok">
+                                  <WarningIcon fontSize="small" color="warning" />
+                                </Tooltip>
+                              )}
+                            </Box>
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {formErrors.supplierId && (
+                        <FormHelperText>{formErrors.supplierId}</FormHelperText>
+                      )}
+                    </FormControl>
+                  </Grid>
+
+                  <Grid size={{ xs: 12, md: 3 }}>
+                    <TextField
+                      label="Sipariş Tarihi *"
+                      type="date"
+                      value={formData.orderDate}
+                      onChange={(e) => setFormData({ ...formData, orderDate: e.target.value })}
+                      size="small"
+                      fullWidth
+                      slotProps={{ inputLabel: { shrink: true } }}
+                      error={!!formErrors.orderDate}
+                      helperText={formErrors.orderDate}
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12, md: 3 }}>
+                    <TextField
+                      label="Teslim Tarihi"
+                      type="date"
+                      value={formData.expectedDate}
+                      onChange={(e) => setFormData({ ...formData, expectedDate: e.target.value })}
+                      size="small"
+                      fullWidth
+                      slotProps={{ inputLabel: { shrink: true } }}
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12, md: 3 }}>
+                    <TextField
+                      label="Belge Serisi"
+                      value={formData.documentSeries}
+                      onChange={(e) => setFormData({ ...formData, documentSeries: e.target.value })}
+                      size="small"
+                      fullWidth
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12, md: 3 }}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Belge Türü</InputLabel>
+                      <Select
+                        value={formData.documentTypeDetailId}
+                        label="Belge Türü"
+                        onChange={(e) =>
+                          setFormData({ ...formData, documentTypeDetailId: e.target.value as number })
+                        }
+                      >
+                        {DOCUMENT_TYPES.map((dt) => (
+                          <MenuItem key={dt.id} value={dt.id}>
+                            {dt.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  <Grid size={{ xs: 12, md: 3 }}>
+                    <TextField
+                      label="Proje Kodu"
+                      value={formData.projectCode}
+                      onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
+                      size="small"
+                      fullWidth
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12, md: 3 }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={formData.vatIncluded}
+                          onChange={(e) => setFormData({ ...formData, vatIncluded: e.target.checked })}
+                        />
+                      }
+                      label="KDV Dahil"
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12 }}>
+                    <TextField
+                      label="Açıklama"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      size="small"
+                      fullWidth
+                      multiline
+                      rows={2}
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* B) Sipariş Satırları */}
+          <Grid size={{ xs: 12 }}>
+            <Card>
+              <CardHeader
+                title="Sipariş Satırları"
+                action={
+                  <Button startIcon={<AddIcon />} onClick={addLineItem} size="small">
+                    Satır Ekle
+                  </Button>
+                }
+              />
+              <Divider />
+              {formErrors.items && (
+                <Alert severity="error" sx={{ m: 2 }}>{formErrors.items}</Alert>
+              )}
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
                     <TableRow>
-                      <TableCell colSpan={5} align="right">
+                      <TableCell sx={{ width: 250 }}>Ürün *</TableCell>
+                      <TableCell sx={{ width: 120 }}>Luca Stok Kodu</TableCell>
+                      <TableCell sx={{ width: 100 }}>Depo</TableCell>
+                      <TableCell sx={{ width: 80 }}>Miktar *</TableCell>
+                      <TableCell sx={{ width: 100 }}>Birim Fiyat *</TableCell>
+                      <TableCell sx={{ width: 80 }}>KDV %</TableCell>
+                      <TableCell sx={{ width: 80 }}>Birim</TableCell>
+                      <TableCell sx={{ width: 90 }}>İndirim</TableCell>
+                      <TableCell sx={{ width: 100 }} align="right">Toplam</TableCell>
+                      <TableCell sx={{ width: 50 }}></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {formData.items.map((item, index) => {
+                      const product = products.find((p) => p.id === item.productId);
+                      const hasLucaCode = !!item.lucaStockCode || !!product?.sku;
+
+                      return (
+                        <TableRow key={index}>
+                          <TableCell>
+                            <FormControl fullWidth size="small" error={!!formErrors[`item_${index}_product`]}>
+                              <Select
+                                value={item.productId}
+                                onChange={(e) => updateLineItem(index, "productId", e.target.value as number)}
+                                displayEmpty
+                              >
+                                <MenuItem value={0}>Ürün Seçin</MenuItem>
+                                {products.filter((p) => p.isActive !== false).map((p) => (
+                                  <MenuItem key={p.id} value={p.id}>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                      {p.name}
+                                      {!p.sku && !p.lucaStockCode && (
+                                        <Tooltip title="Luca stok kodu yok">
+                                          <WarningIcon fontSize="small" color="warning" />
+                                        </Tooltip>
+                                      )}
+                                    </Box>
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              size="small"
+                              value={item.lucaStockCode}
+                              onChange={(e) => updateLineItem(index, "lucaStockCode", e.target.value)}
+                              fullWidth
+                              placeholder={product?.sku || ""}
+                              error={!hasLucaCode && item.productId > 0}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              size="small"
+                              value={item.warehouseCode}
+                              onChange={(e) => updateLineItem(index, "warehouseCode", e.target.value)}
+                              fullWidth
+                            >
+                              {WAREHOUSES.map((w) => (
+                                <MenuItem key={w.code} value={w.code}>
+                                  {w.code}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              size="small"
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => updateLineItem(index, "quantity", parseInt(e.target.value) || 0)}
+                              fullWidth
+                              slotProps={{ htmlInput: { min: 0 } }}
+                              error={!!formErrors[`item_${index}_quantity`]}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              size="small"
+                              type="number"
+                              value={item.unitPrice}
+                              onChange={(e) => updateLineItem(index, "unitPrice", parseFloat(e.target.value) || 0)}
+                              fullWidth
+                              slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                              error={!!formErrors[`item_${index}_price`]}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              size="small"
+                              value={item.vatRate}
+                              onChange={(e) => updateLineItem(index, "vatRate", e.target.value as number)}
+                              fullWidth
+                            >
+                              {VAT_RATES.map((rate) => (
+                                <MenuItem key={rate} value={rate}>
+                                  %{rate}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              size="small"
+                              value={item.unitCode}
+                              onChange={(e) => updateLineItem(index, "unitCode", e.target.value)}
+                              fullWidth
+                            >
+                              {UNIT_CODES.map((u) => (
+                                <MenuItem key={u.code} value={u.code}>
+                                  {u.code}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              size="small"
+                              type="number"
+                              value={item.discountAmount}
+                              onChange={(e) => updateLineItem(index, "discountAmount", parseFloat(e.target.value) || 0)}
+                              fullWidth
+                              slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography fontWeight="bold">
+                              {formatCurrency(calculateLineTotal(item))}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => removeLineItem(index)}
+                              disabled={formData.items.length === 1}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {/* Total row */}
+                    <TableRow>
+                      <TableCell colSpan={8} align="right">
                         <Typography fontWeight="bold">Genel Toplam:</Typography>
                       </TableCell>
                       <TableCell align="right">
-                        <Typography fontWeight="bold">
-                          {formatCurrency(calculateTotal())}
+                        <Typography fontWeight="bold" fontSize="1.1rem">
+                          {formatCurrency(calculateFormTotal())}
                         </Typography>
                       </TableCell>
-                      <TableCell></TableCell>
+                      <TableCell />
                     </TableRow>
                   </TableBody>
                 </Table>
               </TableContainer>
             </Card>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>İptal</Button>
+          </Grid>
+        </Grid>
+
+        {/* Actions */}
+        <Box sx={{ mt: 3, display: "flex", gap: 1, justifyContent: "flex-end" }}>
+          <Button variant="outlined" onClick={() => setView("list")}>
+            İptal
+          </Button>
           <Button
             variant="contained"
-            startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+            color="primary"
+            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
             onClick={handleCreate}
             disabled={saving}
           >
-            Kaydet ve Luca'ya Gönder
+            Kaydet
           </Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
+      </Box>
+    );
+  };
+
+  // ===== MAIN RENDER =====
+
+  return (
+    <Box sx={{ p: 3 }}>
+      {view === "list" && renderListView()}
+      {view === "detail" && renderDetailView()}
+      {view === "create" && renderCreateView()}
 
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={4000}
+        autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
+          variant="filled"
         >
           {snackbar.message}
         </Alert>
