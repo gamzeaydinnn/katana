@@ -1,45 +1,45 @@
 import {
-  CheckCircle,
-  CompareArrows as CompareArrowsIcon,
-  Error as ErrorIcon,
-  Inventory,
-  IntegrationInstructions as KozaIcon,
-  Article as LogsIcon,
-  MoreVert as MoreVertIcon,
-  Receipt,
-  Refresh,
-  ReportProblem,
-  Settings as SettingsIcon,
-  ShoppingCart,
-  SwapHoriz as SwapHorizIcon,
-  TrendingUp,
-  Group as UsersIcon,
-  Warehouse
+    CheckCircle,
+    CompareArrows as CompareArrowsIcon,
+    Error as ErrorIcon,
+    Inventory,
+    IntegrationInstructions as KozaIcon,
+    Article as LogsIcon,
+    MoreVert as MoreVertIcon,
+    Receipt,
+    Refresh,
+    ReportProblem,
+    Settings as SettingsIcon,
+    ShoppingCart,
+    SwapHoriz as SwapHorizIcon,
+    TrendingUp,
+    Group as UsersIcon,
+    Warehouse
 } from "@mui/icons-material";
 import {
-  Alert,
-  Box,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Container,
-  Divider,
-  IconButton,
-  Menu,
-  MenuItem,
-  Paper,
-  Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  Tabs,
-  Typography,
-  useMediaQuery,
+    Alert,
+    Box,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    Container,
+    Divider,
+    IconButton,
+    Menu,
+    MenuItem,
+    Paper,
+    Tab,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TablePagination,
+    TableRow,
+    Tabs,
+    Typography,
+    useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
@@ -50,6 +50,8 @@ import KozaIntegration from "../Admin/KozaIntegration";
 import LucaProducts from "../Admin/LucaProducts";
 import Orders from "../Admin/Orders";
 import PendingAdjustments from "../Admin/PendingAdjustments";
+import PurchaseOrders from "../Admin/PurchaseOrders";
+import SalesOrders from "../Admin/SalesOrders";
 import StockManagement from "../Admin/StockManagement";
 import StockMovements from "../Admin/StockMovements";
 import Settings from "../Settings/Settings";
@@ -655,6 +657,30 @@ const AdminPanel: React.FC = () => {
               Koza Entegrasyon
             </Typography>
           </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setActiveTab(12);
+              setMoreMenuAnchor(null);
+            }}
+            sx={overflowMenuItemSx}
+          >
+            <ShoppingCart sx={{ mr: 1.5, fontSize: 20, color: "#22c55e" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
+              Satış Siparişleri
+            </Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setActiveTab(13);
+              setMoreMenuAnchor(null);
+            }}
+            sx={overflowMenuItemSx}
+          >
+            <Receipt sx={{ mr: 1.5, fontSize: 20, color: "#f59e0b" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
+              Satın Alma
+            </Typography>
+          </MenuItem>
         </Menu>
       </Paper>
 
@@ -1011,6 +1037,12 @@ const AdminPanel: React.FC = () => {
 
       {/* Koza Entegrasyon Tab */}
       {activeTab === 11 && <KozaIntegration />}
+
+      {/* Satış Siparişleri Tab */}
+      {activeTab === 12 && <SalesOrders />}
+
+      {/* Satın Alma Siparişleri Tab */}
+      {activeTab === 13 && <PurchaseOrders />}
     </Container>
   );
 };

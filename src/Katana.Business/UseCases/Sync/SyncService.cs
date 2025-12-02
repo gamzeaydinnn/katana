@@ -136,14 +136,33 @@ public class SyncService : ISyncService
         }
 
         var lucaStockCards = await _lucaService.ListStockCardsAsync();
-        var comparisons = katanaProducts
-            .Select(p => new { Product = p, Exists = ExistsInLuca(p, lucaStockCards, options.PreferBarcodeMatch) })
+        var lucaStockCardsList = lucaStockCards.ToList();
+
+        // Değişiklik tespiti: Luca'da güncelleme yapılamadığı için değişen ürünler de yeni stok kartı olarak oluşturulacak
+        var productChanges = katanaProducts
+            .Select(p => new
+            {
+                Product = p,
+                ChangeInfo = DetectProductChanges(p, FindLucaMatch(lucaStockCardsList, NormalizeSku(p), p.Barcode, options.PreferBarcodeMatch))
+            })
             .ToList();
 
-        var missingProducts = options.ForceSendDuplicates
-            ? comparisons.Select(c => c.Product).ToList()
-            : comparisons.Where(c => !c.Exists).Select(c => c.Product).ToList();
-        var alreadyExists = comparisons.Count(c => c.Exists);
+        // Yeni ürünler + Değişiklik olan ürünler = Luca'ya gönderilecek ürünler
+        // NOT: Luca'da stok kartı silme ve güncelleme yoktur, bu nedenle değişen ürünler de yeni kart olarak oluşturulur
+        var productsToSync = options.ForceSendDuplicates
+            ? productChanges.Select(c => c.Product).ToList()
+            : productChanges.Where(c => c.ChangeInfo.RequiresNewStockCard).Select(c => c.Product).ToList();
+
+        var newProductsCount = productChanges.Count(c => c.ChangeInfo.IsNew);
+        var changedProductsCount = productChanges.Count(c => c.ChangeInfo.HasChanges && !c.ChangeInfo.IsNew);
+        var unchangedCount = productChanges.Count(c => c.ChangeInfo.ExistsInLuca && !c.ChangeInfo.HasChanges);
+
+        // Log değişiklik detayları
+        foreach (var pc in productChanges.Where(c => c.ChangeInfo.HasChanges && !c.ChangeInfo.IsNew))
+        {
+            _logger.LogInformation("SyncService => SKU={Sku} değişiklik tespit edildi: {Reason}. Luca'da güncelleme yapılamadığı için yeni stok kartı oluşturulacak.",
+                pc.ChangeInfo.SKU, pc.ChangeInfo.ChangeReason);
+        }
 
         var payload = new List<LucaCreateStokKartiRequest>();
         var details = new List<string>();
@@ -151,7 +170,7 @@ public class SyncService : ISyncService
         // Load PRODUCT_CATEGORY mappings once and reuse for mapping product categories to Luca codes
         var productCategoryMappings = await GetMappingDictionaryAsync("PRODUCT_CATEGORY", CancellationToken.None);
 
-        foreach (var product in missingProducts)
+        foreach (var product in productsToSync)
         {
             try
             {
@@ -225,15 +244,15 @@ public class SyncService : ISyncService
             SentRecords = lucaSent,
             IsDryRun = isDryRun,
             TotalChecked = katanaProducts.Count,
-            AlreadyExists = alreadyExists,
+            AlreadyExists = unchangedCount,
             NewCreated = isDryRun ? payload.Count : lucaSuccess,
             Failed = lucaFailed + detailFailures,
             Details = combinedErrors,
             Errors = combinedErrors,
             IsSuccess = details.Count == 0 && (isDryRun || sendResult.IsSuccess),
             Message = isDryRun
-                ? $"Dry-run tamamlandı. Gönderilecek kart sayısı: {payload.Count}"
-                : sendResult.Message
+                ? $"Dry-run tamamlandı. Yeni: {newProductsCount}, Değişen: {changedProductsCount}, Değişmeyen: {unchangedCount}"
+                : $"{sendResult.Message} (Yeni: {newProductsCount}, Değişen: {changedProductsCount}, Değişmeyen: {unchangedCount})"
         };
 
         try
@@ -684,6 +703,115 @@ public class SyncService : ISyncService
     {
         var sku = NormalizeSku(product);
         return FindLucaMatch(lucaStockCards, sku, product.Barcode, preferBarcodeMatch) != null;
+    }
+
+    /// <summary>
+    /// Katana ürünü ile Luca stok kartı arasındaki değişiklikleri tespit eder.
+    /// Luca'da güncelleme yapılamadığı için değişiklik varsa yeni stok kartı oluşturulması gerekir.
+    /// </summary>
+    private static ProductChangeInfo DetectProductChanges(
+        KatanaProductDto katanaProduct,
+        LucaStockCardSummaryDto? lucaCard)
+    {
+        var changes = new ProductChangeInfo
+        {
+            SKU = NormalizeSku(katanaProduct),
+            ExistsInLuca = lucaCard != null
+        };
+
+        if (lucaCard == null)
+        {
+            changes.IsNew = true;
+            changes.RequiresNewStockCard = true;
+            changes.ChangeReason = "Yeni ürün - Luca'da mevcut değil";
+            return changes;
+        }
+
+        var changeReasons = new List<string>();
+
+        // İsim değişikliği kontrolü
+        var katanaName = katanaProduct.Name?.Trim() ?? string.Empty;
+        var lucaName = lucaCard.StokAdi?.Trim() ?? string.Empty;
+        if (!string.Equals(katanaName, lucaName, StringComparison.OrdinalIgnoreCase))
+        {
+            changes.NameChanged = true;
+            changes.OldName = lucaName;
+            changes.NewName = katanaName;
+            changeReasons.Add($"İsim: '{lucaName}' -> '{katanaName}'");
+        }
+
+        // Miktar değişikliği kontrolü
+        var katanaQty = katanaProduct.Available ?? katanaProduct.OnHand ?? katanaProduct.InStock ?? 0;
+        var lucaQty = lucaCard.Miktar;
+        if (Math.Abs(katanaQty - lucaQty) > 0.001)
+        {
+            changes.QuantityChanged = true;
+            changes.OldQuantity = lucaQty;
+            changes.NewQuantity = katanaQty;
+            changeReasons.Add($"Miktar: {lucaQty:N2} -> {katanaQty:N2}");
+        }
+
+        // Fiyat değişikliği kontrolü
+        var katanaPrice = katanaProduct.SalesPrice ?? katanaProduct.Price;
+        var lucaPrice = lucaCard.SatisFiyat ?? 0;
+        if (Math.Abs((double)katanaPrice - (double)lucaPrice) > 0.01)
+        {
+            changes.PriceChanged = true;
+            changes.OldPrice = lucaPrice;
+            changes.NewPrice = katanaPrice;
+            changeReasons.Add($"Fiyat: {lucaPrice:N2} -> {katanaPrice:N2}");
+        }
+
+        // Kategori değişikliği kontrolü
+        var katanaCategory = katanaProduct.Category?.Trim() ?? string.Empty;
+        var lucaCategory = lucaCard.KategoriKodu?.Trim() ?? string.Empty;
+        if (!string.IsNullOrEmpty(katanaCategory) && !string.Equals(katanaCategory, lucaCategory, StringComparison.OrdinalIgnoreCase))
+        {
+            changes.CategoryChanged = true;
+            changes.OldCategory = lucaCategory;
+            changes.NewCategory = katanaCategory;
+            changeReasons.Add($"Kategori: '{lucaCategory}' -> '{katanaCategory}'");
+        }
+
+        // Luca'da güncelleme yapılamadığı için değişen ürünler yeni stok kartı olarak oluşturulmalı
+        if (changes.HasChanges)
+        {
+            changes.RequiresNewStockCard = true;
+            changes.ChangeReason = string.Join("; ", changeReasons);
+        }
+
+        return changes;
+    }
+
+    /// <summary>
+    /// Ürün değişiklik bilgilerini tutar
+    /// </summary>
+    private class ProductChangeInfo
+    {
+        public string SKU { get; set; } = string.Empty;
+        public bool ExistsInLuca { get; set; }
+        public bool IsNew { get; set; }
+        public bool RequiresNewStockCard { get; set; }
+        public string? ChangeReason { get; set; }
+
+        // Değişiklik detayları
+        public bool NameChanged { get; set; }
+        public string? OldName { get; set; }
+        public string? NewName { get; set; }
+
+        public bool QuantityChanged { get; set; }
+        public double OldQuantity { get; set; }
+        public double NewQuantity { get; set; }
+
+        public bool PriceChanged { get; set; }
+        public decimal OldPrice { get; set; }
+        public decimal NewPrice { get; set; }
+
+        public bool CategoryChanged { get; set; }
+        public string? OldCategory { get; set; }
+        public string? NewCategory { get; set; }
+
+        public bool HasChanges => NameChanged || QuantityChanged || PriceChanged || CategoryChanged;
     }
 
     private async Task<Dictionary<string, string>> GetMappingDictionaryAsync(string mappingType, CancellationToken ct)

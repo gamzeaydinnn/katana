@@ -2,32 +2,34 @@ import EditIcon from "@mui/icons-material/Edit";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
+import InfoIcon from "@mui/icons-material/Info";
 import {
-    Alert,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Chip,
-    CircularProgress,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    IconButton,
-    InputAdornment,
-    Paper,
-    Stack,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TextField,
-    Tooltip,
-    Typography,
-    useMediaQuery,
+  Alert,
+  AlertTitle,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  InputAdornment,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Tooltip,
+  Typography,
+  useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import api, { stockAPI } from "../../services/api";
@@ -80,9 +82,7 @@ const LucaProducts: React.FC = () => {
     try {
       // Products endpoint'ini kullan (veritabanından direkt çeker)
       // Limit yok - tüm ürünleri çek
-      const response = await api.get<any>(
-        "/Products?page=1&limit=10000"
-      );
+      const response = await api.get<any>("/Products?page=1&limit=10000");
 
       // API yanıtı: {items: Array, total: number} formatında
       const rawData = response?.data?.data || response?.data || {};
@@ -283,6 +283,43 @@ const LucaProducts: React.FC = () => {
 
   return (
     <Box>
+      {/* Luca API Uyarısı */}
+      <Alert
+        severity="info"
+        icon={<InfoIcon />}
+        sx={{
+          mb: 3,
+          borderRadius: 2,
+          backgroundColor: (theme) =>
+            theme.palette.mode === "dark"
+              ? "rgba(33, 150, 243, 0.12)"
+              : "rgba(33, 150, 243, 0.08)",
+          border: (theme) =>
+            `1px solid ${
+              theme.palette.mode === "dark"
+                ? "rgba(33, 150, 243, 0.3)"
+                : "rgba(33, 150, 243, 0.2)"
+            }`,
+          "& .MuiAlert-icon": {
+            color: "#2196f3",
+          },
+        }}
+      >
+        <AlertTitle sx={{ fontWeight: 600 }}>
+          Luca/Koza API Kısıtlaması
+        </AlertTitle>
+        <Typography variant="body2" component="div">
+          Luca sisteminde{" "}
+          <strong>
+            stok kartı silme ve güncelleme işlemleri desteklenmemektedir
+          </strong>
+          . Katana'dan gelen ürün bilgilerinde değişiklik tespit edildiğinde
+          (isim, miktar, fiyat, kategori), sistem otomatik olarak{" "}
+          <strong>yeni bir stok kartı oluşturur</strong>. Aynı SKU'ya sahip
+          ürünlerin farklı versiyonları Luca'da ayrı kartlar olarak görünebilir.
+        </Typography>
+      </Alert>
+
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Stack
@@ -345,7 +382,14 @@ const LucaProducts: React.FC = () => {
       )}
 
       {loading ? (
-        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" p={4} minHeight="300px">
+        <Box
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+          p={4}
+          minHeight="300px"
+        >
           <CircularProgress size={48} />
           <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
             Luca ürünleri yükleniyor...
@@ -365,7 +409,8 @@ const LucaProducts: React.FC = () => {
               </Typography>
               {!searchTerm && (
                 <Typography variant="caption" color="text.disabled">
-                  Luca'dan ürün çekmek için "Koza'dan Çek" butonunu kullanabilirsiniz
+                  Luca'dan ürün çekmek için "Koza'dan Çek" butonunu
+                  kullanabilirsiniz
                 </Typography>
               )}
             </Box>
@@ -544,7 +589,8 @@ const LucaProducts: React.FC = () => {
                     </Typography>
                     {!searchTerm && (
                       <Typography variant="caption" color="text.disabled">
-                        Luca'dan ürün çekmek için "Koza'dan Çek" butonunu kullanabilirsiniz
+                        Luca'dan ürün çekmek için "Koza'dan Çek" butonunu
+                        kullanabilirsiniz
                       </Typography>
                     )}
                   </TableCell>

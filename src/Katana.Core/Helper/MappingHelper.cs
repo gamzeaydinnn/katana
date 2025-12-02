@@ -261,6 +261,55 @@ public static class MappingHelper
         };
     }
 
+    /// <summary>
+    /// Maps SalesOrder entity to Luca sales order header request
+    /// </summary>
+    public static LucaCreateOrderHeaderRequest MapToLucaSalesOrderHeader(
+        Entities.SalesOrder order,
+        Customer customer)
+    {
+        var cariKod = !string.IsNullOrWhiteSpace(customer.LucaCode) 
+            ? customer.LucaCode 
+            : GenerateCustomerCode(customer.TaxNo);
+        var belgeTakipNo = string.IsNullOrWhiteSpace(order.OrderNo) ? order.Id.ToString() : order.OrderNo;
+
+        return new LucaCreateOrderHeaderRequest
+        {
+            BelgeSeri = order.BelgeSeri ?? "SAT",
+            BelgeNo = ParseDocumentNo(order.BelgeNo ?? order.OrderNo, order.Id),
+            BelgeTakipNo = belgeTakipNo,
+            BelgeTarihi = order.OrderCreatedDate ?? DateTime.UtcNow,
+            DuzenlemeSaati = order.DuzenlemeSaati ?? DateTime.Now.ToString("HH:mm"),
+            BelgeTurDetayId = order.BelgeTurDetayId ?? 17,
+            TeklifSiparisTur = order.TeklifSiparisTur ?? 1,
+            NakliyeBedeliTuru = order.NakliyeBedeliTuru ?? 0,
+            OnayFlag = order.OnayFlag,
+            ParaBirimKod = string.IsNullOrWhiteSpace(order.Currency) ? "TRY" : order.Currency,
+            KdvFlag = true,
+            TeslimTarihi = order.DeliveryDate,
+            TeslimTarihiFlag = order.DeliveryDate.HasValue,
+            CariKodu = cariKod,
+            CariTanim = customer.Title,
+            CariYasalUnvan = customer.Title,
+            VergiNo = customer.Type == 1 ? customer.TaxNo : null,
+            TcKimlikNo = customer.Type == 2 ? customer.TaxNo : null,
+            VergiDairesi = customer.TaxOffice,
+            CariTip = customer.Type == 1 ? 0 : 1,
+            ReferansNo = order.CustomerRef,
+            BelgeAciklama = order.AdditionalInfo,
+            DetayList = order.Lines.Select(l => new LucaCreateOrderDetailRequest
+            {
+                KartTuru = 1,
+                KartKodu = NormalizeSku(l.SKU),
+                KartAdi = l.ProductName,
+                BirimFiyat = (double)(l.PricePerUnit ?? 0),
+                Miktar = (double)l.Quantity,
+                KdvOran = (double)(l.TaxRate ?? 20),
+                Tutar = (double?)(l.Total)
+            }).ToList()
+        };
+    }
+
     public static LucaCreateOrderHeaderRequest MapToLucaSalesOrderHeader(
         Order order,
         Customer customer,
@@ -344,6 +393,57 @@ public static class MappingHelper
                 KartKodu = NormalizeSku(item.Product?.SKU ?? string.Empty),
                 Miktar = item.Quantity,
                 BirimFiyat = (double)item.UnitPrice
+            }).ToList()
+        };
+    }
+
+    /// <summary>
+    /// Maps PurchaseOrder entity (with Luca fields) to Luca purchase order request.
+    /// Uses entity's own Luca-related properties.
+    /// </summary>
+    public static LucaCreatePurchaseOrderRequest MapToLucaPurchaseOrderFromEntity(PurchaseOrder po, Supplier supplier)
+    {
+        var cariKod = !string.IsNullOrWhiteSpace(supplier.Code) 
+            ? supplier.Code 
+            : $"TED{supplier.Id:D6}";
+        
+        var belgeTakipNo = string.IsNullOrWhiteSpace(po.OrderNo) ? po.Id.ToString() : po.OrderNo;
+        
+        return new LucaCreatePurchaseOrderRequest
+        {
+            BelgeSeri = po.DocumentSeries ?? "A",
+            BelgeNo = po.LucaDocumentNo ?? belgeTakipNo,
+            BelgeTakipNo = belgeTakipNo,
+            BelgeTarihi = po.OrderDate == default ? DateTime.UtcNow : po.OrderDate,
+            BelgeTurDetayId = po.DocumentTypeDetailId > 0 ? po.DocumentTypeDetailId : 2,
+            TeklifSiparisTur = 1,
+            OnayFlag = 0,
+            ParaBirimKod = "TRY",
+            KdvFlag = po.VatIncluded,
+            TeslimTarihi = po.ExpectedDate ?? DateTime.UtcNow.AddDays(7),
+            TeslimTarihiFlag = po.ExpectedDate.HasValue,
+            CariKodu = cariKod,
+            CariTanim = supplier.Name,
+            CariYasalUnvan = supplier.Name,
+            VergiNo = supplier.TaxNo,
+            OzelKod = po.ReferenceCode ?? $"KAT-PO-{po.Id}",
+            ProjeKodu = po.ProjectCode,
+            BelgeAciklama = po.Description,
+            SevkAdresiId = po.ShippingAddressId,
+            DetayList = po.Items.Select(item => new LucaCreatePurchaseOrderDetailRequest
+            {
+                KartTuru = 1, // Stok
+                KartKodu = !string.IsNullOrWhiteSpace(item.LucaStockCode) 
+                    ? item.LucaStockCode 
+                    : NormalizeSku(item.Product?.SKU ?? string.Empty),
+                KartAdi = item.Product?.Name,
+                DepoKodu = item.WarehouseCode ?? "01",
+                BirimKodu = item.UnitCode ?? "AD",
+                BirimFiyat = (double)item.UnitPrice,
+                Miktar = item.Quantity,
+                KdvOran = (double)item.VatRate,
+                IskontoTutar = (double)item.DiscountAmount,
+                Tutar = (double)(item.UnitPrice * item.Quantity - item.DiscountAmount)
             }).ToList()
         };
     }

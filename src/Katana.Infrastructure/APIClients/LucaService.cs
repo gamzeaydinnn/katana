@@ -829,6 +829,49 @@ public partial class LucaService : ILucaService
         }
         return null;
     }
+    
+    private decimal? TryGetDecimalProperty(JsonElement element, params string[] propertyNames)
+    {
+        foreach (var name in propertyNames)
+        {
+            if (element.TryGetProperty(name, out var prop))
+            {
+                if (prop.ValueKind == JsonValueKind.Number)
+                {
+                    return prop.GetDecimal();
+                }
+                if (prop.ValueKind == JsonValueKind.String)
+                {
+                    var str = prop.GetString()?.Replace(',', '.');
+                    if (decimal.TryParse(str, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var val))
+                        return val;
+                }
+            }
+        }
+        return null;
+    }
+    
+    private double? TryGetDoubleProperty(JsonElement element, params string[] propertyNames)
+    {
+        foreach (var name in propertyNames)
+        {
+            if (element.TryGetProperty(name, out var prop))
+            {
+                if (prop.ValueKind == JsonValueKind.Number)
+                {
+                    return prop.GetDouble();
+                }
+                if (prop.ValueKind == JsonValueKind.String)
+                {
+                    var str = prop.GetString()?.Replace(',', '.');
+                    if (double.TryParse(str, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var val))
+                        return val;
+                }
+            }
+        }
+        return null;
+    }
+    
     private async Task SaveBranchesDebugInfoAsync(JsonElement branchesArray)
     {
         try
@@ -2658,7 +2701,13 @@ retryChangeBranch:
                     StokAdi = name ?? string.Empty,
                     Birim = unit ?? string.Empty,
                     Miktar = qty,
-                    Barcode = barcode
+                    Barcode = barcode,
+                    // Değişiklik tespiti için ek alanlar
+                    AlisFiyat = TryGetDecimalProperty(item, "alisFiyat", "purchasePrice"),
+                    SatisFiyat = TryGetDecimalProperty(item, "satisFiyat", "salesPrice", "fiyat"),
+                    AlisKdvOran = TryGetDoubleProperty(item, "kartAlisKdvOran", "alisKdvOran"),
+                    SatisKdvOran = TryGetDoubleProperty(item, "kartSatisKdvOran", "satisKdvOran"),
+                    KategoriKodu = TryGetProperty(item, "kategoriAgacKod", "kategoriKodu", "category")
                 });
             }
 
