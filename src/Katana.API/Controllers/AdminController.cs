@@ -917,4 +917,132 @@ public class AdminController : ControllerBase
             return StatusCode(500, new { error = "Failed to retry record" });
         }
     }
+
+    /// <summary>
+    /// Koza'daki tedarikçi cari kayıtlarını listele
+    /// </summary>
+    [HttpGet("~/api/admin/koza/cari/suppliers")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetKozaSuppliers()
+    {
+        try
+        {
+            // Supplier'ları al
+            var suppliers = await _context.Suppliers
+                .OrderBy(s => s.Name)
+                .Select(s => new {
+                    finansalNesneId = s.LucaFinansalNesneId,
+                    kod = s.LucaCode ?? s.Name,
+                    tanim = s.Name,
+                    kisaAd = s.Name.Length > 20 ? s.Name.Substring(0, 20) : s.Name,
+                    vergiNo = s.TaxNo,
+                    email = s.Email,
+                    telefon = s.Phone
+                })
+                .ToListAsync();
+
+            return Ok(suppliers);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Koza tedarikçi listesi alınamadı");
+            return StatusCode(500, new { error = "Tedarikçi listesi alınamadı" });
+        }
+    }
+
+    /// <summary>
+    /// Tedarikçileri Luca'ya senkronize et
+    /// </summary>
+    [HttpPost("~/api/admin/koza/cari/suppliers/sync")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SyncSuppliersToKoza()
+    {
+        try
+        {
+            var lucaService = HttpContext.RequestServices.GetRequiredService<Katana.Business.Interfaces.ILucaService>();
+            var suppliers = await _context.Suppliers.ToListAsync();
+
+            var result = new {
+                totalCount = suppliers.Count,
+                successCount = 0,
+                errorCount = 0,
+                skippedCount = 0,
+                items = new List<object>()
+            };
+
+            int successCount = 0;
+            int errorCount = 0;
+            int skippedCount = 0;
+            var items = new List<object>();
+
+            foreach (var supplier in suppliers)
+            {
+                try
+                {
+                    // Eğer zaten senkronize edilmişse atla
+                    if (supplier.LucaFinansalNesneId.HasValue && supplier.LucaFinansalNesneId > 0)
+                    {
+                        skippedCount++;
+                        items.Add(new {
+                            katanaSupplierId = supplier.Id.ToString(),
+                            supplierName = supplier.Name,
+                            kozaCariKodu = supplier.LucaCode,
+                            success = true,
+                            message = "Zaten senkronize edilmiş"
+                        });
+                        continue;
+                    }
+
+                    var syncResult = await lucaService.UpsertCariCardAsync(supplier);
+                    
+                    if (syncResult.IsSuccess)
+                    {
+                        successCount++;
+                        items.Add(new {
+                            katanaSupplierId = supplier.Id.ToString(),
+                            supplierName = supplier.Name,
+                            kozaCariKodu = supplier.LucaCode,
+                            success = true,
+                            message = syncResult.Message
+                        });
+                    }
+                    else
+                    {
+                        errorCount++;
+                        items.Add(new {
+                            katanaSupplierId = supplier.Id.ToString(),
+                            supplierName = supplier.Name,
+                            kozaCariKodu = supplier.LucaCode,
+                            success = false,
+                            message = syncResult.Message
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errorCount++;
+                    items.Add(new {
+                        katanaSupplierId = supplier.Id.ToString(),
+                        supplierName = supplier.Name,
+                        kozaCariKodu = supplier.LucaCode,
+                        success = false,
+                        message = ex.Message
+                    });
+                }
+            }
+
+            return Ok(new {
+                totalCount = suppliers.Count,
+                successCount,
+                errorCount,
+                skippedCount,
+                items
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Tedarikçi senkronizasyonu başarısız");
+            return StatusCode(500, new { error = "Tedarikçi senkronizasyonu başarısız", errorMessage = ex.Message });
+        }
+    }
 }

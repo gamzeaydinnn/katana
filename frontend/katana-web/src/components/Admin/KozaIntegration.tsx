@@ -252,7 +252,7 @@ const KozaIntegration: React.FC = () => {
 
       // Backend'e sync isteği at
       const res = await api.post("/admin/koza/cari/suppliers/sync");
-      const result: SupplierSyncResult = res.data;
+      const result = res.data as SupplierSyncResult;
       
       setSupplierSyncResult(result);
 

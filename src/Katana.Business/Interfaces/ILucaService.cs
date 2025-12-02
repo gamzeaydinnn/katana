@@ -93,9 +93,14 @@ public interface ILucaService
     Task<SyncResultDto> UpdateCariCardAsync(LucaUpdateCustomerFullRequest request);
     
     /// <summary>
-    /// UPSERT: Cari kart varsa güncelle, yoksa oluştur
+    /// UPSERT: Cari kart varsa güncelle, yoksa oluştur (Customer için)
     /// </summary>
     Task<SyncResultDto> UpsertCariCardAsync(Customer customer);
+    
+    /// <summary>
+    /// UPSERT: Cari kart varsa güncelle, yoksa oluştur (Supplier için)
+    /// </summary>
+    Task<SyncResultDto> UpsertCariCardAsync(Supplier supplier);
     
     /// <summary>
     /// Müşteri adreslerini Luca'ya gönderir

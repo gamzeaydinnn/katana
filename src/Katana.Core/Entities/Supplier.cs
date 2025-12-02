@@ -26,8 +26,34 @@ public class Supplier
     [MaxLength(300)]
     public string? Address { get; set; }
 
+    [MaxLength(100)]
+    public string? City { get; set; }
+
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
+
+    /// <summary>
+    /// Luca'daki cari kart kodu (TED-{Id} formatında)
+    /// </summary>
+    [MaxLength(50)]
+    public string? LucaCode { get; set; }
+
+    /// <summary>
+    /// Luca'daki finansalNesneId (cari kart ID)
+    /// </summary>
+    public long? LucaFinansalNesneId { get; set; }
+
+    /// <summary>
+    /// Son senkronizasyon hatası
+    /// </summary>
+    [MaxLength(500)]
+    public string? LastSyncError { get; set; }
+
     public virtual ICollection<SupplierPrice> PriceList { get; set; } = new List<SupplierPrice>();
+
+    /// <summary>
+    /// Luca cari kart kodunu oluşturur (TED-{Id})
+    /// </summary>
+    public string GenerateLucaCode() => $"TED-{Id}";
 }
