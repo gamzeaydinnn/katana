@@ -304,11 +304,26 @@ export const stockAPI = {
 
   getSyncHistory: () => api.get("/Sync/history").then((res) => res.data),
 
-  startSync: (options?: SyncOptions) =>
-    api
-      // Stock card sync can take longer; override default 30s axios timeout.
-      .post("/Luca/sync-products", options || {}, { timeout: 120000 })
-      .then((res) => res.data as SyncResult),
+  startSync: (options?: SyncOptions) => {
+    // Route sync request based on syncType
+    const syncType = options?.syncType?.toUpperCase() || "STOCK_CARD";
+    
+    const endpointMap: Record<string, string> = {
+      STOCK: "/Sync/stock",
+      INVOICE: "/Sync/invoices",
+      CUSTOMER: "/Sync/customers",
+      DESPATCH: "/Sync/from-luca/despatch",
+      ALL: "/Sync/run",
+      STOCK_CARD: "/Sync/to-luca/stock-cards",
+      PRODUCT: "/Sync/to-luca/stock-cards",
+    };
+    
+    const endpoint = endpointMap[syncType] || "/Sync/to-luca/stock-cards";
+    
+    return api
+      .post(endpoint, options || {}, { timeout: 120000 })
+      .then((res) => res.data as SyncResult);
+  },
 
   getStockReport: (queryString?: string) =>
     api

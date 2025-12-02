@@ -2555,9 +2555,40 @@ retryChangeBranch:
 
             if (responseContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogError("ListStockCardsAsync: Koza returned HTML while listing stock cards. Body snippet: {Snippet}",
-                    responseContent.Length > 300 ? responseContent[..300] : responseContent);
-                return result;
+                _logger.LogWarning("ListStockCardsAsync: Koza returned HTML (session expired?). Re-authenticating and retrying once...");
+                
+                // Session expired olabilir, yeniden login dene
+                try
+                {
+                    await PerformLoginAsync();
+                    await EnsureBranchSelectedAsync();
+                    
+                    // Retry request
+                    using var retryRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                    {
+                        Content = byteContent
+                    };
+                    ApplyManualSessionCookie(retryRequest);
+                    
+                    var retryResponse = await client.SendAsync(retryRequest, cancellationToken);
+                    var retryBytes = await retryResponse.Content.ReadAsByteArrayAsync(cancellationToken);
+                    string retryContent;
+                    try { retryContent = encoding.GetString(retryBytes); } catch { retryContent = Encoding.UTF8.GetString(retryBytes); }
+                    
+                    if (retryContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogError("ListStockCardsAsync: Still HTML after retry. Body snippet: {Snippet}",
+                            retryContent.Length > 300 ? retryContent[..300] : retryContent);
+                        return result;
+                    }
+                    
+                    responseContent = retryContent;
+                }
+                catch (Exception retryEx)
+                {
+                    _logger.LogError(retryEx, "ListStockCardsAsync: Retry failed after HTML response");
+                    return result;
+                }
             }
 
             JsonElement element;
@@ -3193,8 +3224,11 @@ retryChangeBranch:
         result.FailedRecords = failedCount;
         result.DuplicateRecords = duplicateCount;
         result.SentRecords = sentCount;
-        result.IsSuccess = successCount > 0 && failedCount == 0;
-        result.Message = $"{successCount} success, {failedCount} failed";
+        // IsSuccess should be true if no real failures occurred (duplicates are not failures)
+        result.IsSuccess = failedCount == 0;
+        result.Message = duplicateCount > 0 
+            ? $"{successCount} yeni oluşturuldu, {duplicateCount} zaten vardı, {failedCount} başarısız" 
+            : $"{successCount} success, {failedCount} failed";
         result.Duration = DateTime.UtcNow - startTime;
         return result;
     }

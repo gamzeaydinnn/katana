@@ -1,33 +1,32 @@
 import {
-  Assessment,
-  CheckCircle,
-  Download,
-  FileDownload,
-  Inventory,
-  TrendingDown,
-  TrendingUp,
+    Assessment,
+    CheckCircle,
+    FileDownload,
+    Inventory,
+    TrendingDown,
+    TrendingUp
 } from "@mui/icons-material";
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Container,
-  FormControlLabel,
-  Paper,
-  Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-  useMediaQuery,
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    Container,
+    FormControlLabel,
+    Paper,
+    Switch,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    TextField,
+    Typography,
+    useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
@@ -369,7 +368,11 @@ const Reports: React.FC = () => {
                   )
                 }
                 onClick={downloadExcel}
-                disabled={excelLoading}
+                disabled={
+                  excelLoading ||
+                  !stockReport ||
+                  stockReport.stockData.length === 0
+                }
                 sx={{ width: { xs: "100%", sm: "auto" } }}
               >
                 {excelLoading ? "İndiriliyor..." : "Excel İndir"}
