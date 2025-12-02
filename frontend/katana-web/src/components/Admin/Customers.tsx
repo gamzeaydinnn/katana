@@ -9,7 +9,6 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
-  Grid,
   IconButton,
   InputLabel,
   MenuItem,
@@ -57,7 +56,7 @@ interface Customer {
   createdAt: string;
   updatedAt?: string;
   // Luca fields
-  type: number; // 1=Şirket, 2=Şahıs
+  type: number;
   taxOffice?: string;
   district?: string;
   lucaCode?: string;
@@ -66,6 +65,11 @@ interface Customer {
   groupCode?: string;
   lucaSyncStatus: 'success' | 'error' | 'pending';
   isLucaSynced: boolean;
+}
+
+interface SyncResult {
+  isSuccess: boolean;
+  message?: string;
 }
 
 interface CustomerFormData {
@@ -102,6 +106,18 @@ const initialFormData: CustomerFormData = {
   isActive: true,
 };
 
+// CSS Grid helper styles
+const gridStyles = {
+  container: {
+    display: 'grid',
+    gap: 2,
+    gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' },
+  },
+  fullWidth: {
+    gridColumn: '1 / -1',
+  },
+};
+
 const Customers: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,14 +125,12 @@ const Customers: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   
-  // Dialog states
   const [openDialog, setOpenDialog] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [formData, setFormData] = useState<CustomerFormData>(initialFormData);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   
-  // Sync states
   const [syncing, setSyncing] = useState<number | null>(null);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
@@ -124,7 +138,6 @@ const Customers: React.FC = () => {
     severity: 'success',
   });
 
-  // Luca info dialog
   const [lucaInfoDialog, setLucaInfoDialog] = useState<{ open: boolean; customer: Customer | null }>({
     open: false,
     customer: null,
@@ -137,11 +150,12 @@ const Customers: React.FC = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/customers');
+      const response = await api.get<Customer[]>('/customers');
       setCustomers(response.data);
       setError(null);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Müşteriler yüklenirken hata oluştu');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Müşteriler yüklenirken hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -214,10 +228,11 @@ const Customers: React.FC = () => {
       }
       handleCloseDialog();
       fetchCustomers();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'Kayıt sırasında hata oluştu', 
+        message: error.response?.data?.message || 'Kayıt sırasında hata oluştu', 
         severity: 'error' 
       });
     } finally {
@@ -232,10 +247,11 @@ const Customers: React.FC = () => {
       await api.delete(`/customers/${id}`);
       setSnackbar({ open: true, message: 'Müşteri silindi', severity: 'success' });
       fetchCustomers();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'Silme sırasında hata oluştu', 
+        message: error.response?.data?.message || 'Silme sırasında hata oluştu', 
         severity: 'error' 
       });
     }
@@ -244,17 +260,18 @@ const Customers: React.FC = () => {
   const handleSyncToLuca = async (customer: Customer) => {
     setSyncing(customer.id);
     try {
-      const response = await api.post(`/customers/${customer.id}/sync`);
+      const response = await api.post<SyncResult>(`/customers/${customer.id}/sync`);
       if (response.data.isSuccess) {
         setSnackbar({ open: true, message: 'Luca senkronizasyonu başarılı', severity: 'success' });
       } else {
         setSnackbar({ open: true, message: response.data.message || 'Senkronizasyon hatası', severity: 'error' });
       }
       fetchCustomers();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'Senkronizasyon sırasında hata oluştu', 
+        message: error.response?.data?.message || 'Senkronizasyon sırasında hata oluştu', 
         severity: 'error' 
       });
     } finally {
@@ -434,45 +451,41 @@ const Customers: React.FC = () => {
           {editingCustomer ? 'Müşteri Düzenle' : 'Yeni Müşteri'}
         </DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
+          <Box sx={{ ...gridStyles.container, mt: 2 }}>
             {/* Type Selection */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Müşteri Tipi</InputLabel>
-                <Select
-                  value={formData.type}
-                  label="Müşteri Tipi"
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as number })}
-                >
-                  <MenuItem value={1}>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <BusinessIcon fontSize="small" /> Şirket
-                    </Box>
-                  </MenuItem>
-                  <MenuItem value={2}>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <PersonIcon fontSize="small" /> Şahıs
-                    </Box>
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+            <FormControl fullWidth>
+              <InputLabel>Müşteri Tipi</InputLabel>
+              <Select
+                value={formData.type}
+                label="Müşteri Tipi"
+                onChange={(e) => setFormData({ ...formData, type: e.target.value as number })}
+              >
+                <MenuItem value={1}>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <BusinessIcon fontSize="small" /> Şirket
+                  </Box>
+                </MenuItem>
+                <MenuItem value={2}>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <PersonIcon fontSize="small" /> Şahıs
+                  </Box>
+                </MenuItem>
+              </Select>
+            </FormControl>
 
             {/* Tax Number */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label={formData.type === 1 ? 'VKN (10 hane)' : 'TCKN (11 hane)'}
-                value={formData.taxNo}
-                onChange={(e) => setFormData({ ...formData, taxNo: e.target.value })}
-                error={!!formErrors.taxNo}
-                helperText={formErrors.taxNo}
-                inputProps={{ maxLength: formData.type === 1 ? 10 : 11 }}
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label={formData.type === 1 ? 'VKN (10 hane)' : 'TCKN (11 hane)'}
+              value={formData.taxNo}
+              onChange={(e) => setFormData({ ...formData, taxNo: e.target.value })}
+              error={!!formErrors.taxNo}
+              helperText={formErrors.taxNo}
+              inputProps={{ maxLength: formData.type === 1 ? 10 : 11 }}
+            />
 
-            {/* Title */}
-            <Grid item xs={12}>
+            {/* Title - Full Width */}
+            <Box sx={gridStyles.fullWidth}>
               <TextField
                 fullWidth
                 label="Ünvan"
@@ -481,102 +494,87 @@ const Customers: React.FC = () => {
                 error={!!formErrors.title}
                 helperText={formErrors.title}
               />
-            </Grid>
+            </Box>
 
             {/* Tax Office (only for companies) */}
             {formData.type === 1 && (
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Vergi Dairesi"
-                  value={formData.taxOffice}
-                  onChange={(e) => setFormData({ ...formData, taxOffice: e.target.value })}
-                />
-              </Grid>
+              <TextField
+                fullWidth
+                label="Vergi Dairesi"
+                value={formData.taxOffice}
+                onChange={(e) => setFormData({ ...formData, taxOffice: e.target.value })}
+              />
             )}
 
             {/* Group Code */}
-            <Grid item xs={12} md={formData.type === 1 ? 6 : 12}>
-              <TextField
-                fullWidth
-                label="Grup Kodu"
-                value={formData.groupCode}
-                onChange={(e) => setFormData({ ...formData, groupCode: e.target.value })}
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Grup Kodu"
+              value={formData.groupCode}
+              onChange={(e) => setFormData({ ...formData, groupCode: e.target.value })}
+              sx={formData.type !== 1 ? gridStyles.fullWidth : undefined}
+            />
 
             {/* Contact Person */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="İletişim Kişisi"
-                value={formData.contactPerson}
-                onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="İletişim Kişisi"
+              value={formData.contactPerson}
+              onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+            />
 
             {/* Phone */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Telefon"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Telefon"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            />
 
             {/* Email */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="E-posta"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="E-posta"
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            />
 
             {/* Country */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Ülke</InputLabel>
-                <Select
-                  value={formData.country}
-                  label="Ülke"
-                  onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                >
-                  <MenuItem value="Turkey">Türkiye</MenuItem>
-                  <MenuItem value="Germany">Almanya</MenuItem>
-                  <MenuItem value="France">Fransa</MenuItem>
-                  <MenuItem value="United Kingdom">İngiltere</MenuItem>
-                  <MenuItem value="United States">ABD</MenuItem>
-                  <MenuItem value="Other">Diğer</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+            <FormControl fullWidth>
+              <InputLabel>Ülke</InputLabel>
+              <Select
+                value={formData.country}
+                label="Ülke"
+                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+              >
+                <MenuItem value="Turkey">Türkiye</MenuItem>
+                <MenuItem value="Germany">Almanya</MenuItem>
+                <MenuItem value="France">Fransa</MenuItem>
+                <MenuItem value="United Kingdom">İngiltere</MenuItem>
+                <MenuItem value="United States">ABD</MenuItem>
+                <MenuItem value="Other">Diğer</MenuItem>
+              </Select>
+            </FormControl>
 
             {/* City */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Şehir"
-                value={formData.city}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="Şehir"
+              value={formData.city}
+              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+            />
 
             {/* District */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="İlçe"
-                value={formData.district}
-                onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="İlçe"
+              value={formData.district}
+              onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+            />
 
-            {/* Address */}
-            <Grid item xs={12}>
+            {/* Address - Full Width */}
+            <Box sx={gridStyles.fullWidth}>
               <TextField
                 fullWidth
                 label="Adres"
@@ -585,18 +583,16 @@ const Customers: React.FC = () => {
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               />
-            </Grid>
+            </Box>
 
             {/* Postal Code */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Posta Kodu"
-                value={formData.postalCode}
-                onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-              />
-            </Grid>
-          </Grid>
+            <TextField
+              fullWidth
+              label="Posta Kodu"
+              value={formData.postalCode}
+              onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+            />
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>İptal</Button>
@@ -620,45 +616,43 @@ const Customers: React.FC = () => {
         <DialogTitle>Luca Senkronizasyon Bilgisi</DialogTitle>
         <DialogContent>
           {lucaInfoDialog.customer && (
-            <Box sx={{ mt: 2 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
-                  <Typography variant="body2" color="text.secondary">Luca Kodu</Typography>
-                  <Typography variant="body1" fontWeight="bold">
-                    {lucaInfoDialog.customer.lucaCode || 'Henüz atanmadı'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="body2" color="text.secondary">Finansal Nesne ID</Typography>
-                  <Typography variant="body1" fontWeight="bold">
-                    {lucaInfoDialog.customer.lucaFinansalNesneId || 'Henüz atanmadı'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary">Durum</Typography>
-                  <Box sx={{ mt: 0.5 }}>
-                    {getLucaStatusChip(lucaInfoDialog.customer)}
-                  </Box>
-                </Grid>
-                {lucaInfoDialog.customer.lastSyncError && (
-                  <Grid item xs={12}>
-                    <Alert severity="error" sx={{ mt: 1 }}>
-                      <Typography variant="body2" fontWeight="bold">Son Hata:</Typography>
-                      <Typography variant="body2">
-                        {lucaInfoDialog.customer.lastSyncError}
-                      </Typography>
-                    </Alert>
-                  </Grid>
-                )}
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary">Son Güncelleme</Typography>
-                  <Typography variant="body1">
-                    {lucaInfoDialog.customer.updatedAt 
-                      ? new Date(lucaInfoDialog.customer.updatedAt).toLocaleString('tr-TR')
-                      : '-'}
-                  </Typography>
-                </Grid>
-              </Grid>
+            <Box sx={{ ...gridStyles.container, mt: 2 }}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Luca Kodu</Typography>
+                <Typography variant="body1" fontWeight="bold">
+                  {lucaInfoDialog.customer.lucaCode || 'Henüz atanmadı'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Finansal Nesne ID</Typography>
+                <Typography variant="body1" fontWeight="bold">
+                  {lucaInfoDialog.customer.lucaFinansalNesneId || 'Henüz atanmadı'}
+                </Typography>
+              </Box>
+              <Box sx={gridStyles.fullWidth}>
+                <Typography variant="body2" color="text.secondary">Durum</Typography>
+                <Box sx={{ mt: 0.5 }}>
+                  {getLucaStatusChip(lucaInfoDialog.customer)}
+                </Box>
+              </Box>
+              {lucaInfoDialog.customer.lastSyncError && (
+                <Box sx={gridStyles.fullWidth}>
+                  <Alert severity="error" sx={{ mt: 1 }}>
+                    <Typography variant="body2" fontWeight="bold">Son Hata:</Typography>
+                    <Typography variant="body2">
+                      {lucaInfoDialog.customer.lastSyncError}
+                    </Typography>
+                  </Alert>
+                </Box>
+              )}
+              <Box sx={gridStyles.fullWidth}>
+                <Typography variant="body2" color="text.secondary">Son Güncelleme</Typography>
+                <Typography variant="body1">
+                  {lucaInfoDialog.customer.updatedAt 
+                    ? new Date(lucaInfoDialog.customer.updatedAt).toLocaleString('tr-TR')
+                    : '-'}
+                </Typography>
+              </Box>
             </Box>
           )}
         </DialogContent>
