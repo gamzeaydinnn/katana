@@ -1,7 +1,6 @@
 import {
   CheckCircle,
   CompareArrows as CompareArrowsIcon,
-  People as CustomersIcon,
   Error as ErrorIcon,
   Inventory,
   IntegrationInstructions as KozaIcon,
@@ -15,7 +14,7 @@ import {
   SwapHoriz as SwapHorizIcon,
   TrendingUp,
   Group as UsersIcon,
-  Warehouse,
+  Warehouse
 } from "@mui/icons-material";
 import {
   Alert,
@@ -44,7 +43,6 @@ import {
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
-import Customers from "../Admin/Customers";
 import DataCorrectionPanel from "../Admin/DataCorrectionPanel";
 import FailedRecords from "../Admin/FailedRecords";
 import KatanaProducts from "../Admin/KatanaProducts";
@@ -652,18 +650,6 @@ const AdminPanel: React.FC = () => {
             }}
             sx={overflowMenuItemSx}
           >
-            <CustomersIcon sx={{ mr: 1.5, fontSize: 20, color: "#8b5cf6" }} />
-            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
-              Müşteriler
-            </Typography>
-          </MenuItem>
-          <MenuItem
-            onClick={() => {
-              setActiveTab(12);
-              setMoreMenuAnchor(null);
-            }}
-            sx={overflowMenuItemSx}
-          >
             <KozaIcon sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
             <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
               Koza Entegrasyon
@@ -1023,11 +1009,8 @@ const AdminPanel: React.FC = () => {
       {}
       {activeTab === 10 && <Settings />}
 
-      {/* Müşteriler Tab */}
-      {activeTab === 11 && <Customers />}
-
       {/* Koza Entegrasyon Tab */}
-      {activeTab === 12 && <KozaIntegration />}
+      {activeTab === 11 && <KozaIntegration />}
     </Container>
   );
 };
