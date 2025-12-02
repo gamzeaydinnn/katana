@@ -72,34 +72,23 @@ public class KatanaService : IKatanaService
     {
         var allProducts = new List<KatanaProductDto>();
         var page = 1;
-        const int limit = 100;
+        const int PAGE_SIZE = 250; // Katana MRP API maksimum sayfa boyutu
         var moreRecords = true;
 
         try
         {
-            _logger.LogInformation("Getting products from Katana with pagination (limit={Limit})", limit);
-            _logger.LogInformation("DEBUG - BaseAddress: {BaseAddress}", _httpClient.BaseAddress);
-            _logger.LogInformation("DEBUG - Endpoint: {Endpoint}", _settings.Endpoints.Products);
-            _logger.LogInformation("DEBUG - Authorization: {Auth}", _httpClient.DefaultRequestHeaders.Authorization);
+            _logger.LogInformation("Getting products from Katana with pagination (pageSize={PageSize})", PAGE_SIZE);
             _loggingService.LogInfo("Katana API: Fetching products (paged)", null, "GetProductsAsync", LogCategory.ExternalAPI);
 
             while (moreRecords)
             {
-                var url = $"{_settings.Endpoints.Products}?limit={limit}&page={page}";
+                var url = $"{_settings.Endpoints.Products}?limit={PAGE_SIZE}&page={page}";
                 var response = await _httpClient.GetAsync(url);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
-                _logger.LogWarning(
-                    "KATANA API RESPONSE (page={Page}) - Status: {StatusCode}, Content Length: {Length}, First 500 chars: {Content}",
-                    page,
-                    response.StatusCode,
-                    responseContent.Length,
-                    responseContent.Substring(0, Math.Min(500, responseContent.Length)));
-
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("Katana API failed on page {Page}. Status: {StatusCode}, Response: {Response}",
-                        page, response.StatusCode, responseContent);
+                    _logger.LogWarning("Katana API failed on page {Page}. Status: {StatusCode}", page, response.StatusCode);
                     break;
                 }
 
@@ -117,16 +106,19 @@ public class KatanaService : IKatanaService
                         }
                     }
 
-                    _logger.LogInformation("Retrieved {Count} products from Katana (page={Page})", pageProducts.Count, page);
+                    _logger.LogInformation("Page {Page}: +{Count} products (Total: {Total})", page, pageProducts.Count, allProducts.Count + pageProducts.Count);
                     allProducts.AddRange(pageProducts);
 
-                    if (pageProducts.Count < limit)
+                    // Eğer dönen kayıt sayısı PAGE_SIZE'dan azsa, son sayfaya ulaştık demektir
+                    if (pageProducts.Count < PAGE_SIZE)
                     {
                         moreRecords = false;
                     }
                     else
                     {
                         page++;
+                        // Rate limit için minimal bekleme
+                        await Task.Delay(50);
                     }
                 }
                 catch (Exception ex)
@@ -136,8 +128,8 @@ public class KatanaService : IKatanaService
                 }
             }
 
-            _logger.LogInformation("TOTAL {Count} products loaded from Katana across all pages.", allProducts.Count);
-            _loggingService.LogInfo($"Successfully fetched {allProducts.Count} products from Katana (paged)", null, "GetProductsAsync", LogCategory.ExternalAPI);
+            _logger.LogInformation("✅ TOTAL {Count} products loaded from Katana across {Pages} pages.", allProducts.Count, page);
+            _loggingService.LogInfo($"Successfully fetched {allProducts.Count} products from Katana ({page} pages)", null, "GetProductsAsync", LogCategory.ExternalAPI);
             return allProducts;
         }
         catch (HttpRequestException ex)

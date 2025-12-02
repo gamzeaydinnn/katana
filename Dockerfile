@@ -22,7 +22,7 @@ COPY . .
 
 # Build the application
 WORKDIR "/src/src/Katana.API"
-RUN dotnet build "Katana.API.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "Katana.API.csproj" -c $BUILD_CONFIGURATION -o /app/build --no-restore
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release

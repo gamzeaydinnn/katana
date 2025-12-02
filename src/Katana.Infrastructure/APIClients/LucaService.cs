@@ -1547,8 +1547,8 @@ retryChangeBranch:
                 result.Errors.Add($"{label}: {ex.Message}");
                 _logger.LogError(ex, "Error sending invoice {InvoiceLabel}", label);
             }
-
-            await Task.Delay(150);
+            // Minimal delay to avoid rate limiting
+            await Task.Delay(50);
         }
         result.SuccessfulRecords = success;
         result.FailedRecords = failed;
@@ -1848,7 +1848,8 @@ retryChangeBranch:
                 result.Errors.Add($"{label}: {ex.Message}");
                 _logger.LogError(ex, "Error sending customer {Label}", label);
             }
-            await Task.Delay(100);
+            // Minimal delay to avoid rate limiting
+            await Task.Delay(25);
         }
         result.SuccessfulRecords = success;
         result.FailedRecords = failed;
@@ -2002,7 +2003,8 @@ retryChangeBranch:
                         result.Errors.Add($"{movementLabel}: {ex.Message}");
                         _logger.LogError(ex, "Error sending stock movement {Doc}", movementLabel);
                     }
-                    await Task.Delay(100);
+                    // Minimal delay to avoid rate limiting
+                    await Task.Delay(25);
                 }
                 result.SuccessfulRecords = succeeded;
                 result.FailedRecords = failed;
@@ -2563,10 +2565,15 @@ retryChangeBranch:
                     await PerformLoginAsync();
                     await EnsureBranchSelectedAsync();
                     
+                    // Yeni content oluştur (HttpContent bir kez kullanıldıktan sonra tekrar kullanılamaz)
+                    var retryByteContent = new ByteArrayContent(encoding.GetBytes(formDataString));
+                    retryByteContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
+                    retryByteContent.Headers.ContentType.CharSet = "windows-1254";
+                    
                     // Retry request
                     using var retryRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
                     {
-                        Content = byteContent
+                        Content = retryByteContent
                     };
                     ApplyManualSessionCookie(retryRequest);
                     

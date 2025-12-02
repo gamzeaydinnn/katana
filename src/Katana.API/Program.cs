@@ -266,7 +266,7 @@ if (enableBackground)
 builder.Services.AddHostedService<HourlyMetricsAggregator>();
 builder.Services.AddHostedService<LogRetentionService>();
 builder.Services.AddHostedService<FailedNotificationProcessor>();
-builder.Services.AddHostedService<AutoSyncWorker>();
+// builder.Services.AddHostedService<AutoSyncWorker>(); // Geçici olarak kapatıldı - çift sync sorunu
 
 var app = builder.Build();
 
@@ -398,6 +398,27 @@ else
 }
 
 await EnsureDefaultAdminUserAsync(app.Services, app.Configuration, app.Logger);
+
+// Startup sırasında Luca cache'ini ısıt (kullanıcı ilk sayfayı açtığında beklemsin diye)
+_ = Task.Run(async () =>
+{
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var lucaService = scope.ServiceProvider.GetRequiredService<ILucaService>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        
+        await Task.Delay(5000); // API tamamen hazır olana kadar bekle
+        
+        logger.LogInformation("Luca stok kartları cache'i ısıtılıyor...");
+        var cards = await lucaService.ListStockCardsAsync();
+        logger.LogInformation("Luca cache hazır: {Count} stok kartı yüklendi", cards?.Count ?? 0);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Luca cache warm-up başarısız: {ex.Message}");
+    }
+});
 
 app.Run();
 

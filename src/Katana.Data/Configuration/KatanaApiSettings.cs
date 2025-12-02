@@ -34,8 +34,8 @@ public class RateLimitSettings
 }
 public class PaginationSettings
 {
-    public int DefaultPageSize { get; set; } = 100;
-    public int MaxPageSize { get; set; } = 100;
+    public int DefaultPageSize { get; set; } = 10000;
+    public int MaxPageSize { get; set; } = 10000;
     public int DefaultStartPage { get; set; } = 1;
 }
 public class KatanaApiEndpoints

@@ -3,31 +3,31 @@ import InventoryIcon from "@mui/icons-material/Inventory";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  InputAdornment,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Tooltip,
-  Typography,
-  useMediaQuery,
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    IconButton,
+    InputAdornment,
+    Paper,
+    Stack,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    TextField,
+    Tooltip,
+    Typography,
+    useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import api, { stockAPI } from "../../services/api";
@@ -78,14 +78,16 @@ const LucaProducts: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      // AdminPanel products endpoint'ini kullan
+      // Products endpoint'ini kullan (veritabanından direkt çeker)
+      // Limit yok - tüm ürünleri çek
       const response = await api.get<any>(
-        "/adminpanel/products?page=1&pageSize=2000"
+        "/Products?page=1&limit=10000"
       );
 
-      // API yanıtı: {products: Array, total: number} formatında
+      // API yanıtı: {items: Array, total: number} formatında
       const rawData = response?.data?.data || response?.data || {};
       const productData =
+        rawData?.items ||
         rawData?.products ||
         rawData?.data ||
         (Array.isArray(rawData) ? rawData : []);
@@ -343,17 +345,30 @@ const LucaProducts: React.FC = () => {
       )}
 
       {loading ? (
-        <Box display="flex" justifyContent="center" p={4}>
-          <CircularProgress />
+        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" p={4} minHeight="300px">
+          <CircularProgress size={48} />
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
+            Luca ürünleri yükleniyor...
+          </Typography>
+          <Typography variant="caption" color="text.disabled" sx={{ mt: 1 }}>
+            Bu işlem birkaç saniye sürebilir
+          </Typography>
         </Box>
       ) : isMobile ? (
         <Stack spacing={1.5}>
           {filteredProducts.length === 0 && (
-            <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
-              {searchTerm
-                ? "Arama sonucu bulunamadı"
-                : "Luca ürün verisi yok veya endpoint aktif değil"}
-            </Typography>
+            <Box textAlign="center" sx={{ py: 4 }}>
+              <Typography color="text.secondary" gutterBottom>
+                {searchTerm
+                  ? "Arama sonucu bulunamadı"
+                  : "Henüz ürün bulunamadı"}
+              </Typography>
+              {!searchTerm && (
+                <Typography variant="caption" color="text.disabled">
+                  Luca'dan ürün çekmek için "Koza'dan Çek" butonunu kullanabilirsiniz
+                </Typography>
+              )}
+            </Box>
           )}
           {filteredProducts.map((product, _idx) => {
             const code = product.productCode || product.ProductCode || "";
@@ -521,12 +536,17 @@ const LucaProducts: React.FC = () => {
             <TableBody>
               {filteredProducts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} align="center">
-                    <Typography color="textSecondary">
+                  <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
+                    <Typography color="textSecondary" gutterBottom>
                       {searchTerm
                         ? "Arama sonucu bulunamadı"
-                        : "Luca ürün verisi yok veya endpoint aktif değil"}
+                        : "Henüz ürün bulunamadı"}
                     </Typography>
+                    {!searchTerm && (
+                      <Typography variant="caption" color="text.disabled">
+                        Luca'dan ürün çekmek için "Koza'dan Çek" butonunu kullanabilirsiniz
+                      </Typography>
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (

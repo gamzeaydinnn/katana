@@ -53,7 +53,7 @@ const SyncManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
   
   const [openDialog, setOpenDialog] = useState(false);
-  const [syncType, setSyncType] = useState("PRODUCT");
+  const [syncType, setSyncType] = useState("STOCK_CARD");
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
