@@ -1,6 +1,10 @@
 import {
   Business,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
   Inventory,
+  HourglassEmpty as PendingIcon,
+  People,
   Refresh,
   Sync as SyncIcon,
   Warehouse
@@ -89,6 +93,12 @@ const KozaIntegration: React.FC = () => {
   const [syncingSuppliers, setSyncingSuppliers] = useState(false);
   const [supplierSyncResult, setSupplierSyncResult] = useState<SupplierSyncResult | null>(null);
 
+  // Müşteri state
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [syncingCustomers, setSyncingCustomers] = useState(false);
+  const [customerSyncResult, setCustomerSyncResult] = useState<{successCount: number; errorCount: number} | null>(null);
+
   // Depo listesini yükle
   const loadDepots = async () => {
     try {
@@ -143,9 +153,7 @@ const KozaIntegration: React.FC = () => {
         try {
           const kozaDepo = mapKatanaLocationToKozaDepo(
             location,
-            "MERKEZ", // kategoriKod
-            "TÜRKİYE", // ulke
-            location.address?.city || "İSTANBUL" // il
+            "MERKEZ" // kategoriKod
           );
 
           await kozaAPI.depots.create({ stkDepo: kozaDepo });
@@ -266,6 +274,55 @@ const KozaIntegration: React.FC = () => {
     }
   };
 
+  // Müşteri listesini yükle
+  const loadCustomers = async () => {
+    try {
+      setLoadingCustomers(true);
+      setError(null);
+      const res = await api.get("/customers");
+      setCustomers(Array.isArray(res.data) ? res.data : []);
+    } catch (err: any) {
+      console.error("Müşteri yükleme hatası:", err);
+      setError(err.message || "Müşteriler yüklenirken hata oluştu");
+    } finally {
+      setLoadingCustomers(false);
+    }
+  };
+
+  // Müşteri Luca senkronizasyonu
+  const syncCustomers = async () => {
+    try {
+      setSyncingCustomers(true);
+      setError(null);
+      setSuccess(null);
+      setCustomerSyncResult(null);
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Senkronize edilmemiş müşterileri al
+      const unsyncedCustomers = customers.filter(c => !c.isLucaSynced || c.lucaSyncStatus !== 'success');
+
+      for (const customer of unsyncedCustomers) {
+        try {
+          await api.post(`/customers/${customer.id}/sync`);
+          successCount++;
+        } catch {
+          errorCount++;
+        }
+      }
+
+      setCustomerSyncResult({ successCount, errorCount });
+      setSuccess(`Müşteri senkronizasyonu tamamlandı: ${successCount} başarılı, ${errorCount} hatalı`);
+      await loadCustomers();
+    } catch (err: any) {
+      console.error("Müşteri senkronizasyon hatası:", err);
+      setError(err.response?.data?.error || err.message || "Müşteri senkronizasyonu sırasında hata oluştu");
+    } finally {
+      setSyncingCustomers(false);
+    }
+  };
+
   // İlk yükleme
   useEffect(() => {
     if (activeTab === 0) {
@@ -274,6 +331,8 @@ const KozaIntegration: React.FC = () => {
       loadStockCards();
     } else if (activeTab === 2) {
       loadSuppliers();
+    } else if (activeTab === 3) {
+      loadCustomers();
     }
   }, [activeTab]);
 
@@ -290,7 +349,8 @@ const KozaIntegration: React.FC = () => {
               onClick={() => {
                 if (activeTab === 0) loadDepots();
                 else if (activeTab === 1) loadStockCards();
-                else loadSuppliers();
+                else if (activeTab === 2) loadSuppliers();
+                else loadCustomers();
               }}
               color="primary"
             >
@@ -330,6 +390,7 @@ const KozaIntegration: React.FC = () => {
           <Tab icon={<Warehouse />} label="Depo Kartları" iconPosition="start" />
           <Tab icon={<Inventory />} label="Stok Kartları" iconPosition="start" />
           <Tab icon={<Business />} label="Tedarikçi Kartları" iconPosition="start" />
+          <Tab icon={<People />} label="Müşteri Kartları" iconPosition="start" />
         </Tabs>
       </Paper>
 
@@ -577,6 +638,130 @@ const KozaIntegration: React.FC = () => {
                         <TableCell>{sup.tanim || sup.kisaAd || "-"}</TableCell>
                         <TableCell>{sup.vergiNo || "-"}</TableCell>
                         <TableCell>{sup.email || sup.telefon || "-"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Paper>
+        </Box>
+      )}
+
+      {/* Müşteri Kartları Tab */}
+      {activeTab === 3 && (
+        <Box>
+          {/* İstatistikler */}
+          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 2, mb: 3 }}>
+            <Card>
+              <CardContent>
+                <Typography color="textSecondary" variant="body2">
+                  Toplam Müşteri
+                </Typography>
+                <Typography variant="h4" fontWeight={700}>
+                  {customers.length}
+                </Typography>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent>
+                <Typography color="textSecondary" variant="body2">
+                  Luca Senkronlu
+                </Typography>
+                <Typography variant="h4" fontWeight={700} color="success.main">
+                  {customers.filter(c => c.isLucaSynced || c.lucaSyncStatus === 'success').length}
+                </Typography>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent>
+                <Typography color="textSecondary" variant="body2">
+                  Bekleyen
+                </Typography>
+                <Typography variant="h4" fontWeight={700} color="warning.main">
+                  {customers.filter(c => !c.isLucaSynced && c.lucaSyncStatus !== 'success').length}
+                </Typography>
+              </CardContent>
+            </Card>
+            {customerSyncResult && (
+              <Card>
+                <CardContent>
+                  <Typography color="textSecondary" variant="body2">
+                    Son Sync
+                  </Typography>
+                  <Typography variant="body1" fontWeight={600}>
+                    ✓ {customerSyncResult.successCount} / ✗ {customerSyncResult.errorCount}
+                  </Typography>
+                </CardContent>
+              </Card>
+            )}
+          </Box>
+
+          {/* Müşteri Listesi */}
+          <Paper sx={{ p: 2 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+              <Typography variant="h6" fontWeight={600}>
+                Müşteri Listesi (Luca Cari Entegrasyonu)
+              </Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={syncingCustomers ? <CircularProgress size={20} color="inherit" /> : <SyncIcon />}
+                onClick={syncCustomers}
+                disabled={syncingCustomers}
+              >
+                {syncingCustomers ? "Senkronize Ediliyor..." : "Luca'ya Toplu Senkronize"}
+              </Button>
+            </Box>
+
+            {loadingCustomers ? (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : customers.length === 0 ? (
+              <Alert severity="info">
+                Henüz müşteri kaydı yok. Müşteriler sayfasından ekleyebilirsiniz.
+              </Alert>
+            ) : (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Vergi No</TableCell>
+                      <TableCell>Ünvan</TableCell>
+                      <TableCell>Tip</TableCell>
+                      <TableCell>İletişim</TableCell>
+                      <TableCell>Luca Durumu</TableCell>
+                      <TableCell>Luca Kodu</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {customers.map((customer) => (
+                      <TableRow key={customer.id}>
+                        <TableCell>
+                          <Chip label={customer.taxNo} size="small" variant="outlined" />
+                        </TableCell>
+                        <TableCell>{customer.title}</TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={customer.type === 1 ? "Şirket" : "Şahıs"} 
+                            size="small" 
+                            color={customer.type === 1 ? "primary" : "secondary"}
+                          />
+                        </TableCell>
+                        <TableCell>{customer.email || customer.phone || "-"}</TableCell>
+                        <TableCell>
+                          {customer.lucaSyncStatus === 'success' || customer.isLucaSynced ? (
+                            <Chip icon={<CheckCircleIcon />} label="Senkron" color="success" size="small" />
+                          ) : customer.lucaSyncStatus === 'error' ? (
+                            <Tooltip title={customer.lastSyncError || "Hata"}>
+                              <Chip icon={<ErrorIcon />} label="Hatalı" color="error" size="small" />
+                            </Tooltip>
+                          ) : (
+                            <Chip icon={<PendingIcon />} label="Bekliyor" color="warning" size="small" />
+                          )}
+                        </TableCell>
+                        <TableCell>{customer.lucaCode || "-"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
