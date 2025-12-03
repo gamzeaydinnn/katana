@@ -100,16 +100,33 @@ export interface StockMovementFilterDto {
 export const getAllMovements = async (
   filter?: StockMovementFilterDto
 ): Promise<StockMovementSyncDto[]> => {
-  const params = new URLSearchParams();
-  if (filter?.movementType) params.append("movementType", filter.movementType);
-  if (filter?.syncStatus) params.append("syncStatus", filter.syncStatus);
-  if (filter?.startDate) params.append("startDate", filter.startDate);
-  if (filter?.endDate) params.append("endDate", filter.endDate);
+  console.log('[StockMovementSync] getAllMovements başladı:', { filter, timestamp: new Date().toISOString() });
+  try {
+    const params = new URLSearchParams();
+    if (filter?.movementType) params.append("movementType", filter.movementType);
+    if (filter?.syncStatus) params.append("syncStatus", filter.syncStatus);
+    if (filter?.startDate) params.append("startDate", filter.startDate);
+    if (filter?.endDate) params.append("endDate", filter.endDate);
 
-  const response = await api.get<StockMovementSyncDto[]>(
-    `/movements?${params.toString()}`
-  );
-  return response.data;
+    const response = await api.get<StockMovementSyncDto[]>(
+      `/movements?${params.toString()}`
+    );
+    console.log('[StockMovementSync] getAllMovements başarılı:', {
+      filter,
+      resultCount: response.data.length,
+      timestamp: new Date().toISOString()
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('[StockMovementSync] getAllMovements HATA:', {
+      filter,
+      error: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
+  }
 };
 
 /**
@@ -165,12 +182,31 @@ export const syncMovement = async (
   type: string,
   id: number
 ): Promise<{ success: boolean; message: string; lucaId?: number }> => {
-  const response = await api.post<{
-    success: boolean;
-    message: string;
-    lucaId?: number;
-  }>(`/sync-movement/${type}/${id}`);
-  return response.data;
+  console.log('[StockMovementSync] syncMovement başladı:', { type, id, timestamp: new Date().toISOString() });
+  try {
+    const response = await api.post<{
+      success: boolean;
+      message: string;
+      lucaId?: number;
+    }>(`/sync-movement/${type}/${id}`);
+    console.log('[StockMovementSync] syncMovement başarılı:', {
+      type,
+      id,
+      result: response.data,
+      timestamp: new Date().toISOString()
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('[StockMovementSync] syncMovement HATA:', {
+      type,
+      id,
+      error: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
+  }
 };
 
 /**
@@ -180,21 +216,60 @@ export const syncBatch = async (
   transferIds: number[],
   adjustmentIds: number[]
 ): Promise<MovementBatchSyncResultDto> => {
-  const response = await api.post<MovementBatchSyncResultDto>("/sync/batch", {
+  console.log('[StockMovementSync] syncBatch başladı:', {
     transferIds,
     adjustmentIds,
+    totalCount: transferIds.length + adjustmentIds.length,
+    timestamp: new Date().toISOString()
   });
-  return response.data;
+  try {
+    const response = await api.post<MovementBatchSyncResultDto>("/sync/batch", {
+      transferIds,
+      adjustmentIds,
+    });
+    console.log('[StockMovementSync] syncBatch tamamlandı:', {
+      transferIds,
+      adjustmentIds,
+      result: response.data,
+      timestamp: new Date().toISOString()
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('[StockMovementSync] syncBatch HATA:', {
+      transferIds,
+      adjustmentIds,
+      error: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
+  }
 };
 
 /**
  * Bekleyen tüm hareketleri senkronize eder
  */
 export const syncAllPending = async (): Promise<MovementBatchSyncResultDto> => {
-  const response = await api.post<MovementBatchSyncResultDto>(
-    "/sync/all-pending"
-  );
-  return response.data;
+  console.log('[StockMovementSync] syncAllPending başladı:', { timestamp: new Date().toISOString() });
+  try {
+    const response = await api.post<MovementBatchSyncResultDto>(
+      "/sync/all-pending"
+    );
+    console.log('[StockMovementSync] syncAllPending tamamlandı:', {
+      result: response.data,
+      timestamp: new Date().toISOString()
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('[StockMovementSync] syncAllPending HATA:', {
+      error: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
+  }
 };
 
 /**
@@ -202,8 +277,23 @@ export const syncAllPending = async (): Promise<MovementBatchSyncResultDto> => {
  */
 export const getDashboardStats =
   async (): Promise<MovementDashboardStatsDto> => {
-    const response = await api.get<MovementDashboardStatsDto>("/dashboard");
-    return response.data;
+    console.log('[StockMovementSync] getDashboardStats başladı:', { timestamp: new Date().toISOString() });
+    try {
+      const response = await api.get<MovementDashboardStatsDto>("/dashboard");
+      console.log('[StockMovementSync] getDashboardStats başarılı:', {
+        stats: response.data,
+        timestamp: new Date().toISOString()
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('[StockMovementSync] getDashboardStats HATA:', {
+        error: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
   };
 
 export default {

@@ -1,59 +1,59 @@
-import React, { useEffect, useState, useCallback } from "react";
 import {
-  Container,
-  Paper,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Button,
-  Chip,
-  Alert,
-  Snackbar,
-  CircularProgress,
-  Box,
-  Card,
-  CardContent,
-  IconButton,
-  Tooltip,
-  Checkbox,
-  TablePagination,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Tabs,
-  Tab,
-  LinearProgress,
-} from "@mui/material";
-import {
-  Sync as SyncIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Pending as PendingIcon,
-  Cancel as CancelIcon,
-  Refresh as RefreshIcon,
-  Visibility as VisibilityIcon,
-  Payment as PaymentIcon,
-  Delete as DeleteIcon,
-  CloudUpload as CloudUploadIcon,
+    Cancel as CancelIcon,
+    CheckCircle as CheckCircleIcon,
+    CloudUpload as CloudUploadIcon,
+    Delete as DeleteIcon,
+    Error as ErrorIcon,
+    Payment as PaymentIcon,
+    Pending as PendingIcon,
+    Refresh as RefreshIcon,
+    Sync as SyncIcon,
+    Visibility as VisibilityIcon,
 } from "@mui/icons-material";
 import {
-  getOrders,
-  syncOrder,
-  syncBatch,
-  syncAllPending,
-  closeInvoice,
-  deleteInvoice,
-  getDashboardStats,
-  getOrderDetail,
-  OrderListItem,
-  OrderDetail,
-  DashboardStats,
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Checkbox,
+    Chip,
+    CircularProgress,
+    Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    IconButton,
+    LinearProgress,
+    Paper,
+    Snackbar,
+    Tab,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TablePagination,
+    TableRow,
+    Tabs,
+    TextField,
+    Tooltip,
+    Typography,
+} from "@mui/material";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+    closeInvoice,
+    DashboardStats,
+    deleteInvoice,
+    getDashboardStats,
+    getOrderDetail,
+    getOrders,
+    OrderDetail,
+    OrderListItem,
+    syncAllPending,
+    syncBatch,
+    syncOrder,
 } from "../services/orderInvoiceSyncApi";
 
 interface TabPanelProps {
@@ -104,12 +104,19 @@ const OrderInvoiceSyncPage: React.FC = () => {
 
   // Load Orders
   const loadOrders = useCallback(async () => {
+    console.log('[OrderInvoiceSyncPage] loadOrders başlatıldı:', { statusFilter, page, rowsPerPage });
     setLoading(true);
     try {
       const response = await getOrders(statusFilter, page + 1, rowsPerPage);
+      console.log('[OrderInvoiceSyncPage] loadOrders başarılı:', {
+        dataLength: response.data.length,
+        totalCount: response.pagination.totalCount,
+        response
+      });
       setOrders(response.data);
       setTotalCount(response.pagination.totalCount);
     } catch (error) {
+      console.error('[OrderInvoiceSyncPage] loadOrders HATA:', error);
       showNotification("Siparişler yüklenirken hata oluştu", "error");
     } finally {
       setLoading(false);
@@ -141,10 +148,15 @@ const OrderInvoiceSyncPage: React.FC = () => {
 
   // Single Order Sync
   const handleSync = async (orderId: number) => {
+    console.log('[OrderInvoiceSyncPage] handleSync başlatıldı:', { orderId, timestamp: new Date().toISOString() });
     setSyncLoading((prev) => ({ ...prev, [orderId]: true }));
     try {
+      console.log('[OrderInvoiceSyncPage] syncOrder API çağrısı yapılıyor...');
       const result = await syncOrder(orderId);
+      console.log('[OrderInvoiceSyncPage] syncOrder yanıtı:', result);
+      
       if (result.success) {
+        console.log('[OrderInvoiceSyncPage] Başarılı! LucaId:', result.lucaId);
         setOrders((prev) =>
           prev.map((o) =>
             o.id === orderId
@@ -163,6 +175,7 @@ const OrderInvoiceSyncPage: React.FC = () => {
         );
         loadStats();
       } else {
+        console.error('[OrderInvoiceSyncPage] Başarısız sonuç:', result.message);
         setOrders((prev) =>
           prev.map((o) =>
             o.id === orderId
@@ -173,6 +186,14 @@ const OrderInvoiceSyncPage: React.FC = () => {
         showNotification(`Hata: ${result.message}`, "error");
       }
     } catch (error: any) {
+      console.error('[OrderInvoiceSyncPage] handleSync exception:', {
+        orderId,
+        error: error.message,
+        errorResponse: error.response?.data,
+        errorStatus: error.response?.status,
+        errorStack: error.stack,
+        timestamp: new Date().toISOString()
+      });
       const errorMsg =
         error.response?.data?.message || "Bilinmeyen bir hata oluştu";
       setOrders((prev) =>
@@ -184,29 +205,44 @@ const OrderInvoiceSyncPage: React.FC = () => {
       );
       showNotification(`Hata: ${errorMsg}`, "error");
     } finally {
+      console.log('[OrderInvoiceSyncPage] handleSync tamamlandı:', { orderId });
       setSyncLoading((prev) => ({ ...prev, [orderId]: false }));
     }
   };
 
   // Batch Sync Selected
   const handleBatchSync = async () => {
+    console.log('[OrderInvoiceSyncPage] handleBatchSync başlatıldı:', { selectedOrders, count: selectedOrders.length });
+    
     if (selectedOrders.length === 0) {
+      console.warn('[OrderInvoiceSyncPage] handleBatchSync: Hiç sipariş seçilmemiş');
       showNotification("Lütfen en az bir sipariş seçin", "warning");
       return;
     }
     setBatchSyncLoading(true);
     try {
+      console.log('[OrderInvoiceSyncPage] syncBatch API çağrısı yapılıyor...', selectedOrders);
       const result = await syncBatch(selectedOrders);
+      console.log('[OrderInvoiceSyncPage] syncBatch yanıtı:', result);
+      
       showNotification(result.message, result.success ? "success" : "warning");
       setSelectedOrders([]);
       loadOrders();
       loadStats();
     } catch (error: any) {
+      console.error('[OrderInvoiceSyncPage] handleBatchSync HATA:', {
+        selectedOrders,
+        error: error.message,
+        errorResponse: error.response?.data,
+        errorStatus: error.response?.status,
+        timestamp: new Date().toISOString()
+      });
       showNotification(
         `Toplu senkronizasyon hatası: ${error.message}`,
         "error"
       );
     } finally {
+      console.log('[OrderInvoiceSyncPage] handleBatchSync tamamlandı');
       setBatchSyncLoading(false);
     }
   };
@@ -268,18 +304,31 @@ const OrderInvoiceSyncPage: React.FC = () => {
 
   // Delete Invoice
   const handleDeleteInvoice = async (orderId: number) => {
+    console.log('[OrderInvoiceSyncPage] handleDeleteInvoice başlatıldı:', { orderId });
+    
     if (!window.confirm("Bu faturayı silmek istediğinizden emin misiniz?"))
       return;
     try {
+      console.log('[OrderInvoiceSyncPage] deleteInvoice API çağrısı yapılıyor...');
       const result = await deleteInvoice(orderId);
+      console.log('[OrderInvoiceSyncPage] deleteInvoice yanıtı:', result);
+      
       if (result.success) {
         showNotification("Fatura başarıyla silindi", "success");
         loadOrders();
         loadStats();
       } else {
+        console.error('[OrderInvoiceSyncPage] Fatura silme başarısız:', result.message);
         showNotification(`Hata: ${result.message}`, "error");
       }
     } catch (error: any) {
+      console.error('[OrderInvoiceSyncPage] handleDeleteInvoice HATA:', {
+        orderId,
+        error: error.message,
+        errorResponse: error.response?.data,
+        errorStatus: error.response?.status,
+        timestamp: new Date().toISOString()
+      });
       showNotification(`Hata: ${error.message}`, "error");
     }
   };

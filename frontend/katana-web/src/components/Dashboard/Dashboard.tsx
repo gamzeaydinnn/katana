@@ -1,22 +1,22 @@
 import {
-  Inventory,
-  Refresh,
-  Sync,
-  TrendingUp,
-  Warning,
+    Inventory,
+    Refresh,
+    Sync,
+    TrendingUp,
+    Warning,
 } from "@mui/icons-material";
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CircularProgress,
-  Container,
-  Paper,
-  Typography,
-  useMediaQuery,
-  useTheme,
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    CircularProgress,
+    Container,
+    Paper,
+    Typography,
+    useMediaQuery,
+    useTheme,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { stockAPI } from "../../services/api";
@@ -35,8 +35,17 @@ const Dashboard: React.FC = () => {
       setError("");
       const data = await stockAPI.getDashboardStats();
       setStats(data);
+      console.log("[Dashboard] ✅ Stats loaded successfully:", data);
     } catch (err: any) {
-      setError(err.message || "Kontrol paneli yüklenemedi");
+      const errorMsg = err?.response?.status === 404 
+        ? "Dashboard endpoint'i bulunamadı. Backend'i kontrol edin."
+        : err?.message || "Kontrol paneli yüklenemedi";
+      setError(errorMsg);
+      console.error("[Dashboard] ❌ Error loading stats:", {
+        message: err?.message,
+        status: err?.response?.status,
+        url: err?.config?.url
+      });
     } finally {
       setLoading(false);
     }

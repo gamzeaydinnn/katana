@@ -1,62 +1,61 @@
-import React, { useEffect, useState } from "react";
-import {
-  Container,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Button,
-  Chip,
-  Alert,
-  Snackbar,
-  CircularProgress,
-  AppBar,
-  Toolbar,
-  Tabs,
-  Tab,
-  Box,
-  Card,
-  CardContent,
-  Checkbox,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  List,
-  ListItem,
-  ListItemText,
-  IconButton,
-  Tooltip,
-  Stack,
-} from "@mui/material";
-import SyncIcon from "@mui/icons-material/Sync";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import ErrorIcon from "@mui/icons-material/Error";
-import PendingIcon from "@mui/icons-material/Pending";
-import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
 import BuildIcon from "@mui/icons-material/Build";
-import RefreshIcon from "@mui/icons-material/Refresh";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
+import ErrorIcon from "@mui/icons-material/Error";
 import InfoIcon from "@mui/icons-material/Info";
-import WarehouseIcon from "@mui/icons-material/Warehouse";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import PendingIcon from "@mui/icons-material/Pending";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import SyncIcon from "@mui/icons-material/Sync";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import WarehouseIcon from "@mui/icons-material/Warehouse";
+import {
+    Alert,
+    AppBar,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Checkbox,
+    Chip,
+    CircularProgress,
+    Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    FormControl,
+    IconButton,
+    InputLabel,
+    List,
+    ListItem,
+    ListItemText,
+    MenuItem,
+    Paper,
+    Select,
+    Snackbar,
+    Tab,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Tabs,
+    Toolbar,
+    Tooltip,
+    Typography
+} from "@mui/material";
+import React, { useEffect, useState } from "react";
 
 import {
-  StockMovementSyncDto,
-  MovementDashboardStatsDto,
-  getAllMovements,
-  syncMovement,
-  syncBatch,
-  syncAllPending,
-  getDashboardStats,
+    MovementDashboardStatsDto,
+    StockMovementSyncDto,
+    getAllMovements,
+    getDashboardStats,
+    syncAllPending,
+    syncBatch,
+    syncMovement,
 } from "../services/stockMovementSyncApi";
 
 interface TabPanelProps {
@@ -106,6 +105,7 @@ const StockMovementSyncPage: React.FC = () => {
   }, [tabValue, statusFilter, typeFilter]);
 
   const loadData = async () => {
+    console.log('[StockMovementSyncPage] loadData başlatıldı:', { tabValue, statusFilter, typeFilter });
     setLoading(true);
     try {
       const [movementsData, statsData] = await Promise.all([
@@ -115,9 +115,14 @@ const StockMovementSyncPage: React.FC = () => {
         }),
         getDashboardStats(),
       ]);
+      console.log('[StockMovementSyncPage] loadData başarılı:', {
+        movementsCount: movementsData.length,
+        stats: statsData
+      });
       setMovements(movementsData);
       setStats(statsData);
     } catch (error) {
+      console.error('[StockMovementSyncPage] loadData HATA:', error);
       showNotification("Veri yüklenirken hata oluştu", "error");
     } finally {
       setLoading(false);
@@ -125,13 +130,21 @@ const StockMovementSyncPage: React.FC = () => {
   };
 
   const handleSync = async (movement: StockMovementSyncDto) => {
+    console.log('[StockMovementSyncPage] handleSync başlatıldı:', {
+      movementId: movement.id,
+      movementType: movement.movementType,
+      documentNo: movement.documentNo
+    });
     const key = `${movement.movementType}-${movement.id}`;
     setSyncingIds((prev) => new Set(prev).add(key));
 
     try {
+      console.log('[StockMovementSyncPage] syncMovement API çağrısı yapılıyor...');
       const result = await syncMovement(movement.movementType, movement.id);
+      console.log('[StockMovementSyncPage] syncMovement yanıtı:', result);
 
       if (result.success) {
+        console.log('[StockMovementSyncPage] Senkronizasyon başarılı!');
         showNotification(
           `${movement.documentNo} başarıyla Luca'ya aktarıldı!`,
           "success"
@@ -150,11 +163,20 @@ const StockMovementSyncPage: React.FC = () => {
           )
         );
       } else {
+        console.error('[StockMovementSyncPage] Senkronizasyon başarısız:', result.message);
         showNotification(result.message || "Senkronizasyon başarısız", "error");
       }
     } catch (error: any) {
+      console.error('[StockMovementSyncPage] handleSync exception:', {
+        movement,
+        error: error.message,
+        errorResponse: error.response?.data,
+        errorStatus: error.response?.status,
+        timestamp: new Date().toISOString()
+      });
       showNotification(error.response?.data?.message || "Hata oluştu", "error");
     } finally {
+      console.log('[StockMovementSyncPage] handleSync tamamlandı:', { movementId: movement.id });
       setSyncingIds((prev) => {
         const newSet = new Set(prev);
         newSet.delete(key);
@@ -164,7 +186,13 @@ const StockMovementSyncPage: React.FC = () => {
   };
 
   const handleBatchSync = async () => {
+    console.log('[StockMovementSyncPage] handleBatchSync başlatıldı:', {
+      selectedCount: selectedIds.size,
+      selectedIds: Array.from(selectedIds)
+    });
+    
     if (selectedIds.size === 0) {
+      console.warn('[StockMovementSyncPage] handleBatchSync: Hiç hareket seçilmemiş');
       showNotification("Lütfen en az bir hareket seçin", "info");
       return;
     }
@@ -180,7 +208,10 @@ const StockMovementSyncPage: React.FC = () => {
         else adjustmentIds.push(parseInt(id));
       });
 
+      console.log('[StockMovementSyncPage] syncBatch API çağrısı yapılıyor...', { transferIds, adjustmentIds });
       const result = await syncBatch(transferIds, adjustmentIds);
+      console.log('[StockMovementSyncPage] syncBatch yanıtı:', result);
+      
       showNotification(
         `${result.successCount}/${result.totalCount} hareket başarıyla aktarıldı`,
         result.failedCount > 0 ? "error" : "success"
@@ -188,30 +219,48 @@ const StockMovementSyncPage: React.FC = () => {
       setSelectedIds(new Set());
       loadData();
     } catch (error: any) {
+      console.error('[StockMovementSyncPage] handleBatchSync HATA:', {
+        error: error.message,
+        errorResponse: error.response?.data,
+        errorStatus: error.response?.status,
+        timestamp: new Date().toISOString()
+      });
       showNotification(
         error.response?.data?.message || "Toplu aktarım başarısız",
         "error"
       );
     } finally {
+      console.log('[StockMovementSyncPage] handleBatchSync tamamlandı');
       setLoading(false);
     }
   };
 
   const handleSyncAllPending = async () => {
+    console.log('[StockMovementSyncPage] handleSyncAllPending başlatıldı');
     setLoading(true);
     try {
+      console.log('[StockMovementSyncPage] syncAllPending API çağrısı yapılıyor...');
       const result = await syncAllPending();
+      console.log('[StockMovementSyncPage] syncAllPending yanıtı:', result);
+      
       showNotification(
         `${result.successCount}/${result.totalCount} hareket başarıyla aktarıldı`,
         result.failedCount > 0 ? "error" : "success"
       );
       loadData();
     } catch (error: any) {
+      console.error('[StockMovementSyncPage] handleSyncAllPending HATA:', {
+        error: error.message,
+        errorResponse: error.response?.data,
+        errorStatus: error.response?.status,
+        timestamp: new Date().toISOString()
+      });
       showNotification(
         error.response?.data?.message || "Aktarım başarısız",
         "error"
       );
     } finally {
+      console.log('[StockMovementSyncPage] handleSyncAllPending tamamlandı');
       setLoading(false);
     }
   };

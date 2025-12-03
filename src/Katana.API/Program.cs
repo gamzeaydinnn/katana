@@ -178,6 +178,11 @@ builder.Services.AddTransient<RateLimitHandler>();
 builder.Services.AddSingleton<ILucaCookieJarStore, LucaCookieJarStore>();
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IRepository<Category>, CategoryRepository>();
+
+// Mapping Repositories - Order ve StockMovement sync için
+builder.Services.AddScoped<IOrderMappingRepository, OrderMappingRepository>();
+builder.Services.AddScoped<IStockMovementMappingRepository, StockMovementMappingRepository>();
+
 builder.Services.AddScoped<IExtractorService, ExtractorService>();
 builder.Services.AddScoped<ITransformerService, TransformerService>();
 builder.Services.AddScoped<ILoaderService, LoaderService>();
@@ -193,6 +198,11 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IErrorHandler, ErrorHandlerService>();
+
+// Sync Services - Order Invoice ve Stock Movement entegrasyonları için
+builder.Services.AddScoped<IOrderInvoiceSyncService, OrderInvoiceSyncService>();
+builder.Services.AddScoped<IStockMovementSyncService, StockMovementSyncService>();
+
 builder.Services.AddSingleton<Katana.Infrastructure.Services.CacheService>();
 builder.Services.AddScoped<ILoggingService, LoggingService>();
 builder.Services.AddScoped<IAuditService, AuditService>();

@@ -19,13 +19,17 @@ const getHubUrl = () => {
       baseUrl = baseUrl.replace(/\/api\/?$/i, "");
       // If the env points to the API root (e.g. http://host:5055 or http://host:5055/api),
       // append the hub path directly so we don't end up with `/api/hubs/...`.
-      return `${baseUrl}/hubs/notifications`;
-    } catch {
+      const hubUrl = `${baseUrl}/hubs/notifications`;
+      console.log("[SignalR Service] 🔗 Hub URL from env:", hubUrl);
+      return hubUrl;
+    } catch (e) {
+      console.error("[SignalR Service] ❌ Error parsing REACT_APP_API_URL:", e);
       return "/hubs/notifications";
     }
   }
 
   // Default: use relative path so CRA dev proxy can forward it.
+  console.log("[SignalR Service] 🔗 Using relative hub path: /hubs/notifications");
   return "/hubs/notifications";
 };
 
@@ -86,9 +90,15 @@ export function startConnection() {
     .then(() => {
       console.log("[SignalR Service] ✅ Connection started successfully");
     })
-    .catch((err) => {
-      console.error("[SignalR Service] ❌ Failed to start connection:", err);
-      throw err;
+    .catch((err: any) => {
+      console.error("[SignalR Service] ❌ Failed to start connection:", {
+        message: err?.message,
+        statusCode: err?.statusCode,
+        errorType: err?.constructor?.name,
+        fullError: err
+      });
+      // Don't throw - allow app to continue without SignalR
+      console.warn("[SignalR Service] ⚠️ Continuing without SignalR notifications");
     });
 }
 

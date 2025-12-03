@@ -281,7 +281,22 @@ export interface SyncResult {
 }
 
 export const stockAPI = {
-  getDashboardStats: () => api.get("/Dashboard").then((res) => res.data),
+  getDashboardStats: () => {
+    const url = "/dashboard/stats";
+    console.log("[API] 📊 Fetching dashboard stats from:", `${API_BASE_URL}${url}`);
+    return api.get(url).then((res) => {
+      console.log("[API] ✅ Dashboard stats received:", res.data);
+      return res.data;
+    }).catch((err) => {
+      console.error("[API] ❌ Dashboard stats error:", {
+        url: `${API_BASE_URL}${url}`,
+        status: err?.response?.status,
+        statusText: err?.response?.statusText,
+        message: err?.message
+      });
+      throw err;
+    });
+  },
 
   getKatanaProducts: () => api.get("/Products/katana").then((res) => res.data),
 

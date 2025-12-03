@@ -1,6 +1,6 @@
 using System.Threading.Tasks;
 
-namespace Katana.Business.Interfaces;
+namespace Katana.Core.Interfaces;
 
 /// <summary>
 /// Katana ID'lerini Luca kodlarına çeviren mapping interface.

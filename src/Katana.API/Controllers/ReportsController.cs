@@ -573,7 +573,7 @@ public class ReportsController : ControllerBase
     
     
     [HttpGet("dashboard/stats")]
-    [HttpGet("~/api/Dashboard/stats")]
+    [HttpGet("~/api/dashboard/stats")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<DashboardStatsDto>> GetDashboardStats()

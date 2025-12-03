@@ -1,37 +1,37 @@
 import {
-  AccountCircle,
-  CheckCircle,
-  Error,
-  Logout,
-  Menu as MenuIcon,
-  Notifications as NotificationsIcon,
-  Settings,
-  Sync,
+    AccountCircle,
+    CheckCircle,
+    Error,
+    Logout,
+    Menu as MenuIcon,
+    Notifications as NotificationsIcon,
+    Settings,
+    Sync,
 } from "@mui/icons-material";
 import {
-  AppBar,
-  Avatar,
-  Badge,
-  Box,
-  Chip,
-  IconButton,
-  Menu,
-  MenuItem,
-  Toolbar,
-  Tooltip,
-  Typography,
-  useMediaQuery,
-  useTheme,
+    AppBar,
+    Avatar,
+    Badge,
+    Box,
+    Chip,
+    IconButton,
+    Menu,
+    MenuItem,
+    Toolbar,
+    Tooltip,
+    Typography,
+    useMediaQuery,
+    useTheme,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api, { stockAPI } from "../../services/api";
 import {
-  offPendingApproved,
-  offPendingCreated,
-  onPendingApproved,
-  onPendingCreated,
-  startConnection,
+    offPendingApproved,
+    offPendingCreated,
+    onPendingApproved,
+    onPendingCreated,
+    startConnection,
 } from "../../services/signalr";
 
 interface HeaderProps {
@@ -177,13 +177,19 @@ const Header: React.FC<HeaderProps> = ({
         if (isMounted) {
           setSignalrStatus("connected");
           setSignalrError(null);
+          console.log("[Header] ✅ SignalR connected successfully");
         }
       })
-      .catch((err) => {
-        console.warn("SignalR connection failed", err);
+      .catch((err: any) => {
+        console.warn("[Header] ⚠️ SignalR connection failed:", {
+          message: err?.message,
+          statusCode: err?.statusCode,
+          errorType: err?.constructor?.name
+        });
         if (isMounted) {
           setSignalrStatus("error");
           setSignalrError(err?.message || "SignalR bağlantısı kurulamadı");
+          // Don't block UI - just show warning
         }
       });
 
@@ -577,39 +583,41 @@ const Header: React.FC<HeaderProps> = ({
 
           {}
           <Tooltip title="Son senkronizasyon: 10 dakika önce">
-            <IconButton
-              sx={{
-                backgroundColor: "rgba(255, 255, 255, 0.95)",
-                width: isMobile ? 26 : 40,
-                height: isMobile ? 26 : 40,
-                borderRadius: isMobile ? "8px" : "12px",
-                border: "2px solid #10b981",
-                color: "#10b981",
-                boxShadow: "0 4px 14px rgba(16, 185, 129, 0.25)",
-                transition: "all 0.3s ease",
-                padding: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                "&:hover": {
-                  transform: "translateY(-2px) scale(1.1)",
-                  backgroundColor: "#10b981",
-                  color: "#fff",
-                  boxShadow: "0 6px 20px rgba(16, 185, 129, 0.4)",
-                },
-                ...(isChecking
-                  ? {
-                      animation: "spin 1000ms linear infinite",
-                      "@keyframes spin": {
-                        "0%": { transform: "rotate(0deg)" },
-                        "100%": { transform: "rotate(360deg)" },
-                      },
-                    }
-                  : {}),
-              }}
-            >
-              <Sync sx={{ fontSize: "18px" }} />
-            </IconButton>
+            <span>
+              <IconButton
+                sx={{
+                  backgroundColor: "rgba(255, 255, 255, 0.95)",
+                  width: isMobile ? 26 : 40,
+                  height: isMobile ? 26 : 40,
+                  borderRadius: isMobile ? "8px" : "12px",
+                  border: "2px solid #10b981",
+                  color: "#10b981",
+                  boxShadow: "0 4px 14px rgba(16, 185, 129, 0.25)",
+                  transition: "all 0.3s ease",
+                  padding: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  "&:hover": {
+                    transform: "translateY(-2px) scale(1.1)",
+                    backgroundColor: "#10b981",
+                    color: "#fff",
+                    boxShadow: "0 6px 20px rgba(16, 185, 129, 0.4)",
+                  },
+                  ...(isChecking
+                    ? {
+                        animation: "spin 1000ms linear infinite",
+                        "@keyframes spin": {
+                          "0%": { transform: "rotate(0deg)" },
+                          "100%": { transform: "rotate(360deg)" },
+                        },
+                      }
+                    : {}),
+                }}
+              >
+                <Sync sx={{ fontSize: "18px" }} />
+              </IconButton>
+            </span>
           </Tooltip>
 
           {}

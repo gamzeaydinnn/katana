@@ -77,7 +77,7 @@ export interface PaginatedResponse<T> {
 }
 
 // API Functions
-const BASE_URL = "/api/OrderInvoiceSync";
+const BASE_URL = "/OrderInvoiceSync";
 
 /**
  * Tüm siparişleri ve senkronizasyon durumlarını getirir
@@ -87,15 +87,37 @@ export const getOrders = async (
   page: number = 1,
   pageSize: number = 50
 ): Promise<PaginatedResponse<OrderListItem>> => {
-  const params = new URLSearchParams();
-  if (status) params.append("status", status);
-  params.append("page", page.toString());
-  params.append("pageSize", pageSize.toString());
+  console.log('[OrderInvoiceSync] getOrders başladı:', { status, page, pageSize, timestamp: new Date().toISOString() });
+  try {
+    const params = new URLSearchParams();
+    if (status) params.append("status", status);
+    params.append("page", page.toString());
+    params.append("pageSize", pageSize.toString());
 
-  const response = await api.get<PaginatedResponse<OrderListItem>>(
-    `${BASE_URL}/orders?${params.toString()}`
-  );
-  return response.data;
+    const response = await api.get<PaginatedResponse<OrderListItem>>(
+      `${BASE_URL}/orders?${params.toString()}`
+    );
+    console.log('[OrderInvoiceSync] getOrders başarılı:', {
+      status,
+      page,
+      pageSize,
+      resultCount: response.data.data.length,
+      totalCount: response.data.pagination.totalCount,
+      timestamp: new Date().toISOString()
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('[OrderInvoiceSync] getOrders HATA:', {
+      statusFilter: status,
+      page,
+      pageSize,
+      error: error.message,
+      response: error.response?.data,
+      httpStatus: error.response?.status,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
+  }
 };
 
 /**
@@ -112,8 +134,21 @@ export const getOrderDetail = async (orderId: number): Promise<OrderDetail> => {
  * Tek bir siparişi Luca'ya gönderir
  */
 export const syncOrder = async (orderId: number): Promise<SyncResult> => {
-  const response = await api.post<SyncResult>(`${BASE_URL}/sync/${orderId}`);
-  return response.data;
+  console.log('[OrderInvoiceSync] syncOrder başladı:', { orderId, timestamp: new Date().toISOString() });
+  try {
+    const response = await api.post<SyncResult>(`${BASE_URL}/sync/${orderId}`);
+    console.log('[OrderInvoiceSync] syncOrder başarılı:', { orderId, response: response.data, timestamp: new Date().toISOString() });
+    return response.data;
+  } catch (error: any) {
+    console.error('[OrderInvoiceSync] syncOrder HATA:', {
+      orderId,
+      error: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
+  }
 };
 
 /**
@@ -122,20 +157,52 @@ export const syncOrder = async (orderId: number): Promise<SyncResult> => {
 export const syncBatch = async (
   orderIds: number[]
 ): Promise<BatchSyncResult> => {
-  const response = await api.post<BatchSyncResult>(`${BASE_URL}/sync/batch`, {
-    orderIds,
-  });
-  return response.data;
+  console.log('[OrderInvoiceSync] syncBatch başladı:', { orderIds, count: orderIds.length, timestamp: new Date().toISOString() });
+  try {
+    const response = await api.post<BatchSyncResult>(`${BASE_URL}/sync/batch`, {
+      orderIds,
+    });
+    console.log('[OrderInvoiceSync] syncBatch tamamlandı:', {
+      orderIds,
+      result: response.data,
+      timestamp: new Date().toISOString()
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('[OrderInvoiceSync] syncBatch HATA:', {
+      orderIds,
+      error: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
+  }
 };
 
 /**
  * Tüm bekleyen siparişleri Luca'ya gönderir
  */
 export const syncAllPending = async (): Promise<BatchSyncResult> => {
-  const response = await api.post<BatchSyncResult>(
-    `${BASE_URL}/sync/all-pending`
-  );
-  return response.data;
+  console.log('[OrderInvoiceSync] syncAllPending başladı:', { timestamp: new Date().toISOString() });
+  try {
+    const response = await api.post<BatchSyncResult>(
+      `${BASE_URL}/sync/all-pending`
+    );
+    console.log('[OrderInvoiceSync] syncAllPending tamamlandı:', {
+      result: response.data,
+      timestamp: new Date().toISOString()
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('[OrderInvoiceSync] syncAllPending HATA:', {
+      error: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
+  }
 };
 
 /**
@@ -145,20 +212,56 @@ export const closeInvoice = async (
   orderId: number,
   amount: number
 ): Promise<SyncResult> => {
-  const response = await api.post<SyncResult>(`${BASE_URL}/close/${orderId}`, {
-    amount,
-  });
-  return response.data;
+  console.log('[OrderInvoiceSync] closeInvoice başladı:', { orderId, amount, timestamp: new Date().toISOString() });
+  try {
+    const response = await api.post<SyncResult>(`${BASE_URL}/close/${orderId}`, {
+      amount,
+    });
+    console.log('[OrderInvoiceSync] closeInvoice başarılı:', {
+      orderId,
+      amount,
+      result: response.data,
+      timestamp: new Date().toISOString()
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('[OrderInvoiceSync] closeInvoice HATA:', {
+      orderId,
+      amount,
+      error: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
+  }
 };
 
 /**
  * Faturayı siler
  */
 export const deleteInvoice = async (orderId: number): Promise<SyncResult> => {
-  const response = await api.delete<SyncResult>(
-    `${BASE_URL}/invoice/${orderId}`
-  );
-  return response.data;
+  console.log('[OrderInvoiceSync] deleteInvoice başladı:', { orderId, timestamp: new Date().toISOString() });
+  try {
+    const response = await api.delete<SyncResult>(
+      `${BASE_URL}/invoice/${orderId}`
+    );
+    console.log('[OrderInvoiceSync] deleteInvoice başarılı:', {
+      orderId,
+      result: response.data,
+      timestamp: new Date().toISOString()
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('[OrderInvoiceSync] deleteInvoice HATA:', {
+      orderId,
+      error: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
+  }
 };
 
 /**
