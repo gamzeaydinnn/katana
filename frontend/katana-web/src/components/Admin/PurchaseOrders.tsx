@@ -1425,6 +1425,8 @@ const PurchaseOrders: React.FC = () => {
                 title="Sipariş Satırları"
                 action={
                   <Button
+                    variant="contained"
+                    color="primary"
                     startIcon={<AddIcon />}
                     onClick={addLineItem}
                     size="small"
@@ -1439,22 +1441,22 @@ const PurchaseOrders: React.FC = () => {
                   {formErrors.items}
                 </Alert>
               )}
-              <TableContainer>
-                <Table size="small">
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small" sx={{ minWidth: 900 }}>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ width: 250 }}>Ürün *</TableCell>
-                      <TableCell sx={{ width: 120 }}>Luca Stok Kodu</TableCell>
-                      <TableCell sx={{ width: 100 }}>Depo</TableCell>
-                      <TableCell sx={{ width: 80 }}>Miktar *</TableCell>
-                      <TableCell sx={{ width: 100 }}>Birim Fiyat *</TableCell>
-                      <TableCell sx={{ width: 80 }}>KDV %</TableCell>
-                      <TableCell sx={{ width: 80 }}>Birim</TableCell>
-                      <TableCell sx={{ width: 90 }}>İndirim</TableCell>
-                      <TableCell sx={{ width: 100 }} align="right">
+                      <TableCell sx={{ minWidth: 180 }}>Ürün *</TableCell>
+                      <TableCell sx={{ minWidth: 100 }}>Luca Stok Kodu</TableCell>
+                      <TableCell sx={{ minWidth: 70 }}>Depo</TableCell>
+                      <TableCell sx={{ minWidth: 70 }}>Miktar *</TableCell>
+                      <TableCell sx={{ minWidth: 90 }}>Birim Fiyat *</TableCell>
+                      <TableCell sx={{ minWidth: 70 }}>KDV %</TableCell>
+                      <TableCell sx={{ minWidth: 70 }}>Birim</TableCell>
+                      <TableCell sx={{ minWidth: 80 }}>İndirim</TableCell>
+                      <TableCell sx={{ minWidth: 90 }} align="right">
                         Toplam
                       </TableCell>
-                      <TableCell sx={{ width: 50 }}></TableCell>
+                      <TableCell sx={{ minWidth: 40 }}></TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -1523,7 +1525,7 @@ const PurchaseOrders: React.FC = () => {
                                 )
                               }
                               fullWidth
-                              placeholder={product?.sku || ""}
+                              placeholder={product?.sku || "Stok kodu girin"}
                               error={!hasLucaCode && item.productId > 0}
                             />
                           </TableCell>
@@ -1560,7 +1562,7 @@ const PurchaseOrders: React.FC = () => {
                                 )
                               }
                               fullWidth
-                              slotProps={{ htmlInput: { min: 0 } }}
+                              inputProps={{ min: 1, style: { textAlign: 'center' } }}
                               error={!!formErrors[`item_${index}_quantity`]}
                             />
                           </TableCell>
@@ -1577,7 +1579,7 @@ const PurchaseOrders: React.FC = () => {
                                 )
                               }
                               fullWidth
-                              slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                              inputProps={{ min: 0, step: 0.01, style: { textAlign: 'right' } }}
                               error={!!formErrors[`item_${index}_price`]}
                             />
                           </TableCell>
@@ -1634,7 +1636,7 @@ const PurchaseOrders: React.FC = () => {
                                 )
                               }
                               fullWidth
-                              slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                              inputProps={{ min: 0, step: 0.01, style: { textAlign: 'right' } }}
                             />
                           </TableCell>
                           <TableCell align="right">
@@ -1672,31 +1674,42 @@ const PurchaseOrders: React.FC = () => {
               </TableContainer>
             </Card>
           </Grid>
-        </Grid>
 
-        {/* Actions */}
-        <Box
-          sx={{ mt: 3, display: "flex", gap: 1, justifyContent: "flex-end" }}
-        >
-          <Button variant="outlined" onClick={() => setView("list")}>
-            İptal
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={
-              saving ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : (
-                <SaveIcon />
-              )
-            }
-            onClick={handleCreate}
-            disabled={saving}
-          >
-            Kaydet
-          </Button>
-        </Box>
+          {/* C) Kaydet Butonları - Card içinde */}
+          <Grid size={{ xs: 12 }}>
+            <Card>
+              <CardContent>
+                <Box
+                  sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}
+                >
+                  <Button 
+                    variant="outlined" 
+                    onClick={() => setView("list")}
+                    size="large"
+                  >
+                    İptal
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    startIcon={
+                      saving ? (
+                        <CircularProgress size={20} color="inherit" />
+                      ) : (
+                        <SaveIcon />
+                      )
+                    }
+                    onClick={handleCreate}
+                    disabled={saving}
+                  >
+                    Siparişi Kaydet
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
       </Box>
     );
   };
