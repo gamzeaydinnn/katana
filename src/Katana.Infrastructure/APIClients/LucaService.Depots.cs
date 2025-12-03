@@ -14,6 +14,7 @@ public partial class LucaService
     /// <summary>
     /// Koza depolarını listele (ListeleStkDepo.do)
     /// Boş body {} ile tüm depoları getirir
+    /// UseNoPagingHeader: appsettings'den kontrol edilir (performans için)
     /// </summary>
     public async Task<IReadOnlyList<KozaDepoDto>> ListDepotsAsync(CancellationToken ct = default)
     {
@@ -26,7 +27,13 @@ public partial class LucaService
             {
                 Content = new StringContent("{}", Encoding.UTF8, "application/json")
             };
-            req.Headers.TryAddWithoutValidation("No-Paging", "true");
+            
+            // No-Paging header'ı sadece konfig'de aktifse ekle
+            if (_settings.UseNoPagingHeader)
+            {
+                req.Headers.TryAddWithoutValidation("No-Paging", "true");
+                _logger.LogDebug("No-Paging header eklendi (appsettings: UseNoPagingHeader=true)");
+            }
 
             // Session cookie'yi uygula
             ApplySessionCookie(req);
@@ -69,7 +76,8 @@ public partial class LucaService
 
     /// <summary>
     /// Koza'da yeni depo oluştur (EkleStkWsDepo.do)
-    /// Koza'nın beklediği payload: { stkDepo: { kod, tanim, kategoriKod, ulke, il, ilce, adresSerbest } }
+    /// DÜZELTME: JSON formatında "stkDepo" wrapper ile gönderilmeli
+    /// Content-Type: application/json
     /// </summary>
     public async Task<KozaResult> CreateDepotAsync(KozaCreateDepotRequest req, CancellationToken ct = default)
     {
@@ -78,15 +86,37 @@ public partial class LucaService
             // Cookie/session auth sağla
             await EnsureAuthenticatedAsync();
 
-            var json = JsonSerializer.Serialize(req, _jsonOptions);
+            // DÜZELTME 1: Düz (flat) JSON oluştur - stkDepo wrapper yok!
+            // Koza API'si düz JSON bekliyor: {"kod":"...","tanim":"...","kategoriKod":"..."}
+            var payload = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "kod", req.StkDepo.Kod },
+                { "tanim", req.StkDepo.Tanim },
+                { "kategoriKod", req.StkDepo.KategoriKod }
+            };
             
-            _logger.LogDebug("CreateDepotAsync request: {Json}", json);
+            // İsteğe bağlı alanları ekle (sadece null değilse)
+            if (!string.IsNullOrWhiteSpace(req.StkDepo.Ulke))
+                payload["ulke"] = req.StkDepo.Ulke;
+            if (!string.IsNullOrWhiteSpace(req.StkDepo.Il))
+                payload["il"] = req.StkDepo.Il;
+            if (!string.IsNullOrWhiteSpace(req.StkDepo.Ilce))
+                payload["ilce"] = req.StkDepo.Ilce;
+            if (!string.IsNullOrWhiteSpace(req.StkDepo.AdresSerbest))
+                payload["adresSerbest"] = req.StkDepo.AdresSerbest;
 
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-            
+            // DÜZELTME 2: Content-Type: application/json (Dokümana uygun)
+            var jsonContent = new StringContent(
+                JsonSerializer.Serialize(payload, _jsonOptions),
+                Encoding.UTF8,
+                "application/json");
+
+            _logger.LogInformation("CreateDepotAsync - JSON payload: {Json}", 
+                JsonSerializer.Serialize(payload, _jsonOptions));
+
             var httpReq = new HttpRequestMessage(HttpMethod.Post, "EkleStkWsDepo.do")
             {
-                Content = content
+                Content = jsonContent
             };
 
             // Session cookie'yi uygula
@@ -97,8 +127,10 @@ public partial class LucaService
             var res = await client.SendAsync(httpReq, ct);
             var body = await res.Content.ReadAsStringAsync(ct);
 
-            _logger.LogDebug("CreateDepotAsync response status: {Status}, body: {Body}", 
-                res.StatusCode, body.Length > 500 ? body.Substring(0, 500) : body);
+            // Response body'yi logla (ilk 500 karakter)
+            var bodySnippet = body.Length > 500 ? body.Substring(0, 500) : body;
+            _logger.LogInformation("CreateDepotAsync response - Status: {Status}, Body: {Body}", 
+                res.StatusCode, bodySnippet);
 
             // HTML döndü mü kontrol et (NO_JSON)
             if (body.TrimStart().StartsWith("<"))
@@ -132,10 +164,13 @@ public partial class LucaService
 
             if (!res.IsSuccessStatusCode)
             {
+                // Log body for debugging 400 errors
+                _logger.LogError("Koza CreateDepot Error ({StatusCode}): {Body}", res.StatusCode, bodySnippet);
+                
                 return new KozaResult 
                 { 
                     Success = false, 
-                    Message = $"HTTP {res.StatusCode}: {body}" 
+                    Message = $"HTTP {res.StatusCode}: {bodySnippet}" 
                 };
             }
 

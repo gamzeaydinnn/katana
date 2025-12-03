@@ -32,6 +32,9 @@ public class LucaApiSettings
     public long DefaultOlcumBirimiId { get; set; } = 5;
     public long DefaultKartTipi { get; set; } = 4;
     public string DefaultKategoriKodu { get; set; } = "001";
+    
+    // No-Paging header'ı kullanılsın mı? (Performans için kapatılabilir)
+    public bool UseNoPagingHeader { get; set; } = false;
 
     
     public LucaEndpoints Endpoints { get; set; } = new();

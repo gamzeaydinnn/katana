@@ -6,6 +6,8 @@ import {
     isJwtTokenExpired,
 } from "../utils/jwt";
 
+let detectedApiUrl: string | null = null;
+
 const getDefaultApiBase = () => {
   try {
     if (typeof window !== "undefined") {
@@ -332,7 +334,7 @@ export const stockAPI = {
 
   getSyncReport: () => api.get("/Reports/sync").then((res) => res.data),
 
-  getHealthStatus: () => api.get("/Health").then((res) => res.data),
+  getHealthStatus: () => api.get("/health").then((res) => res.data),
 };
 
 export const pendingAdjustmentsAPI = {
@@ -404,9 +406,19 @@ export const usersAPI = {
  * GÜVENLIK: Frontend asla direkt Koza'ya bağlanmaz, backend proxy kullanır
  */
 export const kozaAPI = {
-  // Depo Kartı İşlemleri
+  // Depo Kartı İşlemleri - LOCAL DB'den pagination ile (timeout: 30s)
   depots: {
-    list: () => api.get("/admin/koza/depots").then((res) => res.data),
+    list: (params?: { page?: number; pageSize?: number }) =>
+      api
+        .get("/admin/koza/depots", {
+          params: { page: params?.page ?? 1, pageSize: params?.pageSize ?? 100 },
+          timeout: 30000, // 30 saniye (local DB'den hızlı dönecek)
+        })
+        .then((res) => res.data),
+    sync: (batchSize = 50) =>
+      api
+        .post(`/admin/koza/depots/sync?batchSize=${batchSize}`, {}, { timeout: 120000 }) // Sync için 2 dakika
+        .then((res) => res.data),
     create: (payload: any) =>
       api.post("/admin/koza/depots/create", payload).then((res) => res.data),
   },

@@ -11,19 +11,46 @@ import {
  * Koza Depo Kartı Servisi
  * api.ts üzerinden backend'e bağlanır
  * Backend proxy ile Koza API'ye güvenli erişim sağlanır
+ * 
+ * NOT: list() artık LOCAL DB'den pagination ile dönüyor (timeout yok)
+ * Sync yapmak için kozaAPI.depots.sync() kullanın
  */
 export class DepoService {
   /**
-   * Depoları listele
-   * Backend: GET /api/admin/koza/depots
+   * Depoları LOCAL DB'den listele (Koza API'ye GİTMEZ!)
+   * Backend: GET /api/admin/koza/depots?page=1&pageSize=100
    */
-  async listele(): Promise<KozaStkDepo[]> {
+  async listele(page = 1, pageSize = 100): Promise<KozaStkDepo[]> {
     try {
-      const response = await kozaAPI.depots.list();
+      const response = await kozaAPI.depots.list({ page, pageSize });
+      
+      // Response format: { data: [], pagination: {} } veya doğrudan array
+      if (response && typeof response === "object" && "data" in response) {
+        const data = (response as any).data;
+        return Array.isArray(data) ? data : [];
+      }
+      
       return Array.isArray(response) ? response : [];
     } catch (error) {
       console.error("Depo listeleme hatası:", error);
       return [];
+    }
+  }
+
+  /**
+   * Koza'dan tüm depoları çek ve LOCAL DB'ye senkronize et
+   * Backend: POST /api/admin/koza/depots/sync?batchSize=50
+   */
+  async sync(batchSize = 50): Promise<{ success: boolean; message: string; stats?: any }> {
+    try {
+      const response = await kozaAPI.depots.sync(batchSize);
+      return response as { success: boolean; message: string; stats?: any };
+    } catch (error) {
+      console.error("Depo sync hatası:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Depo sync hatası",
+      };
     }
   }
 

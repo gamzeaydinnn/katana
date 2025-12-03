@@ -59,6 +59,7 @@ public class IntegrationDbContext : DbContext
     public DbSet<Katana.Core.Entities.User> Users { get; set; } = null!;
     public DbSet<LocationKozaDepotMapping> LocationKozaDepotMappings => Set<LocationKozaDepotMapping>();
     public DbSet<SupplierKozaCariMapping> SupplierKozaCariMappings => Set<SupplierKozaCariMapping>();
+    public DbSet<KozaDepot> KozaDepots => Set<KozaDepot>();
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
@@ -313,6 +314,7 @@ public class IntegrationDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.HasIndex(e => e.Code);
         });
 
         modelBuilder.Entity<ProductVariant>(entity =>
@@ -401,11 +403,24 @@ public class IntegrationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.OrderNo).HasMaxLength(100);
             entity.Property(e => e.SupplierCode).HasMaxLength(100);
+            
+            // Performance indeksleri
             entity.HasIndex(e => e.OrderNo);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.CreatedAt).IsDescending();
+            
             entity.HasOne(po => po.Supplier)
                 .WithMany()
                 .HasForeignKey(po => po.SupplierId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // KozaDepot entity
+        modelBuilder.Entity<KozaDepot>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Kod);
+            entity.HasIndex(e => e.DepoId);
         });
 
         modelBuilder.Entity<Order>(entity =>

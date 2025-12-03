@@ -1,13 +1,17 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Katana.Business.Interfaces;
 using Katana.Business.DTOs.Koza;
+using Katana.Data.Context;
+using Katana.Core.Entities;
 
 namespace Katana.API.Controllers.Admin;
 
 /// <summary>
 /// Koza Depo yönetimi endpoint'leri
 /// Frontend bu endpoint'ler üzerinden Koza depo işlemlerini yapar
+/// Lazy load + batch sync ile performans optimizasyonu
 /// </summary>
 [ApiController]
 [Route("api/admin/koza/depots")]
@@ -15,36 +19,215 @@ namespace Katana.API.Controllers.Admin;
 public sealed class KozaDepotsController : ControllerBase
 {
     private readonly ILucaService _lucaService;
+    private readonly IntegrationDbContext _context;
     private readonly ILogger<KozaDepotsController> _logger;
 
     public KozaDepotsController(
         ILucaService lucaService,
+        IntegrationDbContext context,
         ILogger<KozaDepotsController> logger)
     {
         _lucaService = lucaService;
+        _context = context;
         _logger = logger;
     }
 
     /// <summary>
-    /// Koza'daki tüm depoları listele
-    /// GET /api/admin/koza/depots
+    /// Yerel cache'den depoları listele (pagination ile) - Koza API'ye GİTMEZ
+    /// GET /api/admin/koza/depots?page=1&pageSize=100
     /// </summary>
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<KozaDepoDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> List(CancellationToken ct)
+    public async Task<IActionResult> List(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 100,
+        CancellationToken ct = default)
     {
         try
         {
-            _logger.LogInformation("Listing Koza depots");
-            var depots = await _lucaService.ListDepotsAsync(ct);
+            _logger.LogInformation("Listing depots from LOCAL DB - Page: {Page}, PageSize: {PageSize}", page, pageSize);
             
-            _logger.LogInformation("Retrieved {Count} depots from Koza", depots.Count);
-            return Ok(depots);
+            var total = await _context.KozaDepots.AsNoTracking().CountAsync(ct);
+            
+            if (total == 0)
+            {
+                _logger.LogWarning("No depots found in local DB. Sync required.");
+                return Ok(new
+                {
+                    data = Array.Empty<object>(),
+                    message = "Önce Sync yapmanız gerekiyor. Sync butonuna tıklayın.",
+                    pagination = new
+                    {
+                        currentPage = page,
+                        pageSize,
+                        totalItems = 0,
+                        totalPages = 0
+                    }
+                });
+            }
+            
+            var depots = await _context.KozaDepots
+                .AsNoTracking()
+                .OrderBy(d => d.Kod)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(d => new
+                {
+                    d.Id,
+                    d.DepoId,
+                    d.Kod,
+                    d.Tanim,
+                    d.KategoriKod,
+                    d.Ulke,
+                    d.Il,
+                    d.Ilce,
+                    d.AdresSerbest,
+                    d.CreatedAt,
+                    d.UpdatedAt
+                })
+                .ToListAsync(ct);
+            
+            _logger.LogInformation("Retrieved {Count}/{Total} depots from LOCAL DB", depots.Count, total);
+            
+            return Ok(new
+            {
+                data = depots,
+                pagination = new
+                {
+                    currentPage = page,
+                    pageSize,
+                    totalItems = total,
+                    totalPages = (int)Math.Ceiling(total / (double)pageSize)
+                }
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to list Koza depots");
+            _logger.LogError(ex, "Failed to list depots from LOCAL DB");
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Koza API'den depoları çek ve yerel cache'e senkronize et (batch processing - OPTIMIZED)
+    /// POST /api/admin/koza/depots/sync?batchSize=50
+    /// </summary>
+    [HttpPost("sync")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> SyncDepots(
+        [FromQuery] int batchSize = 50,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            _logger.LogInformation("Starting depot sync from Koza API with batch size {BatchSize}", batchSize);
+            
+            // Koza API'den tüm depoları çek
+            var kozaDepots = await _lucaService.ListDepotsAsync(ct);
+            _logger.LogInformation("Retrieved {Count} depots from Koza API", kozaDepots.Count);
+            
+            int added = 0;
+            int updated = 0;
+            int batches = (int)Math.Ceiling(kozaDepots.Count / (double)batchSize);
+            
+            for (int i = 0; i < batches; i++)
+            {
+                var batch = kozaDepots
+                    .Skip(i * batchSize)
+                    .Take(batchSize)
+                    .ToList();
+                
+                _logger.LogInformation("Processing batch {BatchNum}/{TotalBatches} ({Count} items)", 
+                    i + 1, batches, batch.Count);
+                
+                // Batch içindeki tüm kodları topla
+                var batchKodlar = batch
+                    .Where(d => !string.IsNullOrWhiteSpace(d.Kod))
+                    .Select(d => d.Kod!)
+                    .ToList();
+                
+                // Mevcut kayıtları toplu çek (tek sorguda)
+                var existingDepots = await _context.KozaDepots
+                    .Where(d => batchKodlar.Contains(d.Kod))
+                    .ToDictionaryAsync(d => d.Kod, ct);
+                
+                foreach (var kozaDepot in batch)
+                {
+                    // Kod boşsa atla
+                    if (string.IsNullOrWhiteSpace(kozaDepot.Kod))
+                    {
+                        _logger.LogWarning("Skipping depot with empty Kod");
+                        continue;
+                    }
+                    
+                    if (!existingDepots.TryGetValue(kozaDepot.Kod, out var existing))
+                    {
+                        // Yeni kayıt ekle
+                        var newDepot = new KozaDepot
+                        {
+                            DepoId = kozaDepot.DepoId,
+                            Kod = kozaDepot.Kod,
+                            Tanim = kozaDepot.Tanim ?? "",
+                            // Kategori kodu normalizasyonu: "MERKEZ" → "01"
+                            KategoriKod = NormalizeKategoriKod(kozaDepot.KategoriKod),
+                            Ulke = kozaDepot.Ulke,
+                            Il = kozaDepot.Il,
+                            Ilce = kozaDepot.Ilce,
+                            AdresSerbest = kozaDepot.AdresSerbest,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+                        
+                        await _context.KozaDepots.AddAsync(newDepot, ct);
+                        added++;
+                    }
+                    else
+                    {
+                        // Mevcut kaydı güncelle
+                        existing.DepoId = kozaDepot.DepoId;
+                        existing.Tanim = kozaDepot.Tanim ?? existing.Tanim;
+                        existing.KategoriKod = NormalizeKategoriKod(kozaDepot.KategoriKod) ?? existing.KategoriKod;
+                        existing.Ulke = kozaDepot.Ulke ?? existing.Ulke;
+                        existing.Il = kozaDepot.Il ?? existing.Il;
+                        existing.Ilce = kozaDepot.Ilce ?? existing.Ilce;
+                        existing.AdresSerbest = kozaDepot.AdresSerbest ?? existing.AdresSerbest;
+                        existing.UpdatedAt = DateTime.UtcNow;
+                        
+                        updated++;
+                    }
+                }
+                
+                // Batch'i kaydet
+                await _context.SaveChangesAsync(ct);
+                _logger.LogInformation("Batch {BatchNum} saved successfully", i + 1);
+                
+                // Rate limiting için kısa bekleme
+                if (i < batches - 1)
+                {
+                    await Task.Delay(100, ct);
+                }
+            }
+            
+            _logger.LogInformation("Depot sync completed - Added: {Added}, Updated: {Updated}", added, updated);
+            
+            return Ok(new
+            {
+                success = true,
+                message = $"Sync tamamlandı: {added} yeni, {updated} güncellendi",
+                stats = new
+                {
+                    totalFromKoza = kozaDepots.Count,
+                    added,
+                    updated,
+                    batchesProcessed = batches
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to sync depots from Koza");
             return StatusCode(500, new { error = ex.Message });
         }
     }
@@ -58,30 +241,73 @@ public sealed class KozaDepotsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Create(
-        [FromBody] KozaCreateDepotRequest request,
+        [FromBody] KozaCreateDepotRequest? request,
         CancellationToken ct)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(request.StkDepo?.Kod))
+            // Request null kontrolü
+            if (request == null)
+            {
+                _logger.LogWarning("Depot create request is null");
+                return BadRequest(new { error = "Request body boş veya geçersiz format" });
+            }
+
+            // StkDepo null kontrolü
+            if (request.StkDepo == null)
+            {
+                _logger.LogWarning("Depot create request.StkDepo is null");
+                return BadRequest(new { error = "stkDepo alanı zorunludur. Örnek format: { \"stkDepo\": { \"kod\": \"...\", \"tanim\": \"...\", \"kategoriKod\": \"...\" } }" });
+            }
+
+            // DEBUG 1: Request ilk geldiği andaki HAM veriyi logla
+            _logger.LogWarning("=== DEPOT CREATE - RAW REQUEST ===");
+            _logger.LogWarning("RECEIVED Kod: {Kod}", request.StkDepo.Kod ?? "NULL");
+            _logger.LogWarning("RECEIVED Tanim: {Tanim}", request.StkDepo.Tanim ?? "NULL");
+            _logger.LogWarning("RECEIVED KategoriKod (BEFORE normalization): {KategoriKod}", request.StkDepo.KategoriKod ?? "NULL");
+            _logger.LogWarning("RECEIVED Full JSON: {Json}", System.Text.Json.JsonSerializer.Serialize(request));
+
+            if (string.IsNullOrWhiteSpace(request.StkDepo.Kod))
             {
                 return BadRequest(new { error = "Depo kodu (kod) zorunludur" });
             }
 
-            if (string.IsNullOrWhiteSpace(request.StkDepo?.Tanim))
+            if (string.IsNullOrWhiteSpace(request.StkDepo.Tanim))
             {
                 return BadRequest(new { error = "Depo adı (tanim) zorunludur" });
             }
 
-            if (string.IsNullOrWhiteSpace(request.StkDepo?.KategoriKod))
+            // DÜZELTME 3: KategoriKod kontrolü ve normalizasyon
+            // "MERKEZ" gibi kategori ADLARI değil, numerik KOD bekleniyor
+            var originalKategoriKod = request.StkDepo.KategoriKod;
+            if (string.IsNullOrWhiteSpace(request.StkDepo.KategoriKod) || 
+                request.StkDepo.KategoriKod.Equals("MERKEZ", StringComparison.OrdinalIgnoreCase))
             {
-                return BadRequest(new { error = "Depo kategori kodu (kategoriKod) zorunludur" });
+                request.StkDepo.KategoriKod = "01"; // Varsayılan numerik kategori kodu
+                _logger.LogWarning("KategoriKod TRANSFORMED: '{Original}' -> '{New}'", 
+                    originalKategoriKod ?? "NULL", request.StkDepo.KategoriKod);
             }
 
-            _logger.LogInformation("Creating Koza depot: {Kod} - {Tanim}", 
-                request.StkDepo.Kod, request.StkDepo.Tanim);
+            // DEBUG 2: Normalizasyon sonrası veriyi logla
+            _logger.LogWarning("=== DEPOT CREATE - AFTER NORMALIZATION ===");
+            _logger.LogWarning("NORMALIZED Kod: {Kod}", request.StkDepo.Kod);
+            _logger.LogWarning("NORMALIZED Tanim: {Tanim}", request.StkDepo.Tanim);
+            _logger.LogWarning("NORMALIZED KategoriKod: {KategoriKod}", request.StkDepo.KategoriKod);
+            _logger.LogWarning("NORMALIZED Full JSON: {Json}", System.Text.Json.JsonSerializer.Serialize(request));
+
+            _logger.LogInformation("Creating Koza depot: {Kod} - {Tanim} - {KategoriKod}", 
+                request.StkDepo.Kod, request.StkDepo.Tanim, request.StkDepo.KategoriKod);
+
+            // DEBUG 3: LucaService'e gönderilmeden HEMEN ÖNCE son kontrol
+            _logger.LogWarning("=== SENDING TO LUCA SERVICE ===");
+            _logger.LogWarning("FINAL REQUEST: {Json}", System.Text.Json.JsonSerializer.Serialize(request));
 
             var result = await _lucaService.CreateDepotAsync(request, ct);
+            
+            // DEBUG 4: Koza'dan dönen sonucu logla
+            _logger.LogWarning("=== KOZA RESPONSE ===");
+            _logger.LogWarning("Success: {Success}", result.Success);
+            _logger.LogWarning("Message: {Message}", result.Message ?? "NULL");
             
             if (result.Success)
             {
@@ -99,5 +325,22 @@ public sealed class KozaDepotsController : ControllerBase
             _logger.LogError(ex, "Failed to create Koza depot");
             return StatusCode(500, new { error = ex.Message });
         }
+    }
+    
+    /// <summary>
+    /// Kategori kodunu normalize et
+    /// "MERKEZ", "merkez" gibi ADları numerik KODA çevir
+    /// </summary>
+    private static string NormalizeKategoriKod(string? kategoriKod)
+    {
+        if (string.IsNullOrWhiteSpace(kategoriKod))
+            return "01"; // Varsayılan
+            
+        // "MERKEZ" gibi kategori adlarını koda çevir
+        if (kategoriKod.Equals("MERKEZ", StringComparison.OrdinalIgnoreCase))
+            return "01";
+            
+        // Zaten numerik kod gelmiş olabilir, değiştirme
+        return kategoriKod;
     }
 }

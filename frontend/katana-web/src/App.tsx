@@ -1,38 +1,40 @@
-import React, { useMemo, useState, useEffect } from "react";
 import {
-  ThemeProvider,
-  CssBaseline,
-  Box,
-  Toolbar,
-  useMediaQuery,
+    Box,
+    CssBaseline,
+    ThemeProvider,
+    Toolbar,
+    useMediaQuery,
 } from "@mui/material";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 
-import {
-  loginToLuca,
-  getBranchList,
-  selectBranch,
-} from "./services/authService";
 import BranchSelector, { Branch } from "./components/Luca/BranchSelector";
+import {
+    getBranchList,
+    loginToLuca,
+    selectBranch,
+} from "./services/authService";
 
+import AdminPanel from "./components/AdminPanel/AdminPanel";
+import ProtectedRoute from "./components/Auth/ProtectedRoute";
+import Dashboard from "./components/Dashboard/Dashboard";
+import ErrorDebugPanel from "./components/Debug/ErrorDebugPanel";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Header from "./components/Layout/Header";
 import Sidebar from "./components/Layout/Sidebar";
-import Dashboard from "./components/Dashboard/Dashboard";
+import Login from "./components/Login/Login";
+import Profile from "./components/Profile/Profile";
+import Reports from "./components/Reports/Reports";
+import Settings from "./components/Settings/Settings";
 import StockManagement from "./components/StockManagement/StockManagement";
 import SyncManagement from "./components/SyncManagement/SyncManagement";
-import Reports from "./components/Reports/Reports";
-import AdminPanel from "./components/AdminPanel/AdminPanel";
-import Profile from "./components/Profile/Profile";
-import Settings from "./components/Settings/Settings";
-import StockView from "./pages/StockView";
 import OrderInvoiceSyncPage from "./pages/OrderInvoiceSyncPage";
 import StockMovementSyncPage from "./pages/StockMovementSyncPage";
-import ErrorBoundary from "./components/ErrorBoundary";
-import Login from "./components/Login/Login";
-import ProtectedRoute from "./components/Auth/ProtectedRoute";
+import StockView from "./pages/StockView";
 import Unauthorized from "./pages/Unauthorized";
 import { FeedbackProvider } from "./providers/FeedbackProvider";
 import { createAppTheme, type ColorMode } from "./theme";
+import { setupGlobalErrorHandlers } from "./utils/errorLogger";
 
 const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -42,6 +44,11 @@ const App: React.FC = () => {
 
   const theme = useMemo(() => createAppTheme(mode), [mode]);
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
+  // Setup global error logging
+  useEffect(() => {
+    setupGlobalErrorHandlers();
+  }, []);
 
   const toggleMode = () => {
     setMode((prev) => {
@@ -240,6 +247,7 @@ const App: React.FC = () => {
             </Routes>
           </BrowserRouter>
         </FeedbackProvider>
+        <ErrorDebugPanel />
       </ThemeProvider>
     </ErrorBoundary>
   );

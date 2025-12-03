@@ -48,26 +48,8 @@ builder.Services.AddCors(options =>
     });
 });
 
-var envUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
-var configuredUrls = builder.Configuration["Urls"];
-if (string.IsNullOrWhiteSpace(envUrls) && string.IsNullOrWhiteSpace(configuredUrls))
-{
-    int[] preferred = { 5055, 5056, 5057, 5058, 5059 };
-    int chosen = preferred.First(p =>
-    {
-        try
-        {
-            var l = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, p);
-            l.Start();
-            l.Stop();
-            return true;
-        }
-        catch { return false; }
-    });
-
-    builder.WebHost.ConfigureKestrel(options => { options.ListenLocalhost(chosen); });
-    Console.WriteLine($"Kestrel chosen port: {chosen}");
-}
+// ASPNETCORE_URLS varsa, otomatik kullanılır ve bu blok atlanır
+// Eğer yoksa, appsettings'deki Kestrel config veya fallback'e başvur
 
 builder.Host.UseSerilogConfiguration();
 

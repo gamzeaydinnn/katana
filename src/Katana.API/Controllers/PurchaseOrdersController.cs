@@ -8,6 +8,7 @@ using Katana.Data.Context;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
 
 namespace Katana.API.Controllers;
@@ -21,17 +22,20 @@ public class PurchaseOrdersController : ControllerBase
     private readonly ILucaService _lucaService;
     private readonly ILoggingService _loggingService;
     private readonly IAuditService _auditService;
+    private readonly IMemoryCache _cache;
 
     public PurchaseOrdersController(
         IntegrationDbContext context,
         ILucaService lucaService,
         ILoggingService loggingService,
-        IAuditService auditService)
+        IAuditService auditService,
+        IMemoryCache cache)
     {
         _context = context;
         _lucaService = lucaService;
         _loggingService = loggingService;
         _auditService = auditService;
+        _cache = cache;
     }
 
     // ===== LIST & DETAIL ENDPOINTS =====
@@ -44,53 +48,76 @@ public class PurchaseOrdersController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         [FromQuery] string? status = null,
-        [FromQuery] string? syncStatus = null)
+        [FromQuery] string? syncStatus = null,
+        [FromQuery] string? search = null)
     {
-        var query = _context.PurchaseOrders
-            .Include(p => p.Supplier)
-            .AsQueryable();
-
-        // Filter by status
-        if (!string.IsNullOrEmpty(status) && Enum.TryParse<PurchaseOrderStatus>(status, true, out var statusEnum))
+        try
         {
-            query = query.Where(p => p.Status == statusEnum);
-        }
+            var query = _context.PurchaseOrders
+                .Include(p => p.Supplier)
+                .AsQueryable();
 
-        // Filter by sync status
-        if (!string.IsNullOrEmpty(syncStatus))
+            // Filter by status
+            if (!string.IsNullOrEmpty(status) && Enum.TryParse<PurchaseOrderStatus>(status, true, out var statusEnum))
+            {
+                query = query.Where(p => p.Status == statusEnum);
+            }
+
+            // Filter by sync status
+            if (!string.IsNullOrEmpty(syncStatus))
+            {
+                query = syncStatus switch
+                {
+                    "synced" => query.Where(p => p.IsSyncedToLuca && string.IsNullOrEmpty(p.LastSyncError)),
+                    "error" => query.Where(p => !string.IsNullOrEmpty(p.LastSyncError)),
+                    "not_synced" => query.Where(p => !p.IsSyncedToLuca && string.IsNullOrEmpty(p.LastSyncError)),
+                    _ => query
+                };
+            }
+
+            // Filter by search (OrderNo veya Supplier Name)
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(p => 
+                    p.OrderNo.Contains(search) || 
+                    (p.Supplier != null && p.Supplier.Name.Contains(search)));
+            }
+
+            var totalCount = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+            
+            var items = await query
+                .OrderByDescending(p => p.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => new 
+                {
+                    Id = p.Id,
+                    OrderNumber = p.OrderNo,
+                    SupplierName = p.Supplier != null ? p.Supplier.Name : null,
+                    TotalAmount = p.TotalAmount,
+                    Status = p.Status.ToString(),
+                    CreatedDate = p.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(new 
+            { 
+                items, 
+                pagination = new 
+                { 
+                    currentPage = page, 
+                    pageSize, 
+                    totalCount, 
+                    totalPages 
+                } 
+            });
+        }
+        catch (Exception ex)
         {
-            query = syncStatus switch
-            {
-                "synced" => query.Where(p => p.IsSyncedToLuca && string.IsNullOrEmpty(p.LastSyncError)),
-                "error" => query.Where(p => !string.IsNullOrEmpty(p.LastSyncError)),
-                "not_synced" => query.Where(p => !p.IsSyncedToLuca && string.IsNullOrEmpty(p.LastSyncError)),
-                _ => query
-            };
+            _loggingService.LogError($"PurchaseOrders GetAll failed: {ex.Message}", ex);
+            return StatusCode(500, new { message = "Satınalma siparişleri yüklenirken hata oluştu", error = ex.Message });
         }
-
-        var total = await query.CountAsync();
-        var orders = await query
-            .OrderByDescending(p => p.OrderDate)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(p => new PurchaseOrderListDto
-            {
-                Id = p.Id,
-                OrderNo = p.OrderNo,
-                SupplierName = p.Supplier != null ? p.Supplier.Name : null,
-                OrderDate = p.OrderDate,
-                ExpectedDate = p.ExpectedDate,
-                Status = p.Status.ToString(),
-                TotalAmount = p.TotalAmount,
-                LucaPurchaseOrderId = p.LucaPurchaseOrderId,
-                LucaDocumentNo = p.LucaDocumentNo,
-                IsSyncedToLuca = p.IsSyncedToLuca,
-                LastSyncError = p.LastSyncError,
-                LastSyncAt = p.LastSyncAt
-            })
-            .ToListAsync();
-
-        return Ok(new { data = orders, total, page, pageSize });
     }
 
     /// <summary>
@@ -485,32 +512,66 @@ public class PurchaseOrdersController : ControllerBase
     [HttpGet("stats")]
     public async Task<ActionResult> GetStats()
     {
-        var stats = await _context.PurchaseOrders
-            .GroupBy(p => 1)
-            .Select(g => new
-            {
-                Total = g.Count(),
-                Synced = g.Count(p => p.IsSyncedToLuca),
-                NotSynced = g.Count(p => !p.IsSyncedToLuca && string.IsNullOrEmpty(p.LastSyncError)),
-                WithErrors = g.Count(p => !string.IsNullOrEmpty(p.LastSyncError)),
-                Pending = g.Count(p => p.Status == PurchaseOrderStatus.Pending),
-                Approved = g.Count(p => p.Status == PurchaseOrderStatus.Approved),
-                Received = g.Count(p => p.Status == PurchaseOrderStatus.Received),
-                Cancelled = g.Count(p => p.Status == PurchaseOrderStatus.Cancelled)
-            })
-            .FirstOrDefaultAsync();
-
-        return Ok(stats ?? new
+        const string cacheKey = "purchase-order-stats";
+        
+        // Cache'ten dene
+        if (_cache.TryGetValue(cacheKey, out object? cachedStats))
         {
-            Total = 0,
-            Synced = 0,
-            NotSynced = 0,
-            WithErrors = 0,
-            Pending = 0,
-            Approved = 0,
-            Received = 0,
-            Cancelled = 0
-        });
+            return Ok(cachedStats);
+        }
+
+        try
+        {
+            var stats = await _context.PurchaseOrders
+                .GroupBy(p => 1)
+                .Select(g => new
+                {
+                    Total = g.Count(),
+                    Synced = g.Count(p => p.IsSyncedToLuca),
+                    NotSynced = g.Count(p => !p.IsSyncedToLuca && string.IsNullOrEmpty(p.LastSyncError)),
+                    WithErrors = g.Count(p => !string.IsNullOrEmpty(p.LastSyncError)),
+                    Pending = g.Count(p => p.Status == PurchaseOrderStatus.Pending),
+                    Approved = g.Count(p => p.Status == PurchaseOrderStatus.Approved),
+                    Received = g.Count(p => p.Status == PurchaseOrderStatus.Received),
+                    Cancelled = g.Count(p => p.Status == PurchaseOrderStatus.Cancelled)
+                })
+                .FirstOrDefaultAsync();
+
+            var result = stats ?? new
+            {
+                Total = 0,
+                Synced = 0,
+                NotSynced = 0,
+                WithErrors = 0,
+                Pending = 0,
+                Approved = 0,
+                Received = 0,
+                Cancelled = 0
+            };
+
+            // 1 dakika cache'le
+            _cache.Set(cacheKey, result, TimeSpan.FromMinutes(1));
+            
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _loggingService.LogError($"PurchaseOrders GetStats failed: {ex.Message}", ex);
+            
+            var fallbackStats = new
+            {
+                Total = 0,
+                Synced = 0,
+                NotSynced = 0,
+                WithErrors = 0,
+                Pending = 0,
+                Approved = 0,
+                Received = 0,
+                Cancelled = 0
+            };
+            
+            return Ok(fallbackStats);
+        }
     }
 
     /// <summary>

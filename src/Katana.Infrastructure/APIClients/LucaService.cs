@@ -68,7 +68,8 @@ public partial class LucaService : ILucaService
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = false
+            WriteIndented = false,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
         };
         try
         {
@@ -291,16 +292,49 @@ public partial class LucaService : ILucaService
 
     private async Task EnsureSessionAsync()
     {
-        if (_isCookieAuthenticated && !string.IsNullOrWhiteSpace(_sessionCookie))
+        const int maxRetries = 3;
+        var delays = new[] { 2000, 4000, 6000 }; // Exponential backoff: 2s, 4s, 6s
+        
+        for (int attempt = 0; attempt < maxRetries; attempt++)
         {
-            if (!_cookieExpiresAt.HasValue || DateTime.UtcNow < _cookieExpiresAt.Value)
+            try
             {
-                return;
-            }
-            _logger.LogInformation("Cookie expired or about to expire, re-authenticating");
-        }
+                if (_isCookieAuthenticated && !string.IsNullOrWhiteSpace(_sessionCookie))
+                {
+                    if (!_cookieExpiresAt.HasValue || DateTime.UtcNow < _cookieExpiresAt.Value)
+                    {
+                        return;
+                    }
+                    _logger.LogWarning("Cookie expired or about to expire, re-authenticating (Attempt {Attempt}/{MaxRetries})", attempt + 1, maxRetries);
+                }
 
-        await LoginWithServiceAsync();
+                await LoginWithServiceAsync();
+                
+                // Başarılı login sonrası kontrol
+                if (_isCookieAuthenticated && !string.IsNullOrWhiteSpace(_sessionCookie))
+                {
+                    _logger.LogInformation("Session başarıyla oluşturuldu (Attempt {Attempt})", attempt + 1);
+                    return;
+                }
+                
+                _logger.LogWarning("Login başarısız - session oluşturulamadı (Attempt {Attempt}/{MaxRetries})", attempt + 1, maxRetries);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Session oluşturma hatası (Attempt {Attempt}/{MaxRetries})", attempt + 1, maxRetries);
+            }
+            
+            // Son deneme değilse bekle
+            if (attempt < maxRetries - 1)
+            {
+                var delay = delays[attempt];
+                _logger.LogInformation("Yeniden deneme öncesi {Delay}ms bekleniyor...", delay);
+                await Task.Delay(delay);
+            }
+        }
+        
+        _logger.LogError("Session oluşturulamadı - {MaxRetries} deneme başarısız", maxRetries);
+        throw new InvalidOperationException($"Koza session oluşturulamadı - {maxRetries} deneme başarısız oldu");
     }
 
     private async Task LoginWithServiceAsync()
