@@ -1,48 +1,48 @@
-import React, { useEffect, useState, useCallback } from "react";
 import {
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  FormControl,
-  FormControlLabel,
-  Checkbox,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Tooltip,
-  Typography,
-  Alert,
-  Snackbar,
-  Card,
-  CardContent,
-  CardHeader,
-  Divider,
-  Grid,
-  FormHelperText,
-} from "@mui/material";
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Refresh as RefreshIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  HourglassEmpty as PendingIcon,
-  Save as SaveIcon,
-  Visibility as ViewIcon,
-  ArrowBack as BackIcon,
-  Warning as WarningIcon,
-  CloudUpload as CloudUploadIcon,
+    Add as AddIcon,
+    ArrowBack as BackIcon,
+    CheckCircle as CheckCircleIcon,
+    CloudUpload as CloudUploadIcon,
+    Delete as DeleteIcon,
+    Error as ErrorIcon,
+    HourglassEmpty as PendingIcon,
+    Refresh as RefreshIcon,
+    Save as SaveIcon,
+    Visibility as ViewIcon,
+    Warning as WarningIcon,
 } from "@mui/icons-material";
+import {
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    CardHeader,
+    Checkbox,
+    Chip,
+    CircularProgress,
+    Divider,
+    FormControl,
+    FormControlLabel,
+    FormHelperText,
+    Grid,
+    IconButton,
+    InputLabel,
+    MenuItem,
+    Paper,
+    Select,
+    Snackbar,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    TextField,
+    Tooltip,
+    Typography,
+} from "@mui/material";
+import React, { useCallback, useEffect, useState } from "react";
 import api from "../../services/api";
 
 // ===== TYPES =====
@@ -169,8 +169,8 @@ interface OrderStats {
 // ===== CONSTANTS =====
 
 const DOCUMENT_TYPES = [
-  { id: 2, label: "Satınalma Siparişi" },
-  { id: 18, label: "Satınalma Siparişi (Standart)" },
+  { id: 2, label: "Tedarik Siparişi" },
+  { id: 18, label: "Tedarik Siparişi (Standart)" },
 ];
 
 const VAT_RATES = [0, 1, 10, 18, 20];
@@ -198,7 +198,7 @@ const LucaStatusBadge: React.FC<{
 }> = ({ status, error, lucaId }) => {
   if (status === "synced") {
     return (
-      <Tooltip title={`Luca ID: ${lucaId || "-"}`}>
+      <Tooltip title={`Koza ID: ${lucaId || "-"}`}>
         <Chip
           icon={<CheckCircleIcon />}
           label="Senkronize"
@@ -326,7 +326,7 @@ const PurchaseOrders: React.FC = () => {
       console.error("Failed to fetch purchase orders:", err);
       setSnackbar({
         open: true,
-        message: "Satınalma siparişleri yüklenemedi",
+        message: "Tedarik siparişleri yüklenemedi",
         severity: "error",
       });
     } finally {
@@ -403,7 +403,7 @@ const PurchaseOrders: React.FC = () => {
     } else {
       const supplier = suppliers.find((s) => s.id === formData.supplierId);
       if (supplier && !supplier.code) {
-        errors.supplierId = "Seçili tedarikçinin Luca kodu yok";
+        errors.supplierId = "Seçili tedarikçinin Koza kodu yok";
       }
     }
 
@@ -422,7 +422,7 @@ const PurchaseOrders: React.FC = () => {
       if (item.productId > 0) {
         const product = products.find((p) => p.id === item.productId);
         if (product && !product.sku && !item.lucaStockCode) {
-          errors[`item_${index}_product`] = "Bu ürünün Luca stok kodu yok";
+          errors[`item_${index}_product`] = "Bu ürünün Koza stok kodu yok";
         }
         if (item.quantity <= 0) {
           errors[`item_${index}_quantity`] = "Miktar 0'dan büyük olmalı";
@@ -475,7 +475,7 @@ const PurchaseOrders: React.FC = () => {
       await api.post("/purchase-orders", payload);
       setSnackbar({
         open: true,
-        message: "Satınalma siparişi oluşturuldu",
+        message: "Tedarik siparişi oluşturuldu",
         severity: "success",
       });
       resetForm();
@@ -553,7 +553,7 @@ const PurchaseOrders: React.FC = () => {
       setSyncing(true);
       setSnackbar({
         open: true,
-        message: "Luca'ya gönderiliyor...",
+        message: "Koza'ya gönderiliyor...",
         severity: "info",
       });
 
@@ -564,7 +564,7 @@ const PurchaseOrders: React.FC = () => {
       if (response.data.success) {
         setSnackbar({
           open: true,
-          message: `Başarıyla senkronize edildi. Luca ID: ${response.data.lucaPurchaseOrderId}`,
+          message: `Başarıyla senkronize edildi. Koza ID: ${response.data.lucaPurchaseOrderId}`,
           severity: "success",
         });
         // Refresh detail if viewing
@@ -703,12 +703,11 @@ const PurchaseOrders: React.FC = () => {
       <Box
         sx={{
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent: "flex-end",
           alignItems: "center",
           mb: 3,
         }}
       >
-        <Typography variant="h5">Satınalma Siparişleri</Typography>
         <Box sx={{ display: "flex", gap: 1 }}>
           <Button
             variant="outlined"
@@ -729,7 +728,7 @@ const PurchaseOrders: React.FC = () => {
               setView("create");
             }}
           >
-            Yeni Sipariş
+            Yeni Tedarik Siparişi
           </Button>
         </Box>
       </Box>
@@ -779,7 +778,7 @@ const PurchaseOrders: React.FC = () => {
               <TableCell>Tarih</TableCell>
               <TableCell>Teslim Tarihi</TableCell>
               <TableCell align="right">Toplam</TableCell>
-              <TableCell>Luca Durumu</TableCell>
+              <TableCell>Koza Durumu</TableCell>
               <TableCell align="center">İşlemler</TableCell>
             </TableRow>
           </TableHead>
@@ -805,7 +804,7 @@ const PurchaseOrders: React.FC = () => {
                     <Typography fontWeight="medium">{order.orderNo}</Typography>
                     {order.lucaDocumentNo && (
                       <Typography variant="caption" color="textSecondary">
-                        Luca: {order.lucaDocumentNo}
+                        Koza: {order.lucaDocumentNo}
                       </Typography>
                     )}
                   </TableCell>
@@ -835,7 +834,7 @@ const PurchaseOrders: React.FC = () => {
                       </IconButton>
                     </Tooltip>
                     {!order.isSyncedToLuca && (
-                      <Tooltip title="Luca'ya Gönder">
+                      <Tooltip title="Koza'ya Gönder">
                         <IconButton
                           size="small"
                           color="primary"
@@ -895,7 +894,7 @@ const PurchaseOrders: React.FC = () => {
             <BackIcon />
           </IconButton>
           <Typography variant="h5" sx={{ flex: 1 }}>
-            Sipariş Detayı: {orderDetail.orderNo}
+            Tedarik Siparişi: {orderDetail.orderNo}
           </Typography>
           <LucaStatusBadge
             status={syncStatus}
@@ -908,7 +907,7 @@ const PurchaseOrders: React.FC = () => {
           {/* A) Temel Bilgiler */}
           <Grid size={{ xs: 12, md: 6 }}>
             <Card>
-              <CardHeader title="Sipariş Bilgileri" />
+              <CardHeader title="Tedarik Siparişi Bilgileri" />
               <Divider />
               <CardContent>
                 <Box
@@ -1016,7 +1015,7 @@ const PurchaseOrders: React.FC = () => {
               }}
             >
               <CardHeader
-                title="Luca Senkron Durumu"
+                title="Koza Senkronizasyon Durumu"
                 avatar={
                   syncStatus === "synced" ? (
                     <CheckCircleIcon color="success" />
@@ -1050,7 +1049,7 @@ const PurchaseOrders: React.FC = () => {
                   </Box>
                   <Box>
                     <Typography variant="caption" color="textSecondary">
-                      Luca ID
+                      Koza ID
                     </Typography>
                     <Typography fontWeight="bold">
                       {orderDetail.lucaPurchaseOrderId || "-"}
@@ -1058,7 +1057,7 @@ const PurchaseOrders: React.FC = () => {
                   </Box>
                   <Box>
                     <Typography variant="caption" color="textSecondary">
-                      Luca Belge No
+                      Koza Belge No
                     </Typography>
                     <Typography>{orderDetail.lucaDocumentNo || "-"}</Typography>
                   </Box>
@@ -1110,7 +1109,7 @@ const PurchaseOrders: React.FC = () => {
                     >
                       {orderDetail.lastSyncError
                         ? "Tekrar Dene"
-                        : "Luca'ya Gönder"}
+                        : "Koza'ya Gönder"}
                     </Button>
                   )}
                   {orderDetail.isSyncedToLuca && (
@@ -1230,7 +1229,7 @@ const PurchaseOrders: React.FC = () => {
           <IconButton onClick={() => setView("list")}>
             <BackIcon />
           </IconButton>
-          <Typography variant="h5">Yeni Satınalma Siparişi</Typography>
+          <Typography variant="h5">Yeni Tedarik Siparişi</Typography>
         </Box>
 
         {/* Form */}
@@ -1238,7 +1237,7 @@ const PurchaseOrders: React.FC = () => {
           {/* A) Sipariş Bilgileri */}
           <Grid size={{ xs: 12 }}>
             <Card>
-              <CardHeader title="Sipariş Bilgileri" />
+              <CardHeader title="Tedarik Siparişi Bilgileri" />
               <Divider />
               <CardContent>
                 <Grid container spacing={2}>
@@ -1279,7 +1278,7 @@ const PurchaseOrders: React.FC = () => {
                                 />
                               )}
                               {!s.code && (
-                                <Tooltip title="Bu tedarikçinin Luca kodu yok">
+                                <Tooltip title="Bu tedarikçinin Koza kodu yok">
                                   <WarningIcon
                                     fontSize="small"
                                     color="warning"
@@ -1499,7 +1498,7 @@ const PurchaseOrders: React.FC = () => {
                                       >
                                         {p.name}
                                         {!p.sku && !p.lucaStockCode && (
-                                          <Tooltip title="Luca stok kodu yok">
+                                          <Tooltip title="Koza stok kodu yok">
                                             <WarningIcon
                                               fontSize="small"
                                               color="warning"
@@ -1705,7 +1704,7 @@ const PurchaseOrders: React.FC = () => {
   // ===== MAIN RENDER =====
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box>
       {view === "list" && renderListView()}
       {view === "detail" && renderDetailView()}
       {view === "create" && renderCreateView()}

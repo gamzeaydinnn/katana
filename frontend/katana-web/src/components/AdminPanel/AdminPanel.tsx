@@ -48,10 +48,9 @@ import FailedRecords from "../Admin/FailedRecords";
 import KatanaProducts from "../Admin/KatanaProducts";
 import KozaIntegration from "../Admin/KozaIntegration";
 import LucaProducts from "../Admin/LucaProducts";
+import OrderIntegrationPage from "../Admin/OrderIntegrationPage";
 import Orders from "../Admin/Orders";
 import PendingAdjustments from "../Admin/PendingAdjustments";
-import PurchaseOrders from "../Admin/PurchaseOrders";
-import SalesOrders from "../Admin/SalesOrders";
 import StockManagement from "../Admin/StockManagement";
 import StockMovements from "../Admin/StockMovements";
 import Settings from "../Settings/Settings";
@@ -666,19 +665,7 @@ const AdminPanel: React.FC = () => {
           >
             <ShoppingCart sx={{ mr: 1.5, fontSize: 20, color: "#22c55e" }} />
             <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
-              Satış Siparişleri
-            </Typography>
-          </MenuItem>
-          <MenuItem
-            onClick={() => {
-              setActiveTab(13);
-              setMoreMenuAnchor(null);
-            }}
-            sx={overflowMenuItemSx}
-          >
-            <Receipt sx={{ mr: 1.5, fontSize: 20, color: "#f59e0b" }} />
-            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
-              Satın Alma
+              Sipariş Entegrasyonu
             </Typography>
           </MenuItem>
         </Menu>
@@ -1038,11 +1025,8 @@ const AdminPanel: React.FC = () => {
       {/* Koza Entegrasyon Tab */}
       {activeTab === 11 && <KozaIntegration />}
 
-      {/* Satış Siparişleri Tab */}
-      {activeTab === 12 && <SalesOrders />}
-
-      {/* Satın Alma Siparişleri Tab */}
-      {activeTab === 13 && <PurchaseOrders />}
+      {/* Sipariş Entegrasyonu (Sales + Purchase Orders) */}
+      {activeTab === 12 && <OrderIntegrationPage />}
     </Container>
   );
 };

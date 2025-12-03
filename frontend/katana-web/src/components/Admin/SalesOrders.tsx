@@ -1,42 +1,42 @@
-import React, { useEffect, useState } from "react";
 import {
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  FormControl,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  TextField,
-  Tooltip,
-  Typography,
-  Alert,
-  Snackbar,
-  Card,
-  CardContent,
-  CardHeader,
-  Divider,
-} from "@mui/material";
-import {
-  Sync as SyncIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  HourglassEmpty as PendingIcon,
-  Refresh as RefreshIcon,
-  Visibility as ViewIcon,
-  ArrowBack as ArrowBackIcon,
-  CloudUpload as CloudUploadIcon,
+    ArrowBack as ArrowBackIcon,
+    CheckCircle as CheckCircleIcon,
+    CloudUpload as CloudUploadIcon,
+    Error as ErrorIcon,
+    HourglassEmpty as PendingIcon,
+    Refresh as RefreshIcon,
+    Sync as SyncIcon,
+    Visibility as ViewIcon,
 } from "@mui/icons-material";
+import {
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    CardHeader,
+    Chip,
+    CircularProgress,
+    Divider,
+    FormControl,
+    IconButton,
+    InputLabel,
+    MenuItem,
+    Paper,
+    Select,
+    Snackbar,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TablePagination,
+    TableRow,
+    TextField,
+    Tooltip,
+    Typography,
+} from "@mui/material";
+import React, { useEffect, useState } from "react";
 import api from "../../services/api";
 
 // Types
@@ -287,7 +287,7 @@ const SalesOrders: React.FC = () => {
       );
       setSnackbar({
         open: true,
-        message: "Luca alanları kaydedildi",
+        message: "Koza alanları kaydedildi",
         severity: "success",
       });
       // Refresh detail
@@ -315,7 +315,7 @@ const SalesOrders: React.FC = () => {
       if (response.data.isSuccess) {
         setSnackbar({
           open: true,
-          message: `Luca'ya senkronize edildi (ID: ${response.data.lucaOrderId})`,
+          message: `Koza'ya senkronize edildi (ID: ${response.data.lucaOrderId})`,
           severity: "success",
         });
       } else {
@@ -376,12 +376,11 @@ const SalesOrders: React.FC = () => {
       <Box
         sx={{
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent: "flex-end",
           alignItems: "center",
           mb: 3,
         }}
       >
-        <Typography variant="h5">Satış Siparişleri</Typography>
         <Button
           variant="outlined"
           startIcon={<RefreshIcon />}
@@ -411,10 +410,10 @@ const SalesOrders: React.FC = () => {
           </FormControl>
 
           <FormControl size="small">
-            <InputLabel>Luca Durumu</InputLabel>
+            <InputLabel>Koza Durumu</InputLabel>
             <Select
               value={syncStatusFilter}
-              label="Luca Durumu"
+              label="Koza Durumu"
               onChange={(e) => setSyncStatusFilter(e.target.value)}
             >
               <MenuItem value="">Tümü</MenuItem>
@@ -436,7 +435,7 @@ const SalesOrders: React.FC = () => {
               <TableCell>Tarih</TableCell>
               <TableCell>Durum</TableCell>
               <TableCell align="right">Tutar</TableCell>
-              <TableCell>Luca</TableCell>
+              <TableCell>Koza</TableCell>
               <TableCell align="center">İşlemler</TableCell>
             </TableRow>
           </TableHead>
@@ -495,7 +494,7 @@ const SalesOrders: React.FC = () => {
                         <ViewIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Luca'ya Senkronize Et">
+                    <Tooltip title="Koza'ya Senkronize Et">
                       <IconButton
                         size="small"
                         onClick={() => syncToLuca(order.id)}
@@ -542,7 +541,7 @@ const SalesOrders: React.FC = () => {
           <IconButton onClick={handleBackToList}>
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h5">Sipariş: {selectedOrder.orderNo}</Typography>
+          <Typography variant="h5">Satış Siparişi: {selectedOrder.orderNo}</Typography>
           <LucaStatusBadge
             status={selectedOrder.lucaSyncStatus}
             error={selectedOrder.lastSyncError}
@@ -636,7 +635,7 @@ const SalesOrders: React.FC = () => {
 
             {/* Lines Table */}
             <Card>
-              <CardHeader title="Sipariş Kalemleri" />
+              <CardHeader title="Satış Siparişi Kalemleri" />
               <Divider />
               <TableContainer>
                 <Table size="small">
@@ -681,7 +680,7 @@ const SalesOrders: React.FC = () => {
 
             {/* (B) Luca Fields Form */}
             <Card>
-              <CardHeader title="Luca Sipariş Alanları" />
+              <CardHeader title="Koza Entegrasyon Alanları" />
               <Divider />
               <CardContent>
                 <Box sx={gridStyles.threeCol}>
@@ -807,13 +806,13 @@ const SalesOrders: React.FC = () => {
 
           {/* Right Column - (C) Sync Panel */}
           <Card>
-            <CardHeader title="Luca Senkronizasyon" />
+            <CardHeader title="Koza Senkronizasyon" />
             <Divider />
             <CardContent>
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <Box>
                   <Typography variant="caption" color="textSecondary">
-                    Luca Sipariş ID
+                    Koza Sipariş ID
                   </Typography>
                   <Typography variant="h6">
                     {selectedOrder.lucaOrderId || "-"}
@@ -866,7 +865,7 @@ const SalesOrders: React.FC = () => {
                   fullWidth
                   size="large"
                 >
-                  Luca'ya Senkronize Et
+                  Koza'ya Senkronize Et
                 </Button>
               </Box>
             </CardContent>
@@ -877,7 +876,7 @@ const SalesOrders: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box>
       {showDetail ? renderDetail() : renderList()}
 
       <Snackbar
