@@ -50,6 +50,13 @@ builder.Services.AddCors(options =>
 
 // ASPNETCORE_URLS varsa, otomatik kullanılır ve bu blok atlanır
 // Eğer yoksa, appsettings'deki Kestrel config veya fallback'e başvur
+var aspnetcoreUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
+if (string.IsNullOrWhiteSpace(aspnetcoreUrls))
+{
+    var configuredUrl = builder.Configuration["Kestrel:Endpoints:Http:Url"];
+    var fallbackUrl = string.IsNullOrWhiteSpace(configuredUrl) ? "http://localhost:5055" : configuredUrl;
+    builder.WebHost.UseUrls(fallbackUrl);
+}
 
 builder.Host.UseSerilogConfiguration();
 

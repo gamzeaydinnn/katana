@@ -1,24 +1,24 @@
-import React, { useState, useEffect } from "react";
+import { Refresh } from "@mui/icons-material";
 import {
+  Alert,
   Box,
   Card,
   CardContent,
-  Typography,
+  Chip,
+  CircularProgress,
+  IconButton,
+  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
-  TableRow,
   TablePagination,
-  Paper,
-  Chip,
-  CircularProgress,
-  Alert,
-  IconButton,
+  TableRow,
+  Typography,
   useMediaQuery,
 } from "@mui/material";
-import { Refresh } from "@mui/icons-material";
+import React, { useEffect, useState } from "react";
 import api from "../../services/api";
 
 interface OrderItem {
@@ -32,11 +32,15 @@ interface OrderItem {
 
 interface Order {
   id: number;
+  orderNo: string;
   customerId: number;
+  customerName?: string;
   status: string;
-  totalAmount: number;
-  createdAt: string;
+  total?: number;
+  orderCreatedDate?: string;
+  createdAt?: string;
   updatedAt?: string;
+  currency?: string;
   customer?: {
     id: number;
     title: string;
@@ -57,7 +61,7 @@ const Orders: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.get<any>("/Orders");
+      const response = await api.get<any>("/sales-orders");
       const data = response.data?.value || response.data;
       setOrders(Array.isArray(data) ? data : []);
     } catch (err: any) {
@@ -165,7 +169,7 @@ const Orders: React.FC = () => {
                         Sipariş #{order.id}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {new Date(order.createdAt).toLocaleString("tr-TR", {
+                        {new Date(order.orderCreatedDate || order.createdAt || new Date()).toLocaleString("tr-TR", {
                           day: "2-digit",
                           month: "2-digit",
                           year: "numeric",
@@ -194,9 +198,9 @@ const Orders: React.FC = () => {
                         Müşteri
                       </Typography>
                       <Typography fontWeight={600}>
-                        {order.customer
-                          ? order.customer.title
-                          : `Müşteri #${order.customerId}`}
+                        {order.customerName ||
+                          order.customer?.title ||
+                          `Müşteri #${order.customerId}`}
                       </Typography>
                     </Box>
                     <Box>
@@ -213,7 +217,7 @@ const Orders: React.FC = () => {
                       </Typography>
                       <Typography fontWeight={700}>
                         ₺
-                        {order.totalAmount.toLocaleString("tr-TR", {
+                        {(order.total || 0).toLocaleString("tr-TR", {
                           minimumFractionDigits: 2,
                         })}
                       </Typography>
@@ -269,19 +273,21 @@ const Orders: React.FC = () => {
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     .map((order) => (
                       <TableRow key={order.id} hover>
-                        <TableCell>#{order.id}</TableCell>
+                        <TableCell>{order.orderNo || `#${order.id}`}</TableCell>
                         <TableCell>
-                          {order.customer ? (
+                          {order.customer || order.customerName ? (
                             <Box>
                               <Typography variant="body2">
-                                {order.customer.title}
+                                {order.customerName || order.customer?.title}
                               </Typography>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                {order.customer.taxNo}
-                              </Typography>
+                              {order.customer?.taxNo && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  {order.customer.taxNo}
+                                </Typography>
+                              )}
                             </Box>
                           ) : (
                             <Typography variant="body2" color="text.secondary">
@@ -298,7 +304,7 @@ const Orders: React.FC = () => {
                         </TableCell>
                         <TableCell align="right">
                           ₺
-                          {order.totalAmount.toLocaleString("tr-TR", {
+                          {(order.total || 0).toLocaleString("tr-TR", {
                             minimumFractionDigits: 2,
                           })}
                         </TableCell>
@@ -306,7 +312,7 @@ const Orders: React.FC = () => {
                           {order.items?.length || 0}
                         </TableCell>
                         <TableCell>
-                          {new Date(order.createdAt).toLocaleString("tr-TR", {
+                          {new Date(order.orderCreatedDate || order.createdAt || new Date()).toLocaleString("tr-TR", {
                             day: "2-digit",
                             month: "2-digit",
                             year: "numeric",
