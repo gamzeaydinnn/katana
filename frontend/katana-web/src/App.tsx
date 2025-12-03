@@ -25,6 +25,8 @@ import AdminPanel from "./components/AdminPanel/AdminPanel";
 import Profile from "./components/Profile/Profile";
 import Settings from "./components/Settings/Settings";
 import StockView from "./pages/StockView";
+import OrderInvoiceSyncPage from "./pages/OrderInvoiceSyncPage";
+import StockMovementSyncPage from "./pages/StockMovementSyncPage";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Login from "./components/Login/Login";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
@@ -201,6 +203,14 @@ const App: React.FC = () => {
                             />
                             <Route path="/stock-view" element={<StockView />} />
                             <Route path="/sync" element={<SyncManagement />} />
+                            <Route
+                              path="/order-sync"
+                              element={<OrderInvoiceSyncPage />}
+                            />
+                            <Route
+                              path="/stock-movement-sync"
+                              element={<StockMovementSyncPage />}
+                            />
                             <Route path="/reports" element={<Reports />} />
                             {/* Admin panel - requires Admin/Manager role */}
                             <Route

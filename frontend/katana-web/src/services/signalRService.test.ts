@@ -1,3 +1,4 @@
+export {};
 
 describe("SignalR Service", () => {
   test("placeholder test", () => {

@@ -3877,3 +3877,195 @@ public class CustomerLucaSyncInfo
     public string SyncStatus => IsSynced ? "success" : (string.IsNullOrEmpty(LastSyncError) ? "pending" : "error");
 }
 
+#region Stock Transfer & Adjustment DTOs
+
+/// <summary>
+/// Luca Depo Transferi Request - EkleStkWsDtransferBaslik.do için
+/// Belge Tür Detay ID: 33 = Standart Depo Transferi
+/// </summary>
+public class LucaStockTransferRequest
+{
+    [JsonPropertyName("stkDepoTransferBaslik")]
+    public LucaTransferHeader StkDepoTransferBaslik { get; set; } = new();
+}
+
+/// <summary>
+/// Depo Transfer Başlık Bilgileri
+/// </summary>
+public class LucaTransferHeader
+{
+    [JsonPropertyName("belgeSeri")]
+    public string BelgeSeri { get; set; } = "TRF";
+
+    [JsonPropertyName("belgeNo")]
+    public long? BelgeNo { get; set; }
+
+    [JsonPropertyName("belgeTarihi")]
+    public DateTime BelgeTarihi { get; set; } = DateTime.UtcNow;
+
+    [JsonPropertyName("belgeAciklama")]
+    public string? BelgeAciklama { get; set; }
+
+    /// <summary>
+    /// Belge Türü: 33 = Standart Depo Transferi
+    /// </summary>
+    [JsonPropertyName("belgeTurDetayId")]
+    public int BelgeTurDetayId { get; set; } = 33;
+
+    /// <summary>
+    /// Çıkış Depo Kodu (Kaynak)
+    /// </summary>
+    [JsonPropertyName("cikisDepoKodu")]
+    public string CikisDepoKodu { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Giriş Depo Kodu (Hedef)
+    /// </summary>
+    [JsonPropertyName("girisDepoKodu")]
+    public string GirisDepoKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("detayList")]
+    public List<LucaStockMovementRow> DetayList { get; set; } = new();
+}
+
+/// <summary>
+/// Luca Stok Hareket Fişi (DSH) Request - EkleStkWsDshBaslik.do için
+/// Fire, Sarf, Sayım Fazlası gibi stok düzeltmeleri için kullanılır
+/// </summary>
+public class LucaStockVoucherRequest
+{
+    [JsonPropertyName("stkDshBaslik")]
+    public LucaVoucherHeader StkDshBaslik { get; set; } = new();
+}
+
+/// <summary>
+/// Stok Hareket Fişi Başlık Bilgileri
+/// </summary>
+public class LucaVoucherHeader
+{
+    [JsonPropertyName("belgeSeri")]
+    public string BelgeSeri { get; set; } = "DSH";
+
+    [JsonPropertyName("belgeNo")]
+    public long? BelgeNo { get; set; }
+
+    [JsonPropertyName("belgeTarihi")]
+    public DateTime BelgeTarihi { get; set; } = DateTime.UtcNow;
+
+    [JsonPropertyName("belgeAciklama")]
+    public string? BelgeAciklama { get; set; }
+
+    /// <summary>
+    /// Belge Türü Detay ID:
+    /// - 150: Fire Fişi (Stok Azalış)
+    /// - 151: Sayım Fazlası (Stok Artış)
+    /// - 152: Sarf Fişi
+    /// - 153: Devir Fişi
+    /// </summary>
+    [JsonPropertyName("belgeTurDetayId")]
+    public int BelgeTurDetayId { get; set; }
+
+    /// <summary>
+    /// İşlemin yapıldığı depo
+    /// </summary>
+    [JsonPropertyName("depoKodu")]
+    public string DepoKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("paraBirimKod")]
+    public string ParaBirimKod { get; set; } = "TRY";
+
+    [JsonPropertyName("detayList")]
+    public List<LucaStockMovementRow> DetayList { get; set; } = new();
+}
+
+/// <summary>
+/// Transfer ve DSH için ortak satır nesnesi
+/// </summary>
+public class LucaStockMovementRow
+{
+    /// <summary>
+    /// Kart Türü: 1 = Stok Kartı
+    /// </summary>
+    [JsonPropertyName("kartTuru")]
+    public int KartTuru { get; set; } = 1;
+
+    /// <summary>
+    /// Stok Kart Kodu (Luca'daki kod)
+    /// </summary>
+    [JsonPropertyName("kartKodu")]
+    public string KartKodu { get; set; } = string.Empty;
+
+    [JsonPropertyName("kartAdi")]
+    public string? KartAdi { get; set; }
+
+    /// <summary>
+    /// Transfer/Hareket Miktarı (Her zaman pozitif)
+    /// </summary>
+    [JsonPropertyName("miktar")]
+    public double Miktar { get; set; }
+
+    /// <summary>
+    /// Ölçü Birimi ID
+    /// </summary>
+    [JsonPropertyName("olcuBirimi")]
+    public long? OlcuBirimi { get; set; }
+
+    /// <summary>
+    /// Birim Fiyat - DSH (Adjustment) için zorunlu, Transfer için opsiyonel
+    /// </summary>
+    [JsonPropertyName("birimFiyat")]
+    public double? BirimFiyat { get; set; }
+
+    [JsonPropertyName("aciklama")]
+    public string? Aciklama { get; set; }
+
+    [JsonPropertyName("lotNo")]
+    public string? LotNo { get; set; }
+
+    [JsonPropertyName("seriNo")]
+    public string? SeriNo { get; set; }
+}
+
+/// <summary>
+/// Stok Hareketi Belge Türleri
+/// </summary>
+public static class LucaStockMovementTypes
+{
+    /// <summary>Depo Transferi</summary>
+    public const int DepoTransferi = 33;
+
+    /// <summary>Fire Fişi - Stok Azalış (Negatif Adjustment)</summary>
+    public const int FireFisi = 150;
+
+    /// <summary>Sayım Fazlası - Stok Artış (Pozitif Adjustment)</summary>
+    public const int SayimFazlasi = 151;
+
+    /// <summary>Sarf Fişi</summary>
+    public const int SarfFisi = 152;
+
+    /// <summary>Devir Fişi</summary>
+    public const int DevirFisi = 153;
+
+    /// <summary>
+    /// Miktar yönüne göre uygun belge türünü döner
+    /// </summary>
+    public static int GetAdjustmentType(double quantity, string? reason = null)
+    {
+        // Negatif = Stok Azalması
+        if (quantity < 0)
+        {
+            // Reason bazlı seçim yapılabilir
+            if (!string.IsNullOrEmpty(reason) && reason.ToLowerInvariant().Contains("sarf"))
+                return SarfFisi;
+            return FireFisi;
+        }
+
+        // Pozitif = Stok Artışı
+        if (!string.IsNullOrEmpty(reason) && reason.ToLowerInvariant().Contains("devir"))
+            return DevirFisi;
+        return SayimFazlasi;
+    }
+}
+
+#endregion
+

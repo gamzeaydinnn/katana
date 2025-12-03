@@ -3685,6 +3685,7 @@ retryChangeBranch:
 
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
+    
     public async Task<JsonElement> CreateWarehouseTransferAsync(LucaCreateWarehouseTransferRequest request)
     {
         await EnsureAuthenticatedAsync();
@@ -3699,6 +3700,118 @@ retryChangeBranch:
 
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
+    
+    /// <summary>
+    /// Luca Depo Transferi - LucaStockTransferRequest wrapper
+    /// </summary>
+    public async Task<long> CreateWarehouseTransferAsync(LucaStockTransferRequest request)
+    {
+        try
+        {
+            await EnsureAuthenticatedAsync();
+            
+            // LucaStockTransferRequest → LucaCreateWarehouseTransferRequest dönüşümü
+            var transferRequest = new LucaCreateWarehouseTransferRequest
+            {
+                BelgeTurDetayId = request.StkDepoTransferBaslik.BelgeTurDetayId,
+                BelgeSeri = request.StkDepoTransferBaslik.BelgeSeri,
+                BelgeNo = request.StkDepoTransferBaslik.BelgeNo,
+                BelgeTarihi = request.StkDepoTransferBaslik.BelgeTarihi,
+                BelgeAciklama = request.StkDepoTransferBaslik.BelgeAciklama,
+                GirisDepoKodu = request.StkDepoTransferBaslik.GirisDepoKodu,
+                CikisDepoKodu = request.StkDepoTransferBaslik.CikisDepoKodu,
+                DetayList = request.StkDepoTransferBaslik.DetayList
+                    .Select(r => new LucaWarehouseTransferDetailRequest
+                    {
+                        KartKodu = r.KartKodu,
+                        Miktar = (decimal)r.Miktar,
+                        OlcuBirimi = r.OlcuBirimi,
+                        Aciklama = r.Aciklama
+                    }).ToList()
+            };
+            
+            var result = await CreateWarehouseTransferAsync(transferRequest);
+            
+            // Response'dan ID çıkar
+            if (result.TryGetProperty("id", out var idProp) || result.TryGetProperty("ssBelgeId", out idProp))
+            {
+                return idProp.GetInt64();
+            }
+            
+            // Alternatif: data.id
+            if (result.TryGetProperty("data", out var dataProp) && dataProp.TryGetProperty("id", out idProp))
+            {
+                return idProp.GetInt64();
+            }
+            
+            _logger.LogWarning("Depo transfer response'dan ID çıkarılamadı: {Response}", result.GetRawText());
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Depo transfer oluşturma hatası");
+            throw;
+        }
+    }
+    
+    /// <summary>
+    /// Luca DSH Stok Hareketi Fişi (Fire, Sarf, Sayım Fazlası vb.)
+    /// </summary>
+    public async Task<long> CreateStockVoucherAsync(LucaStockVoucherRequest request)
+    {
+        try
+        {
+            await EnsureAuthenticatedAsync();
+            
+            // LucaStockVoucherRequest → LucaCreateDshBaslikRequest dönüşümü
+            var dshRequest = new LucaCreateDshBaslikRequest
+            {
+                BelgeSeri = request.StkDshBaslik.BelgeSeri,
+                BelgeNo = request.StkDshBaslik.BelgeNo,
+                BelgeTarihi = request.StkDshBaslik.BelgeTarihi,
+                BelgeAciklama = request.StkDshBaslik.BelgeAciklama,
+                BelgeTurDetayId = request.StkDshBaslik.BelgeTurDetayId,
+                DepoKodu = request.StkDshBaslik.DepoKodu,
+                ParaBirimKod = request.StkDshBaslik.ParaBirimKod,
+                DetayList = request.StkDshBaslik.DetayList
+                    .Select(r => new LucaCreateDshDetayRequest
+                    {
+                        KartTuru = r.KartTuru,
+                        KartKodu = r.KartKodu,
+                        KartAdi = r.KartAdi,
+                        Miktar = r.Miktar,
+                        OlcuBirimi = r.OlcuBirimi,
+                        BirimFiyat = r.BirimFiyat,
+                        Aciklama = r.Aciklama,
+                        LotNo = r.LotNo,
+                        SeriNo = r.SeriNo
+                    }).ToList()
+            };
+            
+            var result = await CreateOtherStockMovementAsync(dshRequest);
+            
+            // Response'dan ID çıkar
+            if (result.TryGetProperty("id", out var idProp) || result.TryGetProperty("ssDshBaslikId", out idProp))
+            {
+                return idProp.GetInt64();
+            }
+            
+            // Alternatif: data.id
+            if (result.TryGetProperty("data", out var dataProp) && dataProp.TryGetProperty("id", out idProp))
+            {
+                return idProp.GetInt64();
+            }
+            
+            _logger.LogWarning("DSH stok fişi response'dan ID çıkarılamadı: {Response}", result.GetRawText());
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "DSH stok fişi oluşturma hatası");
+            throw;
+        }
+    }
+    
     public async Task<JsonElement> CreateStockCountResultAsync(LucaCreateStockCountRequest request)
     {
         await EnsureAuthenticatedAsync();

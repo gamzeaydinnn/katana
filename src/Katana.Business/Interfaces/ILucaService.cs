@@ -137,6 +137,18 @@ public interface ILucaService
     Task<JsonElement> DeletePurchaseOrderDetailAsync(LucaDeletePurchaseOrderDetailRequest request);
     
     Task<JsonElement> CreateWarehouseTransferAsync(LucaCreateWarehouseTransferRequest request);
+    
+    /// <summary>
+    /// Luca Depo Transferi (Wrapper) - LucaStockTransferRequest için
+    /// </summary>
+    Task<long> CreateWarehouseTransferAsync(LucaStockTransferRequest request);
+    
+    /// <summary>
+    /// Luca DSH Stok Hareketi Fişi (Fire, Sarf, Sayım Fazlası vb.)
+    /// EkleStkWsDshBaslik.do endpoint'i
+    /// </summary>
+    Task<long> CreateStockVoucherAsync(LucaStockVoucherRequest request);
+    
     Task<JsonElement> CreateStockCountResultAsync(LucaCreateStockCountRequest request);
     Task<JsonElement> CreateWarehouseAsync(LucaCreateWarehouseRequest request);
     Task<JsonElement> CreateCreditCardEntryAsync(LucaCreateCreditCardEntryRequest request);

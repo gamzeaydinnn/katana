@@ -5,6 +5,8 @@ import {
   Inventory as InventoryIcon,
   Assessment as ReportsIcon,
   Sync as SyncIcon,
+  Receipt as ReceiptIcon,
+  CompareArrows as CompareArrowsIcon,
 } from "@mui/icons-material";
 import {
   Box,
@@ -124,6 +126,20 @@ const menuItems = [
     color: "#fa709a",
   },
   {
+    text: "Fatura Aktarımı",
+    icon: <ReceiptIcon />,
+    path: "/order-sync",
+    gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    color: "#667eea",
+  },
+  {
+    text: "Stok Hareketleri",
+    icon: <CompareArrowsIcon />,
+    path: "/stock-movement-sync",
+    gradient: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+    color: "#11998e",
+  },
+  {
     text: "Raporlar",
     icon: <ReportsIcon />,
     path: "/reports",
@@ -147,12 +163,10 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   };
 
   const handleAdminClick = () => {
-    
     const token = localStorage.getItem("authToken");
     if (token) {
       navigate("/admin");
     } else {
-      
       navigate("/login");
     }
     if (isMobile) {
