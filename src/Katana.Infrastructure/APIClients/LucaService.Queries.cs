@@ -2056,6 +2056,21 @@ public partial class LucaService
         if (string.IsNullOrWhiteSpace(sku))
             return null;
 
+        // 🔥 CACHE KONTROLÜ: Aynı session'da tekrar sorgulamayı önle
+        await _stockCardCacheLock.WaitAsync();
+        try
+        {
+            if (_stockCardCache.TryGetValue(sku, out var cachedId))
+            {
+                _logger.LogDebug("🔄 Cache HIT: {SKU} → {Id}", sku, cachedId);
+                return cachedId;
+            }
+        }
+        finally
+        {
+            _stockCardCacheLock.Release();
+        }
+
         try
         {
             _logger.LogDebug("🔍 Luca'da stok kartı aranıyor: {SKU}", sku);
@@ -2121,6 +2136,18 @@ public partial class LucaService
                                 if (skartId.HasValue)
                                 {
                                     _logger.LogInformation("✅ Stok kartı bulundu: {SKU} → skartId: {SkartId}", sku, skartId.Value);
+                                    
+                                    // ✅ Cache'e ekle
+                                    await _stockCardCacheLock.WaitAsync();
+                                    try
+                                    {
+                                        _stockCardCache[sku] = skartId;
+                                    }
+                                    finally
+                                    {
+                                        _stockCardCacheLock.Release();
+                                    }
+                                    
                                     return skartId;
                                 }
                             }
@@ -2130,6 +2157,18 @@ public partial class LucaService
             }
 
             _logger.LogInformation("ℹ️ Stok kartı bulunamadı: {SKU}", sku);
+            
+            // ✅ Bulunamayan kartları da cache'e ekle (tekrar sorgulamayı önle)
+            await _stockCardCacheLock.WaitAsync();
+            try
+            {
+                _stockCardCache[sku] = null;
+            }
+            finally
+            {
+                _stockCardCacheLock.Release();
+            }
+            
             return null;
         }
         catch (Exception ex)

@@ -152,6 +152,10 @@ namespace Katana.API.Controllers
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
             };
             var client = new HttpClient(handler);
+            // Apply timeout from settings (default 180 seconds for LUCA)
+            var timeoutSeconds = _settings.TimeoutSeconds > 0 ? _settings.TimeoutSeconds : 180;
+            client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+            _logger.LogDebug("LucaProxy Login: HttpClient timeout set to {TimeoutSeconds} seconds", timeoutSeconds);
             // Allow callers to provide credentials in the request body. If provided, prefer them;
             // otherwise fall back to configured settings.
             string orgCodeVal = _settings.MemberNumber ?? string.Empty;
@@ -183,42 +187,65 @@ namespace Katana.API.Controllers
 
             _logger.LogDebug("LucaProxy: Sending login request to {Url}. Payload preview: {PayloadPreview}", requestUrl, payloadJson?.Length > 1000 ? payloadJson.Substring(0, 1000) + "..." : payloadJson);
 
-            var response = await client.SendAsync(request);
-            var responseContent = await response.Content.ReadAsStringAsync();
-
-            var respPreview = responseContent != null && responseContent.Length > 1000 ? responseContent.Substring(0, 1000) + "..." : responseContent;
-            _logger.LogDebug("LucaProxy: Received response from {Url}. Status: {Status}. Body preview: {Preview}", requestUrl, response.StatusCode, respPreview);
-
-            
-            object? parsed = null;
             try
             {
-                if (!string.IsNullOrEmpty(responseContent))
-                    parsed = JsonSerializer.Deserialize<object>(responseContent);
-            }
-            catch {  }
+                var response = await client.SendAsync(request);
+                var responseContent = await response.Content.ReadAsStringAsync();
 
-            
-            
-            
-            try
-            {
-                if (parsed is JsonElement el && el.ValueKind == JsonValueKind.Object)
+                var respPreview = responseContent != null && responseContent.Length > 1000 ? responseContent.Substring(0, 1000) + "..." : responseContent;
+                _logger.LogDebug("LucaProxy: Received response from {Url}. Status: {Status}. Body preview: {Preview}", requestUrl, response.StatusCode, respPreview);
+
+                
+                object? parsed = null;
+                try
                 {
-                    if (el.TryGetProperty("code", out var codeProp) && codeProp.ValueKind == JsonValueKind.Number && codeProp.GetInt32() != 0)
+                    if (!string.IsNullOrEmpty(responseContent))
+                        parsed = JsonSerializer.Deserialize<object>(responseContent);
+                }
+                catch {  }
+
+                
+                
+                
+                try
+                {
+                    if (parsed is JsonElement el && el.ValueKind == JsonValueKind.Object)
                     {
-                        var msg = el.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() : "Login failed";
-                        _logger.LogWarning("LucaProxy: Login returned code {Code}: {Message}", codeProp.GetInt32(), msg);
-                        return Unauthorized(new { raw = parsed, sessionId, message = msg });
+                        if (el.TryGetProperty("code", out var codeProp) && codeProp.ValueKind == JsonValueKind.Number && codeProp.GetInt32() != 0)
+                        {
+                            var msg = el.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() : "Login failed";
+                            _logger.LogWarning("LucaProxy: Login returned code {Code}: {Message}", codeProp.GetInt32(), msg);
+                            return Unauthorized(new { raw = parsed, sessionId, message = msg });
+                        }
                     }
                 }
+                catch { }
+
+                if (response.IsSuccessStatusCode)
+                    return Ok(new { raw = parsed, sessionId });
+
+                return StatusCode((int)response.StatusCode, new { raw = parsed, sessionId });
             }
-            catch { }
-
-            if (response.IsSuccessStatusCode)
-                return Ok(new { raw = parsed, sessionId });
-
-            return StatusCode((int)response.StatusCode, new { raw = parsed, sessionId });
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogError(ex, "LucaProxy Login: Request timeout after {TimeoutSeconds} seconds to {Url}. LUCA server may be unavailable or slow.", timeoutSeconds, requestUrl);
+                return StatusCode(504, new { 
+                    sessionId, 
+                    message = $"LUCA API zaman aşımına uğradı. Sunucu {timeoutSeconds} saniye içinde yanıt vermedi.",
+                    error = "Gateway Timeout",
+                    details = "akozas.luca.com.tr:443 ile bağlantı kurulamadı"
+                });
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "LucaProxy Login: Network error connecting to {Url}", requestUrl);
+                return StatusCode(503, new { 
+                    sessionId, 
+                    message = "LUCA API ağ hatası. Lütfen daha sonra tekrar deneyin.",
+                    error = "Service Unavailable",
+                    details = ex.Message
+                });
+            }
         }
 
 
@@ -238,6 +265,9 @@ namespace Katana.API.Controllers
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
             };
             var client = new HttpClient(handler);
+            var timeoutSeconds = _settings.TimeoutSeconds > 0 ? _settings.TimeoutSeconds : 180;
+            client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+            _logger.LogDebug("LucaProxy Branches: HttpClient timeout set to {TimeoutSeconds} seconds", timeoutSeconds);
             var requestUrl = $"{_lucaBaseUrl}/{_settings.Endpoints.Branches}";
             var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
             request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
@@ -245,54 +275,74 @@ namespace Katana.API.Controllers
 
             _logger.LogDebug("LucaProxy: Sending branches request to {Url}", requestUrl);
 
-            var response = await client.SendAsync(request);
-            var responseContent = await response.Content.ReadAsStringAsync();
-
-            var respPreview = responseContent != null && responseContent.Length > 1000 ? responseContent.Substring(0, 1000) + "..." : responseContent;
-            _logger.LogDebug("LucaProxy: Branches response from {Url}. Status: {Status}. Body preview: {Preview}", requestUrl, response.StatusCode, respPreview);
-
-            _logger.LogInformation("Luca /branches raw response: {Length} chars, status: {Status}", responseContent?.Length ?? 0, response.StatusCode);
-            
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogWarning("Luca /branches non-success response: {Status}. Body: {Body}", response.StatusCode, responseContent);
-                return StatusCode((int)response.StatusCode, new { raw = responseContent, status = (int)response.StatusCode, message = "Luca API error" });
-            }
-
-            
-            if ((responseContent?.Length ?? 0) < 200)
-            {
-                _logger.LogWarning("Luca /branches suspiciously short response ({Length} chars): {Body}", responseContent?.Length ?? 0, responseContent);
-            }
-
             try
             {
-                using var doc = JsonDocument.Parse(responseContent ?? "null");
-                var root = doc.RootElement;
+                var response = await client.SendAsync(request);
+                var responseContent = await response.Content.ReadAsStringAsync();
 
-                JsonElement? foundArray = null;
-                if (root.ValueKind == JsonValueKind.Array) foundArray = root;
-                else if (root.TryGetProperty("list", out var list) && list.ValueKind == JsonValueKind.Array) foundArray = list;
-                else if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array) foundArray = data;
-                else if (root.TryGetProperty("branches", out var branches) && branches.ValueKind == JsonValueKind.Array) foundArray = branches;
-                else if (root.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array) foundArray = items;
+                var respPreview = responseContent != null && responseContent.Length > 1000 ? responseContent.Substring(0, 1000) + "..." : responseContent;
+                _logger.LogDebug("LucaProxy: Branches response from {Url}. Status: {Status}. Body preview: {Preview}", requestUrl, response.StatusCode, respPreview);
 
-                if (foundArray.HasValue)
+                _logger.LogInformation("Luca /branches raw response: {Length} chars, status: {Status}", responseContent?.Length ?? 0, response.StatusCode);
+                
+                if (!response.IsSuccessStatusCode)
                 {
-                    
-                    
-                    var branchesObj = JsonSerializer.Deserialize<object>(foundArray.Value.GetRawText());
-                    var rawObj = JsonSerializer.Deserialize<object>(responseContent ?? "null");
-                    return Ok(new { branches = branchesObj, raw = rawObj });
+                    _logger.LogWarning("Luca /branches non-success response: {Status}. Body: {Body}", response.StatusCode, responseContent);
+                    return StatusCode((int)response.StatusCode, new { raw = responseContent, status = (int)response.StatusCode, message = "Luca API error" });
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to parse Luca branches response");
-            }
 
-            
-            return StatusCode((int)response.StatusCode, new { raw = responseContent, status = (int)response.StatusCode });
+                
+                if ((responseContent?.Length ?? 0) < 200)
+                {
+                    _logger.LogWarning("Luca /branches suspiciously short response ({Length} chars): {Body}", responseContent?.Length ?? 0, responseContent);
+                }
+
+                try
+                {
+                    using var doc = JsonDocument.Parse(responseContent ?? "null");
+                    var root = doc.RootElement;
+
+                    JsonElement? foundArray = null;
+                    if (root.ValueKind == JsonValueKind.Array) foundArray = root;
+                    else if (root.TryGetProperty("list", out var list) && list.ValueKind == JsonValueKind.Array) foundArray = list;
+                    else if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array) foundArray = data;
+                    else if (root.TryGetProperty("branches", out var branches) && branches.ValueKind == JsonValueKind.Array) foundArray = branches;
+                    else if (root.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array) foundArray = items;
+
+                    if (foundArray.HasValue)
+                    {
+                        
+                        
+                        var branchesObj = JsonSerializer.Deserialize<object>(foundArray.Value.GetRawText());
+                        var rawObj = JsonSerializer.Deserialize<object>(responseContent ?? "null");
+                        return Ok(new { branches = branchesObj, raw = rawObj });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse Luca branches response");
+                }
+
+                
+                return StatusCode((int)response.StatusCode, new { raw = responseContent, status = (int)response.StatusCode });
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogError(ex, "LucaProxy Branches: Request timeout after {TimeoutSeconds} seconds to {Url}.", timeoutSeconds, requestUrl);
+                return StatusCode(504, new { 
+                    message = $"LUCA /branches zaman aşımına uğradı ({timeoutSeconds}s)",
+                    error = "Gateway Timeout"
+                });
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "LucaProxy Branches: Network error connecting to {Url}", requestUrl);
+                return StatusCode(503, new { 
+                    message = "LUCA /branches ağ hatası",
+                    error = "Service Unavailable",
+                    details = ex.Message
+                });
+            }
         }
 
         [HttpPost("select-branch")]
@@ -311,6 +361,9 @@ namespace Katana.API.Controllers
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
             };
             var client = new HttpClient(handler);
+            var timeoutSeconds = _settings.TimeoutSeconds > 0 ? _settings.TimeoutSeconds : 180;
+            client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+            _logger.LogDebug("LucaProxy SelectBranch: HttpClient timeout set to {TimeoutSeconds} seconds", timeoutSeconds);
             var requestUrl = $"{_lucaBaseUrl}/{_settings.Endpoints.ChangeBranch}";
             var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
             var bodyStr = body.ToString();
@@ -319,12 +372,32 @@ namespace Katana.API.Controllers
 
             _logger.LogDebug("LucaProxy: Sending select-branch request to {Url}. Payload preview: {PayloadPreview}", requestUrl, bodyStr?.Length > 1000 ? bodyStr.Substring(0, 1000) + "..." : bodyStr);
 
-            var response = await client.SendAsync(request);
-            var responseContent = await response.Content.ReadAsStringAsync();
-            var respPreview = responseContent != null && responseContent.Length > 1000 ? responseContent.Substring(0, 1000) + "..." : responseContent;
-            _logger.LogDebug("LucaProxy: Select-branch response from {Url}. Status: {Status}. Body preview: {Preview}", requestUrl, response.StatusCode, respPreview);
+            try
+            {
+                var response = await client.SendAsync(request);
+                var responseContent = await response.Content.ReadAsStringAsync();
+                var respPreview = responseContent != null && responseContent.Length > 1000 ? responseContent.Substring(0, 1000) + "..." : responseContent;
+                _logger.LogDebug("LucaProxy: Select-branch response from {Url}. Status: {Status}. Body preview: {Preview}", requestUrl, response.StatusCode, respPreview);
 
-            return await ForwardResponse(response);
+                return await ForwardResponse(response);
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogError(ex, "LucaProxy SelectBranch: Request timeout after {TimeoutSeconds} seconds to {Url}.", timeoutSeconds, requestUrl);
+                return StatusCode(504, new { 
+                    message = $"LUCA /select-branch zaman aşımına uğradı ({timeoutSeconds}s)",
+                    error = "Gateway Timeout"
+                });
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "LucaProxy SelectBranch: Network error connecting to {Url}", requestUrl);
+                return StatusCode(503, new { 
+                    message = "LUCA /select-branch ağ hatası",
+                    error = "Service Unavailable",
+                    details = ex.Message
+                });
+            }
         }
 
         [HttpPost("sync-products")]
@@ -371,6 +444,9 @@ namespace Katana.API.Controllers
                     AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
                 };
                 using var client = new HttpClient(handler);
+                var timeoutSeconds = _settings.TimeoutSeconds > 0 ? _settings.TimeoutSeconds : 180;
+                client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+                _logger.LogDebug("LucaProxy AutoLogin: HttpClient timeout set to {TimeoutSeconds} seconds", timeoutSeconds);
 
                 var payload = new
                 {
@@ -424,6 +500,10 @@ namespace Katana.API.Controllers
                 };
 
                 using var client = new HttpClient(handler);
+                var timeoutSeconds = _settings.TimeoutSeconds > 0 ? _settings.TimeoutSeconds : 180;
+                client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+                _logger.LogDebug("LucaProxy EnsureBranch: HttpClient timeout set to {TimeoutSeconds} seconds", timeoutSeconds);
+                
                 var payload = new { orgSirketSubeId = preferredBranchId.Value };
                 var payloadJson = JsonSerializer.Serialize(payload);
 

@@ -33,6 +33,10 @@ public class LucaApiSettings
     public long DefaultKartTipi { get; set; } = 4;
     public string DefaultKategoriKodu { get; set; } = "001";
     
+    // 🔥 Kategori Mapping: Katana category_name → Luca KategoriAgacKod
+    // Örnek: "1MAMUL" → "001", "3YARI MAMUL" → "220"
+    public Dictionary<string, string> CategoryMapping { get; set; } = new();
+    
     // No-Paging header'ı kullanılsın mı? (Performans için kapatılabilir)
     public bool UseNoPagingHeader { get; set; } = false;
 

@@ -384,6 +384,172 @@ public class OrderInvoiceSyncController : ControllerBase
     }
 
     #endregion
+
+    #region Validation & Diagnostics
+
+    /// <summary>
+    /// Fatura/Sipariş senkronizasyon durumunu doğrular.
+    /// Katana'dan gönderilen siparişlerin Luca'da olup olmadığını kontrol eder.
+    /// </summary>
+    [HttpGet("validate")]
+    public async Task<IActionResult> ValidateOrderSync()
+    {
+        try
+        {
+            var validation = new OrderSyncValidationDto();
+
+            // 1. Tüm siparişler ve mapping durumu
+            var ordersWithMapping = await _context.Orders
+                .Where(o => o.Status == OrderStatus.Processing || 
+                           o.Status == OrderStatus.Delivered || 
+                           o.Status == OrderStatus.Shipped)
+                .GroupJoin(
+                    _context.OrderMappings,
+                    o => o.Id,
+                    om => om.OrderId,
+                    (o, mappings) => new { Order = o, Mappings = mappings })
+                .SelectMany(
+                    x => x.Mappings.DefaultIfEmpty(),
+                    (x, mapping) => new OrderValidationItemDto
+                    {
+                        OrderId = x.Order.Id,
+                        OrderNo = x.Order.OrderNo,
+                        OrderDate = x.Order.OrderDate,
+                        Status = x.Order.Status.ToString(),
+                        TotalAmount = x.Order.TotalAmount,
+                        IsSynced = x.Order.IsSynced,
+                        LucaInvoiceId = mapping != null ? (long?)mapping.LucaInvoiceId : null,
+                        EntityType = mapping != null ? mapping.EntityType : null,
+                        MappingCreatedAt = mapping != null ? (DateTime?)mapping.CreatedAt : null,
+                        ValidationStatus = mapping != null && mapping.LucaInvoiceId > 0 
+                            ? "✅ VAR" 
+                            : x.Order.IsSynced 
+                                ? "⚠️ SYNC FLAG VAR AMA MAPPING YOK" 
+                                : "❌ YOK"
+                    })
+                .OrderByDescending(x => x.OrderDate)
+                .Take(100)
+                .ToListAsync();
+
+            validation.Orders = ordersWithMapping;
+
+            // 2. Sync edilmiş ama mapping olmayan siparişler (SORUNLU)
+            var problematicOrders = await _context.Orders
+                .Where(o => o.IsSynced)
+                .Where(o => !_context.OrderMappings.Any(om => om.OrderId == o.Id))
+                .Select(o => new ProblematicOrderDto
+                {
+                    OrderId = o.Id,
+                    OrderNo = o.OrderNo,
+                    OrderDate = o.OrderDate,
+                    Status = o.Status.ToString(),
+                    UpdatedAt = o.UpdatedAt
+                })
+                .ToListAsync();
+
+            validation.ProblematicOrders = problematicOrders;
+
+            // 3. İstatistikler
+            var totalOrders = await _context.Orders
+                .Where(o => o.Status == OrderStatus.Processing || 
+                           o.Status == OrderStatus.Delivered || 
+                           o.Status == OrderStatus.Shipped)
+                .CountAsync();
+
+            var syncedOrders = await _context.Orders
+                .Where(o => o.IsSynced)
+                .CountAsync();
+
+            var mappedOrders = await _context.OrderMappings
+                .Select(om => om.OrderId)
+                .Distinct()
+                .CountAsync();
+
+            var problematicCount = await _context.Orders
+                .Where(o => o.IsSynced)
+                .Where(o => !_context.OrderMappings.Any(om => om.OrderId == o.Id))
+                .CountAsync();
+
+            validation.Statistics = new SyncStatisticsDto
+            {
+                TotalOrders = totalOrders,
+                SyncedOrders = syncedOrders,
+                MappedOrders = mappedOrders,
+                ProblematicOrders = problematicCount,
+                SuccessRate = totalOrders > 0 ? (double)mappedOrders / totalOrders * 100 : 0
+            };
+
+            // 4. Entity type dağılımı
+            var entityTypeDistribution = await _context.OrderMappings
+                .GroupBy(om => om.EntityType)
+                .Select(g => new EntityTypeDistributionDto
+                {
+                    EntityType = g.Key,
+                    Count = g.Count(),
+                    FirstSync = g.Min(x => x.CreatedAt),
+                    LastSync = g.Max(x => x.CreatedAt)
+                })
+                .ToListAsync();
+
+            validation.EntityTypeDistribution = entityTypeDistribution;
+
+            // 5. Son sync logları (SyncOperationLogs tablosundan)
+            var recentLogs = await _context.SyncOperationLogs
+                .Where(sl => sl.SyncType.Contains("ORDER") || 
+                            sl.SyncType.Contains("INVOICE"))
+                .OrderByDescending(sl => sl.StartTime)
+                .Take(20)
+                .Select(sl => new SyncLogItemDto
+                {
+                    Id = sl.Id,
+                    IntegrationName = sl.SyncType,
+                    CreatedAt = sl.StartTime,
+                    IsSuccess = sl.Status == "SUCCESS",
+                    Details = sl.Details
+                })
+                .ToListAsync();
+
+            validation.RecentLogs = recentLogs;
+
+            return Ok(new { success = true, data = validation });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error validating order sync");
+            return StatusCode(500, new { success = false, message = "Doğrulama yapılamadı", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Duplicate mapping kontrolü - Aynı order için birden fazla mapping var mı?
+    /// </summary>
+    [HttpGet("validate/duplicates")]
+    public async Task<IActionResult> CheckDuplicateMappings()
+    {
+        try
+        {
+            var duplicates = await _context.OrderMappings
+                .GroupBy(om => om.OrderId)
+                .Where(g => g.Count() > 1)
+                .Select(g => new
+                {
+                    OrderId = g.Key,
+                    MappingCount = g.Count(),
+                    LucaInvoiceIds = g.Select(x => x.LucaInvoiceId).ToList(),
+                    EntityTypes = g.Select(x => x.EntityType).ToList()
+                })
+                .ToListAsync();
+
+            return Ok(new { success = true, duplicateCount = duplicates.Count, duplicates });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking duplicate mappings");
+            return StatusCode(500, new { success = false, message = "Duplicate kontrolü yapılamadı" });
+        }
+    }
+
+    #endregion
 }
 
 #region Request/Response DTOs
@@ -412,6 +578,64 @@ public class BatchSyncRequest
 public class CloseInvoiceRequest
 {
     public decimal Amount { get; set; }
+}
+
+public class OrderSyncValidationDto
+{
+    public List<OrderValidationItemDto> Orders { get; set; } = new();
+    public List<ProblematicOrderDto> ProblematicOrders { get; set; } = new();
+    public SyncStatisticsDto Statistics { get; set; } = new();
+    public List<EntityTypeDistributionDto> EntityTypeDistribution { get; set; } = new();
+    public List<SyncLogItemDto> RecentLogs { get; set; } = new();
+}
+
+public class OrderValidationItemDto
+{
+    public int OrderId { get; set; }
+    public string OrderNo { get; set; } = string.Empty;
+    public DateTime OrderDate { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public decimal TotalAmount { get; set; }
+    public bool IsSynced { get; set; }
+    public long? LucaInvoiceId { get; set; }
+    public string? EntityType { get; set; }
+    public DateTime? MappingCreatedAt { get; set; }
+    public string ValidationStatus { get; set; } = string.Empty;
+}
+
+public class ProblematicOrderDto
+{
+    public int OrderId { get; set; }
+    public string OrderNo { get; set; } = string.Empty;
+    public DateTime OrderDate { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public class SyncStatisticsDto
+{
+    public int TotalOrders { get; set; }
+    public int SyncedOrders { get; set; }
+    public int MappedOrders { get; set; }
+    public int ProblematicOrders { get; set; }
+    public double SuccessRate { get; set; }
+}
+
+public class EntityTypeDistributionDto
+{
+    public string EntityType { get; set; } = string.Empty;
+    public int Count { get; set; }
+    public DateTime FirstSync { get; set; }
+    public DateTime LastSync { get; set; }
+}
+
+public class SyncLogItemDto
+{
+    public int Id { get; set; }
+    public string IntegrationName { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public bool IsSuccess { get; set; }
+    public string? Details { get; set; }
 }
 
 #endregion

@@ -1668,10 +1668,22 @@ public partial class LucaService
     }
     public async Task<SyncResultDto> SendStockCardsAsync(List<LucaCreateStokKartiRequest> stockCards)
     {
+        // 🔥 DE-DUPLICATION: Aynı KartKodu'dan birden fazla varsa temizle
+        var uniqueCards = stockCards
+            .GroupBy(c => c.KartKodu)
+            .Select(g => g.First())
+            .ToList();
+
+        if (uniqueCards.Count < stockCards.Count)
+        {
+            _logger.LogWarning("⚠️ Duplicate KartKodu temizlendi: {Before} → {After}", 
+                stockCards.Count, uniqueCards.Count);
+        }
+        
         var result = new SyncResultDto
         {
             SyncType = "PRODUCT_STOCK_CARD",
-            ProcessedRecords = stockCards.Count
+            ProcessedRecords = uniqueCards.Count
         };
 
         var startTime = DateTime.UtcNow;
@@ -1691,14 +1703,14 @@ public partial class LucaService
             await EnsureBranchSelectedAsync();
             await VerifyBranchSelectionAsync();
             _logger.LogWarning(">>> USING SAFE PER-PRODUCT FLOW WITH UPSERT LOGIC <<<");
-            _logger.LogInformation("Sending {Count} stock cards to Luca (Koza) with batch size {BatchSize}", stockCards.Count, batchSize);
+            _logger.LogInformation("Sending {Count} stock cards to Luca (Koza) with batch size {BatchSize}", uniqueCards.Count, batchSize);
 
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
             var endpoint = _settings.Endpoints.StockCardCreate;
             var enc1254 = Encoding.GetEncoding(1254);
             
-            // Batch işleme
-            var batches = stockCards
+            // Batch işleme (uniqueCards kullan)
+            var batches = uniqueCards
                 .Select((card, index) => new { card, index })
                 .GroupBy(x => x.index / batchSize)
                 .Select(g => g.Select(x => x.card).ToList())
@@ -1726,7 +1738,8 @@ public partial class LucaService
                         
                         if (!hasChanges)
                         {
-                            _logger.LogInformation("✓ Stok kartı '{KartKodu}' zaten mevcut ve değişiklik yok, atlanıyor", card.KartKodu);
+                            _logger.LogInformation("⏭️ SKIP: {SKU} zaten Luca'da var (skartId: {Id}), değişiklik yok", 
+                                card.KartKodu, existingSkartId.Value);
                             skippedCount++;
                             duplicateCount++;
                             continue;
@@ -1734,7 +1747,8 @@ public partial class LucaService
                         else
                         {
                             // Değişiklik var ama Luca güncelleme desteklemiyor
-                            _logger.LogWarning("⚠ Stok kartı '{KartKodu}' değişiklik tespit edildi ancak Luca API güncelleme desteklemiyor. Mevcut kayıt korunuyor.", card.KartKodu);
+                            _logger.LogWarning("⏭️ SKIP: {SKU} zaten Luca'da var (skartId: {Id}), değişiklik tespit edildi ancak Luca API güncelleme desteklemiyor", 
+                                card.KartKodu, existingSkartId.Value);
                             skippedCount++;
                             duplicateCount++;
                             continue;
@@ -2017,28 +2031,48 @@ public partial class LucaService
                         continue;
                     }
                     // 🔥 Postman örneğine göre başarılı response: {"skartId": 79409, "error": false, "message": "..."}
+                    long? newSkartId = null;
                     if (parsedSuccessfully && parsedResponse.ValueKind == JsonValueKind.Object)
                     {
                         // Format 1: {"skartId": 79409, "error": false, "message": "..."}
                         if (parsedResponse.TryGetProperty("skartId", out var skartIdProp) && 
                             skartIdProp.ValueKind == JsonValueKind.Number)
                         {
-                            var skartId = skartIdProp.GetInt64();
+                            newSkartId = skartIdProp.GetInt64();
                             var message = parsedResponse.TryGetProperty("message", out var msgProp) && msgProp.ValueKind == JsonValueKind.String
                                 ? msgProp.GetString() : "Başarılı";
                             _logger.LogInformation("✅ Stock card {Card} created with skartId={SkartId}. Message: {Message}", 
-                                card.KartKodu, skartId, message);
+                                card.KartKodu, newSkartId, message);
                         }
                         // Format 2: {"stkSkart": {"skartId": ...}}
                         else if (parsedResponse.TryGetProperty("stkSkart", out var skartEl) &&
                             skartEl.ValueKind == JsonValueKind.Object &&
                             skartEl.TryGetProperty("skartId", out var idEl))
                         {
+                            if (idEl.ValueKind == JsonValueKind.Number)
+                            {
+                                newSkartId = idEl.GetInt64();
+                            }
                             _logger.LogInformation("✅ Stock card {Card} created with ID {Id}", card.KartKodu, idEl.ToString());
                         }
                         else
                         {
                             _logger.LogInformation("✅ Stock card {Card} created (response format unknown)", card.KartKodu);
+                        }
+                    }
+
+                    // ✅ Gönderilen kartı cache'e ekle (tekrar sorgulamayı önle)
+                    if (newSkartId.HasValue)
+                    {
+                        await _stockCardCacheLock.WaitAsync();
+                        try
+                        {
+                            _stockCardCache[card.KartKodu] = newSkartId.Value;
+                            _logger.LogDebug("🔄 Cache'e eklendi: {SKU} → {Id}", card.KartKodu, newSkartId.Value);
+                        }
+                        finally
+                        {
+                            _stockCardCacheLock.Release();
                         }
                     }
 

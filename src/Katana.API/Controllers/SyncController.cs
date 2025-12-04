@@ -284,6 +284,81 @@ public class SyncController : ControllerBase
     
     
     
+    [HttpPost("suppliers")]
+    public async Task<ActionResult<SyncResultDto>> SyncSuppliers()
+    {
+        try
+        {
+            _logger.LogInformation("API üzerinden Katana → Koza tedarikçi senkronizasyonu tetiklendi");
+            var result = await _syncService.SyncSuppliersToKozaAsync();
+            
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            
+            return BadRequest(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Tedarikçi senkronizasyonu çalıştırılırken hata oluştu");
+            return StatusCode(500, new { error = "Sunucu hata verdi: tedarikçi senkronizasyonu sırasında" });
+        }
+    }
+
+    
+    
+    
+    [HttpPost("warehouses")]
+    public async Task<ActionResult<SyncResultDto>> SyncWarehouses()
+    {
+        try
+        {
+            _logger.LogInformation("API üzerinden Katana → Koza depo senkronizasyonu tetiklendi");
+            var result = await _syncService.SyncWarehousesToKozaAsync();
+            
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            
+            return BadRequest(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Depo senkronizasyonu çalıştırılırken hata oluştu");
+            return StatusCode(500, new { error = "Sunucu hata verdi: depo senkronizasyonu sırasında" });
+        }
+    }
+
+    
+    
+    
+    [HttpPost("customers-luca")]
+    public async Task<ActionResult<SyncResultDto>> SyncCustomersLuca()
+    {
+        try
+        {
+            _logger.LogInformation("API üzerinden Katana → Luca müşteri (cari) senkronizasyonu tetiklendi");
+            var result = await _syncService.SyncCustomersToLucaAsync();
+            
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            
+            return BadRequest(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Müşteri (cari) senkronizasyonu çalıştırılırken hata oluştu");
+            return StatusCode(500, new { error = "Sunucu hata verdi: müşteri senkronizasyonu sırasında" });
+        }
+    }
+
+    
+    
+    
     [HttpGet("status")]
     [AllowAnonymous] 
     public async Task<ActionResult<List<SyncStatusDto>>> GetSyncStatus()

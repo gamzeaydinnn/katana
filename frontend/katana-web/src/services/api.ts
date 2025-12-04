@@ -333,6 +333,9 @@ export const stockAPI = {
       ALL: "/Sync/run",
       STOCK_CARD: "/Sync/to-luca/stock-cards",
       PRODUCT: "/Sync/to-luca/stock-cards",
+      SUPPLIER: "/Sync/suppliers",
+      WAREHOUSE: "/Sync/warehouses",
+      CUSTOMER_LUCA: "/Sync/customers-luca",
     };
     
     const endpoint = endpointMap[syncType] || "/Sync/to-luca/stock-cards";

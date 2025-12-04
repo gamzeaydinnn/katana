@@ -45,6 +45,10 @@ public partial class LucaService : ILucaService
     private bool _isCookieAuthenticated = false;
     private DateTime? _lastSuccessfulAuthAt = null;
     private static readonly System.Threading.SemaphoreSlim _loginSemaphore = new System.Threading.SemaphoreSlim(1, 1);
+    
+    // 🔥 CACHE: Duplicate stok kartı sorunu için in-memory cache
+    private readonly Dictionary<string, long?> _stockCardCache = new();
+    private readonly SemaphoreSlim _stockCardCacheLock = new(1, 1);
     private static readonly Dictionary<long, (int ExpectedCariTur, string ErrorMessage)> FaturaKapamaCariRules =
         new()
         {

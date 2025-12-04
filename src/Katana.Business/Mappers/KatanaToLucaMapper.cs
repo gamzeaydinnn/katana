@@ -378,12 +378,25 @@ public static class KatanaToLucaMapper
         string? category = null;
         var rawCategory = !string.IsNullOrWhiteSpace(product.Category) ? product.Category : null;
 
+        // 🔥 ÖNCE: Database mapping tablosundan kontrol et (productCategoryMappings)
         if (productCategoryMappings != null && !string.IsNullOrWhiteSpace(rawCategory))
         {
             var lookupKey = NormalizeMappingKey(rawCategory);
             if (productCategoryMappings.TryGetValue(lookupKey, out var mapped) && !string.IsNullOrWhiteSpace(mapped))
             {
                 category = mapped;
+            }
+        }
+
+        // 🔥 SONRA: appsettings.json CategoryMapping'den kontrol et (fallback)
+        if (string.IsNullOrWhiteSpace(category) && !string.IsNullOrWhiteSpace(rawCategory))
+        {
+            var lookupKey = NormalizeMappingKey(rawCategory);
+            if (lucaSettings.CategoryMapping != null && 
+                lucaSettings.CategoryMapping.TryGetValue(lookupKey, out var configMapped) && 
+                !string.IsNullOrWhiteSpace(configMapped))
+            {
+                category = configMapped;
             }
         }
 
@@ -410,8 +423,18 @@ public static class KatanaToLucaMapper
                 }
                 else
                 {
-                    // rawCategory is a NAME (like "3YARI MAMUL") - NEVER use it as code!
-                    category = null;
+                    // rawCategory is a NAME (like "3YARI MAMUL") - Try appsettings fallback first
+                    if (lucaSettings.CategoryMapping != null && 
+                        lucaSettings.CategoryMapping.TryGetValue("default", out var defaultCategory) && 
+                        !string.IsNullOrWhiteSpace(defaultCategory))
+                    {
+                        category = defaultCategory;
+                    }
+                    else
+                    {
+                        // Last resort: use DefaultKategoriKodu
+                        category = null;
+                    }
                 }
             }
             else if (!string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu) &&
