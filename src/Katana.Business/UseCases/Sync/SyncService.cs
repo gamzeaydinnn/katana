@@ -138,12 +138,15 @@ public class SyncService : ISyncService
         var lucaStockCards = await _lucaService.ListStockCardsAsync();
         var lucaStockCardsList = lucaStockCards.ToList();
 
+        // Load PRODUCT_CATEGORY mappings for change detection
+        var categoryMappingsForDetection = await GetMappingDictionaryAsync("PRODUCT_CATEGORY", CancellationToken.None);
+
         // Değişiklik tespiti: Luca'da güncelleme yapılamadığı için değişen ürünler de yeni stok kartı olarak oluşturulacak
         var productChanges = katanaProducts
             .Select(p => new
             {
                 Product = p,
-                ChangeInfo = DetectProductChanges(p, FindLucaMatch(lucaStockCardsList, NormalizeSku(p), p.Barcode, options.PreferBarcodeMatch))
+                ChangeInfo = DetectProductChanges(p, FindLucaMatch(lucaStockCardsList, NormalizeSku(p), p.Barcode, options.PreferBarcodeMatch), categoryMappingsForDetection)
             })
             .ToList();
 
@@ -709,9 +712,10 @@ public class SyncService : ISyncService
     /// Katana ürünü ile Luca stok kartı arasındaki değişiklikleri tespit eder.
     /// Luca'da güncelleme yapılamadığı için değişiklik varsa yeni stok kartı oluşturulması gerekir.
     /// </summary>
-    private static ProductChangeInfo DetectProductChanges(
+    private ProductChangeInfo DetectProductChanges(
         KatanaProductDto katanaProduct,
-        LucaStockCardSummaryDto? lucaCard)
+        LucaStockCardSummaryDto? lucaCard,
+        IReadOnlyDictionary<string, string>? categoryMappings = null)
     {
         var changes = new ProductChangeInfo
         {
@@ -762,15 +766,15 @@ public class SyncService : ISyncService
             changeReasons.Add($"Fiyat: {lucaPrice:N2} -> {katanaPrice:N2}");
         }
 
-        // Kategori değişikliği kontrolü
-        var katanaCategory = katanaProduct.Category?.Trim() ?? string.Empty;
+        // Kategori değişikliği kontrolü - Mapping ile tree code karşılaştırması
+        var katanaCategoryTreeCode = GetCategoryTreeCode(katanaProduct.Category, categoryMappings);
         var lucaCategory = lucaCard.KategoriKodu?.Trim() ?? string.Empty;
-        if (!string.IsNullOrEmpty(katanaCategory) && !string.Equals(katanaCategory, lucaCategory, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrEmpty(katanaCategoryTreeCode) && !string.Equals(katanaCategoryTreeCode, lucaCategory, StringComparison.OrdinalIgnoreCase))
         {
             changes.CategoryChanged = true;
             changes.OldCategory = lucaCategory;
-            changes.NewCategory = katanaCategory;
-            changeReasons.Add($"Kategori: '{lucaCategory}' -> '{katanaCategory}'");
+            changes.NewCategory = katanaCategoryTreeCode;
+            changeReasons.Add($"Kategori: '{lucaCategory}' -> '{katanaCategoryTreeCode}'");
         }
 
         // Luca'da güncelleme yapılamadığı için değişen ürünler yeni stok kartı olarak oluşturulmalı
@@ -871,6 +875,52 @@ public class SyncService : ISyncService
             }
         }
         return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
+    }
+
+    /// <summary>
+    /// Kategori adını Luca tree code'a çevirir (mapping tablosundan).
+    /// Mapping bulunamazsa default kategori kodu döner.
+    /// </summary>
+    private string GetCategoryTreeCode(string? categoryName, IReadOnlyDictionary<string, string>? categoryMappings)
+    {
+        if (string.IsNullOrWhiteSpace(categoryName))
+        {
+            return _lucaSettings.DefaultKategoriKodu ?? "001";
+        }
+
+        // 1. Önce mapping tablosundan çek
+        if (categoryMappings != null)
+        {
+            var lookupKey = NormalizeMappingKey(categoryName);
+            if (categoryMappings.TryGetValue(lookupKey, out var mappedCode) && !string.IsNullOrWhiteSpace(mappedCode))
+            {
+                return mappedCode; // "001.001" gibi tree code
+            }
+        }
+
+        // 2. Eğer kategori zaten numeric tree code formatındaysa (001, 001.001 gibi) direkt kullan
+        if (IsValidTreeCode(categoryName))
+        {
+            return categoryName;
+        }
+
+        // 3. Mapping yoksa default kategori kullan
+        _logger.LogWarning("Kategori mapping bulunamadı: '{CategoryName}', default '{DefaultCode}' kullanılıyor", 
+            categoryName, _lucaSettings.DefaultKategoriKodu ?? "001");
+        return _lucaSettings.DefaultKategoriKodu ?? "001";
+    }
+
+    /// <summary>
+    /// Verilen string'in geçerli bir Luca tree code formatında olup olmadığını kontrol eder.
+    /// Geçerli formatlar: "001", "001.001", "001.001.001" vb.
+    /// </summary>
+    private static bool IsValidTreeCode(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return false;
+
+        // Tree code formatı: sadece rakamlar ve nokta içermeli
+        return code.All(c => char.IsDigit(c) || c == '.');
     }
 
     

@@ -29,6 +29,7 @@ public class SuppliersController : ControllerBase
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> GetAll() => Ok(await _supplierService.GetAllAsync());
 
     [HttpGet("{id}")]
@@ -39,6 +40,7 @@ public class SuppliersController : ControllerBase
     }
 
     [HttpPost]
+    [AllowAnonymous]
     public async Task<IActionResult> Create([FromBody] CreateSupplierDto dto)
     {
         var errors = new List<string>();

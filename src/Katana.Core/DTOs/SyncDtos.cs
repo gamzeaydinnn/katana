@@ -8,6 +8,7 @@ public class SyncResultDto
     public int FailedRecords { get; set; }
     public int DuplicateRecords { get; set; }
     public int SentRecords { get; set; }
+    public int SkippedRecords { get; set; }
     public bool IsDryRun { get; set; }
     public List<string> Errors { get; set; } = new();
     public DateTime SyncTime { get; set; } = DateTime.UtcNow;

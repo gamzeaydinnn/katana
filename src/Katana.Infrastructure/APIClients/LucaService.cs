@@ -161,6 +161,13 @@ public partial class LucaService : ILucaService
 
     private async Task EnsureAuthenticatedAsync()
     {
+        // 🔥 DEBUG: Authentication durumunu logla
+        _logger.LogDebug("🔐 EnsureAuthenticatedAsync: UseTokenAuth={UseToken}, IsAuthenticated={IsAuth}, HasSession={HasSession}, CookieExpiry={Expiry}",
+            _settings.UseTokenAuth,
+            _isCookieAuthenticated,
+            !string.IsNullOrWhiteSpace(_sessionCookie) || !string.IsNullOrWhiteSpace(_manualJSessionId),
+            _cookieExpiresAt?.ToString("HH:mm:ss") ?? "N/A");
+        
         if (_settings.UseTokenAuth)
         {
             if (_authToken == null || _tokenExpiry == null || DateTime.UtcNow >= _tokenExpiry)
@@ -335,6 +342,63 @@ public partial class LucaService : ILucaService
         
         _logger.LogError("Session oluşturulamadı - {MaxRetries} deneme başarısız", maxRetries);
         throw new InvalidOperationException($"Koza session oluşturulamadı - {maxRetries} deneme başarısız oldu");
+    }
+
+    /// <summary>
+    /// Session'ı tamamen yeniler - tüm cookie state'i temizler ve yeniden login yapar.
+    /// HTML response alındığında veya session timeout durumunda kullanılır.
+    /// </summary>
+    private async Task ForceSessionRefreshAsync()
+    {
+        _logger.LogWarning("🔄 ForceSessionRefreshAsync: Tüm session state temizleniyor...");
+        
+        // 1. Tüm session state'i temizle
+        _isCookieAuthenticated = false;
+        _sessionCookie = null;
+        _manualJSessionId = null;
+        _cookieExpiresAt = null;
+        _lastSuccessfulAuthAt = null;
+        
+        // 2. Cookie container'ı temizle
+        if (_cookieContainer != null)
+        {
+            try
+            {
+                var baseUri = new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
+                var cookies = _cookieContainer.GetCookies(baseUri);
+                foreach (System.Net.Cookie cookie in cookies)
+                {
+                    cookie.Expired = true;
+                }
+                _logger.LogDebug("🍪 Cookie container temizlendi");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Cookie container temizleme hatası");
+            }
+        }
+        
+        // 3. HttpClient'ı yeniden oluştur
+        try
+        {
+            _cookieHttpClient?.Dispose();
+            _cookieHttpClient = null;
+            _cookieHandler = null;
+            _cookieContainer = null;
+            _logger.LogDebug("🔌 HttpClient dispose edildi");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "HttpClient dispose hatası");
+        }
+        
+        // 4. Yeniden login yap
+        _logger.LogInformation("🔑 Yeniden login yapılıyor...");
+        await EnsureSessionAsync();
+        
+        _logger.LogInformation("✅ ForceSessionRefreshAsync tamamlandı. Authenticated: {IsAuth}, Cookie: {HasCookie}", 
+            _isCookieAuthenticated, 
+            !string.IsNullOrWhiteSpace(_sessionCookie) || !string.IsNullOrWhiteSpace(_manualJSessionId));
     }
 
     private async Task LoginWithServiceAsync()
@@ -996,6 +1060,13 @@ public partial class LucaService : ILucaService
                 var payloadText = await ReadContentPreviewAsync(payload);
                 response = await _cookieHttpClient!.PostAsync(_settings.Endpoints.Auth, payload);
                 authBody = await ReadResponseContentAsync(response);
+                
+                // 🔥 DEBUG: Login response durumunu logla
+                _logger.LogInformation("🔐 Login attempt '{Desc}': Status={Status}, HasCookie={HasCookie}", 
+                    desc, 
+                    response.StatusCode,
+                    response.Headers.Contains("Set-Cookie"));
+                
                 await AppendRawLogAsync($"AUTH_LOGIN:{desc}", _settings.Endpoints.Auth, payloadText, response.StatusCode, authBody);
                 try { await SaveHttpTrafficAsync($"AUTH_LOGIN:{desc}", null, response); } catch (Exception) {  }
                 try
@@ -1011,7 +1082,11 @@ public partial class LucaService : ILucaService
                                 _sessionCookie = "JSESSIONID=" + c.Value;
                                 _manualJSessionId = "JSESSIONID=" + c.Value;
                                 _cookieExpiresAt = DateTime.UtcNow.AddMinutes(20);
-                                _logger.LogInformation("PerformLoginAsync: JSESSIONID acquired from CookieContainer (manual cache updated)");
+                                
+                                // 🔥 DEBUG: Cookie detaylarını logla
+                                _logger.LogInformation("🔐 Login SUCCESS: JSESSIONID acquired. Cookie preview: {Preview}, Expires: {Expiry}", 
+                                    _sessionCookie.Substring(0, Math.Min(30, _sessionCookie.Length)) + "...",
+                                    _cookieExpiresAt?.ToString("HH:mm:ss"));
                                 return true;
                             }
                         }
@@ -2519,10 +2594,24 @@ retryChangeBranch:
 
             var json = JsonSerializer.Serialize(effectiveRequest, _jsonOptions);
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            
+            // 🔥 DEBUG: Session durumunu logla
+            _logger.LogDebug("📋 ListStockCardsAsync başlıyor - Session durumu: Authenticated={IsAuth}, SessionCookie={HasSession}, ManualJSession={HasManual}, CookieExpiry={Expiry}",
+                _isCookieAuthenticated,
+                !string.IsNullOrWhiteSpace(_sessionCookie),
+                !string.IsNullOrWhiteSpace(_manualJSessionId),
+                _cookieExpiresAt?.ToString("HH:mm:ss") ?? "N/A");
+            
             for (var attempt = 1; attempt <= 3; attempt++)
             {
                 await EnsureAuthenticatedAsync();
                 await EnsureBranchSelectedAsync();
+                
+                // 🔥 DEBUG: Her attempt öncesi cookie durumunu logla
+                _logger.LogDebug("📋 ListStockCardsAsync Attempt {Attempt}/3 - Cookie: {Cookie}", 
+                    attempt,
+                    !string.IsNullOrWhiteSpace(_manualJSessionId) ? _manualJSessionId.Substring(0, Math.Min(30, _manualJSessionId.Length)) + "..." : 
+                    !string.IsNullOrWhiteSpace(_sessionCookie) ? _sessionCookie.Substring(0, Math.Min(30, _sessionCookie.Length)) + "..." : "NONE");
 
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCards)
                 {
@@ -2570,8 +2659,67 @@ retryChangeBranch:
                     continue;
                 }
 
+                // 🔥 HTML RESPONSE KONTROLÜ - Session timeout veya login sayfası
+                if (IsHtmlResponse(responseContent))
+                {
+                    _logger.LogError("❌ ListStockCardsAsync HTML response aldı (session timeout/login gerekli). Attempt: {Attempt}", attempt);
+                    
+                    // 🔍 HTML response'u detaylı logla
+                    var htmlPreview = responseContent.Length > 500 ? responseContent.Substring(0, 500) + "...(truncated)" : responseContent;
+                    _logger.LogError("📄 HTML Response Preview:\n{Preview}", htmlPreview);
+                    
+                    // 🔍 Hangi URL'e redirect ediyor?
+                    if (responseContent.Contains("login", StringComparison.OrdinalIgnoreCase) || 
+                        responseContent.Contains("giris", StringComparison.OrdinalIgnoreCase) ||
+                        responseContent.Contains("oturum", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogError("🚨 Login sayfasına redirect ediliyor! Cookie problemi var. Session expire olmuş olabilir.");
+                    }
+                    
+                    // 🔍 Response headers'ı logla
+                    _logger.LogDebug("📊 Response Headers: Status={Status}, ContentType={ContentType}, SetCookie={SetCookie}",
+                        response.StatusCode,
+                        response.Content.Headers.ContentType?.MediaType ?? "N/A",
+                        response.Headers.Contains("Set-Cookie") ? "YES" : "NO");
+                    
+                    if (attempt < 3)
+                    {
+                        // 🔥 AGRESİF SESSION YENİLEME - Tüm session state'i temizle
+                        _logger.LogWarning("🔄 Session tamamen yenileniyor (attempt {Attempt})...", attempt);
+                        await ForceSessionRefreshAsync();
+                        await Task.Delay(1000 * attempt); // Daha uzun bekleme
+                        continue;
+                    }
+                    else
+                    {
+                        // Son denemede de HTML geldi, boş liste dön
+                        _logger.LogError("❌ ListStockCardsAsync 3 denemede de HTML döndü. Session sorunu çözülemedi. Boş liste döndürülüyor.");
+                        return JsonDocument.Parse("[]").RootElement.Clone();
+                    }
+                }
+
                 response.EnsureSuccessStatusCode();
-                return JsonSerializer.Deserialize<JsonElement>(responseContent);
+                
+                // JSON parse denemesi - hata varsa yakalayıp boş liste dön
+                try
+                {
+                    return JsonSerializer.Deserialize<JsonElement>(responseContent);
+                }
+                catch (JsonException jsonEx)
+                {
+                    _logger.LogError(jsonEx, "ListStockCardsAsync JSON parse hatası. Response: {Response}", 
+                        responseContent.Length > 500 ? responseContent.Substring(0, 500) + "..." : responseContent);
+                    
+                    if (attempt < 3)
+                    {
+                        _logger.LogWarning("JSON parse hatası, tekrar deneniyor (attempt {Attempt})", attempt);
+                        _isCookieAuthenticated = false;
+                        await Task.Delay(500 * attempt);
+                        continue;
+                    }
+                    
+                    return JsonDocument.Parse("[]").RootElement.Clone();
+                }
             }
 
             return JsonDocument.Parse("[]").RootElement.Clone();
@@ -3001,61 +3149,113 @@ retryChangeBranch:
         var successCount = 0;
         var failedCount = 0;
         var duplicateCount = 0;
+        var skippedCount = 0;
         var sentCount = 0;
+        
+        // Batch işleme için ayarlar
+        const int batchSize = 50;
+        const int rateLimitDelayMs = 500; // Rate limit için bekleme süresi (ms)
+        
         try
         {
             await EnsureAuthenticatedAsync();
             await EnsureBranchSelectedAsync();
             await VerifyBranchSelectionAsync();
-            _logger.LogWarning(">>> USING SAFE PER-PRODUCT FLOW <<<");
-            _logger.LogInformation("Sending {Count} stock cards to Luca (Koza) one by one (Koza does not accept arrays)", stockCards.Count);
+            _logger.LogWarning(">>> USING SAFE PER-PRODUCT FLOW WITH UPSERT LOGIC <<<");
+            _logger.LogInformation("Sending {Count} stock cards to Luca (Koza) with batch size {BatchSize}", stockCards.Count, batchSize);
 
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
             var endpoint = _settings.Endpoints.StockCardCreate;
             var enc1254 = Encoding.GetEncoding(1254);
+            
+            // Batch işleme
+            var batches = stockCards
+                .Select((card, index) => new { card, index })
+                .GroupBy(x => x.index / batchSize)
+                .Select(g => g.Select(x => x.card).ToList())
+                .ToList();
+            
+            var batchNumber = 0;
+            foreach (var batch in batches)
+            {
+                batchNumber++;
+                _logger.LogInformation("Processing batch {BatchNumber}/{TotalBatches} ({BatchCount} cards)", 
+                    batchNumber, batches.Count, batch.Count);
 
-            foreach (var card in stockCards)
+            foreach (var card in batch)
             {
                 try
                 {
-                    var payload = JsonSerializer.Serialize(card, _jsonOptions);
-
-                    // Build form data string using the same rules as the working PowerShell script
-                    var sb = new StringBuilder();
+                    // 🔥 UPSERT LOGIC: Önce varlik kontrolü yap
+                    var existingSkartId = await FindStockCardBySkuAsync(card.KartKodu);
+                    if (existingSkartId.HasValue)
+                    {
+                        // Kayıt zaten var - Luca API güncelleme desteklemiyor
+                        // Değişiklik kontrolü yap
+                        var existingCard = await GetStockCardDetailsBySkuAsync(card.KartKodu);
+                        bool hasChanges = HasStockCardChanges(card, existingCard);
+                        
+                        if (!hasChanges)
+                        {
+                            _logger.LogInformation("✓ Stok kartı '{KartKodu}' zaten mevcut ve değişiklik yok, atlanıyor", card.KartKodu);
+                            skippedCount++;
+                            duplicateCount++;
+                            continue;
+                        }
+                        else
+                        {
+                            // Değişiklik var ama Luca güncelleme desteklemiyor
+                            _logger.LogWarning("⚠ Stok kartı '{KartKodu}' değişiklik tespit edildi ancak Luca API güncelleme desteklemiyor. Mevcut kayıt korunuyor.", card.KartKodu);
+                            skippedCount++;
+                            duplicateCount++;
+                            continue;
+                        }
+                    }
+                    
+                    // Yeni kayıt oluştur
+                    _logger.LogInformation("➕ Yeni stok kartı oluşturuluyor: {KartKodu}", card.KartKodu);
+                    
+                    // 🔥 Postman örneğine göre JSON formatında request oluştur
                     var baslangic = DateTime.Now.ToString("dd'/'MM'/'yyyy", System.Globalization.CultureInfo.InvariantCulture);
-                    sb.Append($"baslangicTarihi={UrlEncodeCp1254(baslangic)}");
-
-                    sb.Append($"&kartKodu={UrlEncodeCp1254(card.KartKodu ?? string.Empty)}");
-
                     var safeName = (card.KartAdi ?? string.Empty)
                         .Replace("Ø", "O")
                         .Replace("ø", "o");
-                    sb.Append($"&kartAdi={UrlEncodeCp1254(safeName)}");
-
-                    sb.Append("&kartTuru=1");
-                    sb.Append("&olcumBirimiId=1");
-                    sb.Append("&kartAlisKdvOran=1");
-                    sb.Append("&kartSatisKdvOran=1");
-                    sb.Append("&kartTipi=1");
-
-                    if (!string.IsNullOrEmpty(card.KategoriAgacKod))
+                    
+                    // ✅ KartAdi boşsa SKU kullan (fallback)
+                    if (string.IsNullOrWhiteSpace(safeName))
                     {
-                        var kAgac = card.KategoriAgacKod;
-                        sb.Append($"&kategoriAgacKod={UrlEncodeCp1254(kAgac)}");
+                        _logger.LogWarning("⚠️ KartAdi boş, SKU kullanılıyor: {KartKodu}", card.KartKodu);
+                        safeName = card.KartKodu ?? "UNKNOWN-PRODUCT";
                     }
+                    
+                    // JSON request body - Postman örneğine uygun
+                    var jsonRequest = new
+                    {
+                        kartAdi = safeName,                                    // required (artık asla boş değil)
+                        kartKodu = card.KartKodu ?? string.Empty,              // required
+                        kartTipi = card.KartTipi > 0 ? card.KartTipi : 1,
+                        kartAlisKdvOran = card.KartAlisKdvOran > 0 ? card.KartAlisKdvOran : 1,
+                        kartSatisKdvOran = card.KartSatisKdvOran > 0 ? card.KartSatisKdvOran : 1,
+                        olcumBirimiId = card.OlcumBirimiId > 0 ? card.OlcumBirimiId : 1,
+                        baslangicTarihi = baslangic,                            // required (dd/mm/yyyy)
+                        kartTuru = card.KartTuru > 0 ? card.KartTuru : 1,       // required 1-Stok, 2-Hizmet
+                        kategoriAgacKod = string.IsNullOrEmpty(card.KategoriAgacKod) ? (string?)null : card.KategoriAgacKod,
+                        barkod = string.IsNullOrEmpty(card.Barkod) ? (string?)null : card.Barkod,
+                        satilabilirFlag = card.SatilabilirFlag > 0 ? card.SatilabilirFlag : 1,
+                        satinAlinabilirFlag = card.SatinAlinabilirFlag > 0 ? card.SatinAlinabilirFlag : 1,
+                        lotNoFlag = card.LotNoFlag,
+                        minStokKontrol = 0,
+                        maliyetHesaplanacakFlag = true
+                    };
+                    
+                    var payload = JsonSerializer.Serialize(jsonRequest, _jsonOptions);
+                    _logger.LogInformation(">>> LUCA JSON REQUEST ({Card}): {Payload}", card.KartKodu, payload);
 
-                    sb.Append("&satilabilirFlag=1");
-                    sb.Append("&satinAlinabilirFlag=1");
-                    sb.Append($"&lotNoFlag={card.LotNoFlag}");
-                    sb.Append("&maliyetHesaplanacakFlag=1");
-                    var formDataString = sb.ToString();
-
-                    _logger.LogInformation(">>> LUCA FORM DATA ({Card}): {Form}", card.KartKodu, formDataString);
-
+                    // JSON content olarak gönder (Postman örneğine uygun)
                     var encoding = enc1254;
-                    var byteContent = new ByteArrayContent(encoding.GetBytes(formDataString));
-                    byteContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
-                    byteContent.Headers.ContentType.CharSet = "windows-1254";
+                    var byteContent = new ByteArrayContent(encoding.GetBytes(payload));
+                    byteContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                    byteContent.Headers.ContentType.CharSet = "utf-8";
 
                     using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
                     {
@@ -3079,7 +3279,7 @@ retryChangeBranch:
                     catch { }
                     var baseUrl = client.BaseAddress?.ToString()?.TrimEnd('/') ?? _settings.BaseUrl?.TrimEnd('/') ?? string.Empty;
                     var fullUrl = string.IsNullOrWhiteSpace(baseUrl) ? endpoint : (endpoint.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? endpoint : baseUrl + "/" + endpoint.TrimStart('/'));
-                    await AppendRawLogAsync("SEND_STOCK_CARD", fullUrl, formDataString, response.StatusCode, responseContent);
+                    await AppendRawLogAsync("SEND_STOCK_CARD", fullUrl, payload, response.StatusCode, responseContent);
                     try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_RESPONSE:{card.KartKodu}", httpRequest, response); } catch (Exception) { }
 
                     if (NeedsBranchSelection(responseContent))
@@ -3237,79 +3437,13 @@ retryChangeBranch:
                             
                             if (isDuplicate)
                             {
-                                // *** YENİ: Karşılaştırma yap - farklılık varsa yeni versiyon aç ***
-                                _logger.LogInformation("🔍 Stok kartı '{Card}' Luca'da mevcut, karşılaştırma yapılıyor...", card.KartKodu);
+                                // Kart kodu Luca'da zaten mevcut
+                                // Luca'da stok kartı güncelleme olmadığı için duplicate kayıtları uyarı olarak logluyoruz
+                                _logger.LogWarning("⚠️ Stok kartı '{Card}' Luca'da zaten mevcut (duplicate). Güncelleme yapılmayacak. " +
+                                    "Katana'da ürün güncellemesi yapmanız gerekirse, Luca'da manuel olarak aynı kartı düzenleyiniz.", 
+                                    card.KartKodu);
                                 
-                                try
-                                {
-                                    var existingCard = await GetStockCardDetailsBySkuAsync(card.KartKodu);
-                                    
-                                    if (existingCard != null && HasStockCardChanges(card, existingCard))
-                                    {
-                                        // Değişiklik var! Yeni versiyon oluştur
-                                        var versionedSku = await GenerateVersionedSkuAsync(card.KartKodu);
-                                        _logger.LogWarning("🆕 Değişiklik tespit edildi! Yeni stok kartı açılıyor: {OldSku} → {NewSku}", 
-                                            card.KartKodu, versionedSku);
-                                        
-                                        // Yeni SKU ile tekrar gönder
-                                        var originalSku = card.KartKodu;
-                                        card.KartKodu = versionedSku;
-                                        
-                                        // Orijinal stock card oluşturma ile TAMAMEN AYNI format kullan
-                                        // NOT: Luca kartAlisKdvOran ve kartSatisKdvOran için 1 (sabit ID) bekliyor
-                                        // olcumBirimiId de 1 olarak sabit gönderiyoruz (Adet)
-                                        var retryFormBuilder = new StringBuilder();
-                                        var retryBaslangic = DateTime.Now.ToString("dd'/'MM'/'yyyy", System.Globalization.CultureInfo.InvariantCulture);
-                                        retryFormBuilder.Append($"baslangicTarihi={UrlEncodeCp1254(retryBaslangic)}");
-                                        retryFormBuilder.Append($"&kartKodu={UrlEncodeCp1254(card.KartKodu)}");
-                                        
-                                        var retrySafeName = (card.KartAdi ?? string.Empty)
-                                            .Replace("Ø", "O")
-                                            .Replace("ø", "o");
-                                        retryFormBuilder.Append($"&kartAdi={UrlEncodeCp1254(retrySafeName)}");
-                                        // Sabit değerler - ilk request ile aynı
-                                        retryFormBuilder.Append("&kartTuru=1");
-                                        retryFormBuilder.Append("&olcumBirimiId=1");
-                                        retryFormBuilder.Append("&kartAlisKdvOran=1");
-                                        retryFormBuilder.Append("&kartSatisKdvOran=1");
-                                        retryFormBuilder.Append("&kartTipi=1");
-                                        retryFormBuilder.Append("&satilabilirFlag=1&satinAlinabilirFlag=1&lotNoFlag=0&maliyetHesaplanacakFlag=1");
-                                        
-                                        var retryFormData = retryFormBuilder.ToString();
-                                        _logger.LogInformation(">>> V2 RETRY FORM DATA: {Form}", retryFormData);
-                                        
-                                        var retryContent = new ByteArrayContent(enc1254.GetBytes(retryFormData));
-                                        retryContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded") { CharSet = "windows-1254" };
-                                        
-                                        using var retryReq = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = retryContent };
-                                        ApplyManualSessionCookie(retryReq);
-                                        
-                                        var retryResp = await client.SendAsync(retryReq);
-                                        var retryBody = await retryResp.Content.ReadAsStringAsync();
-                                        
-                                        if (retryResp.IsSuccessStatusCode && !retryBody.Contains("error\":true"))
-                                        {
-                                            _logger.LogInformation("✅ Yeni versiyon stok kartı başarıyla oluşturuldu: {Sku}", card.KartKodu);
-                                            successCount++;
-                                            card.KartKodu = originalSku; // Restore for logging
-                                            continue;
-                                        }
-                                        else
-                                        {
-                                            _logger.LogWarning("Yeni versiyon oluşturulamadı: {Body}", retryBody.Substring(0, Math.Min(200, retryBody.Length)));
-                                            card.KartKodu = originalSku; // Restore
-                                        }
-                                    }
-                                    else
-                                    {
-                                        _logger.LogInformation("✓ Stok kartı '{Card}' değişmemiş, atlanıyor", card.KartKodu);
-                                    }
-                                }
-                                catch (Exception compareEx)
-                                {
-                                    _logger.LogWarning(compareEx, "Stok kartı karşılaştırma hatası, mevcut kart olarak işaretleniyor");
-                                }
-                                
+                                // Duplicate'ı success olarak işaretle (atlanacak)
                                 duplicateCount++;
                                 continue;
                             }
@@ -3353,25 +3487,69 @@ retryChangeBranch:
                         _logger.LogError("Stock card {Card} failed HTTP {Status}: {Body}", card.KartKodu, response.StatusCode, previewError);
                         continue;
                     }
-                    if (parsedSuccessfully &&
-                        parsedResponse.ValueKind == JsonValueKind.Object &&
-                        parsedResponse.TryGetProperty("stkSkart", out var skartEl) &&
-                        skartEl.ValueKind == JsonValueKind.Object &&
-                        skartEl.TryGetProperty("skartId", out var idEl))
+                    // 🔥 Postman örneğine göre başarılı response: {"skartId": 79409, "error": false, "message": "..."}
+                    if (parsedSuccessfully && parsedResponse.ValueKind == JsonValueKind.Object)
                     {
-                        _logger.LogInformation("Stock card {Card} created with ID {Id}", card.KartKodu, idEl.ToString());
+                        // Format 1: {"skartId": 79409, "error": false, "message": "..."}
+                        if (parsedResponse.TryGetProperty("skartId", out var skartIdProp) && 
+                            skartIdProp.ValueKind == JsonValueKind.Number)
+                        {
+                            var skartId = skartIdProp.GetInt64();
+                            var message = parsedResponse.TryGetProperty("message", out var msgProp) && msgProp.ValueKind == JsonValueKind.String
+                                ? msgProp.GetString() : "Başarılı";
+                            _logger.LogInformation("✅ Stock card {Card} created with skartId={SkartId}. Message: {Message}", 
+                                card.KartKodu, skartId, message);
+                        }
+                        // Format 2: {"stkSkart": {"skartId": ...}}
+                        else if (parsedResponse.TryGetProperty("stkSkart", out var skartEl) &&
+                            skartEl.ValueKind == JsonValueKind.Object &&
+                            skartEl.TryGetProperty("skartId", out var idEl))
+                        {
+                            _logger.LogInformation("✅ Stock card {Card} created with ID {Id}", card.KartKodu, idEl.ToString());
+                        }
+                        else
+                        {
+                            _logger.LogInformation("✅ Stock card {Card} created (response format unknown)", card.KartKodu);
+                        }
                     }
 
                     successCount++;
-                    _logger.LogInformation("Stock card created: {Card}", card.KartKodu);
+                    _logger.LogInformation("✅ Stock card created: {Card}", card.KartKodu);
                 }
                 catch (Exception ex)
                 {
-                    failedCount++;
-                    result.Errors.Add($"{card.KartKodu}: {ex.Message}");
-                    _logger.LogError(ex, "Error sending stock card {Card}", card.KartKodu);
+                    var errorMsg = ex.Message.ToLowerInvariant();
+                    
+                    // 🔥 DUPLICATE HATA KONTROLÜ - Luca'nın döndürdüğü hata mesajlarını yakala
+                    if (errorMsg.Contains("daha önce kullanılmış") ||
+                        errorMsg.Contains("already exists") ||
+                        errorMsg.Contains("duplicate") ||
+                        errorMsg.Contains("zaten mevcut") ||
+                        errorMsg.Contains("kayıt var") ||
+                        errorMsg.Contains("kart kodu var"))
+                    {
+                        _logger.LogWarning("⚠️ Duplicate tespit edildi (API hatası): {KartKodu} - {Message}", card.KartKodu, ex.Message);
+                        duplicateCount++;
+                        skippedCount++;
+                        // Duplicate hata olarak sayma, başarısız olarak sayma
+                    }
+                    else
+                    {
+                        failedCount++;
+                        result.Errors.Add($"{card.KartKodu}: {ex.Message}");
+                        _logger.LogError(ex, "❌ Error sending stock card {Card}", card.KartKodu);
+                    }
                 }
-                await Task.Delay(200);
+                // Rate limiting - her kayıt arasında kısa bekleme
+                await Task.Delay(rateLimitDelayMs);
+            }
+            
+            // Batch arası bekleme - API'yi yormamak için
+            if (batchNumber < batches.Count)
+            {
+                _logger.LogInformation("Batch {BatchNumber} tamamlandı. Sonraki batch için 1 saniye bekleniyor...", batchNumber);
+                await Task.Delay(1000);
+            }
             }
         }
         catch (Exception ex)
@@ -3386,16 +3564,17 @@ retryChangeBranch:
         result.FailedRecords = failedCount;
         result.DuplicateRecords = duplicateCount;
         result.SentRecords = sentCount;
+        result.SkippedRecords = skippedCount;
         // IsSuccess should be true if no real failures occurred (duplicates are not failures)
         result.IsSuccess = failedCount == 0;
         // Detaylı mesaj - Luca API güncelleme desteklemediğini belirt
-        if (duplicateCount > 0)
+        if (skippedCount > 0 || duplicateCount > 0)
         {
-            result.Message = $"✅ {successCount} yeni oluşturuldu, ⚠️ {duplicateCount} zaten Luca'da vardı (Luca güncelleme desteklemiyor - atlandı), ❌ {failedCount} başarısız";
+            result.Message = $"✅ {successCount} yeni oluşturuldu, ⏭️ {skippedCount} atlandı (zaten mevcut/değişiklik yok), ❌ {failedCount} başarısız. Toplam: {stockCards.Count}";
         }
         else
         {
-            result.Message = $"✅ {successCount} başarılı, ❌ {failedCount} başarısız";
+            result.Message = $"✅ {successCount} başarılı, ❌ {failedCount} başarısız. Toplam: {stockCards.Count}";
         }
         result.Duration = DateTime.UtcNow - startTime;
         return result;
@@ -4341,17 +4520,69 @@ retryChangeBranch:
         try
         {
             if (request == null) return;
-            var manual = !string.IsNullOrWhiteSpace(_manualJSessionId)
-                ? _manualJSessionId
-                : _settings?.ManualSessionCookie;
-            if (string.IsNullOrWhiteSpace(manual)) return;
+            
+            // 🔥 DEBUG: Cookie durumunu logla
+            var cookieSource = "none";
+            string? cookieToApply = null;
+            
+            // Öncelik sırası: 1) _manualJSessionId (login'den gelen), 2) _sessionCookie, 3) CookieContainer, 4) ManualSessionCookie (config)
+            if (!string.IsNullOrWhiteSpace(_manualJSessionId))
+            {
+                cookieToApply = _manualJSessionId;
+                cookieSource = "_manualJSessionId";
+            }
+            else if (!string.IsNullOrWhiteSpace(_sessionCookie))
+            {
+                cookieToApply = _sessionCookie;
+                cookieSource = "_sessionCookie";
+            }
+            else
+            {
+                // CookieContainer'dan almayı dene
+                var containerCookie = TryGetJSessionFromContainer();
+                if (!string.IsNullOrWhiteSpace(containerCookie))
+                {
+                    cookieToApply = containerCookie.StartsWith("JSESSIONID=", StringComparison.OrdinalIgnoreCase) 
+                        ? containerCookie 
+                        : "JSESSIONID=" + containerCookie;
+                    cookieSource = "CookieContainer";
+                }
+                else if (!string.IsNullOrWhiteSpace(_settings?.ManualSessionCookie))
+                {
+                    cookieToApply = _settings.ManualSessionCookie;
+                    cookieSource = "ManualSessionCookie(config)";
+                }
+            }
+            
+            if (string.IsNullOrWhiteSpace(cookieToApply)) 
+            {
+                _logger.LogDebug("🍪 ApplyManualSessionCookie: No cookie available to apply");
+                return;
+            }
 
-            var trimmed = manual.Trim();
-            if (trimmed.IndexOf("FILL_ME", StringComparison.OrdinalIgnoreCase) >= 0) return;
+            var trimmed = cookieToApply.Trim();
+            if (trimmed.IndexOf("FILL_ME", StringComparison.OrdinalIgnoreCase) >= 0) 
+            {
+                _logger.LogDebug("🍪 ApplyManualSessionCookie: Cookie contains FILL_ME placeholder, skipping");
+                return;
+            }
+
+            // Cookie formatını normalize et
+            if (!trimmed.StartsWith("JSESSIONID=", StringComparison.OrdinalIgnoreCase))
+            {
+                trimmed = "JSESSIONID=" + trimmed;
+            }
 
             if (!request.Headers.Contains("Cookie"))
             {
                 request.Headers.TryAddWithoutValidation("Cookie", trimmed);
+                _logger.LogDebug("🍪 ApplyManualSessionCookie: Applied cookie from {Source} (preview: {Preview})", 
+                    cookieSource, 
+                    trimmed.Length > 50 ? trimmed.Substring(0, 50) + "..." : trimmed);
+            }
+            else
+            {
+                _logger.LogDebug("🍪 ApplyManualSessionCookie: Cookie header already exists, skipping");
             }
         }
         catch (Exception ex)
@@ -4972,6 +5203,43 @@ retryChangeBranch:
 
         return false;
     }
+
+    /// <summary>
+    /// Response'un HTML olup olmadığını kontrol eder (session timeout/login sayfası)
+    /// </summary>
+    private bool IsHtmlResponse(string? responseContent)
+    {
+        if (string.IsNullOrWhiteSpace(responseContent))
+            return false;
+
+        var trimmed = responseContent.TrimStart();
+        
+        // HTML başlangıç tag'leri
+        if (trimmed.StartsWith("<!DOCTYPE", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.StartsWith("<html", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.StartsWith("<HTML", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.StartsWith("<!doctype", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Login sayfası veya error sayfası göstergeleri
+        var lower = trimmed.ToLowerInvariant();
+        if (lower.Contains("<title>") && lower.Contains("</title>") &&
+            (lower.Contains("login") || lower.Contains("giriş") || lower.Contains("oturum") || lower.Contains("error")))
+        {
+            return true;
+        }
+
+        // HTML body tag'i varsa
+        if (lower.Contains("<body") || lower.Contains("<head"))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     private async Task AppendRawLogAsync(string tag, string? url, string requestBody, System.Net.HttpStatusCode? status, string responseBody)
     {
         try
@@ -5385,6 +5653,8 @@ retryChangeBranch:
 
         try
         {
+            _logger.LogDebug("🔍 Luca'da stok kartı aranıyor: {SKU}", sku);
+            
             await EnsureAuthenticatedAsync();
             await EnsureBranchSelectedAsync();
 
@@ -5400,31 +5670,67 @@ retryChangeBranch:
 
             var result = await ListStockCardsAsync(request);
 
+            // 🔥 BOŞ/GEÇERSİZ RESPONSE KONTROLÜ
+            if (result.ValueKind == JsonValueKind.Undefined || result.ValueKind == JsonValueKind.Null)
+            {
+                _logger.LogWarning("⚠️ Luca'dan geçersiz response geldi (Undefined/Null) - SKU: {SKU}", sku);
+                return null;
+            }
+
+            // Boş array kontrolü
+            if (result.ValueKind == JsonValueKind.Array && result.GetArrayLength() == 0)
+            {
+                _logger.LogInformation("ℹ️ Stok kartı bulunamadı (boş liste): {SKU}", sku);
+                return null;
+            }
+
             if (result.ValueKind == JsonValueKind.Object)
             {
                 // Check for "list" array
                 if (result.TryGetProperty("list", out var listProp) && listProp.ValueKind == JsonValueKind.Array)
                 {
+                    if (listProp.GetArrayLength() == 0)
+                    {
+                        _logger.LogInformation("ℹ️ Stok kartı bulunamadı (list boş): {SKU}", sku);
+                        return null;
+                    }
+
                     foreach (var item in listProp.EnumerateArray())
                     {
-                        if (item.TryGetProperty("skartId", out var skartIdProp))
+                        // KartKodu eşleşmesi kontrol et
+                        var kartKodu = item.TryGetProperty("kod", out var kodProp) ? kodProp.GetString() :
+                                       item.TryGetProperty("kartKodu", out var kartKoduProp) ? kartKoduProp.GetString() : null;
+
+                        // SKU eşleşmesi kontrolü (case-insensitive)
+                        if (!string.IsNullOrEmpty(kartKodu) && 
+                            kartKodu.Trim().Equals(sku.Trim(), StringComparison.OrdinalIgnoreCase))
                         {
-                            if (skartIdProp.ValueKind == JsonValueKind.Number)
-                                return skartIdProp.GetInt64();
-                            if (skartIdProp.ValueKind == JsonValueKind.String && long.TryParse(skartIdProp.GetString(), out var parsed))
-                                return parsed;
+                            if (item.TryGetProperty("skartId", out var skartIdProp))
+                            {
+                                long? skartId = null;
+                                if (skartIdProp.ValueKind == JsonValueKind.Number)
+                                    skartId = skartIdProp.GetInt64();
+                                else if (skartIdProp.ValueKind == JsonValueKind.String && long.TryParse(skartIdProp.GetString(), out var parsed))
+                                    skartId = parsed;
+
+                                if (skartId.HasValue)
+                                {
+                                    _logger.LogInformation("✅ Stok kartı bulundu: {SKU} → skartId: {SkartId}", sku, skartId.Value);
+                                    return skartId;
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            _logger.LogInformation("Stock card with SKU {SKU} not found in Luca", sku);
+            _logger.LogInformation("ℹ️ Stok kartı bulunamadı: {SKU}", sku);
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error searching for stock card by SKU {SKU} in Luca", sku);
-            return null;
+            _logger.LogError(ex, "❌ FindStockCardBySkuAsync error for '{SKU}': {Message}", sku, ex.Message);
+            return null; // ✅ HATA DURUMUNDA NULL DÖN
         }
     }
 
@@ -5438,6 +5744,8 @@ retryChangeBranch:
 
         try
         {
+            _logger.LogDebug("🔍 Luca'da stok kartı detayları getiriliyor: {SKU}", sku);
+            
             await EnsureAuthenticatedAsync();
             await EnsureBranchSelectedAsync();
 
@@ -5453,26 +5761,58 @@ retryChangeBranch:
 
             var result = await ListStockCardsAsync(request);
 
+            // 🔥 CRITICAL: Raw JSON'u logla (debugging için)
+            var rawJson = result.GetRawText();
+            _logger.LogInformation("📊 LUCA RAW RESPONSE for SKU '{SKU}': {RawJsonPreview}", 
+                sku, rawJson.Length > 500 ? rawJson.Substring(0, 500) + "..." : rawJson);
+
+            // 🔥 BOŞ/GEÇERSİZ RESPONSE KONTROLÜ
+            if (result.ValueKind == JsonValueKind.Undefined || result.ValueKind == JsonValueKind.Null)
+            {
+                _logger.LogWarning("⚠️ GetStockCardDetailsBySkuAsync: Geçersiz response (Undefined/Null) - SKU: {SKU}", sku);
+                return null;
+            }
+
             if (result.ValueKind == JsonValueKind.Object &&
                 result.TryGetProperty("list", out var listProp) && 
                 listProp.ValueKind == JsonValueKind.Array)
             {
+                if (listProp.GetArrayLength() == 0)
+                {
+                    _logger.LogInformation("ℹ️ Stok kartı detayları bulunamadı (list boş): {SKU}", sku);
+                    return null;
+                }
+
                 foreach (var item in listProp.EnumerateArray())
                 {
                     // Kod eşleşmesi kontrol et
                     var kartKodu = item.TryGetProperty("kod", out var kodProp) ? kodProp.GetString() : 
                                    item.TryGetProperty("kartKodu", out var kartKoduProp) ? kartKoduProp.GetString() : null;
                     
-                    if (!string.Equals(kartKodu, sku, StringComparison.OrdinalIgnoreCase))
+                    if (!string.Equals(kartKodu?.Trim(), sku.Trim(), StringComparison.OrdinalIgnoreCase))
                         continue;
 
-                    return new LucaStockCardDetails
+                    // 🔥 CRITICAL: Available fields'ı logla
+                    var availableFields = string.Join(", ", item.EnumerateObject().Select(p => p.Name));
+                    _logger.LogInformation("📦 Available fields for SKU '{SKU}': {Fields}", sku, availableFields);
+
+                    // ✅ Çoklu field kontrolü - hangi field dolu ise onu kullan
+                    var kartAdi = item.TryGetProperty("KartAdi", out var kartAdiProp) ? kartAdiProp.GetString() :
+                                  item.TryGetProperty("kartAdi", out var kartAdi2Prop) ? kartAdi2Prop.GetString() :
+                                  item.TryGetProperty("tanim", out var tanimProp) ? tanimProp.GetString() :
+                                  item.TryGetProperty("stokKartAdi", out var stokAdiProp) ? stokAdiProp.GetString() :
+                                  item.TryGetProperty("adi", out var adiProp) ? adiProp.GetString() :
+                                  item.TryGetProperty("name", out var nameProp) ? nameProp.GetString() :
+                                  sku; // Son çare: SKU'yu kullan
+
+                    _logger.LogInformation("✅ KartAdi extracted: '{KartAdi}' for SKU: {SKU}", kartAdi, sku);
+
+                    var details = new LucaStockCardDetails
                     {
                         SkartId = item.TryGetProperty("skartId", out var idProp) && idProp.ValueKind == JsonValueKind.Number 
                             ? idProp.GetInt64() : 0,
                         KartKodu = kartKodu ?? sku,
-                        KartAdi = item.TryGetProperty("tanim", out var tanimProp) ? tanimProp.GetString() :
-                                  item.TryGetProperty("kartAdi", out var adiProp) ? adiProp.GetString() : null,
+                        KartAdi = kartAdi, // Artık asla null olmaz
                         KartTuru = item.TryGetProperty("kartTuru", out var turuProp) && turuProp.ValueKind == JsonValueKind.Number 
                             ? turuProp.GetInt32() : 1,
                         OlcumBirimiId = item.TryGetProperty("olcumBirimiId", out var obProp) && obProp.ValueKind == JsonValueKind.Number 
@@ -5484,16 +5824,24 @@ retryChangeBranch:
                         KartTipi = item.TryGetProperty("kartTipi", out var tipiProp) && tipiProp.ValueKind == JsonValueKind.Number 
                             ? tipiProp.GetInt32() : 1,
                         KategoriAgacKod = item.TryGetProperty("kategoriAgacKod", out var katProp) ? katProp.GetString() : null,
-                        Barkod = item.TryGetProperty("barkod", out var barkodProp) ? barkodProp.GetString() : null
+                        Barkod = item.TryGetProperty("barkod", out var barkodProp) ? barkodProp.GetString() : null,
+                        // Fiyat alanları - karşılaştırma için
+                        SatisFiyat = TryGetDoubleProperty(item, "perakendeSatisBirimFiyat", "satisFiyat", "salesPrice", "fiyat"),
+                        AlisFiyat = TryGetDoubleProperty(item, "perakendeAlisBirimFiyat", "alisFiyat", "purchasePrice")
                     };
+
+                    _logger.LogInformation("✅ Stok kartı detayları bulundu: {SKU} → KartAdi: {KartAdi}, SkartId: {SkartId}", 
+                        sku, details.KartAdi ?? "(boş)", details.SkartId);
+                    return details;
                 }
             }
 
+            _logger.LogInformation("ℹ️ Stok kartı detayları bulunamadı: {SKU}", sku);
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting stock card details for SKU {SKU}", sku);
+            _logger.LogError(ex, "❌ GetStockCardDetailsBySkuAsync error for '{SKU}': {Message}", sku, ex.Message);
             return null;
         }
     }
@@ -5503,20 +5851,108 @@ retryChangeBranch:
     /// Farklılık varsa true döner (yeni kart açılmalı)
     /// NOT: Luca API'si bazı alanları boş döndürüyor, bu yüzden sadece güvenilir alanları karşılaştırıyoruz
     /// </summary>
-    public bool HasStockCardChanges(LucaCreateStokKartiRequest newCard, LucaStockCardDetails existingCard)
+    public bool HasStockCardChanges(LucaCreateStokKartiRequest newCard, LucaStockCardDetails? existingCard)
     {
-        // ÖNEMLİ: Luca API'si kartAdi, kdvOran gibi alanları çoğu zaman boş/0 döndürüyor
-        // Bu yüzden karşılaştırma yapmıyoruz - sadece gerçek güncellemeler için V2 açılmalı
-        // Gerçek güncelleme = Kullanıcı Katana'da ürün bilgilerini değiştirdiğinde
-        
-        // Şimdilik V2 oluşturmayı devre dışı bırakıyoruz
-        // Çünkü Luca'dan gelen veriler güvenilir değil (KartAdi boş, KDV 0 geliyor)
-        // Kullanıcı manuel olarak değişiklik yaptığında bu flag'i kontrol edebiliriz
-        
-        _logger.LogInformation("✓ Stok kartı '{Sku}' değişiklik karşılaştırması atlandı (Luca API güvenilir veri döndürmüyor)", 
-            newCard.KartKodu);
-        
-        return false; // Şimdilik her zaman false - V2 oluşturma devre dışı
+        // CRITICAL: NULL kontrolü - Luca'dan veri gelmezse yeni kayıt olarak işle
+        if (existingCard == null)
+        {
+            _logger.LogWarning("Stok kartı bulunamadı: {KartKodu}, yeni kayıt olarak işlenecek", newCard.KartKodu);
+            return true; // Yeni kayıt olarak oluştur
+        }
+
+        // Parse hatasını yakala - KartKodu boşsa veri güvenilir değil
+        if (string.IsNullOrEmpty(existingCard.KartKodu))
+        {
+            _logger.LogError("❌ Luca'dan dönen data eksik (KartKodu boş): {KartKodu}", newCard.KartKodu);
+            _logger.LogDebug("Existing data: KartKodu={ExistingKartKodu}, KartAdi={KartAdi}, SkartId={SkartId}", 
+                existingCard.KartKodu ?? "(null)", existingCard.KartAdi ?? "(null)", existingCard.SkartId);
+            return false; // Atlama yap, hata logla - güvenli taraf
+        }
+
+        // 🔥 KRİTİK: Luca'dan gelen data güvenilir mi kontrol et
+        // KartAdi boşsa fallback kullan
+        if (string.IsNullOrWhiteSpace(existingCard.KartAdi))
+        {
+            _logger.LogWarning("⚠️ Luca'dan KartAdi boş geldi, SKU fallback kullanılıyor: {KartKodu}", newCard.KartKodu);
+            existingCard.KartAdi = existingCard.KartKodu ?? newCard.KartKodu; // SKU'yu kullan
+            _logger.LogDebug("Fallback applied: KartAdi set to '{FallbackKartAdi}' for SKU: {SKU}", 
+                existingCard.KartAdi, existingCard.KartKodu);
+        }
+
+        // 🔥 BOŞ OBJECT KONTROLÜ - HTML parse hatası sonucu boş object oluşmuş olabilir
+        // Tüm önemli alanlar boşsa bu güvenilir değil
+        if (existingCard.SkartId == 0 &&
+            !existingCard.SatisFiyat.HasValue &&
+            string.IsNullOrWhiteSpace(existingCard.KategoriAgacKod))
+        {
+            _logger.LogError("❌ Luca'dan dönen data boş object (HTML parse hatası olabilir): {KartKodu}. Güvenli taraf: değişiklik yok sayılıyor.", newCard.KartKodu);
+            return false; // Güvenli taraf: Atlama yap
+        }
+
+        try
+        {
+            // Sadece güvenilir alanları karşılaştır
+            // Luca API'si kartAdi, kdvOran gibi alanları bazen boş/0 döndürüyor
+            bool hasChanges = false;
+            var changeReasons = new List<string>();
+
+            // KartAdi karşılaştırması - sadece her iki tarafta da doluysa
+            if (!string.IsNullOrWhiteSpace(newCard.KartAdi) && !string.IsNullOrWhiteSpace(existingCard.KartAdi))
+            {
+                if (!string.Equals(newCard.KartAdi.Trim(), existingCard.KartAdi.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    hasChanges = true;
+                    changeReasons.Add($"KartAdi: '{existingCard.KartAdi}' -> '{newCard.KartAdi}'");
+                }
+            }
+
+            // Fiyat karşılaştırması - sadece yeni fiyat > 0 ise
+            if (newCard.PerakendeSatisBirimFiyat > 0)
+            {
+                var existingPrice = existingCard.SatisFiyat ?? 0;
+                if (Math.Abs(newCard.PerakendeSatisBirimFiyat - existingPrice) > 0.01)
+                {
+                    hasChanges = true;
+                    changeReasons.Add($"Fiyat: {existingPrice:N2} -> {newCard.PerakendeSatisBirimFiyat:N2}");
+                }
+            }
+
+            // Kategori karşılaştırması - sadece her iki tarafta da doluysa
+            if (!string.IsNullOrWhiteSpace(newCard.KategoriAgacKod) && !string.IsNullOrWhiteSpace(existingCard.KategoriAgacKod))
+            {
+                if (!string.Equals(newCard.KategoriAgacKod.Trim(), existingCard.KategoriAgacKod.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    hasChanges = true;
+                    changeReasons.Add($"Kategori: '{existingCard.KategoriAgacKod}' -> '{newCard.KategoriAgacKod}'");
+                }
+            }
+
+            if (hasChanges)
+            {
+                _logger.LogWarning("⚠️ Değişiklik tespit edildi: {KartKodu}", newCard.KartKodu);
+                _logger.LogDebug("  Name: '{OldName}' → '{NewName}' (Changed: {NameChanged})", 
+                    existingCard.KartAdi ?? "(null)", newCard.KartAdi ?? "(null)", 
+                    !string.Equals(newCard.KartAdi?.Trim(), existingCard.KartAdi?.Trim(), StringComparison.OrdinalIgnoreCase));
+                _logger.LogDebug("  Price: {OldPrice:N2} → {NewPrice:N2} (Changed: {PriceChanged})", 
+                    existingCard.SatisFiyat ?? 0, newCard.PerakendeSatisBirimFiyat,
+                    newCard.PerakendeSatisBirimFiyat > 0 && Math.Abs(newCard.PerakendeSatisBirimFiyat - (existingCard.SatisFiyat ?? 0)) > 0.01);
+                _logger.LogDebug("  Category: '{OldCategory}' → '{NewCategory}' (Changed: {CategoryChanged})", 
+                    existingCard.KategoriAgacKod ?? "(null)", newCard.KategoriAgacKod ?? "(null)",
+                    !string.Equals(newCard.KategoriAgacKod?.Trim(), existingCard.KategoriAgacKod?.Trim(), StringComparison.OrdinalIgnoreCase));
+                _logger.LogInformation("Değişiklik detayları: {Reasons}", string.Join("; ", changeReasons));
+            }
+            else
+            {
+                _logger.LogDebug("ℹ️ Stok kartı '{KartKodu}' değişiklik yok", newCard.KartKodu);
+            }
+
+            return hasChanges;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "HasStockCardChanges hatası: {KartKodu}", newCard.KartKodu);
+            return false; // Güvenli taraf: Değişiklik yok say
+        }
     }
 
     /// <summary>

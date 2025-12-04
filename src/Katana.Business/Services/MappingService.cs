@@ -58,6 +58,26 @@ public class MappingService : IMappingService
         }
     }
 
+    public async Task<Dictionary<string, string>> GetCategoryMappingAsync()
+    {
+        try
+        {
+            var list = await _context.MappingTables
+                .Where(m => m.MappingType == "PRODUCT_CATEGORY" && m.IsActive)
+                .Select(m => new { m.SourceValue, m.TargetValue })
+                .ToListAsync();
+
+            var mappings = list.ToDictionary(m => m.SourceValue, m => m.TargetValue, StringComparer.OrdinalIgnoreCase);
+            _logger.LogInformation("Retrieved {Count} product category mappings", mappings.Count);
+            return mappings;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving product category mappings");
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
     public async Task UpdateSkuMappingAsync(string sku, string accountCode)
     {
         try
@@ -134,6 +154,46 @@ public class MappingService : IMappingService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating location mapping for {Location}", location);
+            throw;
+        }
+    }
+
+    public async Task UpdateCategoryMappingAsync(string categoryName, string lucaCategoryCode)
+    {
+        try
+        {
+            var normalizedCategory = (categoryName ?? string.Empty).Trim();
+            var existingMapping = await _context.MappingTables
+                .FirstOrDefaultAsync(m => m.MappingType == "PRODUCT_CATEGORY" && m.SourceValue == normalizedCategory);
+
+            if (existingMapping != null)
+            {
+                existingMapping.TargetValue = lucaCategoryCode;
+                existingMapping.UpdatedAt = DateTime.UtcNow;
+                _logger.LogInformation("Updated category mapping: {Category} -> {LucaCode}", categoryName, lucaCategoryCode);
+            }
+            else
+            {
+                var newMapping = new Data.Models.MappingTable
+                {
+                    MappingType = "PRODUCT_CATEGORY",
+                    SourceValue = normalizedCategory,
+                    TargetValue = lucaCategoryCode,
+                    Description = $"Auto-generated mapping for category {categoryName}",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _context.MappingTables.Add(newMapping);
+                _logger.LogInformation("Created new category mapping: {Category} -> {LucaCode}", categoryName, lucaCategoryCode);
+            }
+
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating category mapping for {Category}", categoryName);
             throw;
         }
     }

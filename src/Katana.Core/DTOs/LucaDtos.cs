@@ -1102,6 +1102,16 @@ public class LucaStockCardDetails
     public int KartTipi { get; set; } = 1;
     public string? KategoriAgacKod { get; set; }
     public string? Barkod { get; set; }
+    
+    /// <summary>
+    /// Satış fiyatı (karşılaştırma için)
+    /// </summary>
+    public double? SatisFiyat { get; set; }
+    
+    /// <summary>
+    /// Alış fiyatı (karşılaştırma için)
+    /// </summary>
+    public double? AlisFiyat { get; set; }
 }
 
 

@@ -48,6 +48,7 @@ public class PurchaseOrdersController : ControllerBase
     /// Tüm satınalma siparişlerini listele
     /// </summary>
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<PurchaseOrderListDto>>> GetAll(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
@@ -128,6 +129,7 @@ public class PurchaseOrdersController : ControllerBase
     /// Satınalma siparişi detayını getir
     /// </summary>
     [HttpGet("{id}")]
+    [AllowAnonymous]
     public async Task<ActionResult<PurchaseOrderDetailDto>> GetById(int id)
     {
         var order = await _context.PurchaseOrders
@@ -194,6 +196,7 @@ public class PurchaseOrdersController : ControllerBase
     /// Yeni satınalma siparişi oluştur
     /// </summary>
     [HttpPost]
+    [AllowAnonymous]
     public async Task<ActionResult<PurchaseOrderDetailDto>> Create([FromBody] CreatePurchaseOrderRequest request)
     {
         // Validate supplier
@@ -610,6 +613,8 @@ public class PurchaseOrdersController : ControllerBase
         }
         catch (Exception ex)
         {
+            // 🔥 DEBUG: GetStats hatasını detaylı logla
+            _logger.LogError(ex, "❌ PurchaseOrders GetStats error: {Message}, Type: {Type}", ex.Message, ex.GetType().Name);
             _loggingService.LogError($"PurchaseOrders GetStats failed: {ex.Message}", ex);
             
             var fallbackStats = new

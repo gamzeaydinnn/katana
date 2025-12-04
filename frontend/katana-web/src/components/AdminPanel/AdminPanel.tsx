@@ -43,6 +43,7 @@ import {
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
+import CategoryMappingPanel from "../Admin/CategoryMapping";
 import DataCorrectionPanel from "../Admin/DataCorrectionPanel";
 import FailedRecords from "../Admin/FailedRecords";
 import KatanaProducts from "../Admin/KatanaProducts";
@@ -53,6 +54,7 @@ import Orders from "../Admin/Orders";
 import PendingAdjustments from "../Admin/PendingAdjustments";
 import StockManagement from "../Admin/StockManagement";
 import StockMovements from "../Admin/StockMovements";
+import Suppliers from "../Admin/Suppliers";
 import Settings from "../Settings/Settings";
 import LogsViewer from "./LogsViewer";
 import UsersManagement from "./UsersManagement";
@@ -668,6 +670,30 @@ const AdminPanel: React.FC = () => {
               Sipariş Entegrasyonu
             </Typography>
           </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setActiveTab(13);
+              setMoreMenuAnchor(null);
+            }}
+            sx={overflowMenuItemSx}
+          >
+            <ShoppingCart sx={{ mr: 1.5, fontSize: 20, color: "#ec4899" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
+              Tedarikçi Yönetimi
+            </Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setActiveTab(14);
+              setMoreMenuAnchor(null);
+            }}
+            sx={overflowMenuItemSx}
+          >
+            <CompareArrowsIcon sx={{ mr: 1.5, fontSize: 20, color: "#8b5cf6" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
+              Kategori Mapping
+            </Typography>
+          </MenuItem>
         </Menu>
       </Paper>
 
@@ -1027,6 +1053,12 @@ const AdminPanel: React.FC = () => {
 
       {/* Sipariş Entegrasyonu (Sales + Purchase Orders) */}
       {activeTab === 12 && <OrderIntegrationPage />}
+
+      {/* Tedarikçi Yönetimi */}
+      {activeTab === 13 && <Suppliers />}
+
+      {/* Kategori Mapping */}
+      {activeTab === 14 && <CategoryMappingPanel />}
     </Container>
   );
 };

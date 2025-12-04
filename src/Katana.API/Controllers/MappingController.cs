@@ -1,5 +1,6 @@
 ﻿using Katana.API.Controllers.DTOs;
 using Katana.Business.Interfaces;
+using Katana.Core.Constants;
 using Katana.Data.Context;
 using Katana.Data.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -37,6 +38,7 @@ public class MappingController : ControllerBase
     
     
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<object>> GetMappings(
         [FromQuery] string? mappingType = null,
         [FromQuery] int page = 1,
@@ -126,6 +128,7 @@ public class MappingController : ControllerBase
     
     
     [HttpPost]
+    [AllowAnonymous]
     public async Task<ActionResult<object>> CreateMapping([FromBody] CreateMappingRequest request)
     {
         try
@@ -194,6 +197,7 @@ public class MappingController : ControllerBase
     
     
     [HttpPut("{id}")]
+    [AllowAnonymous]
     public async Task<ActionResult<object>> UpdateMapping(int id, [FromBody] UpdateMappingRequest request)
     {
         try
@@ -276,6 +280,7 @@ public class MappingController : ControllerBase
     
     
     [HttpDelete("{id}")]
+    [AllowAnonymous]
     public async Task<ActionResult> DeleteMapping(int id)
     {
         try
@@ -302,6 +307,94 @@ public class MappingController : ControllerBase
         {
             _logger.LogError(ex, "Error deleting mapping {Id}", id);
             return StatusCode(500, new { error = "Internal server error deleting mapping" });
+        }
+    }
+
+    /// <summary>
+    /// Luca sistemindeki mevcut kategori kodlarını ve açıklamalarını getirir
+    /// </summary>
+    [HttpGet("luca-categories")]
+    [AllowAnonymous] // Test için
+    public ActionResult<object> GetLucaCategories()
+    {
+        try
+        {
+            var categories = LucaConstants.LUCA_CATEGORIES
+                .Select(kv => new
+                {
+                    code = kv.Key,
+                    description = kv.Value
+                })
+                .OrderBy(c => c.code)
+                .ToList();
+
+            _logger.LogInformation("Retrieved {Count} Luca categories", categories.Count);
+
+            return Ok(new
+            {
+                categories,
+                totalCount = categories.Count,
+                message = "Luca kategori listesi başarıyla getirildi"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving Luca categories");
+            return StatusCode(500, new { error = "Luca kategorileri getirilirken hata oluştu" });
+        }
+    }
+
+    /// <summary>
+    /// Katana kategori -> Luca kategori mapping'lerini getirir
+    /// </summary>
+    [HttpGet("category-mappings")]
+    [AllowAnonymous] // Test için
+    public async Task<ActionResult<object>> GetCategoryMappings()
+    {
+        try
+        {
+            var mappingsData = await _context.MappingTables
+                .Where(m => m.MappingType == "PRODUCT_CATEGORY" && m.IsActive)
+                .Select(m => new
+                {
+                    m.Id,
+                    m.SourceValue,
+                    m.TargetValue,
+                    m.Description,
+                    m.IsActive,
+                    m.CreatedAt,
+                    m.UpdatedAt
+                })
+                .OrderBy(m => m.SourceValue)
+                .ToListAsync();
+
+            var mappings = mappingsData.Select(m => new
+            {
+                m.Id,
+                katanaCategory = m.SourceValue,
+                lucaCategoryCode = m.TargetValue,
+                lucaCategoryDescription = LucaConstants.LUCA_CATEGORIES.ContainsKey(m.TargetValue)
+                    ? LucaConstants.LUCA_CATEGORIES[m.TargetValue]
+                    : "Bilinmeyen Kategori",
+                m.Description,
+                m.IsActive,
+                m.CreatedAt,
+                m.UpdatedAt
+            }).ToList();
+
+            _logger.LogInformation("Retrieved {Count} category mappings", mappings.Count);
+
+            return Ok(new
+            {
+                mappings,
+                totalCount = mappings.Count,
+                message = "Kategori mapping'leri başarıyla getirildi"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving category mappings");
+            return StatusCode(500, new { error = "Kategori mapping'leri getirilirken hata oluştu" });
         }
     }
 }

@@ -1,0 +1,30 @@
+{
+  "timestamp": "2025-12-04T16:54:06.861337",
+  "summary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0
+  },
+  "results": [
+    {
+      "test": "API Health Check",
+      "status": "PASSED",
+      "details": "Status: 200"
+    },
+    {
+      "test": "Tedarikçi Listesi",
+      "status": "PASSED",
+      "details": "3 tedarikçi bulundu"
+    },
+    {
+      "test": "Ürün Listesi",
+      "status": "PASSED",
+      "details": "1139 ürün bulundu"
+    },
+    {
+      "test": "Tedarik Siparişi Oluştur",
+      "status": "PASSED",
+      "details": "ID: None, Tutar: 0"
+    }
+  ]
+}

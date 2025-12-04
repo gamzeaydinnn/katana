@@ -15,8 +15,10 @@ public interface IMappingService
     Task<MappingStatsDto> GetMappingStatsAsync();
     Task<Dictionary<string, string>> GetSkuToAccountMappingAsync();
     Task<Dictionary<string, string>> GetLocationMappingAsync();
+    Task<Dictionary<string, string>> GetCategoryMappingAsync();
     Task UpdateSkuMappingAsync(string sku, string accountCode);
     Task UpdateLocationMappingAsync(string location, string warehouseCode);
+    Task UpdateCategoryMappingAsync(string categoryName, string lucaCategoryCode);
 
     
     Task<SyncResultDto> SyncProductsToLucaAsync(DateTime? fromDate = null);
