@@ -76,18 +76,15 @@ public partial class LucaService
 
     /// <summary>
     /// Koza'da yeni depo oluştur (EkleStkWsDepo.do)
-    /// DÜZELTME: JSON formatında "stkDepo" wrapper ile gönderilmeli
     /// Content-Type: application/json
     /// </summary>
     public async Task<KozaResult> CreateDepotAsync(KozaCreateDepotRequest req, CancellationToken ct = default)
     {
         try
         {
-            // Cookie/session auth sağla
             await EnsureAuthenticatedAsync();
 
-            // DÜZELTME 1: Düz (flat) JSON oluştur - stkDepo wrapper yok!
-            // Koza API'si düz JSON bekliyor: {"kod":"...","tanim":"...","kategoriKod":"..."}
+            // Düz JSON - depoKategoriAgacId dahil
             var payload = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
             {
                 { "kod", req.StkDepo.Kod },
@@ -95,7 +92,12 @@ public partial class LucaService
                 { "kategoriKod", req.StkDepo.KategoriKod }
             };
             
-            // İsteğe bağlı alanları ekle (sadece null değilse)
+            // Depo kategori ağacı ID (Luca'daki MERKEZ DEPO için 11356)
+            if (req.StkDepo.DepoKategoriAgacId.HasValue)
+                payload["depoKategoriAgacId"] = req.StkDepo.DepoKategoriAgacId.Value;
+            if (!string.IsNullOrWhiteSpace(req.StkDepo.SisDepoKategoriAgacKodu))
+                payload["sisDepoKategoriAgacKodu"] = req.StkDepo.SisDepoKategoriAgacKodu;
+            
             if (!string.IsNullOrWhiteSpace(req.StkDepo.Ulke))
                 payload["ulke"] = req.StkDepo.Ulke;
             if (!string.IsNullOrWhiteSpace(req.StkDepo.Il))
@@ -105,7 +107,6 @@ public partial class LucaService
             if (!string.IsNullOrWhiteSpace(req.StkDepo.AdresSerbest))
                 payload["adresSerbest"] = req.StkDepo.AdresSerbest;
 
-            // DÜZELTME 2: Content-Type: application/json (Dokümana uygun)
             var jsonContent = new StringContent(
                 JsonSerializer.Serialize(payload, _jsonOptions),
                 Encoding.UTF8,
@@ -119,7 +120,6 @@ public partial class LucaService
                 Content = jsonContent
             };
 
-            // Session cookie'yi uygula
             ApplySessionCookie(httpReq);
             ApplyManualSessionCookie(httpReq);
 

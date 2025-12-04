@@ -430,8 +430,8 @@ public static class KatanaToLucaMapper
             KartKodu = sku,
             MaliyetHesaplanacakFlag = 1,
             KartTipi = lucaSettings.DefaultKartTipi,
-            // Keep null as per Luca example - category will be resolved later if needed
-            KategoriAgacKod = null,
+            // Stok kartı için kategoriAgacKod boş olmalı (depo kartından farklı)
+            KategoriAgacKod = string.Empty,
             KartAlisKdvOran = 1,
             KartSatisKdvOran = 1,
             Barkod = string.IsNullOrWhiteSpace(product.Barcode) ? sku : product.Barcode.Trim(),

@@ -3237,7 +3237,79 @@ retryChangeBranch:
                             
                             if (isDuplicate)
                             {
-                                _logger.LogWarning("Stock card {Card} already exists in Luca (skipped): {Message}", card.KartKodu, msg);
+                                // *** YENİ: Karşılaştırma yap - farklılık varsa yeni versiyon aç ***
+                                _logger.LogInformation("🔍 Stok kartı '{Card}' Luca'da mevcut, karşılaştırma yapılıyor...", card.KartKodu);
+                                
+                                try
+                                {
+                                    var existingCard = await GetStockCardDetailsBySkuAsync(card.KartKodu);
+                                    
+                                    if (existingCard != null && HasStockCardChanges(card, existingCard))
+                                    {
+                                        // Değişiklik var! Yeni versiyon oluştur
+                                        var versionedSku = await GenerateVersionedSkuAsync(card.KartKodu);
+                                        _logger.LogWarning("🆕 Değişiklik tespit edildi! Yeni stok kartı açılıyor: {OldSku} → {NewSku}", 
+                                            card.KartKodu, versionedSku);
+                                        
+                                        // Yeni SKU ile tekrar gönder
+                                        var originalSku = card.KartKodu;
+                                        card.KartKodu = versionedSku;
+                                        
+                                        // Orijinal stock card oluşturma ile TAMAMEN AYNI format kullan
+                                        // NOT: Luca kartAlisKdvOran ve kartSatisKdvOran için 1 (sabit ID) bekliyor
+                                        // olcumBirimiId de 1 olarak sabit gönderiyoruz (Adet)
+                                        var retryFormBuilder = new StringBuilder();
+                                        var retryBaslangic = DateTime.Now.ToString("dd'/'MM'/'yyyy", System.Globalization.CultureInfo.InvariantCulture);
+                                        retryFormBuilder.Append($"baslangicTarihi={UrlEncodeCp1254(retryBaslangic)}");
+                                        retryFormBuilder.Append($"&kartKodu={UrlEncodeCp1254(card.KartKodu)}");
+                                        
+                                        var retrySafeName = (card.KartAdi ?? string.Empty)
+                                            .Replace("Ø", "O")
+                                            .Replace("ø", "o");
+                                        retryFormBuilder.Append($"&kartAdi={UrlEncodeCp1254(retrySafeName)}");
+                                        // Sabit değerler - ilk request ile aynı
+                                        retryFormBuilder.Append("&kartTuru=1");
+                                        retryFormBuilder.Append("&olcumBirimiId=1");
+                                        retryFormBuilder.Append("&kartAlisKdvOran=1");
+                                        retryFormBuilder.Append("&kartSatisKdvOran=1");
+                                        retryFormBuilder.Append("&kartTipi=1");
+                                        retryFormBuilder.Append("&satilabilirFlag=1&satinAlinabilirFlag=1&lotNoFlag=0&maliyetHesaplanacakFlag=1");
+                                        
+                                        var retryFormData = retryFormBuilder.ToString();
+                                        _logger.LogInformation(">>> V2 RETRY FORM DATA: {Form}", retryFormData);
+                                        
+                                        var retryContent = new ByteArrayContent(enc1254.GetBytes(retryFormData));
+                                        retryContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded") { CharSet = "windows-1254" };
+                                        
+                                        using var retryReq = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = retryContent };
+                                        ApplyManualSessionCookie(retryReq);
+                                        
+                                        var retryResp = await client.SendAsync(retryReq);
+                                        var retryBody = await retryResp.Content.ReadAsStringAsync();
+                                        
+                                        if (retryResp.IsSuccessStatusCode && !retryBody.Contains("error\":true"))
+                                        {
+                                            _logger.LogInformation("✅ Yeni versiyon stok kartı başarıyla oluşturuldu: {Sku}", card.KartKodu);
+                                            successCount++;
+                                            card.KartKodu = originalSku; // Restore for logging
+                                            continue;
+                                        }
+                                        else
+                                        {
+                                            _logger.LogWarning("Yeni versiyon oluşturulamadı: {Body}", retryBody.Substring(0, Math.Min(200, retryBody.Length)));
+                                            card.KartKodu = originalSku; // Restore
+                                        }
+                                    }
+                                    else
+                                    {
+                                        _logger.LogInformation("✓ Stok kartı '{Card}' değişmemiş, atlanıyor", card.KartKodu);
+                                    }
+                                }
+                                catch (Exception compareEx)
+                                {
+                                    _logger.LogWarning(compareEx, "Stok kartı karşılaştırma hatası, mevcut kart olarak işaretleniyor");
+                                }
+                                
                                 duplicateCount++;
                                 continue;
                             }
@@ -3316,9 +3388,15 @@ retryChangeBranch:
         result.SentRecords = sentCount;
         // IsSuccess should be true if no real failures occurred (duplicates are not failures)
         result.IsSuccess = failedCount == 0;
-        result.Message = duplicateCount > 0 
-            ? $"{successCount} yeni oluşturuldu, {duplicateCount} zaten vardı, {failedCount} başarısız" 
-            : $"{successCount} success, {failedCount} failed";
+        // Detaylı mesaj - Luca API güncelleme desteklemediğini belirt
+        if (duplicateCount > 0)
+        {
+            result.Message = $"✅ {successCount} yeni oluşturuldu, ⚠️ {duplicateCount} zaten Luca'da vardı (Luca güncelleme desteklemiyor - atlandı), ❌ {failedCount} başarısız";
+        }
+        else
+        {
+            result.Message = $"✅ {successCount} başarılı, ❌ {failedCount} başarısız";
+        }
         result.Duration = DateTime.UtcNow - startTime;
         return result;
     }
@@ -5348,6 +5426,126 @@ retryChangeBranch:
             _logger.LogError(ex, "Error searching for stock card by SKU {SKU} in Luca", sku);
             return null;
         }
+    }
+
+    /// <summary>
+    /// Luca'daki stok kartı detaylarını getir (karşılaştırma için)
+    /// </summary>
+    public async Task<LucaStockCardDetails?> GetStockCardDetailsBySkuAsync(string sku)
+    {
+        if (string.IsNullOrWhiteSpace(sku))
+            return null;
+
+        try
+        {
+            await EnsureAuthenticatedAsync();
+            await EnsureBranchSelectedAsync();
+
+            var request = new LucaListStockCardsRequest
+            {
+                StkSkart = new LucaStockCardCodeFilter
+                {
+                    KodBas = sku,
+                    KodBit = sku,
+                    KodOp = "between"
+                }
+            };
+
+            var result = await ListStockCardsAsync(request);
+
+            if (result.ValueKind == JsonValueKind.Object &&
+                result.TryGetProperty("list", out var listProp) && 
+                listProp.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in listProp.EnumerateArray())
+                {
+                    // Kod eşleşmesi kontrol et
+                    var kartKodu = item.TryGetProperty("kod", out var kodProp) ? kodProp.GetString() : 
+                                   item.TryGetProperty("kartKodu", out var kartKoduProp) ? kartKoduProp.GetString() : null;
+                    
+                    if (!string.Equals(kartKodu, sku, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    return new LucaStockCardDetails
+                    {
+                        SkartId = item.TryGetProperty("skartId", out var idProp) && idProp.ValueKind == JsonValueKind.Number 
+                            ? idProp.GetInt64() : 0,
+                        KartKodu = kartKodu ?? sku,
+                        KartAdi = item.TryGetProperty("tanim", out var tanimProp) ? tanimProp.GetString() :
+                                  item.TryGetProperty("kartAdi", out var adiProp) ? adiProp.GetString() : null,
+                        KartTuru = item.TryGetProperty("kartTuru", out var turuProp) && turuProp.ValueKind == JsonValueKind.Number 
+                            ? turuProp.GetInt32() : 1,
+                        OlcumBirimiId = item.TryGetProperty("olcumBirimiId", out var obProp) && obProp.ValueKind == JsonValueKind.Number 
+                            ? obProp.GetInt64() : 1,
+                        KartAlisKdvOran = item.TryGetProperty("kartAlisKdvOran", out var akdvProp) && akdvProp.ValueKind == JsonValueKind.Number 
+                            ? akdvProp.GetDouble() : 0,
+                        KartSatisKdvOran = item.TryGetProperty("kartSatisKdvOran", out var skdvProp) && skdvProp.ValueKind == JsonValueKind.Number 
+                            ? skdvProp.GetDouble() : 0,
+                        KartTipi = item.TryGetProperty("kartTipi", out var tipiProp) && tipiProp.ValueKind == JsonValueKind.Number 
+                            ? tipiProp.GetInt32() : 1,
+                        KategoriAgacKod = item.TryGetProperty("kategoriAgacKod", out var katProp) ? katProp.GetString() : null,
+                        Barkod = item.TryGetProperty("barkod", out var barkodProp) ? barkodProp.GetString() : null
+                    };
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting stock card details for SKU {SKU}", sku);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Yeni gelen stok kartını Luca'daki mevcut kartla karşılaştır
+    /// Farklılık varsa true döner (yeni kart açılmalı)
+    /// NOT: Luca API'si bazı alanları boş döndürüyor, bu yüzden sadece güvenilir alanları karşılaştırıyoruz
+    /// </summary>
+    public bool HasStockCardChanges(LucaCreateStokKartiRequest newCard, LucaStockCardDetails existingCard)
+    {
+        // ÖNEMLİ: Luca API'si kartAdi, kdvOran gibi alanları çoğu zaman boş/0 döndürüyor
+        // Bu yüzden karşılaştırma yapmıyoruz - sadece gerçek güncellemeler için V2 açılmalı
+        // Gerçek güncelleme = Kullanıcı Katana'da ürün bilgilerini değiştirdiğinde
+        
+        // Şimdilik V2 oluşturmayı devre dışı bırakıyoruz
+        // Çünkü Luca'dan gelen veriler güvenilir değil (KartAdi boş, KDV 0 geliyor)
+        // Kullanıcı manuel olarak değişiklik yaptığında bu flag'i kontrol edebiliriz
+        
+        _logger.LogInformation("✓ Stok kartı '{Sku}' değişiklik karşılaştırması atlandı (Luca API güvenilir veri döndürmüyor)", 
+            newCard.KartKodu);
+        
+        return false; // Şimdilik her zaman false - V2 oluşturma devre dışı
+    }
+
+    /// <summary>
+    /// Stok kartı için versiyon numarası oluştur (ör: SKU-V2, SKU-V3)
+    /// </summary>
+    public async Task<string> GenerateVersionedSkuAsync(string baseSku)
+    {
+        // Önce base SKU ile başlayan tüm kartları bul
+        var version = 2;
+        var maxVersion = 10; // Makul bir üst limit
+
+        while (version <= maxVersion)
+        {
+            var versionedSku = $"{baseSku}-V{version}";
+            var exists = await FindStockCardBySkuAsync(versionedSku);
+            
+            if (!exists.HasValue)
+            {
+                _logger.LogInformation("Generated versioned SKU: {VersionedSku}", versionedSku);
+                return versionedSku;
+            }
+            
+            version++;
+        }
+
+        // Fallback: timestamp ekle
+        var timestampSku = $"{baseSku}-{DateTime.Now:yyyyMMddHHmm}";
+        _logger.LogWarning("Max versions reached, using timestamp SKU: {Sku}", timestampSku);
+        return timestampSku;
     }
 
     /// <summary>

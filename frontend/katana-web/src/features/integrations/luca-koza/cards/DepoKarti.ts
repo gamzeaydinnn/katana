@@ -5,15 +5,25 @@
  * Endpoint'ler: ListeleStkDepo.do, EkleStkWsDepo.do
  */
 export interface KozaStkDepo {
-  depoId?: number;          // Listele'den gelebilir, eldeki miktarda lazım
-  kod: string;              // depoKodu
-  tanim: string;            // depoAdi
-  kategoriKod: string;      // Koza depo kategori kodu (config'ten ver)
+  depoId?: number; // Listele'den gelebilir
+  kod: string; // depoKodu (örn: "001")
+  tanim: string; // depoAdi (örn: "MERKEZ DEPO")
+  kategoriKod: string; // Koza depo kategori kodu
+  depoKategoriAgacId?: number; // Luca depo kategori ağacı ID (11356)
+  sisDepoKategoriAgacKodu?: string; // Luca sistem depo kodu (001)
   ulke?: string;
   il?: string;
   ilce?: string;
   adresSerbest?: string;
 }
+
+/** Luca MERKEZ DEPO varsayılan değerleri */
+export const LUCA_MERKEZ_DEPO = {
+  kod: "002",
+  tanim: "MERKEZ DEPO",
+  depoKategoriAgacId: 11356,
+  sisDepoKategoriAgacKodu: "002",
+} as const;
 
 /**
  * Depo Listeleme Request

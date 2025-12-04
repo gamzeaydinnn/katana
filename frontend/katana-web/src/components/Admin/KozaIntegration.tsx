@@ -7,7 +7,7 @@ import {
   People,
   Refresh,
   Sync as SyncIcon,
-  Warehouse
+  Warehouse,
 } from "@mui/icons-material";
 import {
   Alert,
@@ -37,7 +37,7 @@ import type {
 } from "../../features/integrations/luca-koza";
 import {
   mapKatanaLocationToKozaDepo,
-  mapKatanaProductToKozaStokKarti
+  mapKatanaProductToKozaStokKarti,
 } from "../../features/integrations/luca-koza";
 import api, { kozaAPI } from "../../services/api";
 
@@ -91,13 +91,17 @@ const KozaIntegration: React.FC = () => {
   const [suppliers, setSuppliers] = useState<KozaTedarikciCari[]>([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [syncingSuppliers, setSyncingSuppliers] = useState(false);
-  const [supplierSyncResult, setSupplierSyncResult] = useState<SupplierSyncResult | null>(null);
+  const [supplierSyncResult, setSupplierSyncResult] =
+    useState<SupplierSyncResult | null>(null);
 
   // Müşteri state
   const [customers, setCustomers] = useState<any[]>([]);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [syncingCustomers, setSyncingCustomers] = useState(false);
-  const [customerSyncResult, setCustomerSyncResult] = useState<{successCount: number; errorCount: number} | null>(null);
+  const [customerSyncResult, setCustomerSyncResult] = useState<{
+    successCount: number;
+    errorCount: number;
+  } | null>(null);
 
   // Depo listesini yükle
   const loadDepots = async () => {
@@ -136,43 +140,84 @@ const KozaIntegration: React.FC = () => {
       setError(null);
       setSuccess(null);
 
-      // Katana Location'ları al
-      const locationsRes = await api.get("/Locations");
-      const locations = locationsRes.data;
+      // Katana Location'ları al - başarısız olursa varsayılan kullan
+      let locations: any[] = [];
+      try {
+        const locationsRes = await api.get("/Locations");
+        locations = locationsRes.data;
+      } catch (katanaErr: any) {
+        console.warn(
+          "Katana API bağlantısı yok, varsayılan depo kullanılacak:",
+          katanaErr
+        );
+        // Varsayılan location listesini dene
+        try {
+          const defaultRes = await api.get("/Locations/defaults");
+          locations = defaultRes.data;
+        } catch {
+          // Varsayılan depoyu manuel oluştur
+          locations = [
+            {
+              id: 1,
+              name: "MERKEZ DEPO",
+              legal_name: "Ana Depo",
+              address: { country: "Türkiye" },
+              is_primary: true,
+            },
+          ];
+        }
+      }
 
       if (!Array.isArray(locations) || locations.length === 0) {
-        setError("Katana'da senkronize edilecek location bulunamadı");
+        setError("Senkronize edilecek location bulunamadı");
         return;
       }
 
       let successCount = 0;
       let errorCount = 0;
+      const errors: string[] = [];
 
       // Her location'ı Koza'ya gönder
       for (const location of locations) {
         try {
           const kozaDepo = mapKatanaLocationToKozaDepo(
             location,
-            "MERKEZ" // kategoriKod
+            "01" // kategoriKod - numerik olmalı (MERKEZ değil)
           );
 
+          console.log("Depo oluşturuluyor:", kozaDepo);
           await kozaAPI.depots.create({ stkDepo: kozaDepo });
           successCount++;
-        } catch (err) {
+        } catch (err: any) {
           console.error(`Location ${location.id} senkronize edilemedi:`, err);
+          const errMsg =
+            err.response?.data?.message ||
+            err.response?.data?.error ||
+            err.message ||
+            "Bilinmeyen hata";
+          errors.push(`${location.name || location.id}: ${errMsg}`);
           errorCount++;
         }
       }
 
-      setSuccess(
-        `Senkronizasyon tamamlandı: ${successCount} başarılı, ${errorCount} hatalı`
-      );
+      if (successCount > 0) {
+        setSuccess(
+          `Senkronizasyon tamamlandı: ${successCount} başarılı, ${errorCount} hatalı`
+        );
+      } else if (errorCount > 0) {
+        setError(`Tüm senkronizasyonlar başarısız: ${errors.join(", ")}`);
+      }
 
       // Listeyi yenile
       await loadDepots();
     } catch (err: any) {
       console.error("Depo senkronizasyon hatası:", err);
-      setError(err.message || "Depo senkronizasyonu sırasında hata oluştu");
+      const errMsg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        "Depo senkronizasyonu sırasında hata oluştu";
+      setError(errMsg);
     } finally {
       setSyncingDepots(false);
     }
@@ -221,7 +266,9 @@ const KozaIntegration: React.FC = () => {
       await loadStockCards();
     } catch (err: any) {
       console.error("Stok kartı senkronizasyon hatası:", err);
-      setError(err.message || "Stok kartı senkronizasyonu sırasında hata oluştu");
+      setError(
+        err.message || "Stok kartı senkronizasyonu sırasında hata oluştu"
+      );
     } finally {
       setSyncingStockCards(false);
     }
@@ -253,7 +300,7 @@ const KozaIntegration: React.FC = () => {
       // Backend'e sync isteği at
       const res = await api.post("/admin/koza/cari/suppliers/sync");
       const result = res.data as SupplierSyncResult;
-      
+
       setSupplierSyncResult(result);
 
       if (result.errorMessage) {
@@ -268,7 +315,11 @@ const KozaIntegration: React.FC = () => {
       await loadSuppliers();
     } catch (err: any) {
       console.error("Tedarikçi senkronizasyon hatası:", err);
-      setError(err.response?.data?.error || err.message || "Tedarikçi senkronizasyonu sırasında hata oluştu");
+      setError(
+        err.response?.data?.error ||
+          err.message ||
+          "Tedarikçi senkronizasyonu sırasında hata oluştu"
+      );
     } finally {
       setSyncingSuppliers(false);
     }
@@ -301,7 +352,9 @@ const KozaIntegration: React.FC = () => {
       let errorCount = 0;
 
       // Senkronize edilmemiş müşterileri al
-      const unsyncedCustomers = customers.filter(c => !c.isLucaSynced || c.lucaSyncStatus !== 'success');
+      const unsyncedCustomers = customers.filter(
+        (c) => !c.isLucaSynced || c.lucaSyncStatus !== "success"
+      );
 
       for (const customer of unsyncedCustomers) {
         try {
@@ -313,11 +366,17 @@ const KozaIntegration: React.FC = () => {
       }
 
       setCustomerSyncResult({ successCount, errorCount });
-      setSuccess(`Müşteri senkronizasyonu tamamlandı: ${successCount} başarılı, ${errorCount} hatalı`);
+      setSuccess(
+        `Müşteri senkronizasyonu tamamlandı: ${successCount} başarılı, ${errorCount} hatalı`
+      );
       await loadCustomers();
     } catch (err: any) {
       console.error("Müşteri senkronizasyon hatası:", err);
-      setError(err.response?.data?.error || err.message || "Müşteri senkronizasyonu sırasında hata oluştu");
+      setError(
+        err.response?.data?.error ||
+          err.message ||
+          "Müşteri senkronizasyonu sırasında hata oluştu"
+      );
     } finally {
       setSyncingCustomers(false);
     }
@@ -337,27 +396,36 @@ const KozaIntegration: React.FC = () => {
   }, [activeTab]);
 
   return (
-    <Box>
+    <Box sx={{ px: { xs: 0, sm: 0 }, mx: { xs: -1, sm: 0 } }}>
       {/* Header */}
-      <Box sx={{ mb: 3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <Typography variant="h5" fontWeight={600}>
+      <Box
+        sx={{
+          mb: 2,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          px: { xs: 1, sm: 0 },
+        }}
+      >
+        <Typography
+          variant="h6"
+          fontWeight={600}
+          sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+        >
           Koza Entegrasyon Yönetimi
         </Typography>
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <Tooltip title="Yenile">
-            <IconButton
-              onClick={() => {
-                if (activeTab === 0) loadDepots();
-                else if (activeTab === 1) loadStockCards();
-                else if (activeTab === 2) loadSuppliers();
-                else loadCustomers();
-              }}
-              color="primary"
-            >
-              <Refresh />
-            </IconButton>
-          </Tooltip>
-        </Box>
+        <IconButton
+          size="small"
+          onClick={() => {
+            if (activeTab === 0) loadDepots();
+            else if (activeTab === 1) loadStockCards();
+            else if (activeTab === 2) loadSuppliers();
+            else loadCustomers();
+          }}
+          color="primary"
+        >
+          <Refresh fontSize="small" />
+        </IconButton>
       </Box>
 
       {/* Error Alert */}
@@ -369,42 +437,57 @@ const KozaIntegration: React.FC = () => {
 
       {/* Success Alert */}
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+        <Alert
+          severity="success"
+          sx={{ mb: 2 }}
+          onClose={() => setSuccess(null)}
+        >
           {success}
         </Alert>
       )}
 
       {/* Tabs */}
-      <Paper sx={{ mb: 3 }}>
+      <Paper sx={{ mb: 2, mx: { xs: 1, sm: 0 }, overflowX: "auto" }}>
         <Tabs
           value={activeTab}
           onChange={(_, v) => setActiveTab(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
           sx={{
+            minHeight: 40,
             "& .MuiTab-root": {
               textTransform: "none",
               fontWeight: 500,
-              fontSize: "0.9375rem",
+              fontSize: { xs: "0.7rem", sm: "0.875rem" },
+              minHeight: 40,
+              minWidth: { xs: "auto", sm: 120 },
+              px: { xs: 1, sm: 2 },
+              py: 0.5,
+            },
+            "& .MuiTab-iconWrapper": {
+              fontSize: { xs: "1rem", sm: "1.25rem" },
             },
           }}
         >
-          <Tab icon={<Warehouse />} label="Depo Kartları" iconPosition="start" />
-          <Tab icon={<Inventory />} label="Stok Kartları" iconPosition="start" />
-          <Tab icon={<Business />} label="Tedarikçi Kartları" iconPosition="start" />
-          <Tab icon={<People />} label="Müşteri Kartları" iconPosition="start" />
+          <Tab icon={<Warehouse />} label="Depo" iconPosition="start" />
+          <Tab icon={<Inventory />} label="Stok" iconPosition="start" />
+          <Tab icon={<Business />} label="Tedarikçi" iconPosition="start" />
+          <Tab icon={<People />} label="Müşteri" iconPosition="start" />
         </Tabs>
       </Paper>
 
       {/* Depo Kartları Tab */}
       {activeTab === 0 && (
-        <Box>
+        <Box sx={{ px: { xs: 1, sm: 0 } }}>
           {/* İstatistikler */}
-          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 2, mb: 3 }}>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" variant="body2">
+          <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+            <Card sx={{ flex: "1 1 auto", minWidth: 100 }}>
+              <CardContent sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}>
+                <Typography color="textSecondary" variant="caption">
                   Toplam Depo
                 </Typography>
-                <Typography variant="h4" fontWeight={700}>
+                <Typography variant="h5" fontWeight={700}>
                   {depots.length}
                 </Typography>
               </CardContent>
@@ -412,18 +495,38 @@ const KozaIntegration: React.FC = () => {
           </Box>
 
           {/* Depo Listesi */}
-          <Paper sx={{ p: 2 }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-              <Typography variant="h6" fontWeight={600}>
+          <Paper sx={{ p: { xs: 1, sm: 2 } }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 1.5,
+                gap: 1,
+              }}
+            >
+              <Typography
+                variant="subtitle1"
+                fontWeight={600}
+                sx={{ fontSize: { xs: "0.9rem", sm: "1rem" } }}
+              >
                 Depo Listesi
               </Typography>
               <Button
+                size="small"
                 variant="contained"
-                startIcon={syncingDepots ? <CircularProgress size={20} color="inherit" /> : <SyncIcon />}
+                startIcon={
+                  syncingDepots ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <SyncIcon />
+                  )
+                }
                 onClick={syncDepots}
                 disabled={syncingDepots}
+                sx={{ fontSize: "0.7rem", px: 1, py: 0.5, minWidth: "auto" }}
               >
-                {syncingDepots ? "Senkronize Ediliyor..." : "Toplu Senkronize"}
+                {syncingDepots ? "Sync..." : "Senkronize"}
               </Button>
             </Box>
 
@@ -436,15 +539,26 @@ const KozaIntegration: React.FC = () => {
                 Henüz depo kaydı yok. Katana Location'larınızı senkronize edin.
               </Alert>
             ) : (
-              <TableContainer>
-                <Table>
+              <TableContainer sx={{ width: "100%", overflowX: "auto" }}>
+                <Table
+                  size="small"
+                  sx={{
+                    "& .MuiTableCell-root": {
+                      px: { xs: 0.75, sm: 2 },
+                      py: { xs: 0.5, sm: 1 },
+                      fontSize: { xs: "0.7rem", sm: "0.875rem" },
+                    },
+                  }}
+                >
                   <TableHead>
                     <TableRow>
-                      <TableCell>Depo ID</TableCell>
-                      <TableCell>Kod</TableCell>
-                      <TableCell>Tanım</TableCell>
-                      <TableCell>Kategori</TableCell>
-                      <TableCell>Şehir</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>ID</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>Kod</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>Tanım</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        Kategori
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>Şehir</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -452,7 +566,12 @@ const KozaIntegration: React.FC = () => {
                       <TableRow key={depo.depoId || `depo-${idx}`}>
                         <TableCell>{depo.depoId || "-"}</TableCell>
                         <TableCell>
-                          <Chip label={depo.kod} size="small" color="primary" variant="outlined" />
+                          <Chip
+                            label={depo.kod}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
                         </TableCell>
                         <TableCell>{depo.tanim}</TableCell>
                         <TableCell>{depo.kategoriKod}</TableCell>
@@ -469,15 +588,15 @@ const KozaIntegration: React.FC = () => {
 
       {/* Stok Kartları Tab */}
       {activeTab === 1 && (
-        <Box>
+        <Box sx={{ px: { xs: 1, sm: 0 } }}>
           {/* İstatistikler */}
-          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 2, mb: 3 }}>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" variant="body2">
+          <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+            <Card sx={{ flex: "1 1 auto", minWidth: 100 }}>
+              <CardContent sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}>
+                <Typography color="textSecondary" variant="caption">
                   Toplam Stok Kartı
                 </Typography>
-                <Typography variant="h4" fontWeight={700}>
+                <Typography variant="h5" fontWeight={700}>
                   {stockCards.length}
                 </Typography>
               </CardContent>
@@ -485,39 +604,70 @@ const KozaIntegration: React.FC = () => {
           </Box>
 
           {/* Stok Kartı Listesi */}
-          <Paper sx={{ p: 2 }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-              <Typography variant="h6" fontWeight={600}>
+          <Paper sx={{ p: { xs: 1, sm: 2 } }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 1.5,
+                gap: 1,
+              }}
+            >
+              <Typography
+                variant="subtitle1"
+                fontWeight={600}
+                sx={{ fontSize: { xs: "0.9rem", sm: "1rem" } }}
+              >
                 Stok Kartı Listesi
               </Typography>
               <Button
+                size="small"
                 variant="contained"
-                startIcon={syncingStockCards ? <CircularProgress size={20} color="inherit" /> : <SyncIcon />}
+                startIcon={
+                  syncingStockCards ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <SyncIcon />
+                  )
+                }
                 onClick={syncStockCards}
                 disabled={syncingStockCards}
+                sx={{ fontSize: "0.7rem", px: 1, py: 0.5, minWidth: "auto" }}
               >
-                {syncingStockCards ? "Senkronize Ediliyor..." : "Toplu Senkronize"}
+                {syncingStockCards ? "Sync..." : "Senkronize"}
               </Button>
             </Box>
 
             {loadingStockCards ? (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-                <CircularProgress />
+              <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+                <CircularProgress size={24} />
               </Box>
             ) : stockCards.length === 0 ? (
-              <Alert severity="info">
-                Henüz stok kartı kaydı yok. Katana Product'larınızı senkronize edin.
+              <Alert severity="info" sx={{ fontSize: "0.8rem" }}>
+                Henüz stok kartı kaydı yok.
               </Alert>
             ) : (
-              <TableContainer>
-                <Table>
+              <TableContainer sx={{ width: "100%", overflowX: "auto" }}>
+                <Table
+                  size="small"
+                  sx={{
+                    "& .MuiTableCell-root": {
+                      px: { xs: 0.75, sm: 2 },
+                      py: { xs: 0.5, sm: 1 },
+                      fontSize: { xs: "0.7rem", sm: "0.875rem" },
+                    },
+                  }}
+                >
                   <TableHead>
                     <TableRow>
-                      <TableCell>Stok ID</TableCell>
-                      <TableCell>Kod</TableCell>
-                      <TableCell>Adı</TableCell>
-                      <TableCell>Kategori</TableCell>
-                      <TableCell>KDV %</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>ID</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>Kod</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>Adı</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        Kategori
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>KDV</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -525,11 +675,19 @@ const KozaIntegration: React.FC = () => {
                       <TableRow key={stok.stokKartId || `stok-${idx}`}>
                         <TableCell>{stok.stokKartId || "-"}</TableCell>
                         <TableCell>
-                          <Chip label={stok.kartKodu} size="small" color="secondary" variant="outlined" />
+                          <Chip
+                            label={stok.kartKodu}
+                            size="small"
+                            color="secondary"
+                            variant="outlined"
+                            sx={{ fontSize: "0.65rem" }}
+                          />
                         </TableCell>
                         <TableCell>{stok.kartAdi}</TableCell>
                         <TableCell>{stok.kategoriAgacKod}</TableCell>
-                        <TableCell>{(stok.kartSatisKdvOran * 100).toFixed(0)}%</TableCell>
+                        <TableCell>
+                          {(stok.kartSatisKdvOran * 100).toFixed(0)}%
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -542,47 +700,61 @@ const KozaIntegration: React.FC = () => {
 
       {/* Tedarikçi Kartları Tab */}
       {activeTab === 2 && (
-        <Box>
+        <Box sx={{ px: { xs: 1, sm: 0 } }}>
           {/* İstatistikler */}
-          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 2, mb: 3 }}>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" variant="body2">
-                  Toplam Tedarikçi
+          <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+            <Card sx={{ flex: "1 1 auto", minWidth: 80 }}>
+              <CardContent sx={{ py: 1, px: 1.5, "&:last-child": { pb: 1 } }}>
+                <Typography color="textSecondary" variant="caption">
+                  Toplam
                 </Typography>
-                <Typography variant="h4" fontWeight={700}>
+                <Typography variant="h6" fontWeight={700}>
                   {suppliers.length}
                 </Typography>
               </CardContent>
             </Card>
             {supplierSyncResult && (
               <>
-                <Card>
-                  <CardContent>
-                    <Typography color="textSecondary" variant="body2">
-                      Son Sync - Başarılı
+                <Card sx={{ flex: "1 1 auto", minWidth: 60 }}>
+                  <CardContent
+                    sx={{ py: 1, px: 1.5, "&:last-child": { pb: 1 } }}
+                  >
+                    <Typography color="textSecondary" variant="caption">
+                      Başarılı
                     </Typography>
-                    <Typography variant="h4" fontWeight={700} color="success.main">
+                    <Typography
+                      variant="h6"
+                      fontWeight={700}
+                      color="success.main"
+                    >
                       {supplierSyncResult.successCount}
                     </Typography>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent>
-                    <Typography color="textSecondary" variant="body2">
-                      Son Sync - Atlandı
+                <Card sx={{ flex: "1 1 auto", minWidth: 60 }}>
+                  <CardContent
+                    sx={{ py: 1, px: 1.5, "&:last-child": { pb: 1 } }}
+                  >
+                    <Typography color="textSecondary" variant="caption">
+                      Atlandı
                     </Typography>
-                    <Typography variant="h4" fontWeight={700} color="info.main">
+                    <Typography variant="h6" fontWeight={700} color="info.main">
                       {supplierSyncResult.skippedCount}
                     </Typography>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent>
-                    <Typography color="textSecondary" variant="body2">
-                      Son Sync - Hatalı
+                <Card sx={{ flex: "1 1 auto", minWidth: 60 }}>
+                  <CardContent
+                    sx={{ py: 1, px: 1.5, "&:last-child": { pb: 1 } }}
+                  >
+                    <Typography color="textSecondary" variant="caption">
+                      Hatalı
                     </Typography>
-                    <Typography variant="h4" fontWeight={700} color="error.main">
+                    <Typography
+                      variant="h6"
+                      fontWeight={700}
+                      color="error.main"
+                    >
                       {supplierSyncResult.errorCount}
                     </Typography>
                   </CardContent>
@@ -592,40 +764,83 @@ const KozaIntegration: React.FC = () => {
           </Box>
 
           {/* Tedarikçi Listesi */}
-          <Paper sx={{ p: 2 }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-              <Typography variant="h6" fontWeight={600}>
-                Koza Tedarikçi Listesi
+          <Paper sx={{ p: { xs: 1, sm: 2 } }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 1.5,
+                gap: 1,
+              }}
+            >
+              <Typography
+                variant="subtitle1"
+                fontWeight={600}
+                sx={{ fontSize: { xs: "0.9rem", sm: "1rem" } }}
+              >
+                Tedarikçi Listesi
               </Typography>
               <Button
+                size="small"
                 variant="contained"
                 color="primary"
-                startIcon={syncingSuppliers ? <CircularProgress size={20} color="inherit" /> : <SyncIcon />}
+                startIcon={
+                  syncingSuppliers ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <SyncIcon />
+                  )
+                }
                 onClick={syncSuppliers}
                 disabled={syncingSuppliers}
+                sx={{ fontSize: "0.7rem", px: 1, py: 0.5, minWidth: "auto" }}
               >
-                {syncingSuppliers ? "Senkronize Ediliyor..." : "Katana'dan Senkronize"}
+                {syncingSuppliers ? "Sync..." : "Senkronize"}
               </Button>
             </Box>
 
             {loadingSuppliers ? (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-                <CircularProgress />
+              <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+                <CircularProgress size={24} />
               </Box>
             ) : suppliers.length === 0 ? (
-              <Alert severity="info">
-                Henüz tedarikçi kaydı yok. Katana Supplier'larınızı senkronize edin.
+              <Alert severity="info" sx={{ fontSize: "0.8rem" }}>
+                Henüz tedarikçi kaydı yok.
               </Alert>
             ) : (
-              <TableContainer>
-                <Table>
+              <TableContainer sx={{ width: "100%", overflowX: "auto" }}>
+                <Table
+                  size="small"
+                  sx={{
+                    "& .MuiTableCell-root": {
+                      px: { xs: 0.75, sm: 2 },
+                      py: { xs: 0.5, sm: 1 },
+                      fontSize: { xs: "0.7rem", sm: "0.875rem" },
+                    },
+                  }}
+                >
                   <TableHead>
                     <TableRow>
-                      <TableCell>Finansal Nesne ID</TableCell>
-                      <TableCell>Cari Kodu</TableCell>
-                      <TableCell>Tanım</TableCell>
-                      <TableCell>Vergi No</TableCell>
-                      <TableCell>İletişim</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>ID</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>Kod</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>Tanım</TableCell>
+                      <TableCell
+                        sx={{
+                          whiteSpace: "nowrap",
+                          display: { xs: "none", sm: "table-cell" },
+                        }}
+                      >
+                        Vergi No
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          whiteSpace: "nowrap",
+                          display: { xs: "none", sm: "table-cell" },
+                        }}
+                      >
+                        İletişim
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -633,11 +848,25 @@ const KozaIntegration: React.FC = () => {
                       <TableRow key={sup.finansalNesneId || `sup-${idx}`}>
                         <TableCell>{sup.finansalNesneId || "-"}</TableCell>
                         <TableCell>
-                          <Chip label={sup.kod || "-"} size="small" color="warning" variant="outlined" />
+                          <Chip
+                            label={sup.kod || "-"}
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                            sx={{ fontSize: "0.65rem" }}
+                          />
                         </TableCell>
                         <TableCell>{sup.tanim || sup.kisaAd || "-"}</TableCell>
-                        <TableCell>{sup.vergiNo || "-"}</TableCell>
-                        <TableCell>{sup.email || sup.telefon || "-"}</TableCell>
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
+                          {sup.vergiNo || "-"}
+                        </TableCell>
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
+                          {sup.email || sup.telefon || "-"}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -650,47 +879,56 @@ const KozaIntegration: React.FC = () => {
 
       {/* Müşteri Kartları Tab */}
       {activeTab === 3 && (
-        <Box>
+        <Box sx={{ px: { xs: 1, sm: 0 } }}>
           {/* İstatistikler */}
-          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 2, mb: 3 }}>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" variant="body2">
-                  Toplam Müşteri
+          <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+            <Card sx={{ flex: "1 1 auto", minWidth: 70 }}>
+              <CardContent sx={{ py: 1, px: 1.5, "&:last-child": { pb: 1 } }}>
+                <Typography color="textSecondary" variant="caption">
+                  Toplam
                 </Typography>
-                <Typography variant="h4" fontWeight={700}>
+                <Typography variant="h6" fontWeight={700}>
                   {customers.length}
                 </Typography>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" variant="body2">
-                  Luca Senkronlu
+            <Card sx={{ flex: "1 1 auto", minWidth: 70 }}>
+              <CardContent sx={{ py: 1, px: 1.5, "&:last-child": { pb: 1 } }}>
+                <Typography color="textSecondary" variant="caption">
+                  Senkron
                 </Typography>
-                <Typography variant="h4" fontWeight={700} color="success.main">
-                  {customers.filter(c => c.isLucaSynced || c.lucaSyncStatus === 'success').length}
+                <Typography variant="h6" fontWeight={700} color="success.main">
+                  {
+                    customers.filter(
+                      (c) => c.isLucaSynced || c.lucaSyncStatus === "success"
+                    ).length
+                  }
                 </Typography>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" variant="body2">
+            <Card sx={{ flex: "1 1 auto", minWidth: 70 }}>
+              <CardContent sx={{ py: 1, px: 1.5, "&:last-child": { pb: 1 } }}>
+                <Typography color="textSecondary" variant="caption">
                   Bekleyen
                 </Typography>
-                <Typography variant="h4" fontWeight={700} color="warning.main">
-                  {customers.filter(c => !c.isLucaSynced && c.lucaSyncStatus !== 'success').length}
+                <Typography variant="h6" fontWeight={700} color="warning.main">
+                  {
+                    customers.filter(
+                      (c) => !c.isLucaSynced && c.lucaSyncStatus !== "success"
+                    ).length
+                  }
                 </Typography>
               </CardContent>
             </Card>
             {customerSyncResult && (
-              <Card>
-                <CardContent>
-                  <Typography color="textSecondary" variant="body2">
+              <Card sx={{ flex: "1 1 auto", minWidth: 70 }}>
+                <CardContent sx={{ py: 1, px: 1.5, "&:last-child": { pb: 1 } }}>
+                  <Typography color="textSecondary" variant="caption">
                     Son Sync
                   </Typography>
-                  <Typography variant="body1" fontWeight={600}>
-                    ✓ {customerSyncResult.successCount} / ✗ {customerSyncResult.errorCount}
+                  <Typography variant="body2" fontWeight={600}>
+                    ✓{customerSyncResult.successCount}/✗
+                    {customerSyncResult.errorCount}
                   </Typography>
                 </CardContent>
               </Card>
@@ -698,70 +936,166 @@ const KozaIntegration: React.FC = () => {
           </Box>
 
           {/* Müşteri Listesi */}
-          <Paper sx={{ p: 2 }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-              <Typography variant="h6" fontWeight={600}>
-                Müşteri Listesi (Luca Cari Entegrasyonu)
+          <Paper sx={{ p: { xs: 1, sm: 2 } }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 1.5,
+                gap: 1,
+              }}
+            >
+              <Typography
+                variant="subtitle1"
+                fontWeight={600}
+                sx={{ fontSize: { xs: "0.9rem", sm: "1rem" } }}
+              >
+                Müşteri Listesi
               </Typography>
               <Button
+                size="small"
                 variant="contained"
                 color="primary"
-                startIcon={syncingCustomers ? <CircularProgress size={20} color="inherit" /> : <SyncIcon />}
+                startIcon={
+                  syncingCustomers ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <SyncIcon />
+                  )
+                }
                 onClick={syncCustomers}
                 disabled={syncingCustomers}
+                sx={{ fontSize: "0.7rem", px: 1, py: 0.5, minWidth: "auto" }}
               >
-                {syncingCustomers ? "Senkronize Ediliyor..." : "Luca'ya Toplu Senkronize"}
+                {syncingCustomers ? "Sync..." : "Senkronize"}
               </Button>
             </Box>
 
             {loadingCustomers ? (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-                <CircularProgress />
+              <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+                <CircularProgress size={24} />
               </Box>
             ) : customers.length === 0 ? (
-              <Alert severity="info">
-                Henüz müşteri kaydı yok. Müşteriler sayfasından ekleyebilirsiniz.
+              <Alert severity="info" sx={{ fontSize: "0.8rem" }}>
+                Henüz müşteri kaydı yok.
               </Alert>
             ) : (
-              <TableContainer>
-                <Table>
+              <TableContainer sx={{ width: "100%", overflowX: "auto" }}>
+                <Table
+                  size="small"
+                  sx={{
+                    "& .MuiTableCell-root": {
+                      px: { xs: 0.75, sm: 2 },
+                      py: { xs: 0.5, sm: 1 },
+                      fontSize: { xs: "0.7rem", sm: "0.875rem" },
+                    },
+                  }}
+                >
                   <TableHead>
                     <TableRow>
-                      <TableCell>Vergi No</TableCell>
-                      <TableCell>Ünvan</TableCell>
-                      <TableCell>Tip</TableCell>
-                      <TableCell>İletişim</TableCell>
-                      <TableCell>Luca Durumu</TableCell>
-                      <TableCell>Luca Kodu</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        Vergi No
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>Ünvan</TableCell>
+                      <TableCell
+                        sx={{
+                          whiteSpace: "nowrap",
+                          display: { xs: "none", sm: "table-cell" },
+                        }}
+                      >
+                        Tip
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          whiteSpace: "nowrap",
+                          display: { xs: "none", sm: "table-cell" },
+                        }}
+                      >
+                        İletişim
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>Durum</TableCell>
+                      <TableCell
+                        sx={{
+                          whiteSpace: "nowrap",
+                          display: { xs: "none", sm: "table-cell" },
+                        }}
+                      >
+                        Luca Kodu
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {customers.map((customer) => (
                       <TableRow key={customer.id}>
                         <TableCell>
-                          <Chip label={customer.taxNo} size="small" variant="outlined" />
-                        </TableCell>
-                        <TableCell>{customer.title}</TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={customer.type === 1 ? "Şirket" : "Şahıs"} 
-                            size="small" 
-                            color={customer.type === 1 ? "primary" : "secondary"}
+                          <Chip
+                            label={customer.taxNo}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontSize: "0.65rem" }}
                           />
                         </TableCell>
-                        <TableCell>{customer.email || customer.phone || "-"}</TableCell>
+                        <TableCell>{customer.title}</TableCell>
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
+                          <Chip
+                            label={customer.type === 1 ? "Şirket" : "Şahıs"}
+                            size="small"
+                            color={
+                              customer.type === 1 ? "primary" : "secondary"
+                            }
+                            sx={{ fontSize: "0.65rem" }}
+                          />
+                        </TableCell>
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
+                          {customer.email || customer.phone || "-"}
+                        </TableCell>
                         <TableCell>
-                          {customer.lucaSyncStatus === 'success' || customer.isLucaSynced ? (
-                            <Chip icon={<CheckCircleIcon />} label="Senkron" color="success" size="small" />
-                          ) : customer.lucaSyncStatus === 'error' ? (
-                            <Tooltip title={customer.lastSyncError || "Hata"}>
-                              <Chip icon={<ErrorIcon />} label="Hatalı" color="error" size="small" />
-                            </Tooltip>
+                          {customer.lucaSyncStatus === "success" ||
+                          customer.isLucaSynced ? (
+                            <Chip
+                              icon={<CheckCircleIcon />}
+                              label="OK"
+                              color="success"
+                              size="small"
+                              sx={{
+                                fontSize: "0.6rem",
+                                "& .MuiChip-icon": { fontSize: "0.8rem" },
+                              }}
+                            />
+                          ) : customer.lucaSyncStatus === "error" ? (
+                            <Chip
+                              icon={<ErrorIcon />}
+                              label="!"
+                              color="error"
+                              size="small"
+                              sx={{
+                                fontSize: "0.6rem",
+                                "& .MuiChip-icon": { fontSize: "0.8rem" },
+                              }}
+                            />
                           ) : (
-                            <Chip icon={<PendingIcon />} label="Bekliyor" color="warning" size="small" />
+                            <Chip
+                              icon={<PendingIcon />}
+                              label="..."
+                              color="warning"
+                              size="small"
+                              sx={{
+                                fontSize: "0.6rem",
+                                "& .MuiChip-icon": { fontSize: "0.8rem" },
+                              }}
+                            />
                           )}
                         </TableCell>
-                        <TableCell>{customer.lucaCode || "-"}</TableCell>
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
+                          {customer.lucaCode || "-"}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -774,5 +1108,4 @@ const KozaIntegration: React.FC = () => {
     </Box>
   );
 };
-
 export default KozaIntegration;

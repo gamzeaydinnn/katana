@@ -214,10 +214,9 @@ public class StockMovementSyncService : IStockMovementSyncService
                     BelgeAciklama = $"Katana Transfer #{transferId}",
                     BelgeTurDetayId = LucaStockMovementTypes.DepoTransferi,
                     
-                    // Depo eşleşmeleri - FromWarehouse/ToWarehouse string olarak tutuluyor
-                    // Gerçek ID'ler için LocationKozaDepotMappings kullanılmalı
-                    CikisDepoKodu = transfer.FromWarehouse,
-                    GirisDepoKodu = transfer.ToWarehouse,
+                    // Depo kodlarını normalize et (Luca formatı: "001")
+                    CikisDepoKodu = NormalizeWarehouseCode(transfer.FromWarehouse),
+                    GirisDepoKodu = NormalizeWarehouseCode(transfer.ToWarehouse),
                     
                     DetayList = new List<LucaStockMovementRow>
                     {
@@ -462,4 +461,20 @@ public class StockMovementSyncService : IStockMovementSyncService
     }
 
     #endregion
+
+    /// <summary>Luca depo kodu formatına normalize et (002)</summary>
+    private static string NormalizeWarehouseCode(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return "002";
+        var trimmed = code.Trim();
+        if (trimmed.Contains('-'))
+        {
+            var parts = trimmed.Split('-');
+            if (parts.Length >= 1 && int.TryParse(parts[0], out var num))
+                return num.ToString("000");
+        }
+        if (int.TryParse(trimmed, out var single))
+            return single.ToString("000");
+        return trimmed;
+    }
 }

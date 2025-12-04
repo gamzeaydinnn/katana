@@ -288,6 +288,19 @@ public sealed class KozaDepotsController : ControllerBase
                     originalKategoriKod ?? "NULL", request.StkDepo.KategoriKod);
             }
 
+            // DÜZELTME: Luca depo kategori ağacı varsayılan değerleri ekle
+            // Eğer frontend göndermemişse, MERKEZ DEPO için varsayılan değerleri kullan
+            if (!request.StkDepo.DepoKategoriAgacId.HasValue)
+            {
+                request.StkDepo.DepoKategoriAgacId = 11356; // Luca MERKEZ DEPO kategori ağacı ID
+                _logger.LogWarning("DepoKategoriAgacId set to default: 11356");
+            }
+            if (string.IsNullOrWhiteSpace(request.StkDepo.SisDepoKategoriAgacKodu))
+            {
+                request.StkDepo.SisDepoKategoriAgacKodu = "002"; // Luca MERKEZ DEPO kodu
+                _logger.LogWarning("SisDepoKategoriAgacKodu set to default: 002");
+            }
+
             // DEBUG 2: Normalizasyon sonrası veriyi logla
             _logger.LogWarning("=== DEPOT CREATE - AFTER NORMALIZATION ===");
             _logger.LogWarning("NORMALIZED Kod: {Kod}", request.StkDepo.Kod);

@@ -698,35 +698,51 @@ const PurchaseOrders: React.FC = () => {
   // ===== RENDER: LIST VIEW =====
 
   const renderListView = () => (
-    <Box>
+    <Box
+      sx={{
+        px: { xs: 1, sm: 0 },
+        mx: { xs: 0, sm: 0 },
+      }}
+    >
       {/* Header */}
       <Box
         sx={{
           display: "flex",
           justifyContent: "flex-end",
           alignItems: "center",
-          mb: 3,
+          flexWrap: "wrap",
+          gap: 1,
+          mb: 2,
+          px: { xs: 1, sm: 0 },
         }}
       >
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
+        <Typography
+          variant="h6"
+          sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+        >
+          Satınalma Siparişleri
+        </Typography>
+        <Box sx={{ display: "flex", gap: 0.5 }}>
+          <IconButton
+            size="small"
+            color="primary"
             onClick={() => {
               fetchOrders();
               fetchStats();
             }}
             disabled={loading}
           >
-            Yenile
-          </Button>
+            <RefreshIcon fontSize="small" />
+          </IconButton>
           <Button
+            size="small"
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => {
               resetForm();
               setView("create");
             }}
+            sx={{ fontSize: "0.75rem", px: 1.5, py: 0.5, minWidth: "auto" }}
           >
             Yeni Tedarik Siparişi
           </Button>
@@ -737,13 +753,26 @@ const PurchaseOrders: React.FC = () => {
       {renderStats()}
 
       {/* Filters */}
-      <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
-        <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel>Sync Durumu</InputLabel>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "row", sm: "row" },
+          gap: 1,
+          mb: 2,
+          px: { xs: 1, sm: 0 },
+          flexWrap: "wrap",
+        }}
+      >
+        <FormControl
+          size="small"
+          sx={{ minWidth: 120, flex: { xs: 1, sm: "none" } }}
+        >
+          <InputLabel sx={{ fontSize: "0.8rem" }}>Sync Durumu</InputLabel>
           <Select
             value={filterSyncStatus}
             label="Sync Durumu"
             onChange={(e) => setFilterSyncStatus(e.target.value)}
+            sx={{ fontSize: "0.8rem" }}
           >
             <MenuItem value="all">Tümü</MenuItem>
             <MenuItem value="synced">Senkronize</MenuItem>
@@ -751,12 +780,16 @@ const PurchaseOrders: React.FC = () => {
             <MenuItem value="error">Hatalı</MenuItem>
           </Select>
         </FormControl>
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Tedarikçi</InputLabel>
+        <FormControl
+          size="small"
+          sx={{ minWidth: 120, flex: { xs: 1, sm: "none" } }}
+        >
+          <InputLabel sx={{ fontSize: "0.8rem" }}>Tedarikçi</InputLabel>
           <Select
             value={filterSupplierId}
             label="Tedarikçi"
             onChange={(e) => setFilterSupplierId(e.target.value as number)}
+            sx={{ fontSize: "0.8rem" }}
           >
             <MenuItem value={0}>Tümü</MenuItem>
             {suppliers.map((s) => (
@@ -769,17 +802,34 @@ const PurchaseOrders: React.FC = () => {
       </Box>
 
       {/* Table */}
-      <TableContainer component={Paper}>
-        <Table size="small">
+      <TableContainer
+        component={Paper}
+        sx={{ width: "100%", overflowX: "auto", mx: { xs: 0, sm: 0 } }}
+      >
+        <Table
+          size="small"
+          sx={{
+            minWidth: { xs: 0, sm: 650 },
+            "& .MuiTableCell-root": {
+              px: { xs: 0.75, sm: 2 },
+              py: { xs: 0.75, sm: 1 },
+              fontSize: { xs: "0.7rem", sm: "0.875rem" },
+            },
+          }}
+        >
           <TableHead>
             <TableRow>
-              <TableCell>Sipariş No</TableCell>
-              <TableCell>Tedarikçi</TableCell>
-              <TableCell>Tarih</TableCell>
-              <TableCell>Teslim Tarihi</TableCell>
-              <TableCell align="right">Toplam</TableCell>
-              <TableCell>Koza Durumu</TableCell>
-              <TableCell align="center">İşlemler</TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap" }}>Sipariş No</TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap" }}>Tedarikçi</TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap" }}>Tarih</TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap" }}>Teslim Tarihi</TableCell>
+              <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                Toplam
+              </TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap" }}>Luca Durumu</TableCell>
+              <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                İşlemler
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
