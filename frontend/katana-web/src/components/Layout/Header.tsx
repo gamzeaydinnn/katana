@@ -364,8 +364,8 @@ const Header: React.FC<HeaderProps> = ({
           minHeight: isMobile ? 72 : 64,
           px: { xs: 1.5, sm: 2, md: 3 },
           gap: isMobile ? 0.75 : 0,
-          flexWrap: "nowrap",
-          alignItems: "center",
+          flexWrap: isMobile ? "wrap" : "nowrap",
+          alignItems: isMobile ? "flex-start" : "center",
         }}
       >
         <IconButton
@@ -437,9 +437,9 @@ const Header: React.FC<HeaderProps> = ({
             rowGap: { xs: 0.75, md: 0 },
             flexWrap: { xs: "wrap", md: "nowrap" },
             justifyContent: { xs: "flex-start", md: "flex-end" },
-            width: "auto",
+            width: { xs: "100%", md: "auto" },
             flexGrow: 1,
-            ml: "auto",
+            ml: { xs: 0, md: "auto" },
             mt: { xs: 0.5, md: 0 },
           }}
         >

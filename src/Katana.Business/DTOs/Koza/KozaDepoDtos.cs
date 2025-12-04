@@ -20,6 +20,14 @@ public sealed class KozaDepoDto
     [JsonPropertyName("kategoriKod")] 
     public string KategoriKod { get; set; } = string.Empty;
     
+    /// <summary>Luca depo kategori ağacı ID'si</summary>
+    [JsonPropertyName("depoKategoriAgacId")] 
+    public long? DepoKategoriAgacId { get; set; }
+    
+    /// <summary>Luca depo kategori ağacı kodu</summary>
+    [JsonPropertyName("sisDepoKategoriAgacKodu")] 
+    public string? SisDepoKategoriAgacKodu { get; set; }
+    
     [JsonPropertyName("ulke")] 
     public string? Ulke { get; set; }
     

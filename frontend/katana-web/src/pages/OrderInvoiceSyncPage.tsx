@@ -359,108 +359,114 @@ const OrderInvoiceSyncPage: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <Container
+      maxWidth="xl"
+      sx={{ py: { xs: 1, sm: 3 }, px: { xs: 1, sm: 3 } }}
+    >
       {/* Header */}
       <Box
         sx={{
-          mb: 3,
+          mb: 2,
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          flexWrap: "wrap",
+          gap: 1,
         }}
       >
-        <Typography variant="h4" fontWeight="bold">
-          Katana ↔ Luca Fatura Entegrasyonu
+        <Typography
+          variant="h6"
+          fontWeight="bold"
+          sx={{ fontSize: { xs: "0.95rem", sm: "1.25rem" } }}
+        >
+          Katana ↔ Luca Fatura
         </Typography>
-        <Box>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
+        <Box sx={{ display: "flex", gap: 0.5 }}>
+          <IconButton
+            size="small"
+            color="primary"
             onClick={() => {
               loadOrders();
               loadStats();
             }}
-            sx={{ mr: 1 }}
           >
-            Yenile
-          </Button>
+            <RefreshIcon fontSize="small" />
+          </IconButton>
           <Button
+            size="small"
             variant="contained"
             color="primary"
             startIcon={
               batchSyncLoading ? (
-                <CircularProgress size={20} color="inherit" />
+                <CircularProgress size={14} color="inherit" />
               ) : (
                 <CloudUploadIcon />
               )
             }
             onClick={handleSyncAllPending}
             disabled={batchSyncLoading || !stats?.pendingOrders}
+            sx={{ fontSize: "0.7rem", px: 1, py: 0.5, minWidth: "auto" }}
           >
-            Tümünü Gönder ({stats?.pendingOrders || 0})
+            Gönder ({stats?.pendingOrders || 0})
           </Button>
         </Box>
       </Box>
 
       {/* Dashboard Stats */}
-      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 3 }}>
-        <Box sx={{ flex: "1 1 calc(25% - 12px)", minWidth: 200 }}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Toplam Sipariş
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(4, 1fr)" },
+          gap: 1,
+          mb: 2,
+        }}
+      >
+        <Card sx={{ minWidth: 0 }}>
+          <CardContent sx={{ py: 1, px: 1.5, "&:last-child": { pb: 1 } }}>
+            <Typography color="textSecondary" variant="caption">
+              Toplam
+            </Typography>
+            <Typography variant="h6" fontWeight={600}>
+              {stats?.totalOrders || 0}
+            </Typography>
+          </CardContent>
+        </Card>
+        <Card sx={{ borderLeft: 3, borderColor: "success.main", minWidth: 0 }}>
+          <CardContent sx={{ py: 1, px: 1.5, "&:last-child": { pb: 1 } }}>
+            <Typography color="textSecondary" variant="caption">
+              Senkronize
+            </Typography>
+            <Typography variant="h6" fontWeight={600} color="success.main">
+              {stats?.syncedOrders || 0}
+            </Typography>
+          </CardContent>
+        </Card>
+        <Card sx={{ borderLeft: 3, borderColor: "warning.main", minWidth: 0 }}>
+          <CardContent sx={{ py: 1, px: 1.5, "&:last-child": { pb: 1 } }}>
+            <Typography color="textSecondary" variant="caption">
+              Bekleyen
+            </Typography>
+            <Typography variant="h6" fontWeight={600} color="warning.main">
+              {stats?.pendingOrders || 0}
+            </Typography>
+          </CardContent>
+        </Card>
+        <Card sx={{ minWidth: 0 }}>
+          <CardContent sx={{ py: 1, px: 1.5, "&:last-child": { pb: 1 } }}>
+            <Typography color="textSecondary" variant="caption">
+              Başarı
+            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <Typography variant="h6" fontWeight={600}>
+                {stats?.syncPercentage || 0}%
               </Typography>
-              <Typography variant="h4">{stats?.totalOrders || 0}</Typography>
-            </CardContent>
-          </Card>
-        </Box>
-        <Box sx={{ flex: "1 1 calc(25% - 12px)", minWidth: 200 }}>
-          <Card sx={{ borderLeft: 4, borderColor: "success.main" }}>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Senkronize
-              </Typography>
-              <Typography variant="h4" color="success.main">
-                {stats?.syncedOrders || 0}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Box>
-        <Box sx={{ flex: "1 1 calc(25% - 12px)", minWidth: 200 }}>
-          <Card sx={{ borderLeft: 4, borderColor: "warning.main" }}>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Bekleyen
-              </Typography>
-              <Typography variant="h4" color="warning.main">
-                {stats?.pendingOrders || 0}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Box>
-        <Box sx={{ flex: "1 1 calc(25% - 12px)", minWidth: 200 }}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Başarı Oranı
-              </Typography>
-              <Box sx={{ display: "flex", alignItems: "center" }}>
-                <Typography variant="h4">
-                  {stats?.syncPercentage || 0}%
-                </Typography>
-                <LinearProgress
-                  variant="determinate"
-                  value={stats?.syncPercentage || 0}
-                  sx={{ ml: 2, flexGrow: 1 }}
-                />
-              </Box>
-            </CardContent>
-          </Card>
-        </Box>
+            </Box>
+          </CardContent>
+        </Card>
       </Box>
 
       {/* Tabs */}
-      <Paper sx={{ mb: 2 }}>
+      <Paper sx={{ mb: 1.5 }}>
         <Tabs
           value={tabValue}
           onChange={(_, v) => {
@@ -469,10 +475,19 @@ const OrderInvoiceSyncPage: React.FC = () => {
               v === 0 ? "" : v === 1 ? "PENDING" : v === 2 ? "SYNCED" : "ERROR"
             );
           }}
+          variant="fullWidth"
+          sx={{
+            minHeight: 36,
+            "& .MuiTab-root": {
+              minHeight: 36,
+              fontSize: { xs: "0.7rem", sm: "0.875rem" },
+              py: 0.5,
+            },
+          }}
         >
           <Tab label="Tümü" />
-          <Tab label="Bekleyenler" />
-          <Tab label="Senkronize" />
+          <Tab label="Bekleyen" />
+          <Tab label="Sync" />
           <Tab label="Hatalı" />
         </Tabs>
       </Paper>
@@ -506,12 +521,23 @@ const OrderInvoiceSyncPage: React.FC = () => {
           </Box>
         )}
 
-        <TableContainer sx={{ maxHeight: 600 }}>
-          <Table stickyHeader>
+        <TableContainer sx={{ maxHeight: { xs: 400, sm: 600 } }}>
+          <Table
+            stickyHeader
+            size="small"
+            sx={{
+              "& .MuiTableCell-root": {
+                px: { xs: 0.5, sm: 2 },
+                py: { xs: 0.5, sm: 1 },
+                fontSize: { xs: "0.7rem", sm: "0.875rem" },
+              },
+            }}
+          >
             <TableHead>
               <TableRow>
-                <TableCell padding="checkbox">
+                <TableCell padding="checkbox" sx={{ width: 30 }}>
                   <Checkbox
+                    size="small"
                     onChange={handleSelectAll}
                     checked={
                       selectedOrders.length > 0 &&
@@ -520,23 +546,28 @@ const OrderInvoiceSyncPage: React.FC = () => {
                     }
                   />
                 </TableCell>
-                <TableCell>
-                  <strong>Sipariş No</strong>
+                <TableCell sx={{ whiteSpace: "nowrap" }}>
+                  <strong>Sipariş</strong>
                 </TableCell>
-                <TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap" }}>
                   <strong>Müşteri</strong>
                 </TableCell>
-                <TableCell>
+                <TableCell
+                  sx={{
+                    whiteSpace: "nowrap",
+                    display: { xs: "none", sm: "table-cell" },
+                  }}
+                >
                   <strong>Tarih</strong>
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
                   <strong>Tutar</strong>
                 </TableCell>
-                <TableCell align="center">
+                <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
                   <strong>Durum</strong>
                 </TableCell>
-                <TableCell align="center">
-                  <strong>İşlemler</strong>
+                <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                  <strong>İşlem</strong>
                 </TableCell>
               </TableRow>
             </TableHead>

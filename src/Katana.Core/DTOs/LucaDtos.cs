@@ -1087,6 +1087,22 @@ public class LucaStockCardDetailDto
     public double? RafOmru { get; set; }
 }
 
+/// <summary>
+/// Luca'daki mevcut stok kartı detayları (karşılaştırma için)
+/// </summary>
+public class LucaStockCardDetails
+{
+    public long SkartId { get; set; }
+    public string KartKodu { get; set; } = string.Empty;
+    public string? KartAdi { get; set; }
+    public int KartTuru { get; set; } = 1;
+    public long OlcumBirimiId { get; set; } = 1;
+    public double KartAlisKdvOran { get; set; }
+    public double KartSatisKdvOran { get; set; }
+    public int KartTipi { get; set; } = 1;
+    public string? KategoriAgacKod { get; set; }
+    public string? Barkod { get; set; }
+}
 
 
 public class LucaUpdateStockCardRequest

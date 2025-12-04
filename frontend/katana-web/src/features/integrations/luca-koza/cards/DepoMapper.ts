@@ -11,18 +11,18 @@ export interface KatanaLocation {
   name: string;
   legal_name?: string | null;
   address?: {
-    line_1?: string | null;    // Katana'da line_1 (line1 değil)
-    line_2?: string | null;    // Katana'da line_2 (line2 değil)
+    line_1?: string | null; // Katana'da line_1 (line1 değil)
+    line_2?: string | null; // Katana'da line_2 (line2 değil)
     city?: string | null;
     state?: string | null;
-    zip?: string | null;       // Katana'da zip
+    zip?: string | null; // Katana'da zip
     country?: string | null;
   } | null;
   is_primary?: boolean;
   sales_allowed?: boolean;
   manufacturing_allowed?: boolean;
   purchase_allowed?: boolean;
-  deleted_at?: string | null;  // Katana'da aktiflik için deleted_at kullanılıyor
+  deleted_at?: string | null; // Katana'da aktiflik için deleted_at kullanılıyor
 }
 
 /**
@@ -37,14 +37,9 @@ function norm(v?: string | null): string {
  */
 function toAdresSerbest(a?: KatanaLocation["address"]): string {
   if (!a) return "";
-  const parts = [
-    a.line_1,
-    a.line_2,
-    a.zip,
-    a.city,
-    a.state,
-    a.country
-  ].map(norm).filter(Boolean);
+  const parts = [a.line_1, a.line_2, a.zip, a.city, a.state, a.country]
+    .map(norm)
+    .filter(Boolean);
   return parts.join(", ");
 }
 
@@ -80,6 +75,9 @@ export function mapKatanaLocationToKozaDepo(
     kod,
     tanim,
     kategoriKod: defaultKategoriKod,
+    // Luca MERKEZ DEPO için gerekli alanlar
+    depoKategoriAgacId: 11356, // Luca'daki depo kategori ağacı ID
+    sisDepoKategoriAgacKodu: "002", // MERKEZ DEPO kodu
     ulke: norm(location.address?.country) || undefined,
     il: norm(location.address?.city) || undefined,
     ilce: undefined, // Katana'da net ilçe alanı yok
@@ -98,6 +96,8 @@ export function isKatanaLocationActive(location: KatanaLocation): boolean {
 /**
  * Aktif location'ları filtrele
  */
-export function filterActiveLocations(locations: KatanaLocation[]): KatanaLocation[] {
+export function filterActiveLocations(
+  locations: KatanaLocation[]
+): KatanaLocation[] {
   return locations.filter(isKatanaLocationActive);
 }

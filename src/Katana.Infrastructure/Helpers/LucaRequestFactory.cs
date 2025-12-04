@@ -96,7 +96,7 @@ public static class LucaRequestFactory
     public static LucaCreateDshBaslikRequest CreateSampleOtherStockMovement(
         DateTime? belgeTarihi = null,
         long belgeTurDetayId = KozaBelgeTurleri.DigerStokGiris,
-        string depoKodu = "0001-0001",
+        string depoKodu = "002", // Luca MERKEZ DEPO kodu
         int kartTuru = 1,
         string kartKodu = "PROD001",
         double miktar = 10,

@@ -253,10 +253,9 @@ public static class MappingHelper
                 KartKodu = NormalizeSku(item.Product?.SKU ?? string.Empty),
                 Miktar = item.Quantity,
                 BirimFiyat = (double)item.UnitPrice,
-                // Orders track quantities only, so default the measurement unit to ADET.
                 OlcuBirimi = "ADET",
                 KdvOran = 0.18,
-                DepoKodu = "0001-0001"
+                DepoKodu = "002" // Luca MERKEZ DEPO kodu
             }).ToList()
         };
     }
@@ -698,7 +697,8 @@ public static class MappingHelper
             KartKodu = normalizedSku,
             MaliyetHesaplanacakFlag = 1,
             KartTipi = 1,
-            KategoriAgacKod = kategoriKod,
+            // Stok kartı için kategoriAgacKod boş olmalı (depo kartından farklı)
+            KategoriAgacKod = string.Empty,
             KartAlisKdvOran = vat,
             KartSatisKdvOran = vat,
             BitisTarihi = null,
@@ -786,7 +786,8 @@ public static class MappingHelper
             KartKodu = sku,
             MaliyetHesaplanacakFlag = 1,
             KartTipi = 1,
-            KategoriAgacKod = product.Category ?? string.Empty,
+            // Stok kartı için kategoriAgacKod boş olmalı (depo kartından farklı)
+            KategoriAgacKod = string.Empty,
             KartAlisKdvOran = vatRate,
             KartSatisKdvOran = vatRate,
             Barkod = string.IsNullOrWhiteSpace(product.Barcode) ? sku : product.Barcode,
@@ -1631,35 +1632,27 @@ public static class MappingHelper
 
     /// <summary>
     /// Koza depo kod formatını normalize eder.
-    /// Örnek: "1-1" veya "001-001" → "0001-0001"
+    /// Luca'daki MERKEZ DEPO kodu: "002"
     /// </summary>
     private static string NormalizeWarehouseCode(string code)
     {
         if (string.IsNullOrWhiteSpace(code))
-        {
-            return "0001-0001";
-        }
+            return "002"; // Luca MERKEZ DEPO default
 
         var trimmed = code.Trim();
-        var parts = trimmed.Split('-', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 2)
+        
+        // "0001-0001" veya "001-001" formatını "001"e çevir
+        if (trimmed.Contains('-'))
         {
-            var left = parts[0].Trim();
-            var right = parts[1].Trim();
-
-            if (int.TryParse(left, out var l) && int.TryParse(right, out var r))
-            {
-                return $"{l:0000}-{r:0000}";
-            }
+            var parts = trimmed.Split('-', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 1 && int.TryParse(parts[0], out var num))
+                return num.ToString("000");
         }
-
-        // Tek parça ise 4 haneye pad et
+        
+        // Tek sayı ise 3 haneye pad et
         if (int.TryParse(trimmed, out var single))
-        {
-            return $"{single:0000}-{single:0000}";
-        }
+            return single.ToString("000");
 
-        // Fallback: geleni olduğu gibi döndür
         return trimmed;
     }
 
