@@ -693,6 +693,80 @@ public class KatanaService : IKatanaService
         return GetListAsync<SalesOrderDto>(_settings.Endpoints.SalesOrders + query, "sales orders");
     }
 
+    /// <summary>
+    /// Memory-efficient batched sales order retrieval with server-side pagination
+    /// Uses Katana API's native pagination instead of loading all data
+    /// </summary>
+    public async IAsyncEnumerable<List<SalesOrderDto>> GetSalesOrdersBatchedAsync(
+        DateTime? fromDate = null, 
+        int batchSize = 100)
+    {
+        int page = 1;
+        int totalRetrieved = 0;
+        
+        _logger.LogInformation("Starting paginated sales order retrieval (batchSize={BatchSize})", batchSize);
+
+        while (true)
+        {
+            // Build query with pagination + optional date filter
+            var queryParams = new List<string>
+            {
+                $"page={page}",
+                $"limit={batchSize}"
+            };
+            
+            if (fromDate.HasValue)
+            {
+                queryParams.Add($"created_at_min={fromDate:yyyy-MM-dd}");
+            }
+            
+            var query = "?" + string.Join("&", queryParams);
+            
+            _logger.LogDebug("Fetching page {Page} from Katana API", page);
+            
+            List<SalesOrderDto> batch;
+            try
+            {
+                batch = await GetListAsync<SalesOrderDto>(
+                    _settings.Endpoints.SalesOrders + query, 
+                    $"sales orders (page {page})");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to fetch page {Page} from Katana API", page);
+                break;
+            }
+            
+            // No more data
+            if (batch == null || batch.Count == 0)
+            {
+                _logger.LogInformation("Completed pagination after {TotalPages} pages, {TotalOrders} total orders", 
+                    page - 1, totalRetrieved);
+                break;
+            }
+            
+            totalRetrieved += batch.Count;
+            
+            _logger.LogDebug("Retrieved page {Page} with {Count} orders (total so far: {Total})", 
+                page, batch.Count, totalRetrieved);
+            
+            yield return batch;
+            
+            // If batch is smaller than limit, we've reached the end
+            if (batch.Count < batchSize)
+            {
+                _logger.LogInformation("Completed pagination (last partial page), {TotalPages} pages, {TotalOrders} total orders", 
+                    page, totalRetrieved);
+                break;
+            }
+            
+            page++;
+            
+            // Small delay to avoid overwhelming API
+            await Task.Delay(50);
+        }
+    }
+
     public async Task<SalesOrderDto?> CreateSalesOrderAsync(SalesOrderDto salesOrder)
     {
         _logger.LogInformation("CreateSalesOrderAsync called for OrderNo: {OrderNo}", salesOrder?.OrderNo);

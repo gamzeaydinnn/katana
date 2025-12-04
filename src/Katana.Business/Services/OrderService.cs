@@ -2,6 +2,8 @@ using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Core.Enums;
 using Katana.Core.Interfaces;
+using Katana.Core.Helpers;
+using Katana.Core.Events;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,11 +13,16 @@ public class OrderService : IOrderService
 {
     private readonly IntegrationDbContext _context;
     private readonly Katana.Business.Interfaces.IPendingStockAdjustmentService _pendingService;
+    private readonly IEventPublisher _eventPublisher;
 
-    public OrderService(IntegrationDbContext context, Katana.Business.Interfaces.IPendingStockAdjustmentService pendingService)
+    public OrderService(
+        IntegrationDbContext context, 
+        Katana.Business.Interfaces.IPendingStockAdjustmentService pendingService,
+        IEventPublisher eventPublisher)
     {
         _context = context;
         _pendingService = pendingService;
+        _eventPublisher = eventPublisher;
     }
 
     public async Task<IEnumerable<OrderDto>> GetAllAsync()
@@ -58,65 +65,99 @@ public class OrderService : IOrderService
 
     public async Task<OrderDto> CreateAsync(CreateOrderDto dto)
     {
-        var order = new Order
+        // Transaction başlat - Order ve PendingStockAdjustments tek seferde kaydedilsin
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            CustomerId = dto.CustomerId,
-            Status = OrderStatus.Pending,
-            Items = dto.Items.Select(i => new OrderItem
+            var order = new Order
             {
-                ProductId = i.ProductId,
-                Quantity = i.Quantity,
-                UnitPrice = i.UnitPrice
-            }).ToList()
-        };
-
-        order.TotalAmount = order.Items.Sum(i => i.UnitPrice * i.Quantity);
-
-        _context.Orders.Add(order);
-
-        
-        await _context.SaveChangesAsync();
-
-        
-        
-        foreach (var item in order.Items)
-        {
-            var product = await _context.Products.FindAsync(item.ProductId);
-            var sku = product?.SKU ?? string.Empty;
-
-            var pending = new Katana.Data.Models.PendingStockAdjustment
-            {
-                ExternalOrderId = order.Id.ToString(),
-                ProductId = item.ProductId,
-                Sku = sku,
-                Quantity = -item.Quantity, 
-                RequestedBy = "system",
-                RequestedAt = DateTimeOffset.UtcNow,
-                Status = "Pending",
-                Notes = $"Order #{order.Id} created: {item.Quantity} x ProductId {item.ProductId}"
+                CustomerId = dto.CustomerId,
+                Status = OrderStatus.Pending,
+                Items = dto.Items.Select(i => new OrderItem
+                {
+                    ProductId = i.ProductId,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice
+                }).ToList()
             };
 
-            
-            await _pendingService.CreateAsync(pending);
-        }
+            order.TotalAmount = order.Items.Sum(i => i.UnitPrice * i.Quantity);
 
-        return new OrderDto
+            _context.Orders.Add(order);
+            
+            // Order + Items kaydet
+            await _context.SaveChangesAsync();
+
+            // PendingStockAdjustments ekle (SaveChanges yapmadan)
+            foreach (var item in order.Items)
+            {
+                var product = await _context.Products.FindAsync(item.ProductId);
+                var sku = product?.SKU ?? string.Empty;
+
+                var pending = new Katana.Data.Models.PendingStockAdjustment
+                {
+                    ExternalOrderId = order.Id.ToString(),
+                    ProductId = item.ProductId,
+                    Sku = sku,
+                    Quantity = -item.Quantity,
+                    RequestedBy = "system",
+                    RequestedAt = DateTimeOffset.UtcNow,
+                    Status = "Pending",
+                    Notes = $"Order #{order.Id} created: {item.Quantity} x ProductId {item.ProductId}"
+                };
+
+                _context.PendingStockAdjustments.Add(pending);
+            }
+            
+            // Tüm pending adjustments'ı kaydet
+            await _context.SaveChangesAsync();
+            
+            // Transaction commit
+            await transaction.CommitAsync();
+
+            return new OrderDto
+            {
+                Id = order.Id,
+                CustomerId = order.CustomerId,
+                Status = order.Status.ToString(),
+                TotalAmount = order.TotalAmount
+            };
+        }
+        catch
         {
-            Id = order.Id,
-            CustomerId = order.CustomerId,
-            Status = order.Status.ToString(),
-            TotalAmount = order.TotalAmount
-        };
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
-    public async Task<bool> UpdateStatusAsync(int id, OrderStatus status)
+    public async Task<bool> UpdateStatusAsync(int id, OrderStatus newStatus)
     {
         var order = await _context.Orders.FindAsync(id);
         if (order == null) return false;
 
-        order.Status = status;
+        var oldStatus = order.Status;
+
+        // Status transition validation
+        if (!StatusMapper.IsValidTransition(oldStatus, newStatus))
+        {
+            throw new InvalidOperationException(
+                $"Invalid status transition from {oldStatus} to {newStatus}");
+        }
+
+        order.Status = newStatus;
         order.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
+        // Publish status change event
+        await _eventPublisher.PublishAsync(new OrderStatusChangedEvent
+        {
+            OrderId = id,
+            OldStatus = oldStatus,
+            NewStatus = newStatus,
+            ChangedBy = "System",
+            ChangedAt = DateTime.UtcNow
+        });
+
         return true;
     }
 

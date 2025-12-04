@@ -117,6 +117,9 @@ public class SupplierService : ISupplierService
         {
             Id = s.Id,
             Name = s.Name,
+            Code = s.Code,
+            TaxNo = s.TaxNo,
+            LucaCode = s.LucaCode,
             ContactName = s.ContactName,
             Email = s.Email,
             Phone = s.Phone,

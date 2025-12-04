@@ -222,14 +222,8 @@ public class SalesOrderAddressDto
     public DateTime UpdatedAt { get; set; }
 }
 
-
-
-
-public class SalesOrderAddressCreateRequest
+public class KatanaBillingAddress
 {
-    [JsonPropertyName("sales_order_id")]
-    public long SalesOrderId { get; set; }
-
     [JsonPropertyName("entity_type")]
     public string EntityType { get; set; } = "billing"; 
 
@@ -264,14 +258,8 @@ public class SalesOrderAddressCreateRequest
     public string? Country { get; set; }
 }
 
-
-
-
-public class SalesOrderAddressUpdateRequest
+public class KatanaShippingAddress
 {
-    [JsonPropertyName("first_name")]
-    public string? FirstName { get; set; }
-
     [JsonPropertyName("last_name")]
     public string? LastName { get; set; }
 
@@ -300,14 +288,8 @@ public class SalesOrderAddressUpdateRequest
     public string? Country { get; set; }
 }
 
-
-
-
-public class SalesOrderAddressListQuery
+public class KatanaContact
 {
-    [JsonPropertyName("ids")]
-    public List<long>? Ids { get; set; }
-
     [JsonPropertyName("sales_order_ids")]
     public List<long>? SalesOrderIds { get; set; }
 

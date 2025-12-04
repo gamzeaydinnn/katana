@@ -378,6 +378,15 @@ public class SupplierDto
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
 
+    [JsonPropertyName("code")]
+    public string? Code { get; set; }
+
+    [JsonPropertyName("taxNo")]
+    public string? TaxNo { get; set; }
+
+    [JsonPropertyName("lucaCode")]
+    public string? LucaCode { get; set; }
+
     [JsonPropertyName("email")]
     public string? Email { get; set; }
 

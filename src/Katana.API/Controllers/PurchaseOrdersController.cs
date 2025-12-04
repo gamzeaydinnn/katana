@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using System.Collections.Concurrent;
 using System.Text.Json;
 
 namespace Katana.API.Controllers;
@@ -23,19 +24,22 @@ public class PurchaseOrdersController : ControllerBase
     private readonly ILoggingService _loggingService;
     private readonly IAuditService _auditService;
     private readonly IMemoryCache _cache;
+    private readonly ILogger<PurchaseOrdersController> _logger;
 
     public PurchaseOrdersController(
         IntegrationDbContext context,
         ILucaService lucaService,
         ILoggingService loggingService,
         IAuditService auditService,
-        IMemoryCache cache)
+        IMemoryCache cache,
+        ILogger<PurchaseOrdersController> logger)
     {
         _context = context;
         _lucaService = lucaService;
         _loggingService = loggingService;
         _auditService = auditService;
         _cache = cache;
+        _logger = logger;
     }
 
     // ===== LIST & DETAIL ENDPOINTS =====
@@ -440,6 +444,9 @@ public class PurchaseOrdersController : ControllerBase
     [HttpPost("sync-all")]
     public async Task<ActionResult> SyncAll([FromQuery] int maxCount = 50)
     {
+        // ✅ Performance metrics tracking
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        
         var pendingOrders = await _context.PurchaseOrders
             .Where(p => !p.IsSyncedToLuca && string.IsNullOrEmpty(p.LastSyncError))
             .OrderBy(p => p.CreatedAt)
@@ -447,23 +454,45 @@ public class PurchaseOrdersController : ControllerBase
             .Select(p => p.Id)
             .ToListAsync();
 
-        var results = new List<object>();
-        foreach (var orderId in pendingOrders)
-        {
-            try
+        var results = new ConcurrentBag<object>();
+        int successCount = 0;
+        int failCount = 0;
+        
+        // ✅ Parallel batch processing (5 concurrent requests)
+        await Parallel.ForEachAsync(pendingOrders,
+            new ParallelOptions { MaxDegreeOfParallelism = 5 },
+            async (orderId, ct) =>
             {
-                var syncResult = await SyncToLuca(orderId);
-                results.Add(new { orderId, success = true });
-            }
-            catch (Exception ex)
-            {
-                results.Add(new { orderId, success = false, error = ex.Message });
-            }
-        }
+                try
+                {
+                    var syncResult = await SyncToLuca(orderId);
+                    results.Add(new { orderId, success = true });
+                    Interlocked.Increment(ref successCount);
+                }
+                catch (Exception ex)
+                {
+                    results.Add(new { orderId, success = false, error = ex.Message });
+                    Interlocked.Increment(ref failCount);
+                }
+            });
+        
+        sw.Stop();
+        
+        // ✅ Performance metrics
+        var rate = successCount > 0 ? successCount * 60000.0 / sw.ElapsedMilliseconds : 0;
+        _logger.LogInformation(
+            "PurchaseOrder SyncAll completed: {Success}/{Total}, Failed: {Failed}, " +
+            "Duration: {Duration}ms, Rate: {Rate:F2} orders/min",
+            successCount, pendingOrders.Count, failCount, sw.ElapsedMilliseconds, rate);
 
         return Ok(new
         {
             message = $"{pendingOrders.Count} sipariş işlendi",
+            totalProcessed = pendingOrders.Count,
+            successCount,
+            failCount,
+            durationMs = sw.ElapsedMilliseconds,
+            rateOrdersPerMinute = rate,
             results
         });
     }
@@ -474,6 +503,9 @@ public class PurchaseOrdersController : ControllerBase
     [HttpPost("retry-failed")]
     public async Task<ActionResult> RetryFailed([FromQuery] int maxRetries = 3)
     {
+        // ✅ Performance metrics tracking
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        
         var failedOrders = await _context.PurchaseOrders
             .Where(p => !p.IsSyncedToLuca && 
                         !string.IsNullOrEmpty(p.LastSyncError) && 
@@ -483,23 +515,45 @@ public class PurchaseOrdersController : ControllerBase
             .Select(p => p.Id)
             .ToListAsync();
 
-        var results = new List<object>();
-        foreach (var orderId in failedOrders)
-        {
-            try
+        var results = new ConcurrentBag<object>();
+        int successCount = 0;
+        int failCount = 0;
+        
+        // ✅ Parallel retry processing (3 concurrent requests)
+        await Parallel.ForEachAsync(failedOrders,
+            new ParallelOptions { MaxDegreeOfParallelism = 3 },
+            async (orderId, ct) =>
             {
-                var syncResult = await SyncToLuca(orderId);
-                results.Add(new { orderId, success = true });
-            }
-            catch (Exception ex)
-            {
-                results.Add(new { orderId, success = false, error = ex.Message });
-            }
-        }
+                try
+                {
+                    var syncResult = await SyncToLuca(orderId);
+                    results.Add(new { orderId, success = true });
+                    Interlocked.Increment(ref successCount);
+                }
+                catch (Exception ex)
+                {
+                    results.Add(new { orderId, success = false, error = ex.Message });
+                    Interlocked.Increment(ref failCount);
+                }
+            });
+        
+        sw.Stop();
+        
+        // ✅ Performance metrics
+        var rate = successCount > 0 ? successCount * 60000.0 / sw.ElapsedMilliseconds : 0;
+        _logger.LogInformation(
+            "PurchaseOrder RetryFailed completed: {Success}/{Total}, Failed: {Failed}, " +
+            "Duration: {Duration}ms, Rate: {Rate:F2} orders/min",
+            successCount, failedOrders.Count, failCount, sw.ElapsedMilliseconds, rate);
 
         return Ok(new
         {
             message = $"{failedOrders.Count} hatalı sipariş yeniden denendi",
+            totalProcessed = failedOrders.Count,
+            successCount,
+            failCount,
+            durationMs = sw.ElapsedMilliseconds,
+            rateOrdersPerMinute = rate,
             results
         });
     }

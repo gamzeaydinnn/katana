@@ -206,12 +206,15 @@ builder.Services.AddScoped<IStockMovementSyncService, StockMovementSyncService>(
 builder.Services.AddSingleton<Katana.Infrastructure.Services.CacheService>();
 builder.Services.AddScoped<ILoggingService, LoggingService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<IAuditLoggerService, AuditLoggerService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IEventPublisher, EventPublisher>();
 builder.Services.AddScoped<INotificationService, EmailNotificationService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<IMappingService, MappingService>();
 builder.Services.AddScoped<IIntegrationTestService, IntegrationTestService>();
 builder.Services.AddScoped<IDataCorrectionService, DataCorrectionService>();
+builder.Services.AddScoped<OrderInvoiceSyncService>();
 builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();
@@ -219,7 +222,7 @@ builder.Services.AddSignalR(options =>
     options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
 });
 builder.Services.AddScoped<IPendingNotificationPublisher, SignalRNotificationPublisher>();
-builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<AdminService>();
 var jwt = builder.Configuration.GetSection("Jwt");
 var key = jwt["Key"] ?? throw new InvalidOperationException("JWT Key not configured");

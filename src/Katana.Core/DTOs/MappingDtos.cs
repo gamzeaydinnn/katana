@@ -1,13 +1,6 @@
 ﻿namespace Katana.Core.DTOs;
-public class SkuAccountMappingDto
-{
-    public string Sku { get; set; } = string.Empty;
-    public string AccountCode { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public bool IsActive { get; set; } = true;
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
-}
+
+// TODO: SkuAccountMappingDto removed - use MappingDto with MappingType="SKU_ACCOUNT" instead
 
 public class LocationWarehouseMappingDto
 {

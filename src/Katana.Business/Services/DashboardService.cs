@@ -1,10 +1,11 @@
+using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 
 namespace Katana.Business.Services;
 
-public class DashboardService
+public class DashboardService : IDashboardService
 {
     private readonly IntegrationDbContext _context;
 
@@ -53,5 +54,49 @@ public class DashboardService
             PendingSync = pendingSync,
             TotalSales = totalSales
         };
+    }
+
+    /// <summary>
+    /// Son aktiviteleri getir
+    /// </summary>
+    public async Task<IEnumerable<ActivityLogDto>> GetRecentActivitiesAsync()
+    {
+        // AuditLogs'dan son aktiviteleri getir
+        var activities = await _context.AuditLogs
+            .OrderByDescending(a => a.Timestamp)
+            .Take(20)
+            .Select(a => new ActivityLogDto
+            {
+                Id = a.Id,
+                Type = a.ActionType,
+                Message = a.Details ?? $"{a.EntityName} {a.ActionType}",
+                Timestamp = a.Timestamp,
+                Status = "Info"
+            })
+            .ToListAsync();
+
+        return activities;
+    }
+
+    /// <summary>
+    /// Sistem uyarılarını getir
+    /// </summary>
+    public async Task<IEnumerable<NotificationDto>> GetSystemAlertsAsync()
+    {
+        // Okunmamış bildirimleri getir
+        var alerts = await _context.Notifications
+            .Where(n => !n.IsRead)
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(10)
+            .Select(n => new NotificationDto
+            {
+                Title = n.Title ?? n.Type,
+                Message = n.Payload ?? "No details available",
+                CreatedAt = n.CreatedAt,
+                Severity = "Info"
+            })
+            .ToListAsync();
+
+        return alerts;
     }
 }

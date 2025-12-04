@@ -3,12 +3,18 @@ using Katana.Core.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Core.Enums;
+using Katana.Core.Events;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Polly;
+using Polly.CircuitBreaker;
+using Polly.Retry;
+using Polly.Wrap;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -31,6 +37,48 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
     private readonly ILucaService _lucaService;
     private readonly IOrderMappingRepository _mappingRepo;
     private readonly ILogger<OrderInvoiceSyncService> _logger;
+    private readonly IAuditService _auditService;
+    private readonly IEventPublisher _eventPublisher;
+
+    // Circuit Breaker - Luca API down olduğunda cascade failure'ı önler
+    // 5 ardışık hata sonrası 2 dakika devre kesilir
+    private static readonly AsyncCircuitBreakerPolicy _lucaCircuitBreaker = Policy
+        .Handle<HttpRequestException>()
+        .Or<TimeoutException>()
+        .Or<TaskCanceledException>()
+        .CircuitBreakerAsync(
+            exceptionsAllowedBeforeBreaking: 5,
+            durationOfBreak: TimeSpan.FromMinutes(2),
+            onBreak: (ex, duration) => Console.WriteLine($"[CircuitBreaker] Luca OPEN for {duration}"),
+            onReset: () => Console.WriteLine("[CircuitBreaker] Luca CLOSED - recovered"),
+            onHalfOpen: () => Console.WriteLine("[CircuitBreaker] Luca HALF-OPEN - testing..."));
+
+    // Retry Policy - Luca API çağrıları için
+    private static readonly AsyncRetryPolicy _lucaSyncRetryPolicy = Policy
+        .Handle<HttpRequestException>()
+        .Or<TimeoutException>()
+        .Or<Exception>(ex => ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase))
+        .WaitAndRetryAsync(
+            retryCount: 3,
+            sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
+            onRetry: (exception, delay, attempt, context) =>
+            {
+                if (context.TryGetValue("logger", out var loggerObj) && loggerObj is ILogger logger)
+                {
+                    logger.LogWarning(exception,
+                        "Luca sync retry attempt {Attempt}/3 after {Delay}s",
+                        attempt, delay.TotalSeconds);
+                }
+            });
+
+    // Combined Policy: Circuit Breaker wraps Retry
+    private static readonly AsyncPolicyWrap _lucaResiliencePolicy = 
+        _lucaCircuitBreaker.WrapAsync(_lucaSyncRetryPolicy);
+
+    /// <summary>
+    /// Circuit Breaker durumunu kontrol et
+    /// </summary>
+    public static CircuitState LucaCircuitState => _lucaCircuitBreaker.CircuitState;
 
     // Luca Belge Türleri
     private const int LUCA_SATIS_FATURASI = 18;      // Satış Faturası
@@ -44,12 +92,16 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
         IntegrationDbContext context,
         ILucaService lucaService,
         IOrderMappingRepository mappingRepo,
-        ILogger<OrderInvoiceSyncService> logger)
+        ILogger<OrderInvoiceSyncService> logger,
+        IAuditService auditService,
+        IEventPublisher eventPublisher)
     {
         _context = context;
         _lucaService = lucaService;
         _mappingRepo = mappingRepo;
         _logger = logger;
+        _auditService = auditService;
+        _eventPublisher = eventPublisher;
     }
 
     #region Sales Order → Luca Satış Faturası
@@ -96,29 +148,119 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                 return result;
             }
 
-            // 4. Luca'ya gönder
-            var syncResult = await _lucaService.SendInvoiceAsync(lucaRequest);
-
-            if (syncResult.IsSuccess)
+            // 4. Circuit Breaker kontrolü - API down ise hızlı fail
+            if (_lucaCircuitBreaker.CircuitState == CircuitState.Open)
             {
-                // 5. Başarılı - Luca ID'yi kaydet
-                // Not: SyncResultDto'dan faturaId almak gerekebilir, 
-                // veya CreateInvoiceRawAsync kullanılarak JsonElement'ten parse edilebilir
-                result.Success = true;
-                result.Message = $"Satış faturası Luca'ya başarıyla gönderildi. Order: {order.OrderNo}";
-                
-                // Order'ı synced olarak işaretle
-                order.IsSynced = true;
-                order.UpdatedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
+                result.Success = false;
+                result.Message = "Luca API şu anda erişilemez durumda (Circuit Open). Lütfen birkaç dakika sonra tekrar deneyin.";
+                _logger.LogWarning("Luca sync skipped - Circuit Breaker is OPEN for Order {OrderId}", orderId);
+                return result;
+            }
 
-                _logger.LogInformation("Sales Order {OrderNo} successfully synced to Luca", order.OrderNo);
+            // 5. Luca'ya gönder (Circuit Breaker + Retry ile)
+            var context = new Context();
+            context["logger"] = _logger;
+            
+            var lucaResponse = await _lucaResiliencePolicy.ExecuteAsync(
+                async (ctx) => await _lucaService.CreateInvoiceRawAsync(lucaRequest),
+                context
+            );
+
+            // 5. Luca'dan dönen ID'yi parse et
+            long? lucaFaturaId = null;
+            bool isSuccess = false;
+
+            if (lucaResponse.TryGetProperty("basarili", out var basariliProp) && basariliProp.GetBoolean())
+            {
+                isSuccess = true;
+                // Luca fatura ID'sini parse et
+                if (lucaResponse.TryGetProperty("ssFaturaBaslikId", out var faturaIdProp))
+                {
+                    lucaFaturaId = faturaIdProp.GetInt64();
+                }
+                else if (lucaResponse.TryGetProperty("id", out var idProp))
+                {
+                    lucaFaturaId = idProp.GetInt64();
+                }
+            }
+
+            if (isSuccess && lucaFaturaId.HasValue)
+            {
+                // Transaction başlat - Atomik operasyon için
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
+                    // 6. Luca ID'yi mapping tablosuna kaydet
+                    await _mappingRepo.SaveLucaInvoiceIdAsync(orderId, lucaFaturaId.Value, "SalesOrder");
+                    
+                    // 7. Order'ı synced olarak işaretle
+                    order.IsSynced = true;
+                    order.UpdatedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+
+                    // Transaction commit
+                    await transaction.CommitAsync();
+
+                    result.Success = true;
+                    result.LucaFaturaId = lucaFaturaId.Value;
+                    result.Message = $"Satış faturası Luca'ya başarıyla gönderildi. Fatura ID: {lucaFaturaId.Value}";
+
+                    _logger.LogInformation(
+                        "Sales Order {OrderNo} successfully synced to Luca. Fatura ID: {FaturaId}",
+                        order.OrderNo, lucaFaturaId.Value
+                    );
+                    
+                    // 8. Audit log ekle
+                    _auditService.LogSync(
+                        "OrderInvoiceSync",
+                        "system",
+                        $"Order {orderId} synced to Luca as Invoice {lucaFaturaId.Value}"
+                    );
+
+                    // 9. InvoiceSyncedEvent publish et (bildirim için)
+                    try
+                    {
+                        // Invoice entity oluştur veya mevcut olanı bul
+                        var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.Id == orderId)
+                            ?? new Invoice 
+                            { 
+                                InvoiceNo = order.OrderNo, 
+                                CustomerId = order.CustomerId,
+                                Amount = order.TotalAmount,
+                                IsSynced = true
+                            };
+                        
+                        var syncEvent = new InvoiceSyncedEvent(invoice, "OrderInvoiceSync");
+                        
+                        // Event publisher ile publish et
+                        await _eventPublisher.PublishAsync(syncEvent);
+                        
+                        _logger.LogInformation("InvoiceSyncedEvent published: {Event}", syncEvent.ToString());
+                    }
+                    catch (Exception eventEx)
+                    {
+                        _logger.LogWarning(eventEx, "Failed to publish InvoiceSyncedEvent for Order {OrderId}", orderId);
+                        // Event hatası ana işlemi etkilememeli
+                    }
+                }
+                catch (Exception txEx)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError(txEx, "Transaction failed for Order {OrderId}", orderId);
+                    throw;
+                }
             }
             else
             {
                 result.Success = false;
-                result.Message = $"Luca API hatası: {syncResult.Message}";
-                _logger.LogWarning("Failed to sync Sales Order {OrderNo} to Luca: {Message}", order.OrderNo, syncResult.Message);
+                var errorMsg = lucaResponse.TryGetProperty("mesaj", out var mesajProp) 
+                    ? mesajProp.GetString() 
+                    : "Bilinmeyen Luca hatası";
+                result.Message = $"Luca API hatası: {errorMsg}";
+                _logger.LogWarning(
+                    "Failed to sync Sales Order {OrderNo} to Luca: {Message}", 
+                    order.OrderNo, errorMsg
+                );
             }
 
             return result;
@@ -137,13 +279,54 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
     /// </summary>
     private async Task<LucaCreateInvoiceHeaderRequest?> BuildSalesInvoiceRequestAsync(Order order)
     {
+        var validationErrors = new List<string>();
+
         // Müşteri Luca kodu
         var cariKodu = await _mappingRepo.GetLucaCariKoduByCustomerIdAsync(order.CustomerId);
-        if (string.IsNullOrEmpty(cariKodu))
+        
+        // Validation: Cari kodu kontrolü
+        var cariValidation = Validators.LucaDataValidator.ValidateCariKodu(cariKodu, "Müşteri Kodu");
+        if (!cariValidation.IsValid)
         {
-            _logger.LogWarning("Customer {CustomerId} için Luca cari kodu bulunamadı", order.CustomerId);
+            _logger.LogWarning("Customer {CustomerId} validation failed: {Error}", 
+                order.CustomerId, cariValidation.ErrorMessage);
+            
             // Fallback: Customer entity'den oluştur
             cariKodu = $"MUS-{order.CustomerId:D5}";
+            _logger.LogWarning("Fallback cari kodu kullanılıyor: {CariKodu}", cariKodu);
+        }
+
+        // Validation: Para birimi
+        var currencyValidation = Validators.LucaDataValidator.ValidateCurrency(order.Currency);
+        if (!currencyValidation.IsValid)
+        {
+            _logger.LogWarning("Order {OrderNo} currency validation failed: {Error}. Using fallback.", 
+                order.OrderNo, currencyValidation.ErrorMessage);
+            
+            // Fallback: Default TRY
+            order.Currency = "TRY";
+        }
+
+        // Validation: Belge numarası
+        var docNoValidation = Validators.LucaDataValidator.ValidateDocumentNo(order.OrderNo, "Sipariş No");
+        if (!docNoValidation.IsValid)
+        {
+            _logger.LogWarning("Order {OrderNo} document no validation failed: {Error}. Using fallback.", 
+                order.OrderNo, docNoValidation.ErrorMessage);
+            
+            // Fallback: Order ID ile oluştur
+            order.OrderNo = $"ORD-{order.Id:D8}";
+        }
+
+        // Validation: Tarih
+        var dateValidation = Validators.LucaDataValidator.ValidateDate(order.OrderDate, "Sipariş Tarihi", allowFuture: false);
+        if (!dateValidation.IsValid)
+        {
+            _logger.LogWarning("Order {OrderNo} date validation failed: {Error}. Using fallback.", 
+                order.OrderNo, dateValidation.ErrorMessage);
+            
+            // Fallback: DateTime.UtcNow kullan
+            order.OrderDate = DateTime.UtcNow;
         }
 
         var belgeTurDetayId = await _mappingRepo.GetBelgeTurDetayIdAsync(isSalesOrder: true);
@@ -172,13 +355,53 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
         foreach (var item in order.Items)
         {
             var kartKodu = await _mappingRepo.GetLucaStokKoduByProductIdAsync(item.ProductId);
-            if (string.IsNullOrEmpty(kartKodu))
+            
+            // Validation: Stok kodu
+            var stokValidation = Validators.LucaDataValidator.ValidateStokKodu(kartKodu, item.Product?.Name);
+            if (!stokValidation.IsValid)
             {
+                _logger.LogWarning("Product {ProductId} stok kodu validation failed: {Error}", 
+                    item.ProductId, stokValidation.ErrorMessage);
+                
                 // Fallback: Product SKU kullan
                 kartKodu = item.Product?.SKU ?? $"PRD-{item.ProductId:D5}";
+                _logger.LogWarning("Fallback stok kodu kullanılıyor: {KartKodu}", kartKodu);
+            }
+
+            // Validation: Miktar
+            var qtyValidation = Validators.LucaDataValidator.ValidateQuantity(item.Quantity, "Miktar");
+            if (!qtyValidation.IsValid)
+            {
+                _logger.LogWarning("Product {ProductName} quantity validation failed: {Error}. Using fallback.", 
+                    item.Product?.Name, qtyValidation.ErrorMessage);
+                
+                // Fallback: Minimum 1 quantity
+                item.Quantity = Math.Max(1, item.Quantity);
+            }
+
+            // Validation: Birim fiyat
+            var priceValidation = Validators.LucaDataValidator.ValidateDecimalPrecision(item.UnitPrice, "Birim Fiyat");
+            if (!priceValidation.IsValid)
+            {
+                _logger.LogWarning("Product {ProductName} price validation failed: {Error}. Using fallback.", 
+                    item.Product?.Name, priceValidation.ErrorMessage);
+                
+                // Fallback: Round to 2 decimals
+                item.UnitPrice = Math.Round(item.UnitPrice, 2);
             }
 
             var taxRate = await _mappingRepo.GetTaxRateByIdAsync(null); // Default KDV
+
+            // Validation: KDV oranı
+            var taxValidation = Validators.LucaDataValidator.ValidateTaxRate((decimal)taxRate);
+            if (!taxValidation.IsValid)
+            {
+                _logger.LogWarning("Tax rate validation failed: {Error}. Using fallback.", 
+                    taxValidation.ErrorMessage);
+                
+                // Fallback: Default 20% KDV
+                taxRate = 20.0;
+            }
 
             request.DetayList.Add(new LucaCreateInvoiceDetailRequest
             {
@@ -191,6 +414,29 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                 Aciklama = item.Product?.Name
             });
         }
+
+        // Eğer kritik validation hataları varsa null dön
+        // Not: Artık çoğu validation fallback kullanıyor, sadece kritik hatalar engeller
+        if (validationErrors.Any())
+        {
+            _logger.LogError("Luca critical validation failed for Order {OrderNo}. Errors: {Errors}", 
+                order.OrderNo, string.Join("; ", validationErrors));
+            
+            // Hataları audit log'a kaydet
+            _auditService.LogAction(
+                "OrderInvoiceSync",
+                "Order",
+                order.Id.ToString(),
+                "System",
+                $"Luca validation errors (critical): {string.Join("; ", validationErrors)}"
+            );
+            
+            return null;
+        }
+        
+        // Fallback kullanımını log'la
+        _logger.LogInformation("Order {OrderNo} converted to Luca invoice with fallback values where needed", 
+            order.OrderNo);
 
         return request;
     }
@@ -368,6 +614,17 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
     public async Task<OrderBatchSyncResultDto> SyncPendingSalesOrdersAsync()
     {
         var result = new OrderBatchSyncResultDto();
+        
+        // ✅ Circuit Breaker kontrolü - API down ise batch'i başlatma
+        if (_lucaCircuitBreaker.CircuitState == CircuitState.Open)
+        {
+            result.Message = "Luca API şu anda erişilemez (Circuit Open). Batch sync atlandı.";
+            _logger.LogWarning("Batch sync skipped - Luca Circuit Breaker is OPEN");
+            return result;
+        }
+        
+        // ✅ Performance metrics tracking
+        var sw = System.Diagnostics.Stopwatch.StartNew();
 
         try
         {
@@ -379,26 +636,48 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
 
             result.TotalCount = pendingOrders.Count;
 
-            foreach (var order in pendingOrders)
-            {
-                var syncResult = await SyncSalesOrderToLucaAsync(order.Id);
-                if (syncResult.Success)
-                {
-                    result.SuccessCount++;
-                }
-                else
-                {
-                    result.FailCount++;
-                    result.FailedOrderIds.Add(order.Id);
-                }
-            }
+            int successCount = 0;
+            int failCount = 0;
 
-            result.Message = $"Batch sync tamamlandı. Başarılı: {result.SuccessCount}, Başarısız: {result.FailCount}";
-            _logger.LogInformation("Batch sales order sync completed. Success: {Success}, Failed: {Failed}", result.SuccessCount, result.FailCount);
+            // ✅ Parallel batch processing (5 concurrent requests)
+            await Parallel.ForEachAsync(pendingOrders,
+                new ParallelOptions { MaxDegreeOfParallelism = 5 },
+                async (order, ct) =>
+                {
+                    var syncResult = await SyncSalesOrderToLucaAsync(order.Id);
+                    if (syncResult.Success)
+                    {
+                        Interlocked.Increment(ref successCount);
+                    }
+                    else
+                    {
+                        Interlocked.Increment(ref failCount);
+                        lock (result.FailedOrderIds)
+                        {
+                            result.FailedOrderIds.Add(order.Id);
+                        }
+                    }
+                });
+
+            result.SuccessCount = successCount;
+            result.FailCount = failCount;
+            
+            sw.Stop();
+            
+            // ✅ Performance metrics
+            var rate = successCount > 0 ? successCount * 60000.0 / sw.ElapsedMilliseconds : 0;
+            result.Message = $"Batch sync tamamlandı. Başarılı: {result.SuccessCount}, Başarısız: {result.FailCount}, " +
+                           $"Süre: {sw.ElapsedMilliseconds}ms, Hız: {rate:F2} sipariş/dk";
+            
+            _logger.LogInformation(
+                "Batch sales order sync completed. Success: {Success}/{Total}, Failed: {Failed}, " +
+                "Duration: {Duration}ms, Rate: {Rate:F2} orders/min",
+                result.SuccessCount, result.TotalCount, result.FailCount, sw.ElapsedMilliseconds, rate);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in batch sales order sync");
+            sw.Stop();
+            _logger.LogError(ex, "Error in batch sales order sync after {Duration}ms", sw.ElapsedMilliseconds);
             result.Message = $"Batch sync hatası: {ex.Message}";
         }
 

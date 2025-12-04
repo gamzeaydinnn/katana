@@ -57,32 +57,57 @@ public class OrderMappingRepository : IOrderMappingRepository
         return Task.FromResult(0.18); // Varsayılan KDV %18
     }
 
-    public async Task SaveLucaInvoiceIdAsync(int orderId, long lucaFaturaId, string orderType)
+    public async Task SaveLucaInvoiceIdAsync(int orderId, long lucaFaturaId, string orderType, string? externalOrderId = null)
     {
-        // Bu mapping'i bir tabloda saklamak için
-        // Şimdilik basit bir çözüm: Order tablosuna LucaId kolonu eklenebilir
-        // Veya ayrı bir OrderLucaMapping tablosu oluşturulabilir
+        // OrderMappings tablosuna kaydet (idempotent - aynı sipariş için sadece bir kez kaydeder)
+        var existing = await _context.OrderMappings
+            .FirstOrDefaultAsync(m => m.OrderId == orderId && m.EntityType == orderType);
         
-        var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId);
-        if (order != null)
+        if (existing == null)
         {
-            // Order entity'sinde LucaFaturaId field'ı varsa:
-            // order.LucaFaturaId = lucaFaturaId;
-            // await _context.SaveChangesAsync();
+            _context.OrderMappings.Add(new Katana.Data.Models.OrderMapping
+            {
+                OrderId = orderId,
+                LucaInvoiceId = lucaFaturaId,
+                EntityType = orderType,
+                ExternalOrderId = externalOrderId,
+                CreatedAt = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
         }
-        
-        await Task.CompletedTask;
+        // Zaten varsa hiçbir şey yapma (idempotency)
     }
 
     public async Task<long?> GetLucaInvoiceIdByOrderIdAsync(int orderId, string orderType)
     {
-        // Order tablosundan veya mapping tablosundan çek
-        var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId);
+        // OrderMappings tablosundan çek
+        var mapping = await _context.OrderMappings
+            .FirstOrDefaultAsync(m => m.OrderId == orderId && m.EntityType == orderType);
         
-        // Order entity'sinde LucaFaturaId field'ı varsa:
-        // return order?.LucaFaturaId;
+        return mapping?.LucaInvoiceId;
+    }
+
+    public async Task UpdateLucaInvoiceIdAsync(int orderId, long lucaFaturaId, string orderType, string? externalOrderId = null)
+    {
+        // Mevcut mapping'i güncelle (sipariş Luca'da güncellenmiş se)
+        var existing = await _context.OrderMappings
+            .FirstOrDefaultAsync(m => m.OrderId == orderId && m.EntityType == orderType);
         
-        return null; // Şimdilik null dön
+        if (existing != null)
+        {
+            existing.LucaInvoiceId = lucaFaturaId;
+            if (!string.IsNullOrEmpty(externalOrderId))
+            {
+                existing.ExternalOrderId = externalOrderId;
+            }
+            existing.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+        else
+        {
+            // Yoksa yeni oluştur
+            await SaveLucaInvoiceIdAsync(orderId, lucaFaturaId, orderType, externalOrderId);
+        }
     }
 
     public async Task<long> GetBelgeTurDetayIdAsync(bool isSalesOrder)

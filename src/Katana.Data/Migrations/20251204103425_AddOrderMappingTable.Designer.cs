@@ -4,6 +4,7 @@ using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Katana.Data.Migrations
 {
     [DbContext(typeof(IntegrationDbContext))]
-    partial class IntegrationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251204103425_AddOrderMappingTable")]
+    partial class AddOrderMappingTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1192,15 +1195,6 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("CustomerId");
 
-                    b.HasIndex("IsSyncedToLuca");
-
-                    b.HasIndex("KatanaOrderId")
-                        .IsUnique();
-
-                    b.HasIndex("LucaOrderId");
-
-                    b.HasIndex("OrderNo");
-
                     b.ToTable("SalesOrders");
                 });
 
@@ -2030,22 +2024,13 @@ namespace Katana.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("ExternalOrderId")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
                     b.Property<long>("LucaInvoiceId")
                         .HasColumnType("bigint");
 
                     b.Property<int>("OrderId")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("ExternalOrderId");
 
                     b.HasIndex("LucaInvoiceId");
 
@@ -2218,7 +2203,7 @@ namespace Katana.Data.Migrations
                     b.HasOne("Katana.Core.Entities.Customer", "Customer")
                         .WithMany()
                         .HasForeignKey("CustomerId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Customer");
@@ -2309,7 +2294,7 @@ namespace Katana.Data.Migrations
                     b.HasOne("Katana.Core.Entities.Customer", "Customer")
                         .WithMany()
                         .HasForeignKey("CustomerId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Customer");

@@ -60,6 +60,7 @@ public class IntegrationDbContext : DbContext
     public DbSet<LocationKozaDepotMapping> LocationKozaDepotMappings => Set<LocationKozaDepotMapping>();
     public DbSet<SupplierKozaCariMapping> SupplierKozaCariMappings => Set<SupplierKozaCariMapping>();
     public DbSet<KozaDepot> KozaDepots => Set<KozaDepot>();
+    public DbSet<Katana.Data.Models.OrderMapping> OrderMappings => Set<Katana.Data.Models.OrderMapping>();
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
@@ -397,24 +398,6 @@ public class IntegrationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        
-        modelBuilder.Entity<PurchaseOrder>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.OrderNo).HasMaxLength(100);
-            entity.Property(e => e.SupplierCode).HasMaxLength(100);
-            
-            // Performance indeksleri
-            entity.HasIndex(e => e.OrderNo);
-            entity.HasIndex(e => e.Status);
-            entity.HasIndex(e => e.CreatedAt).IsDescending();
-            
-            entity.HasOne(po => po.Supplier)
-                .WithMany()
-                .HasForeignKey(po => po.SupplierId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
-
         // KozaDepot entity
         modelBuilder.Entity<KozaDepot>(entity =>
         {
@@ -429,11 +412,69 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.OrderNo).HasMaxLength(100).IsRequired();
             entity.Property(e => e.Currency).HasMaxLength(10);
             entity.HasIndex(e => e.OrderNo);
+            
+            // Order silindiğinde OrderItem'lar da cascade silinmeli
+            entity.HasMany(e => e.Items)
+                .WithOne(i => i.Order)
+                .HasForeignKey(i => i.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            // Customer foreign key - restrict (müşteri silinemez eğer siparişi varsa)
+            entity.HasOne(e => e.Customer)
+                .WithMany()
+                .HasForeignKey(e => e.CustomerId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<AccountingRecord>(entity =>
         {
             entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
+        });
+
+        // SalesOrder - SalesOrderLine cascade delete
+        modelBuilder.Entity<SalesOrder>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.OrderNo);
+            entity.HasIndex(e => e.KatanaOrderId).IsUnique();
+            entity.HasIndex(e => e.LucaOrderId);
+            entity.HasIndex(e => e.IsSyncedToLuca);
+            
+            // SalesOrder silindiğinde SalesOrderLine'lar da cascade silinmeli
+            entity.HasMany(e => e.Lines)
+                .WithOne(l => l.SalesOrder)
+                .HasForeignKey(l => l.SalesOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            // Customer foreign key - restrict
+            entity.HasOne(e => e.Customer)
+                .WithMany()
+                .HasForeignKey(e => e.CustomerId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // PurchaseOrder - PurchaseOrderItem cascade delete
+        modelBuilder.Entity<PurchaseOrder>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.OrderNo).HasMaxLength(100);
+            entity.Property(e => e.SupplierCode).HasMaxLength(100);
+            
+            // Performance indeksleri
+            entity.HasIndex(e => e.OrderNo);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.CreatedAt).IsDescending();
+            
+            // PurchaseOrder silindiğinde PurchaseOrderItem'lar da cascade silinmeli
+            entity.HasMany(e => e.Items)
+                .WithOne(i => i.PurchaseOrder)
+                .HasForeignKey(i => i.PurchaseOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasOne(po => po.Supplier)
+                .WithMany()
+                .HasForeignKey(po => po.SupplierId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         
@@ -501,6 +542,27 @@ public class IntegrationDbContext : DbContext
             
             // KozaFinansalNesneId'ye göre arama için index
             entity.HasIndex(e => e.KozaFinansalNesneId);
+        });
+
+        // Order Mappings - İdempotency için
+        modelBuilder.Entity<Katana.Data.Models.OrderMapping>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.OrderId).IsRequired();
+            entity.Property(e => e.LucaInvoiceId).IsRequired();
+            entity.Property(e => e.EntityType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ExternalOrderId).HasMaxLength(200);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt);
+            
+            // Her OrderId + EntityType kombinasyonu unique olmalı
+            entity.HasIndex(e => new { e.OrderId, e.EntityType }).IsUnique();
+            
+            // LucaInvoiceId'ye göre arama için index
+            entity.HasIndex(e => e.LucaInvoiceId);
+            
+            // ExternalOrderId'ye göre arama için index (Katana sipariş no ile mapping bulmak için)
+            entity.HasIndex(e => e.ExternalOrderId);
         });
 
         

@@ -34,14 +34,19 @@ public interface IOrderMappingRepository
     Task<double> GetTaxRateByIdAsync(int? taxRateId);
     
     /// <summary>
-    /// Luca'ya gönderilmiş fatura ID'sini kaydeder
+    /// Luca'ya gönderilmiş fatura ID'sini kaydeder (idem potent)
     /// </summary>
-    Task SaveLucaInvoiceIdAsync(int orderId, long lucaFaturaId, string orderType);
+    Task SaveLucaInvoiceIdAsync(int orderId, long lucaFaturaId, string orderType, string? externalOrderId = null);
     
     /// <summary>
     /// Order ID'den daha önce kaydedilmiş Luca Fatura ID'sini getirir
     /// </summary>
     Task<long?> GetLucaInvoiceIdByOrderIdAsync(int orderId, string orderType);
+    
+    /// <summary>
+    /// Mevcut Luca fatura ID mapping'ini günceller
+    /// </summary>
+    Task UpdateLucaInvoiceIdAsync(int orderId, long lucaFaturaId, string orderType, string? externalOrderId = null);
     
     /// <summary>
     /// Luca Belge Tür Detay ID'sini getirir (Satış/Alım için)

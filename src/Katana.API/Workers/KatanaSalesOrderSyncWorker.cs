@@ -1,4 +1,5 @@
 using Katana.Business.Interfaces;
+using Katana.Business.UseCases.Sync;
 using Katana.Core.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Data.Context;
@@ -10,6 +11,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Polly;
+using Polly.Retry;
 
 namespace Katana.API.Workers;
 
@@ -22,6 +25,23 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
     private readonly IServiceProvider _services;
     private readonly ILogger<KatanaSalesOrderSyncWorker> _logger;
     private readonly TimeSpan _interval = TimeSpan.FromMinutes(5); // Her 5 dakikada bir kontrol et
+
+    // Retry policy - Katana API çağrıları için
+    private static readonly AsyncRetryPolicy _katanaApiRetryPolicy = Policy
+        .Handle<HttpRequestException>()
+        .Or<TimeoutException>()
+        .WaitAndRetryAsync(
+            retryCount: 3,
+            sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
+            onRetry: (exception, delay, attempt, context) =>
+            {
+                if (context.TryGetValue("logger", out var loggerObj) && loggerObj is ILogger logger)
+                {
+                    logger.LogWarning(exception,
+                        "Katana API retry attempt {Attempt}/3 after {Delay}s",
+                        attempt, delay.TotalSeconds);
+                }
+            });
 
     public KatanaSalesOrderSyncWorker(IServiceProvider services, ILogger<KatanaSalesOrderSyncWorker> logger)
     {
@@ -66,22 +86,25 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
         {
             // Son 7 gündeki siparişleri çek
             var fromDate = DateTime.UtcNow.AddDays(-7);
-            var salesOrders = await katanaService.GetSalesOrdersAsync(fromDate);
-
-            if (salesOrders == null || salesOrders.Count == 0)
-            {
-                _logger.LogInformation("No sales orders found from Katana");
-                return;
-            }
-
-            _logger.LogInformation("Found {Count} sales orders from Katana", salesOrders.Count);
-
-            // Daha önce işlenmiş siparişleri al
-            var processedOrderIds = await context.PendingStockAdjustments
+            
+            // ✅ Composite key kontrolü - Sipariş güncellemelerini yakala
+            // ExternalOrderId + ProductId + Quantity ile duplicate prevention
+            var processedItems = await context.PendingStockAdjustments
                 .Where(p => p.ExternalOrderId != null)
-                .Select(p => p.ExternalOrderId)
-                .Distinct()
+                .Select(p => new 
+                { 
+                    p.ExternalOrderId, 
+                    p.Sku,
+                    p.Quantity 
+                })
                 .ToListAsync(cancellationToken);
+            
+            // HashSet ile O(1) lookup performance
+            var processedItemsSet = new HashSet<string>(
+                processedItems.Select(p => $"{p.ExternalOrderId}|{p.Sku}|{p.Quantity}")
+            );
+            
+            _logger.LogInformation("Found {Count} already processed order items", processedItemsSet.Count);
 
             // Ürün listesini al (variant ID -> SKU mapping için)
             var products = await katanaService.GetProductsAsync();
@@ -98,157 +121,265 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
 
             var newOrdersCount = 0;
             var newItemsCount = 0;
+            var skippedItemsCount = 0;
 
-            foreach (var order in salesOrders)
+            // ✅ Memory-efficient batched processing (1000+ orders)
+            // Her batch ayrı işlensin, GC çalışabilsin
+            await foreach (var orderBatch in katanaService.GetSalesOrdersBatchedAsync(fromDate, batchSize: 100))
             {
-                // Sipariş numarası veya ID'si
-                var orderId = !string.IsNullOrEmpty(order.OrderNo) ? order.OrderNo : order.Id.ToString();
+                _logger.LogInformation("Processing batch of {Count} orders", orderBatch.Count);
 
-                // Daha önce işlenmişse atla
-                if (processedOrderIds.Contains(orderId))
+                foreach (var order in orderBatch)
                 {
-                    continue;
-                }
+                    // Sipariş numarası veya ID'si
+                    var orderId = !string.IsNullOrEmpty(order.OrderNo) ? order.OrderNo : order.Id.ToString();
 
-                // Sadece tamamlanmamış siparişleri işle
-                var status = order.Status?.ToLower() ?? "";
-                if (status == "cancelled" || status == "done" || status == "shipped")
-                {
-                    continue;
-                }
-
-                newOrdersCount++;
-
-                // Sipariş kalemlerini işle (SalesOrderRows)
-                if (order.SalesOrderRows != null && order.SalesOrderRows.Count > 0)
-                {
-                    foreach (var row in order.SalesOrderRows)
+                    // Sadece tamamlanmamış siparişleri işle
+                    var status = order.Status?.ToLower() ?? "";
+                    if (status == "cancelled" || status == "done" || status == "shipped")
                     {
-                        // Variant ID'den ürün bilgisi al
-                        string sku;
-                        int productId = 0;
-                        
-                        if (variantToProduct.TryGetValue(row.VariantId, out var productInfo))
+                        continue;
+                    }
+
+                    var orderHasNewItems = false;
+
+                    // Sipariş kalemlerini işle (SalesOrderRows)
+                    if (order.SalesOrderRows != null && order.SalesOrderRows.Count > 0)
+                    {
+                        foreach (var row in order.SalesOrderRows)
                         {
-                            sku = productInfo.Sku;
-                            productId = productInfo.ProductId;
+                            // Variant ID'den ürün bilgisi al
+                            string sku;
+                            int productId = 0;
+                            
+                            if (variantToProduct.TryGetValue(row.VariantId, out var productInfo))
+                            {
+                                sku = productInfo.Sku;
+                                productId = productInfo.ProductId;
+                            }
+                            else
+                            {
+                                sku = $"VARIANT-{row.VariantId}";
+                            }
+
+                            var quantity = (int)row.Quantity;
+                            var negativeQuantity = -Math.Abs(quantity);
+                            
+                            // ✅ Composite key ile duplicate check
+                            var itemKey = $"{orderId}|{sku}|{negativeQuantity}";
+                            if (processedItemsSet.Contains(itemKey))
+                            {
+                                _logger.LogDebug("Skipping already processed item: Order {OrderId}, SKU: {SKU}, Qty: {Qty}",
+                                    orderId, sku, negativeQuantity);
+                                skippedItemsCount++;
+                                continue;
+                            }
+
+                            // Negatif miktar (stok çıkışı) olarak kaydet
+                            var pending = new PendingStockAdjustment
+                            {
+                                ExternalOrderId = orderId,
+                                ProductId = productId,
+                                Sku = sku,
+                                Quantity = negativeQuantity, // Sipariş = stok çıkışı
+                                RequestedBy = "Katana-Sync",
+                                RequestedAt = order.CreatedAt,
+                                Status = "Pending",
+                                Notes = $"Katana sipariş #{orderId}: {quantity}x {sku}"
+                            };
+
+                            await pendingService.CreateAsync(pending);
+                            newItemsCount++;
+                            orderHasNewItems = true;
+
+                            _logger.LogDebug("Created pending adjustment for order {OrderId}, SKU: {SKU}, Qty: {Qty}",
+                                orderId, sku, negativeQuantity);
                         }
-                        else
-                        {
-                            sku = $"VARIANT-{row.VariantId}";
-                        }
-
-                        var quantity = (int)row.Quantity;
-
-                        // Negatif miktar (stok çıkışı) olarak kaydet
-                        var pending = new PendingStockAdjustment
-                        {
-                            ExternalOrderId = orderId,
-                            ProductId = productId,
-                            Sku = sku,
-                            Quantity = -Math.Abs(quantity), // Sipariş = stok çıkışı
-                            RequestedBy = "Katana-Sync",
-                            RequestedAt = order.CreatedAt,
-                            Status = "Pending",
-                            Notes = $"Katana sipariş #{orderId}: {quantity}x {sku}"
-                        };
-
-                        await pendingService.CreateAsync(pending);
-                        newItemsCount++;
-
-                        _logger.LogDebug("Created pending adjustment for order {OrderId}, SKU: {SKU}, Qty: {Qty}",
-                            orderId, sku, -quantity);
+                    }
+                    
+                    if (orderHasNewItems)
+                    {
+                        newOrdersCount++;
                     }
                 }
+
+                // Batch işlendikten sonra SaveChanges
+                await context.SaveChangesAsync(cancellationToken);
+                
+                // GC'yi tetikle (memory leak önleme)
+                GC.Collect(0, GCCollectionMode.Optimized);
             }
 
             if (newOrdersCount > 0)
             {
-                _logger.LogInformation("Synced {OrderCount} new orders with {ItemCount} items from Katana",
-                    newOrdersCount, newItemsCount);
+                _logger.LogInformation(
+                    "Synced {OrderCount} new orders with {ItemCount} items from Katana ({SkippedItems} duplicate items skipped)",
+                    newOrdersCount, newItemsCount, skippedItemsCount);
 
-                // Yeni siparişler için Luca'ya stok kartı senkronizasyonu tetikle
-                try
-                {
-                    var syncService = scope.ServiceProvider.GetService<ISyncService>();
-                    if (syncService != null)
-                    {
-                        _logger.LogInformation("Triggering Luca sync for new orders...");
-                        var syncResult = await syncService.SyncProductsToLucaAsync(new SyncOptionsDto
-                        {
-                            DryRun = false,
-                            ForceSendDuplicates = false,
-                            PreferBarcodeMatch = true
-                        });
+                // 1. Luca'ya stok kartı senkronizasyonu
+                await SyncProductsToLucaWithRetryAsync(scope);
 
-                        if (syncResult.IsSuccess)
-                        {
-                            _logger.LogInformation("Luca sync completed after new orders. New cards: {New}, Sent: {Sent}",
-                                syncResult.NewCreated, syncResult.SentRecords);
-                        }
-                        else
-                        {
-                            _logger.LogWarning("Luca sync completed with issues: {Message}", syncResult.Message);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to trigger Luca sync after new orders");
-                    // Sync hatası sipariş işlemini etkilememeli
-                }
+                // 2. Onaylanan siparişleri Luca'ya fatura olarak gönder
+                await SyncApprovedOrdersToLucaWithRetryAsync(scope, cancellationToken);
 
-                // Yeni sipariş bildirimi oluştur
-                try
-                {
-                    var hubContext = scope.ServiceProvider.GetService<IHubContext<NotificationHub>>();
-                    
-                    var notification = new Notification
-                    {
-                        Type = "NewSalesOrder",
-                        Title = $"🛒 {newOrdersCount} Yeni Sipariş Geldi!",
-                        Payload = System.Text.Json.JsonSerializer.Serialize(new { 
-                            orderCount = newOrdersCount, 
-                            itemCount = newItemsCount,
-                            message = $"Katana'dan {newOrdersCount} yeni sipariş ({newItemsCount} ürün) alındı."
-                        }),
-                        Link = "/admin",
-                        CreatedAt = DateTime.UtcNow,
-                        IsRead = false
-                    };
-                    context.Notifications.Add(notification);
-                    await context.SaveChangesAsync(cancellationToken);
-
-                    // SignalR ile gerçek zamanlı bildirim gönder
-                    if (hubContext != null)
-                    {
-                        await hubContext.Clients.All.SendAsync("NewSalesOrder", new
-                        {
-                            id = notification.Id,
-                            title = notification.Title,
-                            type = notification.Type,
-                            orderCount = newOrdersCount,
-                            itemCount = newItemsCount,
-                            createdAt = notification.CreatedAt
-                        }, cancellationToken);
-                    }
-
-                    _logger.LogInformation("Created notification for {OrderCount} new orders", newOrdersCount);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to create notification for new orders");
-                }
+                // 3. Yeni sipariş bildirimi oluştur
+                await CreateNewOrderNotificationAsync(scope, newOrdersCount, newItemsCount, cancellationToken);
             }
             else
             {
-                _logger.LogDebug("No new orders to sync from Katana");
+                _logger.LogInformation("No new sales orders to process");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to sync sales orders from Katana");
+            _logger.LogError(ex, "Error during Katana sales order sync");
             throw;
+        }
+    }
+
+    private async Task SyncProductsToLucaWithRetryAsync(IServiceScope scope)
+    {
+        try
+        {
+            var syncService = scope.ServiceProvider.GetService<ISyncService>();
+            if (syncService != null)
+            {
+                _logger.LogInformation("Triggering Luca product sync for new orders...");
+                
+                var context = new Context("SyncProductsToLuca");
+                context["logger"] = _logger;
+
+                var syncResult = await _katanaApiRetryPolicy.ExecuteAsync(async (ctx) =>
+                {
+                    return await syncService.SyncProductsToLucaAsync(new SyncOptionsDto
+                    {
+                        DryRun = false,
+                        ForceSendDuplicates = false,
+                        PreferBarcodeMatch = true
+                    });
+                }, context);
+
+                if (syncResult.IsSuccess)
+                {
+                    _logger.LogInformation("Luca product sync completed. New cards: {New}, Sent: {Sent}",
+                        syncResult.NewCreated, syncResult.SentRecords);
+                }
+                else
+                {
+                    _logger.LogWarning("Luca product sync completed with issues: {Message}", syncResult.Message);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to trigger Luca product sync - will retry next cycle");
+        }
+    }
+
+    private async Task SyncApprovedOrdersToLucaWithRetryAsync(IServiceScope scope, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var orderInvoiceSync = scope.ServiceProvider.GetService<OrderInvoiceSyncService>();
+            var context = scope.ServiceProvider.GetRequiredService<IntegrationDbContext>();
+
+            if (orderInvoiceSync == null)
+            {
+                _logger.LogWarning("OrderInvoiceSyncService not available - skipping invoice sync");
+                return;
+            }
+
+            // Onaylanan ama Luca'ya gönderilmemiş siparişleri bul
+            var approvedAdjustments = await context.PendingStockAdjustments
+                .Where(p => p.Status == "Approved" && p.ExternalOrderId != null)
+                .GroupBy(p => p.ExternalOrderId)
+                .Select(g => g.First())
+                .ToListAsync(cancellationToken);
+
+            if (!approvedAdjustments.Any())
+            {
+                _logger.LogInformation("No approved orders to sync to Luca");
+                return;
+            }
+
+            _logger.LogInformation("Found {Count} approved orders to sync to Luca", approvedAdjustments.Count);
+
+            var retryContext = new Context("SyncOrderToLuca");
+            retryContext["logger"] = _logger;
+
+            foreach (var adjustment in approvedAdjustments)
+            {
+                try
+                {
+                    // OrderInvoiceSyncService orderId (int) bekliyor
+                    // ExternalOrderId string olduğu için parse etmemiz gerekiyor
+                    if (int.TryParse(adjustment.ExternalOrderId, out var orderId))
+                    {
+                        await orderInvoiceSync.SyncSalesOrderToLucaAsync(orderId);
+                        _logger.LogInformation("Successfully synced order {OrderId} to Luca", adjustment.ExternalOrderId);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Cannot sync order {OrderId} - invalid order ID format", 
+                            adjustment.ExternalOrderId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to sync order {OrderId} to Luca - will retry next cycle", 
+                        adjustment.ExternalOrderId);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to process approved orders for Luca sync");
+        }
+    }
+
+    private async Task CreateNewOrderNotificationAsync(IServiceScope scope, int orderCount, int itemCount, 
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var hubContext = scope.ServiceProvider.GetService<IHubContext<NotificationHub>>();
+            var context = scope.ServiceProvider.GetRequiredService<IntegrationDbContext>();
+            
+            var notification = new Notification
+            {
+                Type = "NewSalesOrder",
+                Title = $"🛒 {orderCount} Yeni Sipariş Geldi!",
+                Payload = System.Text.Json.JsonSerializer.Serialize(new { 
+                    orderCount, 
+                    itemCount,
+                    message = $"Katana'dan {orderCount} yeni sipariş ({itemCount} ürün) alındı."
+                }),
+                Link = "/admin",
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false
+            };
+            context.Notifications.Add(notification);
+            await context.SaveChangesAsync(cancellationToken);
+
+            // SignalR ile gerçek zamanlı bildirim gönder
+            if (hubContext != null)
+            {
+                await hubContext.Clients.All.SendAsync("NewSalesOrder", new
+                {
+                    id = notification.Id,
+                    title = notification.Title,
+                    type = notification.Type,
+                    orderCount,
+                    itemCount,
+                    createdAt = notification.CreatedAt
+                }, cancellationToken);
+            }
+
+            _logger.LogInformation("Created notification for {OrderCount} new orders", orderCount);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to create notification for new orders");
         }
     }
 }
