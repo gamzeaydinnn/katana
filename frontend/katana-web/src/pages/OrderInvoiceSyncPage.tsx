@@ -29,6 +29,8 @@ import {
   Tabs,
   Tab,
   LinearProgress,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {
   Sync as SyncIcon,
@@ -72,6 +74,8 @@ function TabPanel(props: TabPanelProps) {
 }
 
 const OrderInvoiceSyncPage: React.FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   // State
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -354,8 +358,377 @@ const OrderInvoiceSyncPage: React.FC = () => {
             variant="outlined"
             size="small"
           />
-        );
+      );
     }
+  };
+
+  const renderOrdersContent = () => {
+    if (loading) {
+      return (
+        <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    if (isMobile) {
+      return (
+        <Box sx={{ p: 1, display: "flex", flexDirection: "column", gap: 1.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
+            <Checkbox
+              size="small"
+              onChange={handleSelectAll}
+              checked={
+                selectedOrders.length > 0 &&
+                selectedOrders.length ===
+                  orders.filter((o) => o.status !== "SYNCED").length
+              }
+            />
+            <Typography variant="body2" color="textSecondary">
+              Bekleyen / hatalı siparişlerin tümünü seç
+            </Typography>
+          </Box>
+
+          {orders.length === 0 ? (
+            <Typography
+              variant="body2"
+              color="textSecondary"
+              align="center"
+              sx={{ py: 2 }}
+            >
+              Sipariş bulunamadı
+            </Typography>
+          ) : (
+            orders.map((order) => {
+              const selectable =
+                order.status !== "SYNCED" && order.status !== "CANCELLED";
+              const isSelected = selectedOrders.includes(order.id);
+
+              return (
+                <Card
+                  key={order.id}
+                  variant="outlined"
+                  sx={{
+                    borderRadius: 2,
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+                    borderColor:
+                      order.status === "ERROR" ? "error.light" : "divider",
+                  }}
+                >
+                  <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        mb: 1,
+                        gap: 1,
+                      }}
+                    >
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        {selectable && (
+                          <Checkbox
+                            size="small"
+                            checked={isSelected}
+                            onChange={() => handleSelectOrder(order.id)}
+                          />
+                        )}
+                        <Box>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: 600 }}
+                          >
+                            {order.orderNo}
+                          </Typography>
+                          <Typography variant="caption" color="textSecondary">
+                            {order.itemCount} ürün
+                          </Typography>
+                        </Box>
+                      </Box>
+                      {getStatusChip(order)}
+                    </Box>
+
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        mb: 1,
+                        gap: 1,
+                      }}
+                    >
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            whiteSpace: "nowrap",
+                            textOverflow: "ellipsis",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {order.customer}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary">
+                          {order.date}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign: "right" }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {order.total.toLocaleString("tr-TR", {
+                            minimumFractionDigits: 2,
+                          })}{" "}
+                          {order.currency}
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: 1,
+                        mt: 0.5,
+                      }}
+                    >
+                      <Tooltip title="Detay">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleViewDetail(order.id)}
+                        >
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+
+                      {order.status !== "SYNCED" &&
+                        order.status !== "CANCELLED" && (
+                          <Tooltip title="Luca'ya Gönder">
+                            <span>
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={() => handleSync(order.id)}
+                                disabled={!!syncLoading[order.id]}
+                              >
+                                {syncLoading[order.id] ? (
+                                  <CircularProgress size={18} />
+                                ) : (
+                                  <SyncIcon fontSize="small" />
+                                )}
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        )}
+
+                      {order.status === "SYNCED" && (
+                        <>
+                          <Tooltip title="Fatura Kapat">
+                            <IconButton
+                              size="small"
+                              color="success"
+                              onClick={() =>
+                                handleOpenPaymentDialog(order.id, order.total)
+                              }
+                            >
+                              <PaymentIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Fatura Sil">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteInvoice(order.id)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                    </Box>
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
+        </Box>
+      );
+    }
+
+    return (
+      <TableContainer sx={{ maxHeight: { xs: 400, sm: 600 } }}>
+        <Table
+          stickyHeader
+          size="small"
+          sx={{
+            "& .MuiTableCell-root": {
+              px: { xs: 0.5, sm: 2 },
+              py: { xs: 0.5, sm: 1 },
+              fontSize: { xs: "0.7rem", sm: "0.875rem" },
+            },
+          }}
+        >
+          <TableHead>
+            <TableRow>
+              <TableCell padding="checkbox" sx={{ width: 30 }}>
+                <Checkbox
+                  size="small"
+                  onChange={handleSelectAll}
+                  checked={
+                    selectedOrders.length > 0 &&
+                    selectedOrders.length ===
+                      orders.filter((o) => o.status !== "SYNCED").length
+                  }
+                />
+              </TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap" }}>
+                <strong>Sipariş</strong>
+              </TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap" }}>
+                <strong>Müşteri</strong>
+              </TableCell>
+              <TableCell
+                sx={{
+                  whiteSpace: "nowrap",
+                  display: { xs: "none", sm: "table-cell" },
+                }}
+              >
+                <strong>Tarih</strong>
+              </TableCell>
+              <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                <strong>Tutar</strong>
+              </TableCell>
+              <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                <strong>Durum</strong>
+              </TableCell>
+              <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                <strong>İşlem</strong>
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {orders.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <Typography color="textSecondary">
+                    Sipariş bulunamadı
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : (
+              orders.map((order) => (
+                <TableRow
+                  key={order.id}
+                  hover
+                  sx={{
+                    backgroundColor:
+                      order.status === "ERROR" ? "error.light" : "inherit",
+                    "&:hover": {
+                      backgroundColor:
+                        order.status === "ERROR" ? "error.light" : undefined,
+                    },
+                  }}
+                >
+                  <TableCell padding="checkbox">
+                    {order.status !== "SYNCED" &&
+                      order.status !== "CANCELLED" && (
+                        <Checkbox
+                          checked={selectedOrders.includes(order.id)}
+                          onChange={() => handleSelectOrder(order.id)}
+                        />
+                      )}
+                  </TableCell>
+                  <TableCell>
+                    <Typography fontWeight="medium">
+                      {order.orderNo}
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      {order.itemCount} ürün
+                    </Typography>
+                  </TableCell>
+                  <TableCell>{order.customer}</TableCell>
+                  <TableCell
+                    sx={{
+                      display: { xs: "none", sm: "table-cell" },
+                    }}
+                  >
+                    {order.date}
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography fontWeight="medium">
+                      {order.total.toLocaleString("tr-TR", {
+                        minimumFractionDigits: 2,
+                      })}{" "}
+                      {order.currency}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="center">{getStatusChip(order)}</TableCell>
+                  <TableCell align="center">
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "center",
+                        gap: 0.5,
+                      }}
+                    >
+                      <Tooltip title="Detay">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleViewDetail(order.id)}
+                        >
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+
+                      {order.status !== "SYNCED" &&
+                        order.status !== "CANCELLED" && (
+                          <Tooltip title="Luca'ya Gönder">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => handleSync(order.id)}
+                              disabled={syncLoading[order.id]}
+                            >
+                              {syncLoading[order.id] ? (
+                                <CircularProgress size={20} />
+                              ) : (
+                                <SyncIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                        )}
+
+                      {order.status === "SYNCED" && (
+                        <>
+                          <Tooltip title="Fatura Kapat">
+                            <IconButton
+                              size="small"
+                              color="success"
+                              onClick={() =>
+                                handleOpenPaymentDialog(order.id, order.total)
+                              }
+                            >
+                              <PaymentIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Fatura Sil">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteInvoice(order.id)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    );
   };
 
   return (
@@ -475,7 +848,8 @@ const OrderInvoiceSyncPage: React.FC = () => {
               v === 0 ? "" : v === 1 ? "PENDING" : v === 2 ? "SYNCED" : "ERROR"
             );
           }}
-          variant="fullWidth"
+          variant={isMobile ? "scrollable" : "fullWidth"}
+          scrollButtons={isMobile ? "auto" : false}
           sx={{
             minHeight: 36,
             "& .MuiTab-root": {
@@ -492,7 +866,7 @@ const OrderInvoiceSyncPage: React.FC = () => {
         </Tabs>
       </Paper>
 
-      {/* Orders Table */}
+      {/* Orders Table / Mobile Cards */}
       <Paper sx={{ width: "100%", overflow: "hidden" }}>
         {batchSyncLoading && <LinearProgress />}
 
@@ -521,180 +895,7 @@ const OrderInvoiceSyncPage: React.FC = () => {
           </Box>
         )}
 
-        <TableContainer sx={{ maxHeight: { xs: 400, sm: 600 } }}>
-          <Table
-            stickyHeader
-            size="small"
-            sx={{
-              "& .MuiTableCell-root": {
-                px: { xs: 0.5, sm: 2 },
-                py: { xs: 0.5, sm: 1 },
-                fontSize: { xs: "0.7rem", sm: "0.875rem" },
-              },
-            }}
-          >
-            <TableHead>
-              <TableRow>
-                <TableCell padding="checkbox" sx={{ width: 30 }}>
-                  <Checkbox
-                    size="small"
-                    onChange={handleSelectAll}
-                    checked={
-                      selectedOrders.length > 0 &&
-                      selectedOrders.length ===
-                        orders.filter((o) => o.status !== "SYNCED").length
-                    }
-                  />
-                </TableCell>
-                <TableCell sx={{ whiteSpace: "nowrap" }}>
-                  <strong>Sipariş</strong>
-                </TableCell>
-                <TableCell sx={{ whiteSpace: "nowrap" }}>
-                  <strong>Müşteri</strong>
-                </TableCell>
-                <TableCell
-                  sx={{
-                    whiteSpace: "nowrap",
-                    display: { xs: "none", sm: "table-cell" },
-                  }}
-                >
-                  <strong>Tarih</strong>
-                </TableCell>
-                <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
-                  <strong>Tutar</strong>
-                </TableCell>
-                <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
-                  <strong>Durum</strong>
-                </TableCell>
-                <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
-                  <strong>İşlem</strong>
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                    <CircularProgress />
-                  </TableCell>
-                </TableRow>
-              ) : orders.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                    <Typography color="textSecondary">
-                      Sipariş bulunamadı
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                orders.map((order) => (
-                  <TableRow
-                    key={order.id}
-                    hover
-                    sx={{
-                      backgroundColor:
-                        order.status === "ERROR" ? "error.light" : "inherit",
-                      "&:hover": {
-                        backgroundColor:
-                          order.status === "ERROR" ? "error.light" : undefined,
-                      },
-                    }}
-                  >
-                    <TableCell padding="checkbox">
-                      {order.status !== "SYNCED" &&
-                        order.status !== "CANCELLED" && (
-                          <Checkbox
-                            checked={selectedOrders.includes(order.id)}
-                            onChange={() => handleSelectOrder(order.id)}
-                          />
-                        )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography fontWeight="medium">
-                        {order.orderNo}
-                      </Typography>
-                      <Typography variant="caption" color="textSecondary">
-                        {order.itemCount} ürün
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{order.customer}</TableCell>
-                    <TableCell>{order.date}</TableCell>
-                    <TableCell align="right">
-                      <Typography fontWeight="medium">
-                        {order.total.toLocaleString("tr-TR", {
-                          minimumFractionDigits: 2,
-                        })}{" "}
-                        {order.currency}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center">{getStatusChip(order)}</TableCell>
-                    <TableCell align="center">
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "center",
-                          gap: 0.5,
-                        }}
-                      >
-                        <Tooltip title="Detay">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleViewDetail(order.id)}
-                          >
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-
-                        {order.status !== "SYNCED" &&
-                          order.status !== "CANCELLED" && (
-                            <Tooltip title="Luca'ya Gönder">
-                              <IconButton
-                                size="small"
-                                color="primary"
-                                onClick={() => handleSync(order.id)}
-                                disabled={syncLoading[order.id]}
-                              >
-                                {syncLoading[order.id] ? (
-                                  <CircularProgress size={20} />
-                                ) : (
-                                  <SyncIcon fontSize="small" />
-                                )}
-                              </IconButton>
-                            </Tooltip>
-                          )}
-
-                        {order.status === "SYNCED" && (
-                          <>
-                            <Tooltip title="Fatura Kapat">
-                              <IconButton
-                                size="small"
-                                color="success"
-                                onClick={() =>
-                                  handleOpenPaymentDialog(order.id, order.total)
-                                }
-                              >
-                                <PaymentIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Fatura Sil">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => handleDeleteInvoice(order.id)}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </>
-                        )}
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        {renderOrdersContent()}
 
         <TablePagination
           component="div"

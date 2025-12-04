@@ -756,7 +756,7 @@ const PurchaseOrders: React.FC = () => {
       <Box
         sx={{
           display: "flex",
-          flexDirection: { xs: "row", sm: "row" },
+          flexDirection: { xs: "column", sm: "row" },
           gap: 1,
           mb: 2,
           px: { xs: 1, sm: 0 },
@@ -804,12 +804,17 @@ const PurchaseOrders: React.FC = () => {
       {/* Table */}
       <TableContainer
         component={Paper}
-        sx={{ width: "100%", overflowX: "auto", mx: { xs: 0, sm: 0 } }}
+        sx={{
+          width: "100%",
+          overflowX: "auto",
+          mx: { xs: 0, sm: 0 },
+        }}
       >
         <Table
           size="small"
           sx={{
             minWidth: { xs: 0, sm: 650 },
+            tableLayout: { xs: "fixed", sm: "auto" },
             "& .MuiTableCell-root": {
               px: { xs: 0.75, sm: 2 },
               py: { xs: 0.75, sm: 1 },
@@ -821,8 +826,22 @@ const PurchaseOrders: React.FC = () => {
             <TableRow>
               <TableCell sx={{ whiteSpace: "nowrap" }}>Sipariş No</TableCell>
               <TableCell sx={{ whiteSpace: "nowrap" }}>Tedarikçi</TableCell>
-              <TableCell sx={{ whiteSpace: "nowrap" }}>Tarih</TableCell>
-              <TableCell sx={{ whiteSpace: "nowrap" }}>Teslim Tarihi</TableCell>
+              <TableCell
+                sx={{
+                  whiteSpace: "nowrap",
+                  display: { xs: "none", sm: "table-cell" },
+                }}
+              >
+                Tarih
+              </TableCell>
+              <TableCell
+                sx={{
+                  whiteSpace: "nowrap",
+                  display: { xs: "none", sm: "table-cell" },
+                }}
+              >
+                Teslim Tarihi
+              </TableCell>
               <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
                 Toplam
               </TableCell>
@@ -859,8 +878,20 @@ const PurchaseOrders: React.FC = () => {
                     )}
                   </TableCell>
                   <TableCell>{order.supplierName || "-"}</TableCell>
-                  <TableCell>{formatDate(order.orderDate)}</TableCell>
-                  <TableCell>{formatDate(order.expectedDate)}</TableCell>
+                  <TableCell
+                    sx={{
+                      display: { xs: "none", sm: "table-cell" },
+                    }}
+                  >
+                    {formatDate(order.orderDate)}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      display: { xs: "none", sm: "table-cell" },
+                    }}
+                  >
+                    {formatDate(order.expectedDate)}
+                  </TableCell>
                   <TableCell align="right">
                     {formatCurrency(order.totalAmount)}
                   </TableCell>

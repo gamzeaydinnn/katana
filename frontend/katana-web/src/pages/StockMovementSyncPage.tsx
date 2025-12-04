@@ -35,7 +35,8 @@ import {
   ListItemText,
   IconButton,
   Tooltip,
-  Stack,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import SyncIcon from "@mui/icons-material/Sync";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -75,6 +76,8 @@ function TabPanel(props: TabPanelProps) {
 }
 
 const StockMovementSyncPage: React.FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [tabValue, setTabValue] = useState(0);
   const [movements, setMovements] = useState<StockMovementSyncDto[]>([]);
   const [stats, setStats] = useState<MovementDashboardStatsDto | null>(null);
@@ -319,7 +322,10 @@ const StockMovementSyncPage: React.FC = () => {
       <AppBar position="static" sx={{ backgroundColor: "#2c3e50" }}>
         <Toolbar>
           <WarehouseIcon sx={{ mr: 2 }} />
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          <Typography
+            variant="h6"
+            sx={{ flexGrow: 1, fontSize: { xs: "0.95rem", sm: "1.25rem" } }}
+          >
             Stok Hareketleri Luca Aktarımı
           </Typography>
           <Button
@@ -333,7 +339,14 @@ const StockMovementSyncPage: React.FC = () => {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="xl" sx={{ mt: 3 }}>
+      <Container
+        maxWidth="xl"
+        sx={{
+          mt: 3,
+          px: { xs: 1.5, sm: 3 },
+          pb: 4,
+        }}
+      >
         {/* Dashboard Stats */}
         {stats && (
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 3 }}>
@@ -446,7 +459,15 @@ const StockMovementSyncPage: React.FC = () => {
           <Tabs
             value={tabValue}
             onChange={(_, val) => setTabValue(val)}
-            centered
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              "& .MuiTab-root": {
+                minHeight: 40,
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                px: { xs: 1, sm: 2 },
+              },
+            }}
           >
             <Tab label={`Tümü (${movements.length})`} />
             <Tab
@@ -467,13 +488,14 @@ const StockMovementSyncPage: React.FC = () => {
         </Paper>
 
         {/* Filters and Actions */}
-        <Paper sx={{ p: 2, mb: 2 }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 2 }}>
           <Box
             sx={{
               display: "flex",
               flexWrap: "wrap",
               gap: 2,
               alignItems: "center",
+              justifyContent: "space-between",
             }}
           >
             <Box sx={{ flex: "1 1 200px", maxWidth: 250 }}>
@@ -505,13 +527,24 @@ const StockMovementSyncPage: React.FC = () => {
                 </Select>
               </FormControl>
             </Box>
-            <Box sx={{ flex: "1 1 auto", textAlign: "right" }}>
+            <Box
+              sx={{
+                flex: { xs: "1 1 100%", md: "1 1 auto" },
+                display: "flex",
+                justifyContent: { xs: "stretch", md: "flex-end" },
+                gap: 1,
+              }}
+            >
               <Button
                 variant="outlined"
                 startIcon={<SyncIcon />}
                 onClick={handleBatchSync}
                 disabled={selectedIds.size === 0 || loading}
-                sx={{ mr: 1 }}
+                sx={{
+                  mr: { xs: 0, md: 1 },
+                  flex: { xs: 1, md: "initial" },
+                  whiteSpace: "nowrap",
+                }}
               >
                 Seçilenleri Aktar ({selectedIds.size})
               </Button>
@@ -521,6 +554,10 @@ const StockMovementSyncPage: React.FC = () => {
                 onClick={handleSyncAllPending}
                 disabled={pendingCount === 0 || loading}
                 color="primary"
+                sx={{
+                  flex: { xs: 1, md: "initial" },
+                  whiteSpace: "nowrap",
+                }}
               >
                 Tümünü Aktar ({pendingCount})
               </Button>
@@ -528,15 +565,222 @@ const StockMovementSyncPage: React.FC = () => {
           </Box>
         </Paper>
 
-        {/* Data Table */}
+        {/* Data Table / Mobile Cards */}
         <Paper sx={{ overflow: "hidden" }}>
           {loading ? (
             <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
               <CircularProgress />
             </Box>
+          ) : isMobile ? (
+            <Box sx={{ p: 1, display: "flex", flexDirection: "column", gap: 1.5 }}>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
+                <Checkbox
+                  indeterminate={
+                    selectedIds.size > 0 &&
+                    selectedIds.size <
+                      filteredMovements.filter(
+                        (m) => m.syncStatus === "PENDING"
+                      ).length
+                  }
+                  checked={
+                    selectedIds.size ===
+                      filteredMovements.filter(
+                        (m) => m.syncStatus === "PENDING"
+                      ).length && selectedIds.size > 0
+                  }
+                  onChange={handleSelectAll}
+                />
+                <Typography variant="body2" color="textSecondary">
+                  Bekleyenlerin tümünü seç
+                </Typography>
+              </Box>
+
+              {filteredMovements.map((movement) => {
+                const key = `${movement.movementType}-${movement.id}`;
+                const isSyncing = syncingIds.has(key);
+                const isSelected = selectedIds.has(key);
+
+                return (
+                  <Card
+                    key={key}
+                    variant="outlined"
+                    sx={{
+                      borderRadius: 2,
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+                      borderColor:
+                        movement.syncStatus === "ERROR"
+                          ? "error.light"
+                          : "divider",
+                    }}
+                  >
+                    <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          mb: 1,
+                          gap: 1,
+                        }}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Checkbox
+                            size="small"
+                            checked={isSelected}
+                            onChange={() => handleSelectOne(movement)}
+                            disabled={movement.syncStatus === "SYNCED"}
+                          />
+                          <Box>
+                            <Typography
+                              variant="subtitle2"
+                              sx={{ fontWeight: 600, wordBreak: "break-all" }}
+                            >
+                              {movement.documentNo}
+                            </Typography>
+                            <Typography variant="caption" color="textSecondary">
+                              {new Date(
+                                movement.movementDate
+                              ).toLocaleDateString("tr-TR")}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        {getStatusChip(movement.syncStatus, movement.errorMessage)}
+                      </Box>
+
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          mb: 1,
+                          gap: 1,
+                        }}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
+                          {getTypeIcon(movement.movementType)}
+                          <Typography variant="body2">
+                            {movement.movementType === "TRANSFER"
+                              ? "Transfer"
+                              : "Düzeltme"}
+                          </Typography>
+                        </Box>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "flex-end",
+                          }}
+                        >
+                          {movement.movementType === "ADJUSTMENT" &&
+                            (movement.adjustmentReason?.includes("Fire") ||
+                            movement.adjustmentReason?.includes("Sarf") ? (
+                              <TrendingDownIcon
+                                color="error"
+                                fontSize="small"
+                                sx={{ mr: 0.5 }}
+                              />
+                            ) : (
+                              <TrendingUpIcon
+                                color="success"
+                                fontSize="small"
+                                sx={{ mr: 0.5 }}
+                              />
+                            ))}
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {movement.totalQuantity.toLocaleString("tr-TR")}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      {movement.locationInfo && (
+                        <Typography
+                          variant="caption"
+                          color="textSecondary"
+                          sx={{ display: "block", mb: 1 }}
+                        >
+                          {movement.locationInfo}
+                        </Typography>
+                      )}
+
+                      {movement.adjustmentReason && (
+                        <Typography
+                          variant="caption"
+                          color="textSecondary"
+                          sx={{ display: "block", mb: 1 }}
+                        >
+                          {movement.adjustmentReason}
+                        </Typography>
+                      )}
+
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          gap: 1,
+                          mt: 0.5,
+                        }}
+                      >
+                        {movement.syncStatus !== "SYNCED" && (
+                          <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={
+                              isSyncing ? (
+                                <CircularProgress size={16} color="inherit" />
+                              ) : (
+                                <SyncIcon />
+                              )
+                            }
+                            disabled={isSyncing}
+                            onClick={() => handleSync(movement)}
+                          >
+                            Aktar
+                          </Button>
+                        )}
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setSelectedMovement(movement);
+                            setDetailDialogOpen(true);
+                          }}
+                        >
+                          <InfoIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+
+              {filteredMovements.length === 0 && (
+                <Typography
+                  variant="body2"
+                  color="textSecondary"
+                  align="center"
+                  sx={{ py: 2 }}
+                >
+                  Kayıt bulunamadı
+                </Typography>
+              )}
+            </Box>
           ) : (
-            <TableContainer>
-              <Table>
+            <TableContainer
+              sx={{
+                width: "100%",
+                overflowX: "auto",
+              }}
+            >
+              <Table
+                size="small"
+                sx={{
+                  "& .MuiTableCell-root": {
+                    px: { xs: 0.75, sm: 2 },
+                    py: { xs: 0.75, sm: 1 },
+                    fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                  },
+                  minWidth: { xs: 0, sm: 650 },
+                }}
+              >
                 <TableHead>
                   <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
                     <TableCell padding="checkbox">
@@ -557,16 +801,26 @@ const StockMovementSyncPage: React.FC = () => {
                         onChange={handleSelectAll}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
                       <strong>Belge No</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
                       <strong>Tip</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        whiteSpace: "nowrap",
+                        display: { xs: "none", sm: "table-cell" },
+                      }}
+                    >
                       <strong>Depo / Konum</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        whiteSpace: "nowrap",
+                        display: { xs: "none", sm: "table-cell" },
+                      }}
+                    >
                       <strong>Tarih</strong>
                     </TableCell>
                     <TableCell align="right">
@@ -625,8 +879,14 @@ const StockMovementSyncPage: React.FC = () => {
                             </Typography>
                           )}
                         </TableCell>
-                        <TableCell>{movement.locationInfo}</TableCell>
-                        <TableCell>
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
+                          {movement.locationInfo}
+                        </TableCell>
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
                           {new Date(movement.movementDate).toLocaleDateString(
                             "tr-TR"
                           )}
