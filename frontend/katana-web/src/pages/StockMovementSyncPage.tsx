@@ -1,61 +1,63 @@
-import BuildIcon from "@mui/icons-material/Build";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
-import ErrorIcon from "@mui/icons-material/Error";
-import InfoIcon from "@mui/icons-material/Info";
-import PendingIcon from "@mui/icons-material/Pending";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import SyncIcon from "@mui/icons-material/Sync";
-import TrendingDownIcon from "@mui/icons-material/TrendingDown";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import WarehouseIcon from "@mui/icons-material/Warehouse";
-import {
-    Alert,
-    AppBar,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Checkbox,
-    Chip,
-    CircularProgress,
-    Container,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    FormControl,
-    IconButton,
-    InputLabel,
-    List,
-    ListItem,
-    ListItemText,
-    MenuItem,
-    Paper,
-    Select,
-    Snackbar,
-    Tab,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Tabs,
-    Toolbar,
-    Tooltip,
-    Typography
-} from "@mui/material";
 import React, { useEffect, useState } from "react";
+import {
+  Container,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Button,
+  Chip,
+  Alert,
+  Snackbar,
+  CircularProgress,
+  AppBar,
+  Toolbar,
+  Tabs,
+  Tab,
+  Box,
+  Card,
+  CardContent,
+  Checkbox,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+  Tooltip,
+  useMediaQuery,
+  useTheme,
+} from "@mui/material";
+import SyncIcon from "@mui/icons-material/Sync";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ErrorIcon from "@mui/icons-material/Error";
+import PendingIcon from "@mui/icons-material/Pending";
+import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
+import BuildIcon from "@mui/icons-material/Build";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import InfoIcon from "@mui/icons-material/Info";
+import WarehouseIcon from "@mui/icons-material/Warehouse";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 
 import {
-    MovementDashboardStatsDto,
-    StockMovementSyncDto,
-    getAllMovements,
-    getDashboardStats,
-    syncAllPending,
-    syncBatch,
-    syncMovement,
+  StockMovementSyncDto,
+  MovementDashboardStatsDto,
+  getAllMovements,
+  syncMovement,
+  syncBatch,
+  syncAllPending,
+  getDashboardStats,
 } from "../services/stockMovementSyncApi";
 
 interface TabPanelProps {
@@ -74,6 +76,8 @@ function TabPanel(props: TabPanelProps) {
 }
 
 const StockMovementSyncPage: React.FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [tabValue, setTabValue] = useState(0);
   const [movements, setMovements] = useState<StockMovementSyncDto[]>([]);
   const [stats, setStats] = useState<MovementDashboardStatsDto | null>(null);
@@ -105,7 +109,6 @@ const StockMovementSyncPage: React.FC = () => {
   }, [tabValue, statusFilter, typeFilter]);
 
   const loadData = async () => {
-    console.log('[StockMovementSyncPage] loadData başlatıldı:', { tabValue, statusFilter, typeFilter });
     setLoading(true);
     try {
       const [movementsData, statsData] = await Promise.all([
@@ -115,14 +118,9 @@ const StockMovementSyncPage: React.FC = () => {
         }),
         getDashboardStats(),
       ]);
-      console.log('[StockMovementSyncPage] loadData başarılı:', {
-        movementsCount: movementsData.length,
-        stats: statsData
-      });
       setMovements(movementsData);
       setStats(statsData);
     } catch (error) {
-      console.error('[StockMovementSyncPage] loadData HATA:', error);
       showNotification("Veri yüklenirken hata oluştu", "error");
     } finally {
       setLoading(false);
@@ -130,21 +128,13 @@ const StockMovementSyncPage: React.FC = () => {
   };
 
   const handleSync = async (movement: StockMovementSyncDto) => {
-    console.log('[StockMovementSyncPage] handleSync başlatıldı:', {
-      movementId: movement.id,
-      movementType: movement.movementType,
-      documentNo: movement.documentNo
-    });
     const key = `${movement.movementType}-${movement.id}`;
     setSyncingIds((prev) => new Set(prev).add(key));
 
     try {
-      console.log('[StockMovementSyncPage] syncMovement API çağrısı yapılıyor...');
       const result = await syncMovement(movement.movementType, movement.id);
-      console.log('[StockMovementSyncPage] syncMovement yanıtı:', result);
 
       if (result.success) {
-        console.log('[StockMovementSyncPage] Senkronizasyon başarılı!');
         showNotification(
           `${movement.documentNo} başarıyla Luca'ya aktarıldı!`,
           "success"
@@ -163,20 +153,11 @@ const StockMovementSyncPage: React.FC = () => {
           )
         );
       } else {
-        console.error('[StockMovementSyncPage] Senkronizasyon başarısız:', result.message);
         showNotification(result.message || "Senkronizasyon başarısız", "error");
       }
     } catch (error: any) {
-      console.error('[StockMovementSyncPage] handleSync exception:', {
-        movement,
-        error: error.message,
-        errorResponse: error.response?.data,
-        errorStatus: error.response?.status,
-        timestamp: new Date().toISOString()
-      });
       showNotification(error.response?.data?.message || "Hata oluştu", "error");
     } finally {
-      console.log('[StockMovementSyncPage] handleSync tamamlandı:', { movementId: movement.id });
       setSyncingIds((prev) => {
         const newSet = new Set(prev);
         newSet.delete(key);
@@ -186,13 +167,7 @@ const StockMovementSyncPage: React.FC = () => {
   };
 
   const handleBatchSync = async () => {
-    console.log('[StockMovementSyncPage] handleBatchSync başlatıldı:', {
-      selectedCount: selectedIds.size,
-      selectedIds: Array.from(selectedIds)
-    });
-    
     if (selectedIds.size === 0) {
-      console.warn('[StockMovementSyncPage] handleBatchSync: Hiç hareket seçilmemiş');
       showNotification("Lütfen en az bir hareket seçin", "info");
       return;
     }
@@ -208,10 +183,7 @@ const StockMovementSyncPage: React.FC = () => {
         else adjustmentIds.push(parseInt(id));
       });
 
-      console.log('[StockMovementSyncPage] syncBatch API çağrısı yapılıyor...', { transferIds, adjustmentIds });
       const result = await syncBatch(transferIds, adjustmentIds);
-      console.log('[StockMovementSyncPage] syncBatch yanıtı:', result);
-      
       showNotification(
         `${result.successCount}/${result.totalCount} hareket başarıyla aktarıldı`,
         result.failedCount > 0 ? "error" : "success"
@@ -219,48 +191,30 @@ const StockMovementSyncPage: React.FC = () => {
       setSelectedIds(new Set());
       loadData();
     } catch (error: any) {
-      console.error('[StockMovementSyncPage] handleBatchSync HATA:', {
-        error: error.message,
-        errorResponse: error.response?.data,
-        errorStatus: error.response?.status,
-        timestamp: new Date().toISOString()
-      });
       showNotification(
         error.response?.data?.message || "Toplu aktarım başarısız",
         "error"
       );
     } finally {
-      console.log('[StockMovementSyncPage] handleBatchSync tamamlandı');
       setLoading(false);
     }
   };
 
   const handleSyncAllPending = async () => {
-    console.log('[StockMovementSyncPage] handleSyncAllPending başlatıldı');
     setLoading(true);
     try {
-      console.log('[StockMovementSyncPage] syncAllPending API çağrısı yapılıyor...');
       const result = await syncAllPending();
-      console.log('[StockMovementSyncPage] syncAllPending yanıtı:', result);
-      
       showNotification(
         `${result.successCount}/${result.totalCount} hareket başarıyla aktarıldı`,
         result.failedCount > 0 ? "error" : "success"
       );
       loadData();
     } catch (error: any) {
-      console.error('[StockMovementSyncPage] handleSyncAllPending HATA:', {
-        error: error.message,
-        errorResponse: error.response?.data,
-        errorStatus: error.response?.status,
-        timestamp: new Date().toISOString()
-      });
       showNotification(
         error.response?.data?.message || "Aktarım başarısız",
         "error"
       );
     } finally {
-      console.log('[StockMovementSyncPage] handleSyncAllPending tamamlandı');
       setLoading(false);
     }
   };
@@ -368,7 +322,10 @@ const StockMovementSyncPage: React.FC = () => {
       <AppBar position="static" sx={{ backgroundColor: "#2c3e50" }}>
         <Toolbar>
           <WarehouseIcon sx={{ mr: 2 }} />
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          <Typography
+            variant="h6"
+            sx={{ flexGrow: 1, fontSize: { xs: "0.95rem", sm: "1.25rem" } }}
+          >
             Stok Hareketleri Luca Aktarımı
           </Typography>
           <Button
@@ -382,7 +339,14 @@ const StockMovementSyncPage: React.FC = () => {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="xl" sx={{ mt: 3 }}>
+      <Container
+        maxWidth="xl"
+        sx={{
+          mt: 3,
+          px: { xs: 1.5, sm: 3 },
+          pb: 4,
+        }}
+      >
         {/* Dashboard Stats */}
         {stats && (
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 3 }}>
@@ -495,7 +459,15 @@ const StockMovementSyncPage: React.FC = () => {
           <Tabs
             value={tabValue}
             onChange={(_, val) => setTabValue(val)}
-            centered
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              "& .MuiTab-root": {
+                minHeight: 40,
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                px: { xs: 1, sm: 2 },
+              },
+            }}
           >
             <Tab label={`Tümü (${movements.length})`} />
             <Tab
@@ -516,13 +488,14 @@ const StockMovementSyncPage: React.FC = () => {
         </Paper>
 
         {/* Filters and Actions */}
-        <Paper sx={{ p: 2, mb: 2 }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 2 }}>
           <Box
             sx={{
               display: "flex",
               flexWrap: "wrap",
               gap: 2,
               alignItems: "center",
+              justifyContent: "space-between",
             }}
           >
             <Box sx={{ flex: "1 1 200px", maxWidth: 250 }}>
@@ -554,13 +527,24 @@ const StockMovementSyncPage: React.FC = () => {
                 </Select>
               </FormControl>
             </Box>
-            <Box sx={{ flex: "1 1 auto", textAlign: "right" }}>
+            <Box
+              sx={{
+                flex: { xs: "1 1 100%", md: "1 1 auto" },
+                display: "flex",
+                justifyContent: { xs: "stretch", md: "flex-end" },
+                gap: 1,
+              }}
+            >
               <Button
                 variant="outlined"
                 startIcon={<SyncIcon />}
                 onClick={handleBatchSync}
                 disabled={selectedIds.size === 0 || loading}
-                sx={{ mr: 1 }}
+                sx={{
+                  mr: { xs: 0, md: 1 },
+                  flex: { xs: 1, md: "initial" },
+                  whiteSpace: "nowrap",
+                }}
               >
                 Seçilenleri Aktar ({selectedIds.size})
               </Button>
@@ -570,6 +554,10 @@ const StockMovementSyncPage: React.FC = () => {
                 onClick={handleSyncAllPending}
                 disabled={pendingCount === 0 || loading}
                 color="primary"
+                sx={{
+                  flex: { xs: 1, md: "initial" },
+                  whiteSpace: "nowrap",
+                }}
               >
                 Tümünü Aktar ({pendingCount})
               </Button>
@@ -577,15 +565,222 @@ const StockMovementSyncPage: React.FC = () => {
           </Box>
         </Paper>
 
-        {/* Data Table */}
+        {/* Data Table / Mobile Cards */}
         <Paper sx={{ overflow: "hidden" }}>
           {loading ? (
             <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
               <CircularProgress />
             </Box>
+          ) : isMobile ? (
+            <Box sx={{ p: 1, display: "flex", flexDirection: "column", gap: 1.5 }}>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
+                <Checkbox
+                  indeterminate={
+                    selectedIds.size > 0 &&
+                    selectedIds.size <
+                      filteredMovements.filter(
+                        (m) => m.syncStatus === "PENDING"
+                      ).length
+                  }
+                  checked={
+                    selectedIds.size ===
+                      filteredMovements.filter(
+                        (m) => m.syncStatus === "PENDING"
+                      ).length && selectedIds.size > 0
+                  }
+                  onChange={handleSelectAll}
+                />
+                <Typography variant="body2" color="textSecondary">
+                  Bekleyenlerin tümünü seç
+                </Typography>
+              </Box>
+
+              {filteredMovements.map((movement) => {
+                const key = `${movement.movementType}-${movement.id}`;
+                const isSyncing = syncingIds.has(key);
+                const isSelected = selectedIds.has(key);
+
+                return (
+                  <Card
+                    key={key}
+                    variant="outlined"
+                    sx={{
+                      borderRadius: 2,
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+                      borderColor:
+                        movement.syncStatus === "ERROR"
+                          ? "error.light"
+                          : "divider",
+                    }}
+                  >
+                    <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          mb: 1,
+                          gap: 1,
+                        }}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Checkbox
+                            size="small"
+                            checked={isSelected}
+                            onChange={() => handleSelectOne(movement)}
+                            disabled={movement.syncStatus === "SYNCED"}
+                          />
+                          <Box>
+                            <Typography
+                              variant="subtitle2"
+                              sx={{ fontWeight: 600, wordBreak: "break-all" }}
+                            >
+                              {movement.documentNo}
+                            </Typography>
+                            <Typography variant="caption" color="textSecondary">
+                              {new Date(
+                                movement.movementDate
+                              ).toLocaleDateString("tr-TR")}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        {getStatusChip(movement.syncStatus, movement.errorMessage)}
+                      </Box>
+
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          mb: 1,
+                          gap: 1,
+                        }}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
+                          {getTypeIcon(movement.movementType)}
+                          <Typography variant="body2">
+                            {movement.movementType === "TRANSFER"
+                              ? "Transfer"
+                              : "Düzeltme"}
+                          </Typography>
+                        </Box>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "flex-end",
+                          }}
+                        >
+                          {movement.movementType === "ADJUSTMENT" &&
+                            (movement.adjustmentReason?.includes("Fire") ||
+                            movement.adjustmentReason?.includes("Sarf") ? (
+                              <TrendingDownIcon
+                                color="error"
+                                fontSize="small"
+                                sx={{ mr: 0.5 }}
+                              />
+                            ) : (
+                              <TrendingUpIcon
+                                color="success"
+                                fontSize="small"
+                                sx={{ mr: 0.5 }}
+                              />
+                            ))}
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {movement.totalQuantity.toLocaleString("tr-TR")}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      {movement.locationInfo && (
+                        <Typography
+                          variant="caption"
+                          color="textSecondary"
+                          sx={{ display: "block", mb: 1 }}
+                        >
+                          {movement.locationInfo}
+                        </Typography>
+                      )}
+
+                      {movement.adjustmentReason && (
+                        <Typography
+                          variant="caption"
+                          color="textSecondary"
+                          sx={{ display: "block", mb: 1 }}
+                        >
+                          {movement.adjustmentReason}
+                        </Typography>
+                      )}
+
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          gap: 1,
+                          mt: 0.5,
+                        }}
+                      >
+                        {movement.syncStatus !== "SYNCED" && (
+                          <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={
+                              isSyncing ? (
+                                <CircularProgress size={16} color="inherit" />
+                              ) : (
+                                <SyncIcon />
+                              )
+                            }
+                            disabled={isSyncing}
+                            onClick={() => handleSync(movement)}
+                          >
+                            Aktar
+                          </Button>
+                        )}
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setSelectedMovement(movement);
+                            setDetailDialogOpen(true);
+                          }}
+                        >
+                          <InfoIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+
+              {filteredMovements.length === 0 && (
+                <Typography
+                  variant="body2"
+                  color="textSecondary"
+                  align="center"
+                  sx={{ py: 2 }}
+                >
+                  Kayıt bulunamadı
+                </Typography>
+              )}
+            </Box>
           ) : (
-            <TableContainer>
-              <Table>
+            <TableContainer
+              sx={{
+                width: "100%",
+                overflowX: "auto",
+              }}
+            >
+              <Table
+                size="small"
+                sx={{
+                  "& .MuiTableCell-root": {
+                    px: { xs: 0.75, sm: 2 },
+                    py: { xs: 0.75, sm: 1 },
+                    fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                  },
+                  minWidth: { xs: 0, sm: 650 },
+                }}
+              >
                 <TableHead>
                   <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
                     <TableCell padding="checkbox">
@@ -606,16 +801,26 @@ const StockMovementSyncPage: React.FC = () => {
                         onChange={handleSelectAll}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
                       <strong>Belge No</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
                       <strong>Tip</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        whiteSpace: "nowrap",
+                        display: { xs: "none", sm: "table-cell" },
+                      }}
+                    >
                       <strong>Depo / Konum</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        whiteSpace: "nowrap",
+                        display: { xs: "none", sm: "table-cell" },
+                      }}
+                    >
                       <strong>Tarih</strong>
                     </TableCell>
                     <TableCell align="right">
@@ -674,8 +879,14 @@ const StockMovementSyncPage: React.FC = () => {
                             </Typography>
                           )}
                         </TableCell>
-                        <TableCell>{movement.locationInfo}</TableCell>
-                        <TableCell>
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
+                          {movement.locationInfo}
+                        </TableCell>
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
                           {new Date(movement.movementDate).toLocaleDateString(
                             "tr-TR"
                           )}
