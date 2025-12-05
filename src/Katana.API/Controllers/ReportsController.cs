@@ -13,19 +13,19 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[AllowAnonymous]
 public class ReportsController : ControllerBase
 {
     private readonly IntegrationDbContext _context;
     private readonly ILogger<ReportsController> _logger;
     private readonly IKatanaService _katanaService;
-    private readonly DashboardService _dashboardService;
+    private readonly IDashboardService _dashboardService;
 
     public ReportsController(
         IntegrationDbContext context,
         ILogger<ReportsController> logger,
         IKatanaService katanaService,
-        DashboardService dashboardService)
+        IDashboardService dashboardService)
     {
         _context = context;
         _logger = logger;
