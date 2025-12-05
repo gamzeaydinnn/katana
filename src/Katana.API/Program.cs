@@ -215,6 +215,13 @@ builder.Services.AddScoped<IMappingService, MappingService>();
 builder.Services.AddScoped<IIntegrationTestService, IntegrationTestService>();
 builder.Services.AddScoped<IDataCorrectionService, DataCorrectionService>();
 builder.Services.AddScoped<OrderInvoiceSyncService>();
+
+// Deduplication Services
+builder.Services.Configure<Katana.Core.DTOs.DeduplicationRules>(builder.Configuration.GetSection("Deduplication"));
+builder.Services.AddScoped<Katana.Business.Services.Deduplication.IDuplicateDetector, Katana.Business.Services.Deduplication.DuplicateDetector>();
+builder.Services.AddScoped<Katana.Business.Services.Deduplication.ICanonicalSelector, Katana.Business.Services.Deduplication.CanonicalSelector>();
+builder.Services.AddScoped<Katana.Business.Services.Deduplication.IDeduplicationService, Katana.Business.Services.Deduplication.DeduplicationService>();
+
 builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();

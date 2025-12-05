@@ -1265,17 +1265,15 @@ public partial class LucaService
 
         try
         {
-            // 🔥 Session yoksa önce oluştur
             if (string.IsNullOrWhiteSpace(_manualJSessionId) && !_settings.UseTokenAuth)
             {
-                _logger.LogWarning("ListStockCardsAsync: No manual session id present - ForceSessionRefresh yapılıyor...");
-                await ForceSessionRefreshAsync();
+                _logger.LogWarning("ListStockCardsAsync: No manual session id present; results may be empty if Koza requires login cookie.");
             }
 
             await EnsureAuthenticatedAsync();
             await EnsureBranchSelectedAsync();
 
-            // 🔥 Client'ı her seferinde güncel al (ForceSessionRefresh sonrası değişmiş olabilir)
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
             var endpoint = _settings.Endpoints.StockCards;
 
             var sb = new StringBuilder();
@@ -1299,28 +1297,7 @@ public partial class LucaService
             HttpResponseMessage response;
             try
             {
-                // 🔥 Her seferinde güncel client al
-                var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
                 response = await client.SendAsync(httpRequest, cancellationToken);
-            }
-            catch (ObjectDisposedException)
-            {
-                // 🔥 Client dispose edilmiş - session yenile ve tekrar dene
-                _logger.LogWarning("ListStockCardsAsync: HttpClient disposed - ForceSessionRefresh yapılıyor...");
-                await ForceSessionRefreshAsync();
-                
-                var retryByteContent = new ByteArrayContent(encoding.GetBytes(formDataString));
-                retryByteContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
-                retryByteContent.Headers.ContentType.CharSet = "windows-1254";
-                
-                using var retryRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
-                {
-                    Content = retryByteContent
-                };
-                ApplyManualSessionCookie(retryRequest);
-                
-                var retryClient = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-                response = await retryClient.SendAsync(retryRequest, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -1334,29 +1311,27 @@ public partial class LucaService
 
             if (responseContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogWarning("ListStockCardsAsync: Koza returned HTML (session expired?). ForceSessionRefresh yapılıyor...");
+                _logger.LogWarning("ListStockCardsAsync: Koza returned HTML (session expired?). Re-authenticating and retrying once...");
                 
-                // 🔥 Session expired - tam yenileme yap
+                // Session expired olabilir, yeniden login dene
                 try
                 {
-                    await ForceSessionRefreshAsync();
+                    await PerformLoginAsync();
                     await EnsureBranchSelectedAsync();
                     
                     // Yeni content oluştur (HttpContent bir kez kullanıldıktan sonra tekrar kullanılamaz)
-                    var retryByteContent2 = new ByteArrayContent(encoding.GetBytes(formDataString));
-                    retryByteContent2.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
-                    retryByteContent2.Headers.ContentType.CharSet = "windows-1254";
+                    var retryByteContent = new ByteArrayContent(encoding.GetBytes(formDataString));
+                    retryByteContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
+                    retryByteContent.Headers.ContentType.CharSet = "windows-1254";
                     
                     // Retry request
-                    using var retryRequest2 = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                    using var retryRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
                     {
-                        Content = retryByteContent2
+                        Content = retryByteContent
                     };
-                    ApplyManualSessionCookie(retryRequest2);
+                    ApplyManualSessionCookie(retryRequest);
                     
-                    // 🔥 Güncel client al
-                    var retryClient2 = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-                    var retryResponse = await retryClient2.SendAsync(retryRequest2, cancellationToken);
+                    var retryResponse = await client.SendAsync(retryRequest, cancellationToken);
                     var retryBytes = await retryResponse.Content.ReadAsByteArrayAsync(cancellationToken);
                     string retryContent;
                     try { retryContent = encoding.GetString(retryBytes); } catch { retryContent = Encoding.UTF8.GetString(retryBytes); }
@@ -1830,28 +1805,24 @@ public partial class LucaService
                         safeName = card.KartKodu ?? "UNKNOWN-PRODUCT";
                     }
                     
-                    // JSON request body - Postman örneğine BİREBİR uygun
-                    // ⚠️ kartSatisKdvOran KALDIRILDI - Postman örneğinde yok!
+                    // JSON request body - Postman örneğine uygun
                     var jsonRequest = new
                     {
-                        kartAdi = safeName,                                    // required
+                        kartAdi = safeName,                                    // required (artık asla boş değil)
                         kartKodu = card.KartKodu ?? string.Empty,              // required
-                        kartTipi = 1,                                          // Postman: 1
-                        kartAlisKdvOran = 1,                                   // Postman: 1
-                        olcumBirimiId = 1,                                     // Postman: 1 (Adet)
-                        baslangicTarihi = baslangic,                           // required (dd/MM/yyyy)
-                        kartTuru = 1,                                          // Postman: 1 (Stok)
-                        kategoriAgacKod = (string?)null,                       // Postman: null
-                        barkod = !string.IsNullOrEmpty(card.Barkod) ? card.Barkod : card.KartKodu,
-                        alisTevkifatOran = "7/10",                             // Postman: "7/10"
-                        satisTevkifatOran = "2/10",                            // Postman: "2/10"
-                        alisTevkifatTipId = 1,                                 // Postman: 1
-                        satisTevkifatTipId = 1,                                // Postman: 1
-                        satilabilirFlag = 1,                                   // Postman: 1
-                        satinAlinabilirFlag = 1,                               // Postman: 1
-                        lotNoFlag = 1,                                         // Postman: 1
-                        minStokKontrol = 0,                                    // Postman: 0
-                        maliyetHesaplanacakFlag = true                         // Postman: true
+                        kartTipi = card.KartTipi > 0 ? card.KartTipi : 1,
+                        kartAlisKdvOran = card.KartAlisKdvOran > 0 ? card.KartAlisKdvOran : 1,
+                        kartSatisKdvOran = card.KartSatisKdvOran > 0 ? card.KartSatisKdvOran : 1,
+                        olcumBirimiId = card.OlcumBirimiId > 0 ? card.OlcumBirimiId : 1,
+                        baslangicTarihi = baslangic,                            // required (dd/mm/yyyy)
+                        kartTuru = card.KartTuru > 0 ? card.KartTuru : 1,       // required 1-Stok, 2-Hizmet
+                        kategoriAgacKod = string.IsNullOrEmpty(card.KategoriAgacKod) ? (string?)null : card.KategoriAgacKod,
+                        barkod = string.IsNullOrEmpty(card.Barkod) ? (string?)null : card.Barkod,
+                        satilabilirFlag = card.SatilabilirFlag > 0 ? card.SatilabilirFlag : 1,
+                        satinAlinabilirFlag = card.SatinAlinabilirFlag > 0 ? card.SatinAlinabilirFlag : 1,
+                        lotNoFlag = card.LotNoFlag,
+                        minStokKontrol = 0,
+                        maliyetHesaplanacakFlag = true
                     };
                     
                     var payload = JsonSerializer.Serialize(jsonRequest, _jsonOptions);
@@ -1873,37 +1844,9 @@ public partial class LucaService
 
                     sentCount++;
                     // Her request'te güncel client'ı al (ForceSessionRefresh sonrası değişmiş olabilir)
-                    HttpResponseMessage response;
-                    byte[] responseBytes;
-                    try
-                    {
-                        var currentClient = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-                        response = await currentClient.SendAsync(httpRequest);
-                        responseBytes = await response.Content.ReadAsByteArrayAsync();
-                    }
-                    catch (ObjectDisposedException)
-                    {
-                        // 🔥 Client dispose edilmiş - session yenile ve tekrar dene
-                        _logger.LogWarning("❌ HttpClient disposed for {Card} - ForceSessionRefresh yapılıyor...", card.KartKodu);
-                        await ForceSessionRefreshAsync();
-                        await EnsureBranchSelectedAsync();
-                        
-                        // Yeni request oluştur
-                        var retryByteContent = new ByteArrayContent(encoding.GetBytes(payload));
-                        retryByteContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-                        retryByteContent.Headers.ContentType.CharSet = "utf-8";
-                        
-                        using var retryHttpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
-                        {
-                            Content = retryByteContent
-                        };
-                        ApplyManualSessionCookie(retryHttpRequest);
-                        
-                        var retryClient = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-                        response = await retryClient.SendAsync(retryHttpRequest);
-                        responseBytes = await response.Content.ReadAsByteArrayAsync();
-                        _logger.LogInformation("✅ Retry başarılı: {Card}", card.KartKodu);
-                    }
+                    var currentClient = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+                    var response = await currentClient.SendAsync(httpRequest);
+                    var responseBytes = await response.Content.ReadAsByteArrayAsync();
                     string responseContent;
                     try { responseContent = encoding.GetString(responseBytes); } catch { responseContent = Encoding.UTF8.GetString(responseBytes); }
                     try
@@ -1913,9 +1856,7 @@ public partial class LucaService
                         Console.WriteLine($">>> LUCA STOCK CARD RESPONSE {card.KartKodu}: HTTP {(int)response.StatusCode} {response.StatusCode} BODY={preview}");
                     }
                     catch { }
-                    // 🔥 baseUrl hesaplaması - güncel client'tan al
-                    var activeClient = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-                    var baseUrl = activeClient.BaseAddress?.ToString()?.TrimEnd('/') ?? _settings.BaseUrl?.TrimEnd('/') ?? string.Empty;
+                    var baseUrl = currentClient.BaseAddress?.ToString()?.TrimEnd('/') ?? _settings.BaseUrl?.TrimEnd('/') ?? string.Empty;
                     var fullUrl = string.IsNullOrWhiteSpace(baseUrl) ? endpoint : (endpoint.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? endpoint : baseUrl + "/" + endpoint.TrimStart('/'));
                     await AppendRawLogAsync("SEND_STOCK_CARD", fullUrl, payload, response.StatusCode, responseContent);
                     try { await SaveHttpTrafficAsync($"SEND_STOCK_CARD_RESPONSE:{card.KartKodu}", httpRequest, response); } catch (Exception) { }
@@ -2103,55 +2044,10 @@ public partial class LucaService
                         if (parsedResponse.TryGetProperty("error", out var errorProp) && 
                             errorProp.ValueKind == JsonValueKind.True)
                         {
-                            // 🔥 DEBUG: Tam response'u logla
-                            _logger.LogError("❌ LUCA ERROR RESPONSE for {Card}: {FullResponse}", 
-                                card.KartKodu, responseContent.Length > 1000 ? responseContent.Substring(0, 1000) : responseContent);
-                            
-                            // Tüm olası hata alanlarını kontrol et
-                            var msg = "Unknown error";
-                            if (parsedResponse.TryGetProperty("message", out var messageProp) && 
-                                messageProp.ValueKind == JsonValueKind.String)
-                            {
-                                msg = messageProp.GetString() ?? "Unknown error";
-                            }
-                            else if (parsedResponse.TryGetProperty("errorMessage", out var errorMsgProp) && 
-                                     errorMsgProp.ValueKind == JsonValueKind.String)
-                            {
-                                msg = errorMsgProp.GetString() ?? "Unknown error";
-                            }
-                            else if (parsedResponse.TryGetProperty("errors", out var errorsProp))
-                            {
-                                if (errorsProp.ValueKind == JsonValueKind.Array)
-                                {
-                                    var errorList = new List<string>();
-                                    foreach (var err in errorsProp.EnumerateArray())
-                                    {
-                                        if (err.ValueKind == JsonValueKind.String)
-                                            errorList.Add(err.GetString() ?? "");
-                                        else if (err.ValueKind == JsonValueKind.Object)
-                                            errorList.Add(err.GetRawText());
-                                    }
-                                    msg = string.Join("; ", errorList);
-                                }
-                                else if (errorsProp.ValueKind == JsonValueKind.String)
-                                {
-                                    msg = errorsProp.GetString() ?? "Unknown error";
-                                }
-                            }
-                            else if (parsedResponse.TryGetProperty("data", out var dataProp) && 
-                                     dataProp.ValueKind == JsonValueKind.Object)
-                            {
-                                // Bazen hata detayları data içinde olabilir
-                                msg = dataProp.GetRawText();
-                            }
-                            
-                            // Eğer hala Unknown error ise, tüm response'u göster
-                            if (msg == "Unknown error")
-                            {
-                                msg = $"Luca API error (no message): {responseContent}";
-                            }
-                            
-                            _logger.LogError("❌ LUCA ERROR DETAIL for {Card}: {ErrorMessage}", card.KartKodu, msg);
+                            var msg = parsedResponse.TryGetProperty("message", out var messageProp) && 
+                                      messageProp.ValueKind == JsonValueKind.String
+                                ? messageProp.GetString() ?? "Unknown error"
+                                : "Unknown error";
 
                             // SKIP duplicates as warnings, not failures
                             // Check for duplicate message (handle both correct UTF-8 and broken encoding)

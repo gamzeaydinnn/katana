@@ -1647,8 +1647,6 @@ public partial class LucaService
 
     private async Task AppendRawLogAsync(string tag, string? url, string requestBody, System.Net.HttpStatusCode? status, string responseBody)
     {
-        // 🔥 FILE LOCK: Concurrent yazma sorununu önle
-        await _fileLock.WaitAsync();
         try
         {
             var baseDir = AppContext.BaseDirectory ?? Directory.GetCurrentDirectory();
@@ -1669,6 +1667,8 @@ public partial class LucaService
 
             await File.AppendAllTextAsync(file, sb.ToString());
 
+            
+            
             try
             {
                 var cwd = Directory.GetCurrentDirectory();
@@ -1682,16 +1682,12 @@ public partial class LucaService
             }
             catch (Exception)
             {
-                // Repo log yazılamadı - kritik değil
+                
             }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to append raw Luca log");
-        }
-        finally
-        {
-            _fileLock.Release();
         }
     }
     private async Task SaveHttpTrafficAsync(string tag, HttpRequestMessage? request, HttpResponseMessage? response)
@@ -2344,71 +2340,70 @@ public partial class LucaService
             bool hasChanges = false;
             var changeReasons = new List<string>();
 
-            // 🔥 DEBUG: Karşılaştırma öncesi değerleri logla
-            _logger.LogDebug("🔍 KARŞILAŞTIRMA BAŞLIYOR: {KartKodu}", newCard.KartKodu);
-            _logger.LogDebug("   Katana KartAdi: '{KatanaAdi}'", newCard.KartAdi ?? "(null)");
-            _logger.LogDebug("   Luca KartAdi: '{LucaAdi}'", existingCard.KartAdi ?? "(null)");
-            _logger.LogDebug("   Katana Fiyat: {KatanaFiyat}", newCard.PerakendeSatisBirimFiyat);
-            _logger.LogDebug("   Luca Fiyat: {LucaFiyat}", existingCard.SatisFiyat ?? 0);
-            _logger.LogDebug("   Katana Kategori: '{KatanaKategori}'", newCard.KategoriAgacKod ?? "(null)");
-            _logger.LogDebug("   Luca Kategori: '{LucaKategori}'", existingCard.KategoriAgacKod ?? "(null)");
+            // 🔥 BAĞIMSIZ KONTROL MANTIĞI (Independent Check Logic)
+            // Her değişiklik ayrı ayrı hesaplanır ve sonra OR (||) ile birleştirilir
+            // Böylece "Fiyat 0" olsa bile İsim değişirse yeni versiyon oluşur!
 
-            // KartAdi karşılaştırması - sadece her iki tarafta da doluysa
-            // 🔥 Türkçe karakter toleranslı karşılaştırma (Luca ? karakteri sorunu)
+            // 1️⃣ İSİM KONTROLÜ - Wildcard (?) toleranslı karşılaştırma
+            bool isNameChanged = false;
             if (!string.IsNullOrWhiteSpace(newCard.KartAdi) && !string.IsNullOrWhiteSpace(existingCard.KartAdi))
             {
-                var areNamesEqual = AreEqualIgnoringTurkishChars(newCard.KartAdi, existingCard.KartAdi);
-                _logger.LogInformation("🔍 İSİM KARŞILAŞTIRMASI: Katana='{KatanaAdi}' (len={KatanaLen}) vs Luca='{LucaAdi}' (len={LucaLen}) => Eşit={AreEqual}",
-                    newCard.KartAdi, newCard.KartAdi?.Length ?? 0, 
-                    existingCard.KartAdi, existingCard.KartAdi?.Length ?? 0,
-                    areNamesEqual);
+                var isNameEqual = AreEqualIgnoringTurkishChars(newCard.KartAdi, existingCard.KartAdi);
+                isNameChanged = !isNameEqual;
                 
-                if (!areNamesEqual)
+                if (isNameChanged)
                 {
-                    hasChanges = true;
-                    changeReasons.Add($"KartAdi: '{existingCard.KartAdi}' -> '{newCard.KartAdi}'");
+                    var normalizedNewWildcard = NormalizePreservingWildcard(newCard.KartAdi);
+                    var normalizedExistingWildcard = NormalizePreservingWildcard(existingCard.KartAdi);
+                    var normalizedNew = NormalizeTurkishCharsForComparison(newCard.KartAdi);
+                    var normalizedExisting = NormalizeTurkishCharsForComparison(existingCard.KartAdi);
+                    
+                    changeReasons.Add($"📝 İsim DEĞİŞTİ:");
+                    changeReasons.Add($"   Luca: '{existingCard.KartAdi}' (Wildcard: '{normalizedExistingWildcard}', Strict: '{normalizedExisting}')");
+                    changeReasons.Add($"   Katana: '{newCard.KartAdi}' (Wildcard: '{normalizedNewWildcard}', Strict: '{normalizedNew}')");
+                    
+                    _logger.LogDebug("İsim karşılaştırma detayı (Wildcard Mode):");
+                    _logger.LogDebug("  Luca RAW: '{LucaRaw}'", existingCard.KartAdi);
+                    _logger.LogDebug("  Luca WILDCARD: '{LucaWildcard}'", normalizedExistingWildcard);
+                    _logger.LogDebug("  Katana RAW: '{KatanaRaw}'", newCard.KartAdi);
+                    _logger.LogDebug("  Katana WILDCARD: '{KatanaWildcard}'", normalizedNewWildcard);
+                    _logger.LogDebug("  Match: {IsEqual}", isNameEqual);
                 }
             }
 
-            // Fiyat karşılaştırması - Luca'da fiyat bilgisi varsa karşılaştır
-            // NOT: Luca stok kartlarında fiyat genellikle null/0 olarak gelir
-            // Fiyat bilgisi ayrı bir yerde (cari hesap, fatura vb.) tutulur
-            // Bu yüzden Luca'da fiyat 0 veya null ise karşılaştırmayı atlıyoruz
+            // 2️⃣ FİYAT KONTROLÜ - Luca fiyatı 0 ise ATLA!
+            // 🔥 KRİTİK FİX: Sonsuz versiyon döngüsünü önlemek için
+            bool isPriceChanged = false;
             var existingPrice = existingCard.SatisFiyat ?? 0;
-            var newPrice = newCard.PerakendeSatisBirimFiyat;
-            // Sadece Luca'da gerçek bir fiyat varsa (0'dan büyük) karşılaştır
-            if (existingPrice > 0.01 && Math.Abs(newPrice - existingPrice) > 0.01)
+            
+            if (existingPrice == 0 || existingPrice < 0.01)
             {
-                hasChanges = true;
-                changeReasons.Add($"Fiyat: {existingPrice:N2} -> {newPrice:N2}");
+                _logger.LogInformation("⚠️ Luca fiyatı 0 olduğu için fiyat kontrolü atlandı: {KartKodu} (Luca: {LucaPrice}, Katana: {KatanaPrice})", 
+                    newCard.KartKodu, existingPrice, newCard.PerakendeSatisBirimFiyat);
+                isPriceChanged = false; // Fiyat kontrolü devre dışı
             }
-
-            // Kategori karşılaştırması - Katana'da kategori varsa ve Luca'dakinden farklıysa
-            if (!string.IsNullOrWhiteSpace(newCard.KategoriAgacKod))
+            else if (newCard.PerakendeSatisBirimFiyat > 0)
             {
-                var lucaKategori = existingCard.KategoriAgacKod?.Trim() ?? string.Empty;
-                var katanaKategori = newCard.KategoriAgacKod.Trim();
-                if (!string.Equals(katanaKategori, lucaKategori, StringComparison.OrdinalIgnoreCase))
+                if (Math.Abs(newCard.PerakendeSatisBirimFiyat - existingPrice) > 0.01)
                 {
-                    hasChanges = true;
-                    changeReasons.Add($"Kategori: '{lucaKategori}' -> '{katanaKategori}'");
+                    isPriceChanged = true;
+                    changeReasons.Add($"💰 Fiyat DEĞİŞTİ: {existingPrice:N2} TL -> {newCard.PerakendeSatisBirimFiyat:N2} TL");
                 }
             }
 
-            // 🔥 MİKTAR DEĞİŞİKLİĞİ KONTROLÜ - Kullanıcı isteği üzerine eklendi
-            // NOT: Stok kartı oluşturma sırasında miktar bilgisi genellikle gönderilmez
-            // Miktar değişikliği stok hareketi (DSH) ile yapılır, stok kartı güncellemesi ile değil
-            // Ancak kullanıcı miktar değişikliğini de algılamak istiyor
-            // Bu durumda yeni versiyonlu stok kartı açılacak
-            // Miktar bilgisi varsa karşılaştır
-            if (existingCard.Miktar.HasValue && newCard.Miktar.HasValue)
+            // 3️⃣ KATEGORİ KONTROLÜ
+            bool isCategoryChanged = false;
+            if (!string.IsNullOrWhiteSpace(newCard.KategoriAgacKod) && !string.IsNullOrWhiteSpace(existingCard.KategoriAgacKod))
             {
-                if (Math.Abs(existingCard.Miktar.Value - newCard.Miktar.Value) > 0.001)
+                if (!string.Equals(newCard.KategoriAgacKod.Trim(), existingCard.KategoriAgacKod.Trim(), StringComparison.OrdinalIgnoreCase))
                 {
-                    hasChanges = true;
-                    changeReasons.Add($"Miktar: {existingCard.Miktar.Value:N2} -> {newCard.Miktar.Value:N2}");
+                    isCategoryChanged = true;
+                    changeReasons.Add($"📂 Kategori DEĞİŞTİ: '{existingCard.KategoriAgacKod}' -> '{newCard.KategoriAgacKod}'");
                 }
             }
+
+            // 🎯 SONUÇ: Herhangi biri değiştiyse TRUE dön (OR mantığı)
+            hasChanges = isNameChanged || isPriceChanged || isCategoryChanged;
 
             if (hasChanges)
             {
@@ -2801,71 +2796,122 @@ public partial class LucaService
     #region Turkish Character Normalization Helper
 
     /// <summary>
-    /// Türkçe karakterleri normalize eder.
+    /// Türkçe karakterleri normalize eder ve karşılaştırma için temizler.
+    /// ? karakterlerini SİLER - strict karşılaştırma için kullanılır.
     /// Luca API'si Türkçe karakterleri bazen ? olarak döndürüyor.
-    /// Örn: BÜKÜMLÜ -> B?K?ML? olarak geliyor, bu yüzden karşılaştırma yaparken
-    /// Türkçe karakterleri ASCII eşdeğerlerine çeviriyoruz.
+    /// Örn: BÜKÜMLÜ -> B?K?ML? olarak geliyor, TALAŞ -> TALA? oluyor.
+    /// 
+    /// Örnek: "TALAŞ BFM-01" ve "TALA? BFM 01" -> "TALASBFM01" (aynı)
     /// </summary>
     private static string NormalizeTurkishCharsForComparison(string? input)
     {
         if (string.IsNullOrWhiteSpace(input))
             return string.Empty;
 
-        // Türkçe karakterleri ASCII eşdeğerlerine çevir
-        var result = input
-            .Replace("Ü", "U").Replace("ü", "u")
-            .Replace("Ö", "O").Replace("ö", "o")
-            .Replace("Ş", "S").Replace("ş", "s")
-            .Replace("Ç", "C").Replace("ç", "c")
-            .Replace("Ğ", "G").Replace("ğ", "g")
-            .Replace("İ", "I").Replace("ı", "i")
-            .Replace("Ø", "O").Replace("ø", "o")  // Çap sembolü (diameter symbol)
-            .Trim();
+        // 1. BÜYÜK harfe çevir (Invariant - kültürden bağımsız)
+        var result = input.ToUpperInvariant();
 
-        return result;
+        // 2. Türkçe karakterleri ASCII eşdeğerlerine çevir
+        result = result
+            .Replace("Ü", "U").Replace("Ö", "O")
+            .Replace("Ş", "S").Replace("Ç", "C")
+            .Replace("Ğ", "G").Replace("İ", "I")
+            .Replace("Ø", "O")  // Çap sembolü (diameter symbol)
+            .Replace("I", "I"); // Türkçe büyük I, İngilizce I ile aynı
+
+        // 3. ? karakterlerini sil (Luca encoding hatası)
+        result = result.Replace("?", "");
+
+        // 4. Tüm boşlukları, tireleri, alt çizgileri ve noktalama işaretlerini sil
+        // Sadece harf ve rakamları bırak
+        result = new string(result.Where(c => char.IsLetterOrDigit(c)).ToArray());
+
+        // 5. Son trim (gereksiz ama garanti için)
+        return result.Trim();
+    }
+
+    /// <summary>
+    /// Türkçe karakterleri normalize eder ama ? karakterini KORUR (wildcard için).
+    /// Wildcard karşılaştırma için kullanılır - ? herhangi bir karakterle eşleşir.
+    /// Örnek: "DEM?R TALA?" -> "DEMRTALA?" (? korunur)
+    /// </summary>
+    private static string NormalizePreservingWildcard(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        // 1. BÜYÜK harfe çevir
+        var result = input.ToUpperInvariant();
+
+        // 2. Türkçe karakterleri ASCII eşdeğerlerine çevir (? karakterini KORUYORUZ!)
+        result = result
+            .Replace("Ü", "U").Replace("Ö", "O")
+            .Replace("Ş", "S").Replace("Ç", "C")
+            .Replace("Ğ", "G").Replace("İ", "I")
+            .Replace("Ø", "O")
+            .Replace("I", "I");
+
+        // 3. Boşlukları ve noktalama işaretlerini sil, ama ? karakterini KORUYORUZ!
+        result = new string(result.Where(c => char.IsLetterOrDigit(c) || c == '?').ToArray());
+
+        return result.Trim();
     }
 
     /// <summary>
     /// İki string'i Türkçe karakter toleranslı karşılaştırır.
     /// Luca API'sinin Türkçe karakter encoding sorunu nedeniyle kullanılır.
     /// ? karakterleri wildcard olarak değerlendirilir (herhangi bir karakterle eşleşir).
+    /// 
+    /// 🔥 KRİTİK: ? karakterini KORUYARAK normalize ediyoruz (NormalizePreservingWildcard)
+    /// Örnek: "DEMİR TALAŞ" vs "DEM?R TALA?" -> "DEMIRTALAS" vs "DEMRTALA?" -> MATCH!
     /// </summary>
     private static bool AreEqualIgnoringTurkishChars(string? str1, string? str2)
     {
-        // Önce Türkçe karakterleri normalize et
-        var normalized1 = NormalizeTurkishCharsForComparison(str1);
-        var normalized2 = NormalizeTurkishCharsForComparison(str2);
-        
-        // Eğer uzunluklar farklıysa ve ? yoksa, eşit değildir
-        if (!normalized1.Contains('?') && !normalized2.Contains('?'))
-        {
-            return string.Equals(normalized1, normalized2, StringComparison.OrdinalIgnoreCase);
-        }
-        
-        // ? karakterli karşılaştırma (wildcard match)
-        // Luca'dan gelen string genelde ? içerir
-        var lucaStr = normalized1.Contains('?') ? normalized1 : normalized2;
-        var katanaStr = normalized1.Contains('?') ? normalized2 : normalized1;
-        
-        // Uzunluklar aynı olmalı (? bir karakterin yerine geçiyor)
-        if (lucaStr.Length != katanaStr.Length)
+        // Boş kontrolleri
+        if (string.IsNullOrWhiteSpace(str1) && string.IsNullOrWhiteSpace(str2))
+            return true;
+        if (string.IsNullOrWhiteSpace(str1) || string.IsNullOrWhiteSpace(str2))
             return false;
+
+        // Wildcard-preserving normalization (? karakterini KORUR)
+        var normalized1 = NormalizePreservingWildcard(str1);
+        var normalized2 = NormalizePreservingWildcard(str2);
         
-        // Karakter karakter karşılaştır
-        for (int i = 0; i < lucaStr.Length; i++)
+        // Uzunluk farkı toleransı: %10'dan fazla fark varsa eşit değildir
+        // (Bazen ? karakteri encoding yüzünden yer kaplayabilir)
+        int maxLength = Math.Max(normalized1.Length, normalized2.Length);
+        int minLength = Math.Min(normalized1.Length, normalized2.Length);
+        if (maxLength > 0 && (double)(maxLength - minLength) / maxLength > 0.1)
         {
-            char c1 = char.ToUpperInvariant(lucaStr[i]);
-            char c2 = char.ToUpperInvariant(katanaStr[i]);
-            
-            // ? karakteri herhangi bir karakterle eşleşir
-            if (c1 == '?' || c2 == '?')
-                continue;
-            
-            if (c1 != c2)
-                return false;
+            return false; // %10'dan fazla uzunluk farkı
         }
         
-        return true;
+        // Karakter karakter karşılaştır - WILDCARD mantığı
+        int matchCount = 0;
+        int compareLength = Math.Min(normalized1.Length, normalized2.Length);
+        
+        for (int i = 0; i < compareLength; i++)
+        {
+            char c1 = normalized1[i];
+            char c2 = normalized2[i];
+            
+            // ? karakteri herhangi bir karakterle eşleşir (JOKER)
+            if (c1 == '?' || c2 == '?')
+            {
+                matchCount++;
+                continue;
+            }
+            
+            // Karakterler aynıysa eşleşme sayısını artır
+            if (c1 == c2)
+            {
+                matchCount++;
+            }
+        }
+        
+        // %90 veya daha fazla eşleşme varsa KABUL ET
+        double matchRate = (double)matchCount / compareLength;
+        return matchRate >= 0.90;
     }
 
     #endregion
