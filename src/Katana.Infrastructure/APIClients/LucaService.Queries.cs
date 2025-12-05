@@ -2463,10 +2463,12 @@ public partial class LucaService
             version++;
         }
 
-        // Fallback: timestamp ekle
-        var timestampSku = $"{baseSku}-{DateTime.Now:yyyyMMddHHmm}";
-        _logger.LogWarning("⚠️ Maksimum versiyon sayısına ulaşıldı (V{MaxVersion}), timestamp kullanılıyor: {Sku}", maxVersion, timestampSku);
-        return timestampSku;
+        // 🔥 FALLBACK FİX: Timestamp çok uzun, bunun yerine V99 kullan
+        // Maksimum versiyona ulaşıldıysa, güvenli fallback: baseSku-V99
+        var fallbackSku = $"{baseSku}-V99";
+        _logger.LogError("❌ Maksimum versiyon sayısına ulaşıldı (V{MaxVersion})! Fallback kullanılıyor: {Sku}", maxVersion, fallbackSku);
+        _logger.LogError("⚠️ DİKKAT: Bu ürün için çok fazla versiyon var, veritabanını temizlemeyi düşünün!");
+        return fallbackSku;
     }
 
     /// <summary>

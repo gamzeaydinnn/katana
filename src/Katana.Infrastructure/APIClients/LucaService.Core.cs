@@ -177,10 +177,16 @@ public partial class LucaService : ILucaService
     private async Task EnsureAuthenticatedAsync()
     {
         // 🔥 DEBUG: Authentication durumunu logla
-        _logger.LogDebug("🔐 EnsureAuthenticatedAsync: UseTokenAuth={UseToken}, IsAuthenticated={IsAuth}, HasSession={HasSession}, CookieExpiry={Expiry}",
+        var manualCookieValue = _settings.ManualSessionCookie ?? "";
+        var isManualCookieValid = !string.IsNullOrWhiteSpace(manualCookieValue) && 
+                                  !manualCookieValue.Contains("FILL_ME", StringComparison.OrdinalIgnoreCase) &&
+                                  manualCookieValue.Length > 20;
+        
+        _logger.LogDebug("🔐 EnsureAuthenticatedAsync: UseTokenAuth={UseToken}, IsAuthenticated={IsAuth}, HasSession={HasSession}, ManualCookieValid={ManualValid}, CookieExpiry={Expiry}",
             _settings.UseTokenAuth,
             _isCookieAuthenticated,
             !string.IsNullOrWhiteSpace(_sessionCookie) || !string.IsNullOrWhiteSpace(_manualJSessionId),
+            isManualCookieValid,
             _cookieExpiresAt?.ToString("HH:mm:ss") ?? "N/A");
         
         if (_settings.UseTokenAuth)
@@ -246,7 +252,9 @@ public partial class LucaService : ILucaService
     }
     private async Task AuthenticateWithCookieAsync()
     {
-        if (!string.IsNullOrWhiteSpace(_settings.ManualSessionCookie))
+        if (!string.IsNullOrWhiteSpace(_settings.ManualSessionCookie) && 
+            !_settings.ManualSessionCookie.Contains("FILL_ME", StringComparison.OrdinalIgnoreCase) &&
+            _settings.ManualSessionCookie.Length > 20)
         {
             try
             {
