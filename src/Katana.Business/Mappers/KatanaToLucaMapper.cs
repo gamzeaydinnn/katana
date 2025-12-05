@@ -370,7 +370,19 @@ public static class KatanaToLucaMapper
         if (lucaSettings == null) throw new ArgumentNullException(nameof(lucaSettings));
 
         var sku = string.IsNullOrWhiteSpace(product.SKU) ? product.GetProductCode() : product.SKU.Trim();
+        
+        // 🔥 KRİTİK FİX: Katana'dan Name boş gelirse SKU kullan, ama LOG'A YAZ!
         var name = string.IsNullOrWhiteSpace(product.Name) ? sku : product.Name.Trim();
+        if (string.IsNullOrWhiteSpace(product.Name))
+        {
+            // UYARI: Katana'dan ürün ismi boş geldi, SKU kullanılıyor!
+            // Bu durumda Luca'da "COOLING WATER PIPE" varsa ama biz "81.06301-8211" gönderiyorsak
+            // sistem isim değişikliği algılar ve gereksiz versiyon oluşturur!
+            Console.WriteLine($"⚠️ MAPPING HATASI: Katana'dan Name boş geldi, SKU kullanılıyor: {sku}");
+            Console.WriteLine($"   Bu durum Luca'da gereksiz versiyon oluşturabilir!");
+            Console.WriteLine($"   ÇÖZÜM: Katana API'sinden 'name' alanını dolu gönder veya database'den ürün ismini çek.");
+        }
+        
         // Prefer product.Category if provided; else fall back to configured default; otherwise leave null (Koza accepts null).
         // However, some products get assigned an internal default Category.Id (e.g. "1") which is NOT a valid
         // Luca tree code. Treat that as missing and use the configured DefaultKategoriKodu when available.
