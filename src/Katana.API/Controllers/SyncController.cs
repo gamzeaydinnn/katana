@@ -496,9 +496,54 @@ public class SyncController : ControllerBase
             return StatusCode(500, new { error = "Sunucu hata verdi: Luca'dan tam senkronizasyon sırasında" });
         }
     }
+
+    /// <summary>
+    /// DEBUG: Tek bir ürünün Katana ve Luca'daki durumunu karşılaştır
+    /// </summary>
+    [HttpGet("debug/product/{sku}")]
+    [AllowAnonymous]
+    public async Task<ActionResult> DebugProductSync(string sku)
+    {
+        try
+        {
+            _logger.LogWarning("🔍 DEBUG: Ürün karşılaştırması başlatılıyor: {SKU}", sku);
+            var result = await _syncService.DebugProductComparisonAsync(sku);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "DEBUG: Ürün karşılaştırması hatası: {SKU}", sku);
+            return StatusCode(500, new { error = ex.Message, stackTrace = ex.StackTrace });
+        }
+    }
+
+    /// <summary>
+    /// DEBUG: Tek bir ürünü zorla Luca'ya gönder (değişiklik kontrolü yapmadan)
+    /// </summary>
+    [HttpPost("debug/force-sync/{sku}")]
+    [AllowAnonymous]
+    public async Task<ActionResult> ForceSyncProduct(string sku)
+    {
+        try
+        {
+            _logger.LogWarning("🔥 FORCE SYNC: Ürün zorla senkronize ediliyor: {SKU}", sku);
+            var result = await _syncService.ForceSyncSingleProductAsync(sku);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "FORCE SYNC: Hata: {SKU}", sku);
+            return StatusCode(500, new { error = ex.Message, stackTrace = ex.StackTrace });
+        }
+    }
 }
 
 public class StartSyncRequest
 {
     public string SyncType { get; set; } = string.Empty;
+}
+
+public class DebugProductSyncRequest
+{
+    public string SKU { get; set; } = string.Empty;
 }

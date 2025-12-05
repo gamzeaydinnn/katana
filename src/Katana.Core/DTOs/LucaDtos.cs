@@ -1112,6 +1112,11 @@ public class LucaStockCardDetails
     /// Alış fiyatı (karşılaştırma için)
     /// </summary>
     public double? AlisFiyat { get; set; }
+    
+    /// <summary>
+    /// Stok miktarı (karşılaştırma için)
+    /// </summary>
+    public double? Miktar { get; set; }
 }
 
 
@@ -1723,6 +1728,13 @@ public class LucaCreateStokKartiRequest
 
     [JsonPropertyName("perakendeSatisBirimFiyat")]
     public double PerakendeSatisBirimFiyat { get; set; }
+    
+    /// <summary>
+    /// Stok miktarı (karşılaştırma için - Luca API'ye gönderilmez, sadece değişiklik tespiti için)
+    /// NOT: Luca'da stok miktarı stok kartı ile değil, stok hareketi (DSH) ile güncellenir
+    /// </summary>
+    [JsonIgnore]
+    public double? Miktar { get; set; }
 }
 
 
@@ -4095,3 +4107,112 @@ public static class LucaStockMovementTypes
 
 #endregion
 
+
+#region Stock Card Create V2 DTOs
+
+/// <summary>
+/// Luca API'ye stok kartı oluşturma isteği - Yeni format
+/// Örnek: {"kartAdi": "Test Ürünü", "kartKodu": "00013225", "baslangicTarihi": "06/04/2022", "kartTuru": 1, ...}
+/// </summary>
+public class LucaCreateStockCardRequestV2
+{
+    // Required fields
+    [JsonPropertyName("kartAdi")]
+    public string KartAdi { get; set; } = string.Empty;
+
+    [JsonPropertyName("kartKodu")]
+    public string KartKodu { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Başlangıç tarihi - dd/MM/yyyy formatında
+    /// </summary>
+    [JsonPropertyName("baslangicTarihi")]
+    public string BaslangicTarihi { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Kart türü: 1=Stok, 2=Hizmet
+    /// </summary>
+    [JsonPropertyName("kartTuru")]
+    public int KartTuru { get; set; } = 1;
+
+    // Optional fields
+    [JsonPropertyName("kartTipi")]
+    public int? KartTipi { get; set; }
+
+    [JsonPropertyName("kartAlisKdvOran")]
+    public double? KartAlisKdvOran { get; set; }
+
+    [JsonPropertyName("olcumBirimiId")]
+    public int? OlcumBirimiId { get; set; }
+
+    [JsonPropertyName("kategoriAgacKod")]
+    public string? KategoriAgacKod { get; set; }
+
+    [JsonPropertyName("barkod")]
+    public string? Barkod { get; set; }
+
+    // Tevkifat fields
+    /// <summary>
+    /// Alış tevkifat oranı - örn: "7/10"
+    /// </summary>
+    [JsonPropertyName("alisTevkifatOran")]
+    public string? AlisTevkifatOran { get; set; }
+
+    /// <summary>
+    /// Satış tevkifat oranı - örn: "2/10"
+    /// </summary>
+    [JsonPropertyName("satisTevkifatOran")]
+    public string? SatisTevkifatOran { get; set; }
+
+    [JsonPropertyName("alisTevkifatTipId")]
+    public int? AlisTevkifatTipId { get; set; }
+
+    [JsonPropertyName("satisTevkifatTipId")]
+    public int? SatisTevkifatTipId { get; set; }
+
+    // Boolean flags with defaults
+    /// <summary>
+    /// Satılabilir mi - varsayılan: 1 (true)
+    /// </summary>
+    [JsonPropertyName("satilabilirFlag")]
+    public int SatilabilirFlag { get; set; } = 1;
+
+    /// <summary>
+    /// Satın alınabilir mi - varsayılan: 1 (true)
+    /// </summary>
+    [JsonPropertyName("satinAlinabilirFlag")]
+    public int SatinAlinabilirFlag { get; set; } = 1;
+
+    /// <summary>
+    /// Lot no takibi - varsayılan: 0 (false)
+    /// </summary>
+    [JsonPropertyName("lotNoFlag")]
+    public int LotNoFlag { get; set; } = 0;
+
+    [JsonPropertyName("minStokKontrol")]
+    public int MinStokKontrol { get; set; } = 0;
+
+    /// <summary>
+    /// Maliyet hesaplanacak mı - varsayılan: true
+    /// </summary>
+    [JsonPropertyName("maliyetHesaplanacakFlag")]
+    public bool MaliyetHesaplanacakFlag { get; set; } = true;
+}
+
+/// <summary>
+/// Luca API stok kartı oluşturma yanıtı
+/// Örnek: {"skartId": 79409, "error": false, "message": "00013225 - Test Ürünü stok kartı başarılı bir şekilde kaydedilmiştir."}
+/// </summary>
+public class LucaCreateStockCardResponse
+{
+    [JsonPropertyName("skartId")]
+    public long? SkartId { get; set; }
+
+    [JsonPropertyName("error")]
+    public bool Error { get; set; }
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+}
+
+#endregion

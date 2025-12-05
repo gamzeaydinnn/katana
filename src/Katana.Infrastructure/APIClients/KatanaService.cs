@@ -434,59 +434,70 @@ public class KatanaService : IKatanaService
         {
             _logger.LogInformation("Getting product by SKU: {SKU}", sku);
             
-            var variantUrl = $"{_settings.Endpoints.Variants}?sku={Uri.EscapeDataString(sku)}";
-            var varResp = await _httpClient.GetAsync(variantUrl);
-            var varContent = await varResp.Content.ReadAsStringAsync();
-
-            if (!varResp.IsSuccessStatusCode)
+            // Katana API is case-sensitive, try original SKU first, then lowercase
+            var skuVariants = new[] { sku, sku.ToLowerInvariant(), sku.ToUpperInvariant() }.Distinct();
+            
+            foreach (var skuVariant in skuVariants)
             {
-                _logger.LogWarning("Katana API variant lookup failed for SKU {SKU}. Status: {Status}", sku, varResp.StatusCode);
-                return null;
-            }
+                var variantUrl = $"{_settings.Endpoints.Variants}?sku={Uri.EscapeDataString(skuVariant)}";
+                var varResp = await _httpClient.GetAsync(variantUrl);
+                var varContent = await varResp.Content.ReadAsStringAsync();
 
-            try
-            {
-                using var doc = JsonDocument.Parse(varContent);
-                var root = doc.RootElement;
-                if (!root.TryGetProperty("data", out var dataEl) || dataEl.ValueKind != JsonValueKind.Array)
-                    return null;
-
-                var firstVar = dataEl.EnumerateArray().FirstOrDefault();
-                if (firstVar.ValueKind == JsonValueKind.Undefined || firstVar.ValueKind == JsonValueKind.Null)
-                    return null;
-
-                
-                if (!firstVar.TryGetProperty("product_id", out var pidEl))
-                    return null;
-
-                int productId = 0;
-                try { productId = pidEl.GetInt32(); } catch { return null; }
-
-                
-                var productResp = await _httpClient.GetAsync($"{_settings.Endpoints.Products}/{productId}");
-                var productContent = await productResp.Content.ReadAsStringAsync();
-                if (!productResp.IsSuccessStatusCode)
+                if (!varResp.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("Katana API product fetch failed for id {Id}. Status: {Status}", productId, productResp.StatusCode);
-                    return null;
+                    _logger.LogWarning("Katana API variant lookup failed for SKU {SKU}. Status: {Status}", skuVariant, varResp.StatusCode);
+                    continue;
                 }
 
-                using var prodDoc = JsonDocument.Parse(productContent);
-                var prodRoot = prodDoc.RootElement;
-                
-                JsonElement productElement = prodRoot;
-                if (prodRoot.TryGetProperty("data", out var wrapped) && wrapped.ValueKind == JsonValueKind.Object)
-                    productElement = wrapped;
+                try
+                {
+                    using var doc = JsonDocument.Parse(varContent);
+                    var root = doc.RootElement;
+                    if (!root.TryGetProperty("data", out var dataEl) || dataEl.ValueKind != JsonValueKind.Array)
+                        continue;
 
-                var mapped = MapProductElement(productElement);
-                _logger.LogInformation("Retrieved product {SKU}", sku);
-                return mapped;
+                    var firstVar = dataEl.EnumerateArray().FirstOrDefault();
+                    if (firstVar.ValueKind == JsonValueKind.Undefined || firstVar.ValueKind == JsonValueKind.Null)
+                        continue;
+                    
+                    // Found a match - proceed with this variant
+                    _logger.LogInformation("Found product in Katana API with SKU variant: {SKUVariant} (original: {OriginalSKU})", skuVariant, sku);
+
+                    if (!firstVar.TryGetProperty("product_id", out var pidEl))
+                        continue;
+
+                    int productId = 0;
+                    try { productId = pidEl.GetInt32(); } catch { continue; }
+
+                    var productResp = await _httpClient.GetAsync($"{_settings.Endpoints.Products}/{productId}");
+                    var productContent = await productResp.Content.ReadAsStringAsync();
+                    if (!productResp.IsSuccessStatusCode)
+                    {
+                        _logger.LogWarning("Katana API product fetch failed for id {Id}. Status: {Status}", productId, productResp.StatusCode);
+                        continue;
+                    }
+
+                    using var prodDoc = JsonDocument.Parse(productContent);
+                    var prodRoot = prodDoc.RootElement;
+                    
+                    JsonElement productElement = prodRoot;
+                    if (prodRoot.TryGetProperty("data", out var wrapped) && wrapped.ValueKind == JsonValueKind.Object)
+                        productElement = wrapped;
+
+                    var mapped = MapProductElement(productElement);
+                    _logger.LogInformation("Retrieved product {SKU} from Katana", sku);
+                    return mapped;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error parsing variant response for SKU variant {SKUVariant}", skuVariant);
+                    continue;
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error parsing variant response for SKU {SKU}", sku);
-                return null;
-            }
+            
+            // No variant found with any case
+            _logger.LogWarning("Product not found in Katana API for SKU {SKU} (tried original, lowercase, uppercase)", sku);
+            return null;
         }
         catch (HttpRequestException ex)
         {

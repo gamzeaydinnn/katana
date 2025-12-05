@@ -106,4 +106,59 @@ public sealed class KozaStockCardsController : ControllerBase
             return StatusCode(500, new { error = ex.Message });
         }
     }
+
+    /// <summary>
+    /// Koza'da yeni stok kartı oluştur - V2 (Yeni API formatı)
+    /// POST /api/admin/koza/stocks/v2
+    /// </summary>
+    /// <remarks>
+    /// Örnek request:
+    /// {
+    ///   "kartAdi": "Test Ürünü",
+    ///   "kartKodu": "00013225",
+    ///   "kartTipi": 1,
+    ///   "kartAlisKdvOran": 1,
+    ///   "olcumBirimiId": 1,
+    ///   "baslangicTarihi": "06/04/2022",
+    ///   "kartTuru": 1,
+    ///   "barkod": "8888888"
+    /// }
+    /// </remarks>
+    [HttpPost("v2")]
+    [ProducesResponseType(typeof(Katana.Core.DTOs.LucaCreateStockCardResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> CreateV2(
+        [FromBody] Katana.Core.DTOs.LucaCreateStockCardRequestV2 request,
+        CancellationToken ct)
+    {
+        try
+        {
+            _logger.LogInformation("Creating Koza stock card V2: {Kod} - {Ad}", 
+                request.KartKodu, request.KartAdi);
+
+            var result = await _lucaService.CreateStockCardV2Async(request, ct);
+            
+            if (!result.Error)
+            {
+                _logger.LogInformation("Stock card V2 created successfully: {Kod}, SkartId: {SkartId}", 
+                    request.KartKodu, result.SkartId);
+                return Ok(result);
+            }
+            else
+            {
+                _logger.LogWarning("Stock card V2 creation failed: {Message}", result.Message);
+                return BadRequest(result);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create Koza stock card V2");
+            return StatusCode(500, new Katana.Core.DTOs.LucaCreateStockCardResponse 
+            { 
+                Error = true, 
+                Message = ex.Message 
+            });
+        }
+    }
 }

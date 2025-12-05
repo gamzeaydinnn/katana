@@ -660,6 +660,60 @@ public class ProductsController : ControllerBase
                 }
             }
             
+            // 🔄 AUTO-SYNC: Luca'ya da gönder (arka planda)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    _logger.LogInformation("[AUTO-SYNC UPDATE] Product updated, syncing to Luca. SKU={Sku}, Id={Id}", product.SKU, product.Id);
+
+                    var entity = new Product
+                    {
+                        Id = product.Id,
+                        SKU = product.SKU,
+                        Name = product.Name,
+                        CategoryId = product.CategoryId,
+                        Description = product.Description,
+                        Price = product.Price,
+                        StockSnapshot = product.Stock,
+                        MainImageUrl = product.MainImageUrl,
+                        IsActive = product.IsActive,
+                        CreatedAt = product.CreatedAt ?? DateTime.UtcNow,
+                        UpdatedAt = product.UpdatedAt ?? DateTime.UtcNow
+                    };
+
+                    var stockCard = KatanaToLucaMapper.MapProductToStockCard(
+                        entity,
+                        defaultVat: _lucaSettings.DefaultKdvOran,
+                        defaultOlcumBirimiId: _lucaSettings.DefaultOlcumBirimiId,
+                        defaultKartTipi: _lucaSettings.DefaultKartTipi,
+                        defaultKategoriKod: _lucaSettings.DefaultKategoriKodu
+                    );
+
+                    KatanaToLucaMapper.ValidateLucaStockCard(stockCard);
+
+                    var sendResult = await _lucaService.SendStockCardsAsync(new List<LucaCreateStokKartiRequest> { stockCard });
+
+                    if (!sendResult.IsSuccess)
+                    {
+                        _logger.LogError("[AUTO-SYNC UPDATE ERROR] Luca stock card sync failed for SKU={Sku}. Errors={Errors}",
+                            product.SKU,
+                            string.Join("; ", sendResult.Errors ?? new List<string>()));
+                    }
+                    else
+                    {
+                        _logger.LogInformation("[AUTO-SYNC UPDATE SUCCESS] Luca stock card synced for SKU={Sku}. Success={Success}, Duplicate={Duplicate}",
+                            product.SKU,
+                            sendResult.SuccessfulRecords,
+                            sendResult.DuplicateRecords);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[AUTO-SYNC UPDATE EXCEPTION] Error while syncing to Luca for SKU={Sku}", product.SKU);
+                }
+            });
+            
             _auditService.LogUpdate("Product", id.ToString(), User?.Identity?.Name ?? "system", null, 
                 $"Updated: {product.SKU}");
             _loggingService.LogInfo($"Product updated successfully: {id}", User?.Identity?.Name, null, LogCategory.UserAction);

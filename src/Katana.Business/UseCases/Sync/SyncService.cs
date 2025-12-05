@@ -717,17 +717,22 @@ public class SyncService : ISyncService
         LucaStockCardSummaryDto? lucaCard,
         IReadOnlyDictionary<string, string>? categoryMappings = null)
     {
+        var sku = NormalizeSku(katanaProduct);
         var changes = new ProductChangeInfo
         {
-            SKU = NormalizeSku(katanaProduct),
+            SKU = sku,
             ExistsInLuca = lucaCard != null
         };
+
+        // 🔥 DEBUG: Karşılaştırma başlangıcı
+        _logger.LogDebug("🔍 DetectProductChanges: SKU={SKU}, ExistsInLuca={Exists}", sku, lucaCard != null);
 
         if (lucaCard == null)
         {
             changes.IsNew = true;
             changes.RequiresNewStockCard = true;
             changes.ChangeReason = "Yeni ürün - Luca'da mevcut değil";
+            _logger.LogInformation("✨ YENİ ÜRÜN: {SKU} - Luca'da mevcut değil", sku);
             return changes;
         }
 
@@ -736,12 +741,17 @@ public class SyncService : ISyncService
         // İsim değişikliği kontrolü
         var katanaName = katanaProduct.Name?.Trim() ?? string.Empty;
         var lucaName = lucaCard.StokAdi?.Trim() ?? string.Empty;
+        
+        // 🔥 DEBUG: İsim karşılaştırması
+        _logger.LogDebug("🔍 İSİM KARŞILAŞTIRMASI: Katana='{KatanaName}' vs Luca='{LucaName}'", katanaName, lucaName);
+        
         if (!string.Equals(katanaName, lucaName, StringComparison.OrdinalIgnoreCase))
         {
             changes.NameChanged = true;
             changes.OldName = lucaName;
             changes.NewName = katanaName;
             changeReasons.Add($"İsim: '{lucaName}' -> '{katanaName}'");
+            _logger.LogInformation("📝 İSİM DEĞİŞTİ: {SKU} - '{OldName}' -> '{NewName}'", sku, lucaName, katanaName);
         }
 
         // Miktar değişikliği kontrolü
@@ -1816,6 +1826,161 @@ public class SyncService : ISyncService
                 Errors = { ex.ToString() }
             };
         }
+    }
+
+    #endregion
+
+    #region Debug Methods
+
+    /// <summary>
+    /// DEBUG: Tek bir ürünün Katana ve Luca'daki durumunu karşılaştırır
+    /// </summary>
+    public async Task<object> DebugProductComparisonAsync(string sku)
+    {
+        _logger.LogWarning("🔍 DEBUG: Ürün karşılaştırması başlatılıyor: {SKU}", sku);
+
+        // 1. Katana'dan ürünü çek
+        var katanaProducts = await _katanaService.GetProductsAsync();
+        var katanaProduct = katanaProducts.FirstOrDefault(p => 
+            string.Equals(p.SKU, sku, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(p.Id, sku, StringComparison.OrdinalIgnoreCase));
+
+        if (katanaProduct == null)
+        {
+            return new { 
+                error = true, 
+                message = $"Ürün Katana'da bulunamadı: {sku}",
+                katanaProductCount = katanaProducts.Count
+            };
+        }
+
+        // 2. Luca'dan stok kartını çek
+        var lucaStockCards = await _lucaService.ListStockCardsAsync();
+        var lucaCard = FindLucaMatch(lucaStockCards, NormalizeSku(katanaProduct), katanaProduct.Barcode, true);
+
+        // 3. Luca'dan skartId'yi çek
+        long? lucaSkartId = null;
+        if (lucaCard != null)
+        {
+            lucaSkartId = await _lucaService.FindStockCardBySkuAsync(sku);
+        }
+
+        // 4. Değişiklik tespiti yap
+        var categoryMappings = await GetMappingDictionaryAsync("PRODUCT_CATEGORY", CancellationToken.None);
+        var changeInfo = DetectProductChanges(katanaProduct, lucaCard, categoryMappings);
+
+        return new
+        {
+            sku = sku,
+            katana = new
+            {
+                id = katanaProduct.Id,
+                sku = katanaProduct.SKU,
+                name = katanaProduct.Name,
+                price = katanaProduct.SalesPrice ?? katanaProduct.Price,
+                category = katanaProduct.Category,
+                categoryId = katanaProduct.CategoryId,
+                barcode = katanaProduct.Barcode,
+                inStock = katanaProduct.InStock,
+                onHand = katanaProduct.OnHand,
+                available = katanaProduct.Available
+            },
+            luca = lucaCard == null ? null : new
+            {
+                skartId = lucaSkartId,
+                kod = lucaCard.Code,
+                adi = lucaCard.StokAdi,
+                fiyat = lucaCard.SatisFiyat,
+                kategori = lucaCard.KategoriKodu,
+                miktar = lucaCard.Miktar,
+                barcode = lucaCard.Barcode
+            },
+            changeDetection = new
+            {
+                existsInLuca = changeInfo.ExistsInLuca,
+                isNew = changeInfo.IsNew,
+                requiresNewStockCard = changeInfo.RequiresNewStockCard,
+                hasChanges = changeInfo.HasChanges,
+                changeReason = changeInfo.ChangeReason,
+                nameChanged = changeInfo.NameChanged,
+                oldName = changeInfo.OldName,
+                newName = changeInfo.NewName,
+                priceChanged = changeInfo.PriceChanged,
+                oldPrice = changeInfo.OldPrice,
+                newPrice = changeInfo.NewPrice,
+                categoryChanged = changeInfo.CategoryChanged,
+                oldCategory = changeInfo.OldCategory,
+                newCategory = changeInfo.NewCategory,
+                quantityChanged = changeInfo.QuantityChanged,
+                oldQuantity = changeInfo.OldQuantity,
+                newQuantity = changeInfo.NewQuantity
+            }
+        };
+    }
+
+    /// <summary>
+    /// DEBUG: Tek bir ürünü zorla Luca'ya gönderir (değişiklik kontrolü yapmadan)
+    /// </summary>
+    public async Task<object> ForceSyncSingleProductAsync(string sku)
+    {
+        _logger.LogWarning("🔥 FORCE SYNC: Ürün zorla senkronize ediliyor: {SKU}", sku);
+
+        // 1. Katana'dan ürünü çek
+        var katanaProducts = await _katanaService.GetProductsAsync();
+        var katanaProduct = katanaProducts.FirstOrDefault(p => 
+            string.Equals(p.SKU, sku, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(p.Id, sku, StringComparison.OrdinalIgnoreCase));
+
+        if (katanaProduct == null)
+        {
+            return new { 
+                error = true, 
+                message = $"Ürün Katana'da bulunamadı: {sku}"
+            };
+        }
+
+        // 2. Mapping'leri yükle
+        var categoryMappings = await GetMappingDictionaryAsync("PRODUCT_CATEGORY", CancellationToken.None);
+
+        // 3. Luca stok kartı oluştur
+        var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(katanaProduct, _lucaSettings, categoryMappings);
+
+        _logger.LogWarning("🔥 FORCE SYNC: Ürün bilgileri:");
+        _logger.LogWarning("   SKU: {SKU}", dto.KartKodu);
+        _logger.LogWarning("   İsim: {Name}", dto.KartAdi);
+        _logger.LogWarning("   Fiyat: {Price}", dto.PerakendeSatisBirimFiyat);
+        _logger.LogWarning("   Kategori: {Category}", dto.KategoriAgacKod);
+
+        // 4. Luca'ya gönder
+        var result = await _lucaService.SendStockCardsAsync(new List<LucaCreateStokKartiRequest> { dto });
+
+        return new
+        {
+            katanaProduct = new
+            {
+                id = katanaProduct.Id,
+                sku = katanaProduct.SKU,
+                name = katanaProduct.Name,
+                price = katanaProduct.SalesPrice ?? katanaProduct.Price,
+                category = katanaProduct.Category
+            },
+            lucaRequest = new
+            {
+                kartKodu = dto.KartKodu,
+                kartAdi = dto.KartAdi,
+                fiyat = dto.PerakendeSatisBirimFiyat,
+                kategori = dto.KategoriAgacKod,
+                barkod = dto.Barkod
+            },
+            syncResult = new
+            {
+                isSuccess = result.IsSuccess,
+                message = result.Message,
+                successfulRecords = result.SuccessfulRecords,
+                failedRecords = result.FailedRecords,
+                errors = result.Errors
+            }
+        };
     }
 
     #endregion
