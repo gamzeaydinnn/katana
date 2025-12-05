@@ -112,6 +112,11 @@ public interface ILucaService
     Task<JsonElement> CreateStockCardAsync(LucaCreateStokKartiRequest request);
     
     /// <summary>
+    /// Luca/Koza'ya stok kartı oluşturur - V2 (Yeni API formatı)
+    /// </summary>
+    Task<LucaCreateStockCardResponse> CreateStockCardV2Async(LucaCreateStockCardRequestV2 request, CancellationToken ct = default);
+    
+    /// <summary>
     /// Search for a stock card by SKU/KartKodu in Luca.
     /// Returns the skartId if found, null if not found.
     /// </summary>

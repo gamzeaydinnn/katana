@@ -27,5 +27,9 @@ public interface ISyncService
     Task<SyncResultDto> SyncSuppliersToKozaAsync(CancellationToken ct = default);
     Task<SyncResultDto> SyncWarehousesToKozaAsync(CancellationToken ct = default);
     Task<SyncResultDto> SyncCustomersToLucaAsync(CancellationToken ct = default);
+    
+    // Debug metodları
+    Task<object> DebugProductComparisonAsync(string sku);
+    Task<object> ForceSyncSingleProductAsync(string sku);
 }
 

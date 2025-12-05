@@ -46,6 +46,14 @@ public partial class LucaService : ILucaService
     private DateTime? _lastSuccessfulAuthAt = null;
     private static readonly System.Threading.SemaphoreSlim _loginSemaphore = new System.Threading.SemaphoreSlim(1, 1);
     
+    // 🔥 AUTH RATE LIMITING: Çok sık auth önleme
+    private static readonly SemaphoreSlim _authLock = new SemaphoreSlim(1, 1);
+    private DateTime _lastAuthTime = DateTime.MinValue;
+    private static readonly TimeSpan MinAuthInterval = TimeSpan.FromSeconds(5);
+    
+    // 🔥 FILE LOCK: Log dosyası yazımı için
+    private static readonly SemaphoreSlim _fileLock = new SemaphoreSlim(1, 1);
+    
     // 🔥 CACHE: Duplicate stok kartı sorunu için in-memory cache
     private readonly Dictionary<string, long?> _stockCardCache = new();
     private readonly SemaphoreSlim _stockCardCacheLock = new(1, 1);

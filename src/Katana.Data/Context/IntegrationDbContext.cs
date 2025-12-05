@@ -61,6 +61,7 @@ public class IntegrationDbContext : DbContext
     public DbSet<SupplierKozaCariMapping> SupplierKozaCariMappings => Set<SupplierKozaCariMapping>();
     public DbSet<KozaDepot> KozaDepots => Set<KozaDepot>();
     public DbSet<Katana.Data.Models.OrderMapping> OrderMappings => Set<Katana.Data.Models.OrderMapping>();
+    public DbSet<ProductLucaMapping> ProductLucaMappings => Set<ProductLucaMapping>();
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
 {

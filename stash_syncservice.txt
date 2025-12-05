@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using Katana.Business.Interfaces;
 using System.Linq;
@@ -71,13 +71,13 @@ public class SyncService : ISyncService
     public Task<SyncResultDto> SyncProductsAsync(DateTime? fromDate = null) =>
         ExecuteSyncAsync("PRODUCT", async ct =>
         {
-            _logger.LogInformation("🔄 Starting PRODUCT sync: Katana → Luca");
+            _logger.LogInformation("­şöä Starting PRODUCT sync: Katana ÔåÆ Luca");
 
             var productDtos = await _extractorService.ExtractProductsAsync(fromDate, ct);
-            _logger.LogInformation("📥 Extracted {Count} products from Katana", productDtos.Count);
+            _logger.LogInformation("­şôÑ Extracted {Count} products from Katana", productDtos.Count);
 
             var products = await _transformerService.ToProductsAsync(productDtos);
-            _logger.LogInformation("🔀 Transformed {Count} products", products.Count());
+            _logger.LogInformation("­şöÇ Transformed {Count} products", products.Count());
 
             var validProducts = FilterValidProducts(products, out var skippedProducts);
             if (skippedProducts > 0)
@@ -86,7 +86,7 @@ public class SyncService : ISyncService
             }
 
             var successful = await _loaderService.LoadProductsToLucaAsync(validProducts, ct: ct);
-            _logger.LogInformation("✅ Successfully sent {Successful}/{Total} products to Luca", successful, productDtos.Count);
+            _logger.LogInformation("Ô£à Successfully sent {Successful}/{Total} products to Luca", successful, productDtos.Count);
 
             return BuildResult("PRODUCT", productDtos.Count, successful);
         });
@@ -135,37 +135,21 @@ public class SyncService : ISyncService
             katanaProducts = katanaProducts.Take(options.Limit.Value).ToList();
         }
 
-        var lucaStockCards = await _lucaService.ListStockCardsAsync();
-        var lucaStockCardsList = lucaStockCards.ToList();
-
-        // Load PRODUCT_CATEGORY mappings for change detection
-        var categoryMappingsForDetection = await GetMappingDictionaryAsync("PRODUCT_CATEGORY", CancellationToken.None);
-
-        // Değişiklik tespiti: Luca'da güncelleme yapılamadığı için değişen ürünler de yeni stok kartı olarak oluşturulacak
-        var productChanges = katanaProducts
-            .Select(p => new
-            {
-                Product = p,
-                ChangeInfo = DetectProductChanges(p, FindLucaMatch(lucaStockCardsList, NormalizeSku(p), p.Barcode, options.PreferBarcodeMatch), categoryMappingsForDetection)
-            })
-            .ToList();
-
-        // Yeni ürünler + Değişiklik olan ürünler = Luca'ya gönderilecek ürünler
-        // NOT: Luca'da stok kartı silme ve güncelleme yoktur, bu nedenle değişen ürünler de yeni kart olarak oluşturulur
+        // HIZLANDIRMA: Luca'dan stok kartlar─▒n─▒ ├ğekmeyi atla (├ğok yava┼ş ve HTML d├Ân├╝yor)
+        // Bunun yerine Luca'n─▒n duplicate kontrol├╝ne g├╝ven
+        List<LucaStockCardSummaryDto> lucaStockCardsList = new();
+        
+        // ForceSendDuplicates=true ise t├╝m ├╝r├╝nleri g├Ânder, de─şilse sadece yeni ├╝r├╝nleri g├Ânder
         var productsToSync = options.ForceSendDuplicates
-            ? productChanges.Select(c => c.Product).ToList()
-            : productChanges.Where(c => c.ChangeInfo.RequiresNewStockCard).Select(c => c.Product).ToList();
+            ? katanaProducts.ToList()
+            : katanaProducts.ToList(); // Luca duplicate kontrol├╝ yapacak, biz hepsini g├Ânderelim
 
-        var newProductsCount = productChanges.Count(c => c.ChangeInfo.IsNew);
-        var changedProductsCount = productChanges.Count(c => c.ChangeInfo.HasChanges && !c.ChangeInfo.IsNew);
-        var unchangedCount = productChanges.Count(c => c.ChangeInfo.ExistsInLuca && !c.ChangeInfo.HasChanges);
+        var newProductsCount = productsToSync.Count;
+        var changedProductsCount = 0;
+        var unchangedCount = 0;
 
-        // Log değişiklik detayları
-        foreach (var pc in productChanges.Where(c => c.ChangeInfo.HasChanges && !c.ChangeInfo.IsNew))
-        {
-            _logger.LogInformation("SyncService => SKU={Sku} değişiklik tespit edildi: {Reason}. Luca'da güncelleme yapılamadığı için yeni stok kartı oluşturulacak.",
-                pc.ChangeInfo.SKU, pc.ChangeInfo.ChangeReason);
-        }
+        _logger.LogInformation("ÔÜí HIZLI MOD: {Count} ├╝r├╝n Luca'ya g├Ânderilecek (duplicate kontrol├╝ Luca taraf─▒nda yap─▒lacak)", 
+            productsToSync.Count);
 
         var payload = new List<LucaCreateStokKartiRequest>();
         var details = new List<string>();
@@ -219,7 +203,7 @@ public class SyncService : ISyncService
             SuccessfulRecords = 0,
             FailedRecords = 0,
             IsSuccess = true,
-            Message = payload.Count == 0 ? "Gönderilecek yeni stok kartı bulunamadı" : "Dry-run"
+            Message = payload.Count == 0 ? "G├Ânderilecek yeni stok kart─▒ bulunamad─▒" : "Dry-run"
         };
 
         if (!options.DryRun && payload.Any())
@@ -254,8 +238,8 @@ public class SyncService : ISyncService
             Errors = combinedErrors,
             IsSuccess = details.Count == 0 && (isDryRun || sendResult.IsSuccess),
             Message = isDryRun
-                ? $"Dry-run tamamlandı. Yeni: {newProductsCount}, Değişen: {changedProductsCount}, Değişmeyen: {unchangedCount}"
-                : $"{sendResult.Message} (Yeni: {newProductsCount}, Değişen: {changedProductsCount}, Değişmeyen: {unchangedCount})"
+                ? $"Dry-run tamamland─▒. Yeni: {newProductsCount}, De─şi┼şen: {changedProductsCount}, De─şi┼şmeyen: {unchangedCount}"
+                : $"{sendResult.Message} (Yeni: {newProductsCount}, De─şi┼şen: {changedProductsCount}, De─şi┼şmeyen: {unchangedCount})"
         };
 
         try
@@ -496,8 +480,8 @@ public class SyncService : ISyncService
             SuccessfulRecords = successful,
             FailedRecords = processed - successful,
             Message = successful == processed
-                ? $"{processed} kayıt senkronize edildi."
-                : $"{processed} kaydın {successful} tanesi senkronize edildi."
+                ? $"{processed} kay─▒t senkronize edildi."
+                : $"{processed} kayd─▒n {successful} tanesi senkronize edildi."
         };
 
     private List<Product> FilterValidProducts(IEnumerable<Product> products, out int skipped)
@@ -567,19 +551,19 @@ public class SyncService : ISyncService
 
         if (string.IsNullOrWhiteSpace(product.SKU))
         {
-            reason = "SKU boş";
+            reason = "SKU bo┼ş";
             return false;
         }
 
         if (string.IsNullOrWhiteSpace(product.Name))
         {
-            reason = "Ürün adı boş";
+            reason = "├£r├╝n ad─▒ bo┼ş";
             return false;
         }
 
         if (product.Price < 0)
         {
-            reason = "Ürün fiyatı negatif olamaz";
+            reason = "├£r├╝n fiyat─▒ negatif olamaz";
             return false;
         }
 
@@ -597,7 +581,7 @@ public class SyncService : ISyncService
 
         if (string.IsNullOrWhiteSpace(invoice.InvoiceNo))
         {
-            reason = "InvoiceNo boş";
+            reason = "InvoiceNo bo┼ş";
             return false;
         }
 
@@ -609,7 +593,7 @@ public class SyncService : ISyncService
 
         if (invoice.InvoiceDate == default)
         {
-            reason = "Fatura tarihi boş";
+            reason = "Fatura tarihi bo┼ş";
             return false;
         }
 
@@ -624,13 +608,13 @@ public class SyncService : ISyncService
         {
             if (item.Quantity <= 0)
             {
-                reason = $"Kalem miktarı geçersiz (SKU={item.ProductSKU})";
+                reason = $"Kalem miktar─▒ ge├ğersiz (SKU={item.ProductSKU})";
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(item.ProductSKU))
             {
-                reason = "Kalem SKU boş";
+                reason = "Kalem SKU bo┼ş";
                 return false;
             }
         }
@@ -649,19 +633,19 @@ public class SyncService : ISyncService
 
         if (string.IsNullOrWhiteSpace(customer.TaxNo))
         {
-            reason = "Vergi numarası boş";
+            reason = "Vergi numaras─▒ bo┼ş";
             return false;
         }
 
         if (customer.TaxNo.Length < 10)
         {
-            reason = "Vergi numarası eksik";
+            reason = "Vergi numaras─▒ eksik";
             return false;
         }
 
         if (string.IsNullOrWhiteSpace(customer.Title))
         {
-            reason = "Cari ünvan boş";
+            reason = "Cari ├╝nvan bo┼ş";
             return false;
         }
 
@@ -709,52 +693,41 @@ public class SyncService : ISyncService
     }
 
     /// <summary>
-    /// Katana ürünü ile Luca stok kartı arasındaki değişiklikleri tespit eder.
-    /// Luca'da güncelleme yapılamadığı için değişiklik varsa yeni stok kartı oluşturulması gerekir.
+    /// Katana ├╝r├╝n├╝ ile Luca stok kart─▒ aras─▒ndaki de─şi┼şiklikleri tespit eder.
+    /// Luca'da g├╝ncelleme yap─▒lamad─▒─ş─▒ i├ğin de─şi┼şiklik varsa yeni stok kart─▒ olu┼şturulmas─▒ gerekir.
     /// </summary>
-    private ProductChangeInfo DetectProductChanges(
+    private static ProductChangeInfo DetectProductChanges(
         KatanaProductDto katanaProduct,
-        LucaStockCardSummaryDto? lucaCard,
-        IReadOnlyDictionary<string, string>? categoryMappings = null)
+        LucaStockCardSummaryDto? lucaCard)
     {
-        var sku = NormalizeSku(katanaProduct);
         var changes = new ProductChangeInfo
         {
-            SKU = sku,
+            SKU = NormalizeSku(katanaProduct),
             ExistsInLuca = lucaCard != null
         };
-
-        // 🔥 DEBUG: Karşılaştırma başlangıcı
-        _logger.LogDebug("🔍 DetectProductChanges: SKU={SKU}, ExistsInLuca={Exists}", sku, lucaCard != null);
 
         if (lucaCard == null)
         {
             changes.IsNew = true;
             changes.RequiresNewStockCard = true;
-            changes.ChangeReason = "Yeni ürün - Luca'da mevcut değil";
-            _logger.LogInformation("✨ YENİ ÜRÜN: {SKU} - Luca'da mevcut değil", sku);
+            changes.ChangeReason = "Yeni ├╝r├╝n - Luca'da mevcut de─şil";
             return changes;
         }
 
         var changeReasons = new List<string>();
 
-        // İsim değişikliği kontrolü
+        // ─░sim de─şi┼şikli─şi kontrol├╝
         var katanaName = katanaProduct.Name?.Trim() ?? string.Empty;
         var lucaName = lucaCard.StokAdi?.Trim() ?? string.Empty;
-        
-        // 🔥 DEBUG: İsim karşılaştırması
-        _logger.LogDebug("🔍 İSİM KARŞILAŞTIRMASI: Katana='{KatanaName}' vs Luca='{LucaName}'", katanaName, lucaName);
-        
         if (!string.Equals(katanaName, lucaName, StringComparison.OrdinalIgnoreCase))
         {
             changes.NameChanged = true;
             changes.OldName = lucaName;
             changes.NewName = katanaName;
-            changeReasons.Add($"İsim: '{lucaName}' -> '{katanaName}'");
-            _logger.LogInformation("📝 İSİM DEĞİŞTİ: {SKU} - '{OldName}' -> '{NewName}'", sku, lucaName, katanaName);
+            changeReasons.Add($"─░sim: '{lucaName}' -> '{katanaName}'");
         }
 
-        // Miktar değişikliği kontrolü
+        // Miktar de─şi┼şikli─şi kontrol├╝
         var katanaQty = katanaProduct.Available ?? katanaProduct.OnHand ?? katanaProduct.InStock ?? 0;
         var lucaQty = lucaCard.Miktar;
         if (Math.Abs(katanaQty - lucaQty) > 0.001)
@@ -765,7 +738,7 @@ public class SyncService : ISyncService
             changeReasons.Add($"Miktar: {lucaQty:N2} -> {katanaQty:N2}");
         }
 
-        // Fiyat değişikliği kontrolü
+        // Fiyat de─şi┼şikli─şi kontrol├╝
         var katanaPrice = katanaProduct.SalesPrice ?? katanaProduct.Price;
         var lucaPrice = lucaCard.SatisFiyat ?? 0;
         if (Math.Abs((double)katanaPrice - (double)lucaPrice) > 0.01)
@@ -776,18 +749,18 @@ public class SyncService : ISyncService
             changeReasons.Add($"Fiyat: {lucaPrice:N2} -> {katanaPrice:N2}");
         }
 
-        // Kategori değişikliği kontrolü - Mapping ile tree code karşılaştırması
-        var katanaCategoryTreeCode = GetCategoryTreeCode(katanaProduct.Category, categoryMappings);
+        // Kategori de─şi┼şikli─şi kontrol├╝
+        var katanaCategory = katanaProduct.Category?.Trim() ?? string.Empty;
         var lucaCategory = lucaCard.KategoriKodu?.Trim() ?? string.Empty;
-        if (!string.IsNullOrEmpty(katanaCategoryTreeCode) && !string.Equals(katanaCategoryTreeCode, lucaCategory, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrEmpty(katanaCategory) && !string.Equals(katanaCategory, lucaCategory, StringComparison.OrdinalIgnoreCase))
         {
             changes.CategoryChanged = true;
             changes.OldCategory = lucaCategory;
-            changes.NewCategory = katanaCategoryTreeCode;
-            changeReasons.Add($"Kategori: '{lucaCategory}' -> '{katanaCategoryTreeCode}'");
+            changes.NewCategory = katanaCategory;
+            changeReasons.Add($"Kategori: '{lucaCategory}' -> '{katanaCategory}'");
         }
 
-        // Luca'da güncelleme yapılamadığı için değişen ürünler yeni stok kartı olarak oluşturulmalı
+        // Luca'da g├╝ncelleme yap─▒lamad─▒─ş─▒ i├ğin de─şi┼şen ├╝r├╝nler yeni stok kart─▒ olarak olu┼şturulmal─▒
         if (changes.HasChanges)
         {
             changes.RequiresNewStockCard = true;
@@ -798,7 +771,7 @@ public class SyncService : ISyncService
     }
 
     /// <summary>
-    /// Ürün değişiklik bilgilerini tutar
+    /// ├£r├╝n de─şi┼şiklik bilgilerini tutar
     /// </summary>
     private class ProductChangeInfo
     {
@@ -808,7 +781,7 @@ public class SyncService : ISyncService
         public bool RequiresNewStockCard { get; set; }
         public string? ChangeReason { get; set; }
 
-        // Değişiklik detayları
+        // De─şi┼şiklik detaylar─▒
         public bool NameChanged { get; set; }
         public string? OldName { get; set; }
         public string? NewName { get; set; }
@@ -887,52 +860,6 @@ public class SyncService : ISyncService
         return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
     }
 
-    /// <summary>
-    /// Kategori adını Luca tree code'a çevirir (mapping tablosundan).
-    /// Mapping bulunamazsa default kategori kodu döner.
-    /// </summary>
-    private string GetCategoryTreeCode(string? categoryName, IReadOnlyDictionary<string, string>? categoryMappings)
-    {
-        if (string.IsNullOrWhiteSpace(categoryName))
-        {
-            return _lucaSettings.DefaultKategoriKodu ?? "001";
-        }
-
-        // 1. Önce mapping tablosundan çek
-        if (categoryMappings != null)
-        {
-            var lookupKey = NormalizeMappingKey(categoryName);
-            if (categoryMappings.TryGetValue(lookupKey, out var mappedCode) && !string.IsNullOrWhiteSpace(mappedCode))
-            {
-                return mappedCode; // "001.001" gibi tree code
-            }
-        }
-
-        // 2. Eğer kategori zaten numeric tree code formatındaysa (001, 001.001 gibi) direkt kullan
-        if (IsValidTreeCode(categoryName))
-        {
-            return categoryName;
-        }
-
-        // 3. Mapping yoksa default kategori kullan
-        _logger.LogWarning("Kategori mapping bulunamadı: '{CategoryName}', default '{DefaultCode}' kullanılıyor", 
-            categoryName, _lucaSettings.DefaultKategoriKodu ?? "001");
-        return _lucaSettings.DefaultKategoriKodu ?? "001";
-    }
-
-    /// <summary>
-    /// Verilen string'in geçerli bir Luca tree code formatında olup olmadığını kontrol eder.
-    /// Geçerli formatlar: "001", "001.001", "001.001.001" vb.
-    /// </summary>
-    private static bool IsValidTreeCode(string? code)
-    {
-        if (string.IsNullOrWhiteSpace(code))
-            return false;
-
-        // Tree code formatı: sadece rakamlar ve nokta içermeli
-        return code.All(c => char.IsDigit(c) || c == '.');
-    }
-
     
     public async Task<SyncResultDto> SyncStockFromLucaAsync(DateTime? fromDate = null)
     {
@@ -941,7 +868,7 @@ public class SyncService : ISyncService
 
         try
         {
-            _logger.LogInformation("Starting Luca → Katana stock sync");
+            _logger.LogInformation("Starting Luca ÔåÆ Katana stock sync");
             
             
             var lucaStockDtos = await _lucaService.FetchStockMovementsAsync(fromDate);
@@ -1016,7 +943,7 @@ public class SyncService : ISyncService
                 ProcessedRecords = processed,
                 SuccessfulRecords = successful,
                 FailedRecords = processed - successful,
-                Message = errors.Any() ? "Some records were skipped or failed; check logs." : $"Luca'dan {processed} stok hareketi alındı",
+                Message = errors.Any() ? "Some records were skipped or failed; check logs." : $"Luca'dan {processed} stok hareketi al─▒nd─▒",
                 Duration = stopwatch.Elapsed,
                 Errors = { }
             };
@@ -1025,7 +952,7 @@ public class SyncService : ISyncService
         {
             stopwatch.Stop();
             await FinalizeOperationAsync(logEntry, "FAILED", 0, 0, 0, ex.Message);
-            _logger.LogError(ex, "Luca → Katana stock sync failed");
+            _logger.LogError(ex, "Luca ÔåÆ Katana stock sync failed");
             
             return new SyncResultDto
             {
@@ -1045,7 +972,7 @@ public class SyncService : ISyncService
 
         try
         {
-            _logger.LogInformation("Starting Luca → Katana invoice sync");
+            _logger.LogInformation("Starting Luca ÔåÆ Katana invoice sync");
             
             var lucaInvoiceDtos = await _lucaService.FetchInvoicesAsync(fromDate);
             _logger.LogInformation("Fetched {Count} invoices from Luca", lucaInvoiceDtos.Count);
@@ -1130,7 +1057,7 @@ public class SyncService : ISyncService
                 ProcessedRecords = processed,
                 SuccessfulRecords = successful,
                 FailedRecords = errors.Count,
-                Message = errors.Any() ? "Bazı faturalar atlandı veya hata aldı." : $"Luca'dan {successful} fatura alındı",
+                Message = errors.Any() ? "Baz─▒ faturalar atland─▒ veya hata ald─▒." : $"Luca'dan {successful} fatura al─▒nd─▒",
                 Duration = stopwatch.Elapsed
             };
         }
@@ -1138,7 +1065,7 @@ public class SyncService : ISyncService
         {
             stopwatch.Stop();
             await FinalizeOperationAsync(logEntry, "FAILED", 0, 0, 0, ex.Message);
-            _logger.LogError(ex, "Luca → Katana invoice sync failed");
+            _logger.LogError(ex, "Luca ÔåÆ Katana invoice sync failed");
             
             return new SyncResultDto
             {
@@ -1158,7 +1085,7 @@ public class SyncService : ISyncService
 
         try
         {
-            _logger.LogInformation("Starting Luca → Katana despatch (irsaliye) sync");
+            _logger.LogInformation("Starting Luca ÔåÆ Katana despatch (irsaliye) sync");
 
             var despatchDtos = await _lucaService.FetchDeliveryNotesAsync(fromDate);
             _logger.LogInformation("Fetched {Count} delivery notes from Luca", despatchDtos.Count);
@@ -1320,7 +1247,7 @@ public class SyncService : ISyncService
                 ProcessedRecords = processed,
                 SuccessfulRecords = successful,
                 FailedRecords = errors.Count,
-                Message = errors.Any() ? "Bazı irsaliyeler atlandı veya hata aldı." : $"Luca'dan {successful} irsaliye alındı",
+                Message = errors.Any() ? "Baz─▒ irsaliyeler atland─▒ veya hata ald─▒." : $"Luca'dan {successful} irsaliye al─▒nd─▒",
                 Duration = stopwatch.Elapsed
             };
         }
@@ -1328,7 +1255,7 @@ public class SyncService : ISyncService
         {
             stopwatch.Stop();
             await FinalizeOperationAsync(logEntry, "FAILED", 0, 0, 0, ex.Message);
-            _logger.LogError(ex, "Luca → Katana despatch sync failed");
+            _logger.LogError(ex, "Luca ÔåÆ Katana despatch sync failed");
 
             return new SyncResultDto
             {
@@ -1348,7 +1275,7 @@ public class SyncService : ISyncService
 
         try
         {
-            _logger.LogInformation("Starting Luca → Katana customer sync");
+            _logger.LogInformation("Starting Luca ÔåÆ Katana customer sync");
             
             var lucaCustomerDtos = await _lucaService.FetchCustomersAsync(fromDate);
             _logger.LogInformation("Fetched {Count} customers from Luca", lucaCustomerDtos.Count);
@@ -1407,7 +1334,7 @@ public class SyncService : ISyncService
                 ProcessedRecords = processed,
                 SuccessfulRecords = successful,
                 FailedRecords = errors.Count,
-                Message = errors.Any() ? "Bazı müşteriler atlandı veya hata aldı." : $"Luca'dan {successful} müşteri alındı",
+                Message = errors.Any() ? "Baz─▒ m├╝┼şteriler atland─▒ veya hata ald─▒." : $"Luca'dan {successful} m├╝┼şteri al─▒nd─▒",
                 Duration = stopwatch.Elapsed
             };
         }
@@ -1415,7 +1342,7 @@ public class SyncService : ISyncService
         {
             stopwatch.Stop();
             await FinalizeOperationAsync(logEntry, "FAILED", 0, 0, 0, ex.Message);
-            _logger.LogError(ex, "Luca → Katana customer sync failed");
+            _logger.LogError(ex, "Luca ÔåÆ Katana customer sync failed");
             
             return new SyncResultDto
             {
@@ -1453,7 +1380,7 @@ public class SyncService : ISyncService
 
         try
         {
-            _logger.LogInformation("Starting Luca → Katana PRODUCT sync");
+            _logger.LogInformation("Starting Luca ÔåÆ Katana PRODUCT sync");
 
             var lucaProducts = await _lucaService.FetchProductsAsync(fromDate);
             _logger.LogInformation("Fetched {Count} products from Luca", lucaProducts.Count);
@@ -1506,7 +1433,7 @@ public class SyncService : ISyncService
                 ProcessedRecords = lucaProducts.Count,
                 SuccessfulRecords = successful,
                 FailedRecords = errors.Count,
-                Message = errors.Any() ? "Bazı kayıtlar atlandı veya hata aldı." : $"Luca'dan {successful} ürün başarıyla aktarıldı.",
+                Message = errors.Any() ? "Baz─▒ kay─▒tlar atland─▒ veya hata ald─▒." : $"Luca'dan {successful} ├╝r├╝n ba┼şar─▒yla aktar─▒ld─▒.",
                 Duration = stopwatch.Elapsed
             };
         }
@@ -1514,7 +1441,7 @@ public class SyncService : ISyncService
         {
             stopwatch.Stop();
             await FinalizeOperationAsync(logEntry, "FAILED", 0, 0, 0, ex.Message);
-            _logger.LogError(ex, "Luca → Katana product sync failed");
+            _logger.LogError(ex, "Luca ÔåÆ Katana product sync failed");
 
             return new SyncResultDto
             {
@@ -1530,7 +1457,7 @@ public class SyncService : ISyncService
     #region Koza Cari Sync Methods
 
     /// <summary>
-    /// Katana tedarikçilerini Koza'ya senkronize eder
+    /// Katana tedarik├ğilerini Koza'ya senkronize eder
     /// </summary>
     public async Task<SyncResultDto> SyncSuppliersToKozaAsync(CancellationToken ct = default)
     {
@@ -1542,11 +1469,11 @@ public class SyncService : ISyncService
 
         try
         {
-            _logger.LogInformation("🔄 Starting Katana → Koza supplier sync");
+            _logger.LogInformation("­şöä Starting Katana ÔåÆ Koza supplier sync");
 
             var katanaSuppliers = await _katanaService.GetSuppliersAsync();
             total = katanaSuppliers.Count;
-            _logger.LogInformation("📥 Found {Count} suppliers in Katana", total);
+            _logger.LogInformation("­şôÑ Found {Count} suppliers in Katana", total);
 
             foreach (var supplier in katanaSuppliers)
             {
@@ -1574,20 +1501,20 @@ public class SyncService : ISyncService
                     if (kozaResult.Success)
                     {
                         successful++;
-                        _logger.LogDebug("✅ Supplier {Code} synced successfully", supplier.Id);
+                        _logger.LogDebug("Ô£à Supplier {Code} synced successfully", supplier.Id);
                     }
                     else
                     {
                         errors++;
                         errorMessages.Add($"{supplier.Id}: {kozaResult.Message}");
-                        _logger.LogWarning("⚠️ Supplier {Code} sync failed: {Error}", supplier.Id, kozaResult.Message);
+                        _logger.LogWarning("ÔÜá´©Å Supplier {Code} sync failed: {Error}", supplier.Id, kozaResult.Message);
                     }
                 }
                 catch (Exception ex)
                 {
                     errors++;
                     errorMessages.Add($"{supplier.Id}: {ex.Message}");
-                    _logger.LogError(ex, "❌ Error syncing supplier {Code}", supplier.Id);
+                    _logger.LogError(ex, "ÔØî Error syncing supplier {Code}", supplier.Id);
                 }
             }
 
@@ -1595,7 +1522,7 @@ public class SyncService : ISyncService
             var status = errors == 0 ? "SUCCESS" : (successful > 0 ? "PARTIAL" : "FAILED");
             await FinalizeOperationAsync(logEntry, status, total, successful, errors, errorMessages.Any() ? string.Join("; ", errorMessages.Take(5)) : null);
 
-            _logger.LogInformation("✅ Supplier sync completed: Total={Total}, Success={Success}, Skipped={Skipped}, Error={Error}",
+            _logger.LogInformation("Ô£à Supplier sync completed: Total={Total}, Success={Success}, Skipped={Skipped}, Error={Error}",
                 total, successful, skipped, errors);
 
             return new SyncResultDto
@@ -1605,7 +1532,7 @@ public class SyncService : ISyncService
                 ProcessedRecords = total,
                 SuccessfulRecords = successful,
                 FailedRecords = errors,
-                Message = $"Tedarikçi senkronizasyonu tamamlandı. Başarılı: {successful}, Atlanan: {skipped}, Hata: {errors}",
+                Message = $"Tedarik├ği senkronizasyonu tamamland─▒. Ba┼şar─▒l─▒: {successful}, Atlanan: {skipped}, Hata: {errors}",
                 Duration = stopwatch.Elapsed,
                 Errors = errorMessages
             };
@@ -1614,7 +1541,7 @@ public class SyncService : ISyncService
         {
             stopwatch.Stop();
             await FinalizeOperationAsync(logEntry, "FAILED", total, successful, errors, ex.Message);
-            _logger.LogError(ex, "❌ Supplier sync failed completely");
+            _logger.LogError(ex, "ÔØî Supplier sync failed completely");
 
             return new SyncResultDto
             {
@@ -1623,7 +1550,7 @@ public class SyncService : ISyncService
                 ProcessedRecords = total,
                 SuccessfulRecords = successful,
                 FailedRecords = errors,
-                Message = $"Tedarikçi senkronizasyonu başarısız: {ex.Message}",
+                Message = $"Tedarik├ği senkronizasyonu ba┼şar─▒s─▒z: {ex.Message}",
                 Duration = stopwatch.Elapsed,
                 Errors = { ex.ToString() }
             };
@@ -1631,7 +1558,7 @@ public class SyncService : ISyncService
     }
 
     /// <summary>
-    /// Katana depolarını (Location) Koza'ya senkronize eder
+    /// Katana depolar─▒n─▒ (Location) Koza'ya senkronize eder
     /// </summary>
     public async Task<SyncResultDto> SyncWarehousesToKozaAsync(CancellationToken ct = default)
     {
@@ -1643,11 +1570,11 @@ public class SyncService : ISyncService
 
         try
         {
-            _logger.LogInformation("🔄 Starting Katana → Koza warehouse (depot) sync");
+            _logger.LogInformation("­şöä Starting Katana ÔåÆ Koza warehouse (depot) sync");
 
             var katanaLocations = await _katanaService.GetLocationsAsync();
             total = katanaLocations.Count;
-            _logger.LogInformation("📥 Found {Count} locations in Katana", total);
+            _logger.LogInformation("­şôÑ Found {Count} locations in Katana", total);
 
             foreach (var location in katanaLocations)
             {
@@ -1668,20 +1595,20 @@ public class SyncService : ISyncService
                     if (kozaResult.Success)
                     {
                         successful++;
-                        _logger.LogDebug("✅ Warehouse {Code} synced successfully", locationCode);
+                        _logger.LogDebug("Ô£à Warehouse {Code} synced successfully", locationCode);
                     }
                     else
                     {
                         errors++;
                         errorMessages.Add($"{locationCode}: {kozaResult.Message}");
-                        _logger.LogWarning("⚠️ Warehouse {Code} sync failed: {Error}", locationCode, kozaResult.Message);
+                        _logger.LogWarning("ÔÜá´©Å Warehouse {Code} sync failed: {Error}", locationCode, kozaResult.Message);
                     }
                 }
                 catch (Exception ex)
                 {
                     errors++;
                     errorMessages.Add($"{location.Id}: {ex.Message}");
-                    _logger.LogError(ex, "❌ Error syncing warehouse {Code}", location.Id);
+                    _logger.LogError(ex, "ÔØî Error syncing warehouse {Code}", location.Id);
                 }
             }
 
@@ -1689,7 +1616,7 @@ public class SyncService : ISyncService
             var status = errors == 0 ? "SUCCESS" : (successful > 0 ? "PARTIAL" : "FAILED");
             await FinalizeOperationAsync(logEntry, status, total, successful, errors, errorMessages.Any() ? string.Join("; ", errorMessages.Take(5)) : null);
 
-            _logger.LogInformation("✅ Warehouse sync completed: Total={Total}, Success={Success}, Skipped={Skipped}, Error={Error}",
+            _logger.LogInformation("Ô£à Warehouse sync completed: Total={Total}, Success={Success}, Skipped={Skipped}, Error={Error}",
                 total, successful, skipped, errors);
 
             return new SyncResultDto
@@ -1699,7 +1626,7 @@ public class SyncService : ISyncService
                 ProcessedRecords = total,
                 SuccessfulRecords = successful,
                 FailedRecords = errors,
-                Message = $"Depo senkronizasyonu tamamlandı. Başarılı: {successful}, Atlanan: {skipped}, Hata: {errors}",
+                Message = $"Depo senkronizasyonu tamamland─▒. Ba┼şar─▒l─▒: {successful}, Atlanan: {skipped}, Hata: {errors}",
                 Duration = stopwatch.Elapsed,
                 Errors = errorMessages
             };
@@ -1708,7 +1635,7 @@ public class SyncService : ISyncService
         {
             stopwatch.Stop();
             await FinalizeOperationAsync(logEntry, "FAILED", total, successful, errors, ex.Message);
-            _logger.LogError(ex, "❌ Warehouse sync failed completely");
+            _logger.LogError(ex, "ÔØî Warehouse sync failed completely");
 
             return new SyncResultDto
             {
@@ -1717,7 +1644,7 @@ public class SyncService : ISyncService
                 ProcessedRecords = total,
                 SuccessfulRecords = successful,
                 FailedRecords = errors,
-                Message = $"Depo senkronizasyonu başarısız: {ex.Message}",
+                Message = $"Depo senkronizasyonu ba┼şar─▒s─▒z: {ex.Message}",
                 Duration = stopwatch.Elapsed,
                 Errors = { ex.ToString() }
             };
@@ -1725,7 +1652,7 @@ public class SyncService : ISyncService
     }
 
     /// <summary>
-    /// Katana müşterilerini Luca'ya cari olarak senkronize eder
+    /// Katana m├╝┼şterilerini Luca'ya cari olarak senkronize eder
     /// </summary>
     public async Task<SyncResultDto> SyncCustomersToLucaAsync(CancellationToken ct = default)
     {
@@ -1737,7 +1664,7 @@ public class SyncService : ISyncService
 
         try
         {
-            _logger.LogInformation("🔄 Starting Local DB → Luca customer (cari) sync");
+            _logger.LogInformation("­şöä Starting Local DB ÔåÆ Luca customer (cari) sync");
 
             // Get customers from local database (Customers table)
             var localCustomers = await _dbContext.Customers
@@ -1745,7 +1672,7 @@ public class SyncService : ISyncService
                 .ToListAsync(ct);
             
             total = localCustomers.Count;
-            _logger.LogInformation("📥 Found {Count} customers in local database", total);
+            _logger.LogInformation("­şôÑ Found {Count} customers in local database", total);
 
             foreach (var customer in localCustomers)
             {
@@ -1772,20 +1699,20 @@ public class SyncService : ISyncService
                     if (lucaResult.Success)
                     {
                         successful++;
-                        _logger.LogDebug("✅ Customer {Code} synced successfully", customerCode);
+                        _logger.LogDebug("Ô£à Customer {Code} synced successfully", customerCode);
                     }
                     else
                     {
                         errors++;
                         errorMessages.Add($"{customerCode}: {lucaResult.Message}");
-                        _logger.LogWarning("⚠️ Customer {Code} sync failed: {Error}", customerCode, lucaResult.Message);
+                        _logger.LogWarning("ÔÜá´©Å Customer {Code} sync failed: {Error}", customerCode, lucaResult.Message);
                     }
                 }
                 catch (Exception ex)
                 {
                     errors++;
                     errorMessages.Add($"{customer.Id}: {ex.Message}");
-                    _logger.LogError(ex, "❌ Error syncing customer {Code}", customer.Id);
+                    _logger.LogError(ex, "ÔØî Error syncing customer {Code}", customer.Id);
                 }
             }
 
@@ -1793,7 +1720,7 @@ public class SyncService : ISyncService
             var status = errors == 0 ? "SUCCESS" : (successful > 0 ? "PARTIAL" : "FAILED");
             await FinalizeOperationAsync(logEntry, status, total, successful, errors, errorMessages.Any() ? string.Join("; ", errorMessages.Take(5)) : null);
 
-            _logger.LogInformation("✅ Customer sync completed: Total={Total}, Success={Success}, Skipped={Skipped}, Error={Error}",
+            _logger.LogInformation("Ô£à Customer sync completed: Total={Total}, Success={Success}, Skipped={Skipped}, Error={Error}",
                 total, successful, skipped, errors);
 
             return new SyncResultDto
@@ -1803,7 +1730,7 @@ public class SyncService : ISyncService
                 ProcessedRecords = total,
                 SuccessfulRecords = successful,
                 FailedRecords = errors,
-                Message = $"Müşteri senkronizasyonu tamamlandı. Başarılı: {successful}, Atlanan: {skipped}, Hata: {errors}",
+                Message = $"M├╝┼şteri senkronizasyonu tamamland─▒. Ba┼şar─▒l─▒: {successful}, Atlanan: {skipped}, Hata: {errors}",
                 Duration = stopwatch.Elapsed,
                 Errors = errorMessages
             };
@@ -1812,7 +1739,7 @@ public class SyncService : ISyncService
         {
             stopwatch.Stop();
             await FinalizeOperationAsync(logEntry, "FAILED", total, successful, errors, ex.Message);
-            _logger.LogError(ex, "❌ Customer sync failed completely");
+            _logger.LogError(ex, "ÔØî Customer sync failed completely");
 
             return new SyncResultDto
             {
@@ -1821,166 +1748,11 @@ public class SyncService : ISyncService
                 ProcessedRecords = total,
                 SuccessfulRecords = successful,
                 FailedRecords = errors,
-                Message = $"Müşteri senkronizasyonu başarısız: {ex.Message}",
+                Message = $"M├╝┼şteri senkronizasyonu ba┼şar─▒s─▒z: {ex.Message}",
                 Duration = stopwatch.Elapsed,
                 Errors = { ex.ToString() }
             };
         }
-    }
-
-    #endregion
-
-    #region Debug Methods
-
-    /// <summary>
-    /// DEBUG: Tek bir ürünün Katana ve Luca'daki durumunu karşılaştırır
-    /// </summary>
-    public async Task<object> DebugProductComparisonAsync(string sku)
-    {
-        _logger.LogWarning("🔍 DEBUG: Ürün karşılaştırması başlatılıyor: {SKU}", sku);
-
-        // 1. Katana'dan ürünü çek
-        var katanaProducts = await _katanaService.GetProductsAsync();
-        var katanaProduct = katanaProducts.FirstOrDefault(p => 
-            string.Equals(p.SKU, sku, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(p.Id, sku, StringComparison.OrdinalIgnoreCase));
-
-        if (katanaProduct == null)
-        {
-            return new { 
-                error = true, 
-                message = $"Ürün Katana'da bulunamadı: {sku}",
-                katanaProductCount = katanaProducts.Count
-            };
-        }
-
-        // 2. Luca'dan stok kartını çek
-        var lucaStockCards = await _lucaService.ListStockCardsAsync();
-        var lucaCard = FindLucaMatch(lucaStockCards, NormalizeSku(katanaProduct), katanaProduct.Barcode, true);
-
-        // 3. Luca'dan skartId'yi çek
-        long? lucaSkartId = null;
-        if (lucaCard != null)
-        {
-            lucaSkartId = await _lucaService.FindStockCardBySkuAsync(sku);
-        }
-
-        // 4. Değişiklik tespiti yap
-        var categoryMappings = await GetMappingDictionaryAsync("PRODUCT_CATEGORY", CancellationToken.None);
-        var changeInfo = DetectProductChanges(katanaProduct, lucaCard, categoryMappings);
-
-        return new
-        {
-            sku = sku,
-            katana = new
-            {
-                id = katanaProduct.Id,
-                sku = katanaProduct.SKU,
-                name = katanaProduct.Name,
-                price = katanaProduct.SalesPrice ?? katanaProduct.Price,
-                category = katanaProduct.Category,
-                categoryId = katanaProduct.CategoryId,
-                barcode = katanaProduct.Barcode,
-                inStock = katanaProduct.InStock,
-                onHand = katanaProduct.OnHand,
-                available = katanaProduct.Available
-            },
-            luca = lucaCard == null ? null : new
-            {
-                skartId = lucaSkartId,
-                kod = lucaCard.Code,
-                adi = lucaCard.StokAdi,
-                fiyat = lucaCard.SatisFiyat,
-                kategori = lucaCard.KategoriKodu,
-                miktar = lucaCard.Miktar,
-                barcode = lucaCard.Barcode
-            },
-            changeDetection = new
-            {
-                existsInLuca = changeInfo.ExistsInLuca,
-                isNew = changeInfo.IsNew,
-                requiresNewStockCard = changeInfo.RequiresNewStockCard,
-                hasChanges = changeInfo.HasChanges,
-                changeReason = changeInfo.ChangeReason,
-                nameChanged = changeInfo.NameChanged,
-                oldName = changeInfo.OldName,
-                newName = changeInfo.NewName,
-                priceChanged = changeInfo.PriceChanged,
-                oldPrice = changeInfo.OldPrice,
-                newPrice = changeInfo.NewPrice,
-                categoryChanged = changeInfo.CategoryChanged,
-                oldCategory = changeInfo.OldCategory,
-                newCategory = changeInfo.NewCategory,
-                quantityChanged = changeInfo.QuantityChanged,
-                oldQuantity = changeInfo.OldQuantity,
-                newQuantity = changeInfo.NewQuantity
-            }
-        };
-    }
-
-    /// <summary>
-    /// DEBUG: Tek bir ürünü zorla Luca'ya gönderir (değişiklik kontrolü yapmadan)
-    /// </summary>
-    public async Task<object> ForceSyncSingleProductAsync(string sku)
-    {
-        _logger.LogWarning("🔥 FORCE SYNC: Ürün zorla senkronize ediliyor: {SKU}", sku);
-
-        // 1. Katana'dan ürünü çek
-        var katanaProducts = await _katanaService.GetProductsAsync();
-        var katanaProduct = katanaProducts.FirstOrDefault(p => 
-            string.Equals(p.SKU, sku, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(p.Id, sku, StringComparison.OrdinalIgnoreCase));
-
-        if (katanaProduct == null)
-        {
-            return new { 
-                error = true, 
-                message = $"Ürün Katana'da bulunamadı: {sku}"
-            };
-        }
-
-        // 2. Mapping'leri yükle
-        var categoryMappings = await GetMappingDictionaryAsync("PRODUCT_CATEGORY", CancellationToken.None);
-
-        // 3. Luca stok kartı oluştur
-        var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(katanaProduct, _lucaSettings, categoryMappings);
-
-        _logger.LogWarning("🔥 FORCE SYNC: Ürün bilgileri:");
-        _logger.LogWarning("   SKU: {SKU}", dto.KartKodu);
-        _logger.LogWarning("   İsim: {Name}", dto.KartAdi);
-        _logger.LogWarning("   Fiyat: {Price}", dto.PerakendeSatisBirimFiyat);
-        _logger.LogWarning("   Kategori: {Category}", dto.KategoriAgacKod);
-
-        // 4. Luca'ya gönder
-        var result = await _lucaService.SendStockCardsAsync(new List<LucaCreateStokKartiRequest> { dto });
-
-        return new
-        {
-            katanaProduct = new
-            {
-                id = katanaProduct.Id,
-                sku = katanaProduct.SKU,
-                name = katanaProduct.Name,
-                price = katanaProduct.SalesPrice ?? katanaProduct.Price,
-                category = katanaProduct.Category
-            },
-            lucaRequest = new
-            {
-                kartKodu = dto.KartKodu,
-                kartAdi = dto.KartAdi,
-                fiyat = dto.PerakendeSatisBirimFiyat,
-                kategori = dto.KategoriAgacKod,
-                barkod = dto.Barkod
-            },
-            syncResult = new
-            {
-                isSuccess = result.IsSuccess,
-                message = result.Message,
-                successfulRecords = result.SuccessfulRecords,
-                failedRecords = result.FailedRecords,
-                errors = result.Errors
-            }
-        };
     }
 
     #endregion

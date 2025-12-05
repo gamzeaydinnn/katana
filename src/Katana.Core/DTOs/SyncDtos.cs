@@ -47,7 +47,11 @@ public class SyncOptionsDto
 {
     public bool DryRun { get; set; }
     public bool PreferBarcodeMatch { get; set; } = true;
-    public bool ForceSendDuplicates { get; set; } = true;
+    /// <summary>
+    /// true: Tüm ürünleri gönder (mevcut olanlar dahil)
+    /// false: Sadece yeni veya değişen ürünleri gönder (varsayılan)
+    /// </summary>
+    public bool ForceSendDuplicates { get; set; } = false;
     public int? Limit { get; set; }
 }
 

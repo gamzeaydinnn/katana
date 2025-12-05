@@ -292,4 +292,170 @@ public partial class LucaService
             BagDerecesi = 0
         };
     }
+
+    /// <summary>
+    /// Luca/Koza'ya stok kartı oluşturur - V2 (Yeni API formatı)
+    /// Endpoint: EkleStkWsKart.do
+    /// </summary>
+    public async Task<LucaCreateStockCardResponse> CreateStockCardV2Async(
+        LucaCreateStockCardRequestV2 request, 
+        CancellationToken ct = default)
+    {
+        // Validasyon
+        var validationErrors = ValidateStockCardRequest(request);
+        if (validationErrors.Count > 0)
+        {
+            return new LucaCreateStockCardResponse
+            {
+                Error = true,
+                Message = string.Join("; ", validationErrors)
+            };
+        }
+
+        try
+        {
+            await EnsureAuthenticatedAsync();
+            
+            if (!_settings.UseTokenAuth)
+            {
+                await EnsureBranchSelectedAsync();
+            }
+
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            var endpoint = _settings.Endpoints.StockCardCreate;
+
+            var jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = null,
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+            };
+
+            var json = JsonSerializer.Serialize(request, jsonOptions);
+            _logger.LogInformation("CreateStockCardV2Async: Sending request for {KartKodu} - {KartAdi}", 
+                request.KartKodu, request.KartAdi);
+
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+            {
+                Content = CreateKozaContent(json)
+            };
+            ApplyManualSessionCookie(httpRequest);
+
+            var response = await SendWithAuthRetryAsync(httpRequest, "CREATE_STOCK_V2", 2);
+            var responseBody = await ReadResponseContentAsync(response);
+            
+            await AppendRawLogAsync("CREATE_STOCK_V2", endpoint, json, response.StatusCode, responseBody);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("CreateStockCardV2Async failed HTTP {Status}: {Body}", 
+                    response.StatusCode, responseBody);
+                return new LucaCreateStockCardResponse
+                {
+                    Error = true,
+                    Message = $"HTTP {response.StatusCode}: {responseBody}"
+                };
+            }
+
+            // Response parse
+            return ParseStockCardResponse(responseBody, request.KartKodu, request.KartAdi);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CreateStockCardV2Async failed for: {KartKodu}", request.KartKodu);
+            return new LucaCreateStockCardResponse
+            {
+                Error = true,
+                Message = ex.Message
+            };
+        }
+    }
+
+    /// <summary>
+    /// Stok kartı request validasyonu
+    /// </summary>
+    private List<string> ValidateStockCardRequest(LucaCreateStockCardRequestV2 request)
+    {
+        var errors = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(request.KartKodu))
+            errors.Add("kartKodu is required");
+
+        if (string.IsNullOrWhiteSpace(request.KartAdi))
+            errors.Add("kartAdi is required");
+
+        if (request.KartTuru != 1 && request.KartTuru != 2)
+            errors.Add("kartTuru must be 1 (Stok) or 2 (Hizmet)");
+
+        if (string.IsNullOrWhiteSpace(request.BaslangicTarihi))
+            errors.Add("baslangicTarihi is required");
+        else if (!IsValidDateFormat(request.BaslangicTarihi))
+            errors.Add("baslangicTarihi must be in dd/MM/yyyy format");
+
+        return errors;
+    }
+
+    /// <summary>
+    /// Tarih formatı kontrolü (dd/MM/yyyy)
+    /// </summary>
+    private bool IsValidDateFormat(string dateStr)
+    {
+        return DateTime.TryParseExact(
+            dateStr, 
+            "dd/MM/yyyy", 
+            CultureInfo.InvariantCulture, 
+            DateTimeStyles.None, 
+            out _);
+    }
+
+    /// <summary>
+    /// Stok kartı response parse
+    /// </summary>
+    private LucaCreateStockCardResponse ParseStockCardResponse(string? responseBody, string kartKodu, string kartAdi)
+    {
+        if (string.IsNullOrWhiteSpace(responseBody))
+        {
+            return new LucaCreateStockCardResponse
+            {
+                Error = true,
+                Message = "Empty response from Luca"
+            };
+        }
+
+        try
+        {
+            var result = JsonSerializer.Deserialize<LucaCreateStockCardResponse>(responseBody, _jsonOptions);
+            if (result != null)
+            {
+                // Başarılı ise log
+                if (!result.Error && result.SkartId.HasValue)
+                {
+                    _logger.LogInformation("✅ Stok kartı oluşturuldu: {KartKodu} - {KartAdi}, SkartId: {SkartId}", 
+                        kartKodu, kartAdi, result.SkartId);
+                }
+                return result;
+            }
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse stock card response as JSON");
+        }
+
+        // Fallback: "Başar" içeriyorsa başarılı say
+        if (responseBody.Contains("Başar", StringComparison.OrdinalIgnoreCase) ||
+            responseBody.Contains("başarı", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation("✅ Stok kartı oluşturuldu (text match): {KartKodu} - {KartAdi}", kartKodu, kartAdi);
+            return new LucaCreateStockCardResponse
+            {
+                Error = false,
+                Message = responseBody
+            };
+        }
+
+        return new LucaCreateStockCardResponse
+        {
+            Error = true,
+            Message = responseBody
+        };
+    }
 }
