@@ -67,11 +67,11 @@ public class ProductsController : ControllerBase
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> GetKatanaProducts([FromQuery] int? page = null, [FromQuery] int? limit = null, [FromQuery] bool sync = false)
+    public async Task<IActionResult> GetKatanaProducts([FromQuery] int? page = null, [FromQuery] int? pageSize = null, [FromQuery] bool sync = false)
     {
         try
         {
-            _loggingService.LogInfo("Fetching products from Katana API", User?.Identity?.Name, $"Page: {page}, Limit: {limit}, Sync: {sync}", LogCategory.ExternalAPI);
+            _loggingService.LogInfo("Fetching products from Katana API", User?.Identity?.Name, $"Page: {page}, PageSize: {pageSize}, Sync: {sync}", LogCategory.ExternalAPI);
             
             List<KatanaProductDto> allProducts;
             try
@@ -117,8 +117,8 @@ public class ProductsController : ControllerBase
             
             var pageNumber = page.GetValueOrDefault(1);
             if (pageNumber < 1) pageNumber = 1;
-            var pageSize = limit.GetValueOrDefault(50);
-            if (pageSize <= 0) pageSize = 50;
+            var pageSizeValue = pageSize.GetValueOrDefault(50);
+            if (pageSizeValue <= 0) pageSizeValue = 50;
             
             
             if (sync)
@@ -208,8 +208,8 @@ public class ProductsController : ControllerBase
 
                 var total = enrichedProducts.Count;
                 var paged = enrichedProducts
-                    .Skip((pageNumber - 1) * pageSize)
-                    .Take(pageSize)
+                    .Skip((pageNumber - 1) * pageSizeValue)
+                    .Take(pageSizeValue)
                     .ToList();
                 
                 return Ok(new 
@@ -217,8 +217,8 @@ public class ProductsController : ControllerBase
                     data = paged, 
                     count = total, 
                     page = pageNumber,
-                    pageSize,
-                    totalPages = (int)Math.Ceiling(total / (double)pageSize),
+                    pageSize = pageSizeValue,
+                    totalPages = (int)Math.Ceiling(total / (double)pageSizeValue),
                     sync = new 
                     { 
                         created, 
@@ -262,8 +262,8 @@ public class ProductsController : ControllerBase
             
             var totalLocal = result.Count;
             var pagedLocal = result
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
+                .Skip((pageNumber - 1) * pageSizeValue)
+                .Take(pageSizeValue)
                 .ToList();
             
             return Ok(new 
@@ -271,8 +271,8 @@ public class ProductsController : ControllerBase
                 data = pagedLocal, 
                 count = totalLocal,
                 page = pageNumber,
-                pageSize,
-                totalPages = (int)Math.Ceiling(totalLocal / (double)pageSize)
+                pageSize = pageSizeValue,
+                totalPages = (int)Math.Ceiling(totalLocal / (double)pageSizeValue)
             });
         }
         catch (Exception ex)
