@@ -777,6 +777,21 @@ public static class MappingHelper
         // Ensure UzunAdi contains SKU and product name so product code is preserved in Koza's card record.
         var uzun = TrimAndTruncate($"{sku} / {TrimAndTruncate(name, 255) ?? sku}", 500) ?? name;
 
+        // 🔥 KRİTİK FİX: Versiyonlu SKU'lar için barkod NULL olmalı (Duplicate Barcode hatasını önlemek için)
+        bool isVersionedSku = System.Text.RegularExpressions.Regex.IsMatch(sku, @"-V\d+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        string? barcodeToSend = null;
+        
+        if (isVersionedSku)
+        {
+            // Versiyonlu SKU - Barkod NULL gönder
+            barcodeToSend = null;
+        }
+        else
+        {
+            // Normal SKU - Barkod gönder
+            barcodeToSend = string.IsNullOrWhiteSpace(product.Barcode) ? sku : product.Barcode;
+        }
+        
         return new LucaCreateStokKartiRequest
         {
             KartAdi = TrimAndTruncate(name, 255) ?? sku,
@@ -790,7 +805,7 @@ public static class MappingHelper
             KategoriAgacKod = string.Empty,
             KartAlisKdvOran = vatRate,
             KartSatisKdvOran = vatRate,
-            Barkod = string.IsNullOrWhiteSpace(product.Barcode) ? sku : product.Barcode,
+            Barkod = barcodeToSend, // 🔥 Versiyonlu SKU'lar için NULL
             UzunAdi = uzun,
             PerakendeAlisBirimFiyat = (double)(product.PurchasePrice ?? product.Price),
             PerakendeSatisBirimFiyat = (double)(product.SalesPrice ?? product.Price),

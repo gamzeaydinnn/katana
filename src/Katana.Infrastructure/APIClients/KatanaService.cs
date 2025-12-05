@@ -175,6 +175,12 @@ public class KatanaService : IKatanaService
 
         dto.Name = prodEl.TryGetProperty("name", out var nameEl) ? nameEl.GetString() ?? string.Empty : string.Empty;
         dto.Description = prodEl.TryGetProperty("additional_info", out var ai) ? ai.GetString() : null;
+        
+        // 🔥 DEBUG: Katana API'sinden gelen name alanını logla
+        if (!string.IsNullOrWhiteSpace(dto.Name))
+        {
+            _logger.LogDebug("🔍 Katana API Response - ID: {Id}, Name: '{Name}'", dto.Id, dto.Name);
+        }
 
         
         if (prodEl.TryGetProperty("category_id", out var catIdEl) && catIdEl.ValueKind == JsonValueKind.Number)
@@ -231,7 +237,11 @@ public class KatanaService : IKatanaService
             if (firstVar.ValueKind != JsonValueKind.Undefined && firstVar.ValueKind != JsonValueKind.Null)
             {
                 if (firstVar.TryGetProperty("sku", out var skuEl) && skuEl.ValueKind == JsonValueKind.String)
+                {
                     dto.SKU = skuEl.GetString() ?? string.Empty;
+                    // 🔥 DEBUG: Variant'tan SKU alındı, Name değişmedi
+                    _logger.LogDebug("🔍 Variant SKU atandı - SKU: '{SKU}', Name: '{Name}' (değişmedi)", dto.SKU, dto.Name);
+                }
 
                 
                 dto.Price = ReadDecimalProperty(firstVar, "sales_price");

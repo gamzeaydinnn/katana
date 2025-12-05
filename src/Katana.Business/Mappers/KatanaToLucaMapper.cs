@@ -456,6 +456,24 @@ public static class KatanaToLucaMapper
             }
         }
 
+        // 🔥 KRİTİK FİX: Versiyonlu SKU'lar için barkod NULL olmalı (Duplicate Barcode hatasını önlemek için)
+        // Eğer SKU "-V" ile bitiyorsa (örn: "PIPE-V2", "silll12344-V3"), bu yeni bir versiyon demektir
+        // Luca'da aynı barkod birden fazla stok kartında olamaz, bu yüzden versiyonlu kartlarda barkod boş gönderilmeli
+        bool isVersionedSku = System.Text.RegularExpressions.Regex.IsMatch(sku, @"-V\d+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        string? barcodeToSend = null;
+        
+        if (isVersionedSku)
+        {
+            // Versiyonlu SKU - Barkod NULL gönder
+            barcodeToSend = null;
+            Console.WriteLine($"⚠️ VERSIYONLU SKU TESPİT EDİLDİ: {sku} - Barkod NULL gönderiliyor (Duplicate Barcode hatasını önlemek için)");
+        }
+        else
+        {
+            // Normal SKU - Barkod gönder
+            barcodeToSend = string.IsNullOrWhiteSpace(product.Barcode) ? sku : product.Barcode.Trim();
+        }
+        
         var dto = new LucaCreateStokKartiRequest
         {
             KartAdi = name,
@@ -469,7 +487,7 @@ public static class KatanaToLucaMapper
             KategoriAgacKod = string.Empty,
             KartAlisKdvOran = 1,
             KartSatisKdvOran = 1,
-            Barkod = string.IsNullOrWhiteSpace(product.Barcode) ? sku : product.Barcode.Trim(),
+            Barkod = barcodeToSend, // 🔥 Versiyonlu SKU'lar için NULL
             UzunAdi = name,
             SatilabilirFlag = 1,
             SatinAlinabilirFlag = 1,

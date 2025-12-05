@@ -1311,13 +1311,12 @@ public partial class LucaService
 
             if (responseContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogWarning("ListStockCardsAsync: Koza returned HTML (session expired?). Re-authenticating and retrying once...");
+                _logger.LogWarning("ListStockCardsAsync: Koza returned HTML (session expired?). Forcing complete session refresh...");
                 
-                // Session expired olabilir, yeniden login dene
+                // Session expired - force complete refresh
                 try
                 {
-                    await PerformLoginAsync();
-                    await EnsureBranchSelectedAsync();
+                    await ForceSessionRefreshAsync();
                     
                     // Yeni content oluştur (HttpContent bir kez kullanıldıktan sonra tekrar kullanılamaz)
                     var retryByteContent = new ByteArrayContent(encoding.GetBytes(formDataString));
@@ -1781,6 +1780,12 @@ public partial class LucaService
                             
                             // Kartı yeni SKU ile güncelle
                             card.KartKodu = newVersionedSku;
+                            
+                            // 🔥 KRİTİK FİX: Barkod çakışmasını önle!
+                            // Orijinal ürünün barkodu zaten kullanılıyor, yeni versiyonda boş gönder
+                            card.Barkod = string.Empty;
+                            _logger.LogInformation("🔧 Barkod temizlendi (duplicate barcode önleme): {SKU}", newVersionedSku);
+                            
                             // Devam et ve yeni kart olarak oluştur (aşağıdaki kod bloğuna geç)
                         }
                     }

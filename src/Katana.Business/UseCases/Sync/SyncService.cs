@@ -742,8 +742,14 @@ public class SyncService : ISyncService
         var katanaName = katanaProduct.Name?.Trim() ?? string.Empty;
         var lucaName = lucaCard.StokAdi?.Trim() ?? string.Empty;
         
-        // 🔥 DEBUG: İsim karşılaştırması
-        _logger.LogDebug("🔍 İSİM KARŞILAŞTIRMASI: Katana='{KatanaName}' vs Luca='{LucaName}'", katanaName, lucaName);
+        // 🔥 DEBUG: İsim karşılaştırması - DETAYLI
+        _logger.LogDebug("🔍 İSİM KARŞILAŞTIRMASI DETAYLI:");
+        _logger.LogDebug("   SKU: {SKU}", sku);
+        _logger.LogDebug("   Katana.Name: '{KatanaName}'", katanaProduct.Name);
+        _logger.LogDebug("   Katana.SKU: '{KatanaSKU}'", katanaProduct.SKU);
+        _logger.LogDebug("   Luca.StokAdi: '{LucaName}'", lucaCard.StokAdi);
+        _logger.LogDebug("   Luca.StokKodu: '{LucaKodu}'", lucaCard.StokKodu);
+        _logger.LogDebug("   Karşılaştırma: '{KatanaName}' vs '{LucaName}'", katanaName, lucaName);
         
         if (!string.Equals(katanaName, lucaName, StringComparison.OrdinalIgnoreCase))
         {
