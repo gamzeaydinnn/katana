@@ -27,8 +27,17 @@ public partial class LucaService
         var jsonOptionsOriginal = new JsonSerializerOptions
         {
             PropertyNamingPolicy = null,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never
         };
+        
+        // 🔍 DEBUG: Log DTO values before serialization
+        _logger.LogInformation("🔍 DEBUG DTO VALUES: MaliyetHesaplanacakFlag={Flag} (Type={Type}), AlisTevkifatOran={ATO}, SatisTevkifatOran={STO}, AlisTevkifatTipId={ATI}, SatisTevkifatTipId={STI}",
+            request.MaliyetHesaplanacakFlag, 
+            request.MaliyetHesaplanacakFlag.GetType().Name,
+            request.AlisTevkifatOran ?? "NULL",
+            request.SatisTevkifatOran ?? "NULL",
+            request.AlisTevkifatTipId,
+            request.SatisTevkifatTipId);
         
         try
         {
@@ -157,40 +166,187 @@ public partial class LucaService
             ApplySessionCookie(req);
             ApplyManualSessionCookie(req);
 
+            // 🔥 DEFENSIVE PROGRAMMING STEP 3: Cookie header verification
+            // Verify Cookie header is present before sending request (Struts timing issue prevention)
+            var cookieHeader = req.Headers.TryGetValues("Cookie", out var cookieValues) 
+                ? string.Join("; ", cookieValues) 
+                : null;
+            
+            if (string.IsNullOrWhiteSpace(cookieHeader))
+            {
+                _logger.LogWarning("⚠️ [COOKIE MISSING] ListStockCards request has NO Cookie header!");
+            }
+            else
+            {
+                var cookiePreview = cookieHeader.Length > 100 
+                    ? cookieHeader.Substring(0, 100) + "..." 
+                    : cookieHeader;
+                _logger.LogDebug("🍪 [COOKIE PRESENT] Cookie header verified: {Preview}", cookiePreview);
+            }
+
             var client = _cookieHttpClient ?? _httpClient;
             var res = await client.SendAsync(req, ct);
             var body = await res.Content.ReadAsStringAsync(ct);
 
-            // NO_JSON hatası kontrolü
-            if (body.TrimStart().StartsWith("<"))
+            // 🔥 KRİTİK FİX: RAW RESPONSE'U LOGLA (Debugging için)
+            var logPreview = body.Length > 1000 ? body.Substring(0, 1000) + "... (truncated)" : body;
+            _logger.LogInformation(">>> LUCA LIST STOCK CARDS RAW RESPONSE ({Length} bytes):\n{Body}", 
+                body.Length, logPreview);
+
+            // 🔥 JSON OLMAYAN CEVAPLARI YAKALA
+            var trimmedBody = body.TrimStart();
+            
+            // HTML kontrolü
+            if (trimmedBody.StartsWith("<"))
             {
-                var snippet = body.Length > 200 ? body.Substring(0, 200) : body;
-                _logger.LogError("Koza NO_JSON (HTML döndü) - ListeleStkKart.do. Body snippet: {Snippet}", snippet);
-                // Exception yerine boş liste dön
-                return new List<KozaStokKartiDto>();
+                _logger.LogError("❌ Luca API HTML döndü (Session expired?). Body snippet: {Snippet}", logPreview);
+                _logger.LogError("   ⚠️ SEBEP: Session timeout veya Authentication hatası olabilir.");
+                _logger.LogError("   ⚠️ ÇÖZÜM: ForceSessionRefreshAsync() çağrılıyor...");
+                
+                // Session yenile ve bir daha dene
+                try
+                {
+                    await ForceSessionRefreshAsync();
+                    _logger.LogInformation("✅ Session yenilendi, ListStockCards tekrar deneniyor...");
+                    
+                    // Retry
+                    var retryReq = new HttpRequestMessage(HttpMethod.Post, "ListeleStkKart.do")
+                    {
+                        Content = new StringContent("{}", Encoding.UTF8, "application/json")
+                    };
+                    retryReq.Headers.TryAddWithoutValidation("No-Paging", "true");
+                    ApplySessionCookie(retryReq);
+                    ApplyManualSessionCookie(retryReq);
+                    
+                    var retryRes = await client.SendAsync(retryReq, ct);
+                    body = await retryRes.Content.ReadAsStringAsync(ct);
+                    trimmedBody = body.TrimStart();
+                    
+                    if (trimmedBody.StartsWith("<"))
+                    {
+                        _logger.LogError("❌ Session yenileme sonrası hala HTML döndü. Cache boş kalacak.");
+                        return new List<KozaStokKartiDto>();
+                    }
+                }
+                catch (Exception sessionEx)
+                {
+                    _logger.LogError(sessionEx, "Session yenileme hatası");
+                    return new List<KozaStokKartiDto>();
+                }
+            }
+            
+            // 'U', 'E', 'F' gibi tek karakterle başlayan hata mesajları
+            // Örn: "Unauthorized", "Error: ...", "Failed to ..."
+            if (trimmedBody.Length > 0 && 
+                char.IsLetter(trimmedBody[0]) && 
+                !trimmedBody.StartsWith("{") && 
+                !trimmedBody.StartsWith("["))
+            {
+                _logger.LogError("❌ Luca API JSON yerine düz metin döndü: '{Text}'", trimmedBody);
+                _logger.LogError("   ⚠️ SEBEP: Muhtemelen 'Unauthorized', 'User not logged in' veya parametre hatası");
+                _logger.LogError("   ⚠️ İLK KARAKTER: '{FirstChar}' (ASCII: {Ascii})", 
+                    trimmedBody[0], (int)trimmedBody[0]);
+                
+                // Branch selection kontrolü
+                if (trimmedBody.Contains("branch", StringComparison.OrdinalIgnoreCase) ||
+                    trimmedBody.Contains("şube", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogError("   ⚠️ Branch (Şube) seçilmemiş olabilir. EnsureBranchSelectedAsync() çağrılıyor...");
+                    try
+                    {
+                        await EnsureBranchSelectedAsync();
+                        _logger.LogInformation("✅ Branch seçildi, ListStockCards tekrar deneniyor...");
+                        
+                        // Retry
+                        var retryReq = new HttpRequestMessage(HttpMethod.Post, "ListeleStkKart.do")
+                        {
+                            Content = new StringContent("{}", Encoding.UTF8, "application/json")
+                        };
+                        retryReq.Headers.TryAddWithoutValidation("No-Paging", "true");
+                        ApplySessionCookie(retryReq);
+                        ApplyManualSessionCookie(retryReq);
+                        
+                        var retryRes = await client.SendAsync(retryReq, ct);
+                        body = await retryRes.Content.ReadAsStringAsync(ct);
+                        trimmedBody = body.TrimStart();
+                    }
+                    catch (Exception branchEx)
+                    {
+                        _logger.LogError(branchEx, "Branch selection hatası");
+                        return new List<KozaStokKartiDto>();
+                    }
+                }
+                else
+                {
+                    return new List<KozaStokKartiDto>();
+                }
             }
 
-            // Response parse
-            var dto = JsonSerializer.Deserialize<KozaStokKartiListResponse>(body, _jsonOptions);
+            // JSON parse
+            KozaStokKartiListResponse? dto = null;
+            try
+            {
+                dto = JsonSerializer.Deserialize<KozaStokKartiListResponse>(body, _jsonOptions);
+            }
+            catch (JsonException jsonEx)
+            {
+                _logger.LogError(jsonEx, "❌ JSON PARSE HATASI! Raw data ilk 500 karakter:\n{Data}", 
+                    body.Length > 500 ? body.Substring(0, 500) : body);
+                _logger.LogError("   ⚠️ JsonException.Path: {Path}", jsonEx.Path);
+                _logger.LogError("   ⚠️ JsonException.LineNumber: {Line}", jsonEx.LineNumber);
+                _logger.LogError("   ⚠️ JsonException.BytePositionInLine: {Pos}", jsonEx.BytePositionInLine);
+                
+                // 🔴 FAIL FAST: JSON parse hatası FATAL! Boş liste dönerek sistemin kendini kandırmasını önle
+                throw new InvalidOperationException(
+                    $"CRITICAL: Luca Cache Warming FAILED! JSON parse error. " +
+                    $"Cannot proceed with sync - data integrity would be compromised. " +
+                    $"Response preview: {(body.Length > 200 ? body.Substring(0, 200) : body)}", 
+                    jsonEx);
+            }
             
             if (dto?.Error == true)
             {
-                _logger.LogError("Koza stok kartı listeleme hatası: {Message}", dto.Message);
-                // Exception yerine boş liste dön
-                return new List<KozaStokKartiDto>();
+                _logger.LogError("❌ Koza stok kartı listeleme API hatası: {Message}", dto.Message);
+                
+                // 🔴 FAIL FAST: API error response FATAL!
+                throw new InvalidOperationException(
+                    $"CRITICAL: Luca API returned error response: {dto.Message}. " +
+                    $"Cache warming failed - sync aborted to prevent data corruption.");
             }
 
             // Koza response alanı değişken: stokKartlari veya stkKartListesi
             var stoklar = dto?.StokKartlari ?? dto?.StkKartListesi ?? new List<KozaStokKartiDto>();
             
-            _logger.LogInformation("Koza'dan {Count} stok kartı listelendi", stoklar.Count);
+            if (stoklar.Count == 0)
+            {
+                _logger.LogWarning("⚠️ Luca'dan 0 stok kartı döndü. Response fields: {Fields}", 
+                    dto != null ? string.Join(", ", typeof(KozaStokKartiListResponse).GetProperties().Select(p => p.Name)) : "null");
+                
+                // 🔴 FAIL FAST: 0 kart dönmesi normaldir SADECE gerçekten boşsa!
+                // Eğer şirketin 0 ürünü yoksa OK, ama genelde binlerce ürün olmalı
+                // Bu yüzden UYARI ver ama exception fırlatma (bu durumda sistem devam edebilir)
+                _logger.LogWarning("⚠️ DİKKAT: Luca'dan boş liste döndü. Bu normalse (yeni şirket) OK, değilse problem var!");
+            }
+            else
+            {
+                _logger.LogInformation("✅ Koza'dan {Count} stok kartı listelendi", stoklar.Count);
+            }
+            
             return stoklar;
+        }
+        catch (InvalidOperationException)
+        {
+            // 🔴 FAIL FAST: InvalidOperationException'ı yukarı fırlat (critical error)
+            throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "ListStockCardsSimpleAsync failed");
-            // Exception yerine boş liste dön - frontend hata gösterebilir
-            return new List<KozaStokKartiDto>();
+            _logger.LogError(ex, "❌ ListStockCardsSimpleAsync FATAL ERROR - Stack trace:\n{StackTrace}", ex.StackTrace);
+            
+            // 🔴 FAIL FAST: Beklenmeyen hata da FATAL!
+            throw new InvalidOperationException(
+                "CRITICAL: ListStockCardsSimpleAsync encountered unexpected error. " +
+                "Cache warming failed - sync aborted for safety.", ex);
         }
     }
 
@@ -283,10 +439,10 @@ public partial class LucaService
             RafOmru = 0,
             GarantiSuresi = 0,
             GtipKodu = string.Empty,
-            AlisTevkifatOran = string.Empty,
-            AlisTevkifatKod = 0,
-            SatisTevkifatOran = string.Empty,
-            SatisTevkifatKod = 0,
+            AlisTevkifatOran = null,           // Luca doc: "7/10" formatında string veya null
+            AlisTevkifatTipId = null,          // Luca doc: alisTevkifatTipId (NOT: alisTevkifatKod DEĞİL!)
+            SatisTevkifatOran = null,          // Luca doc: "2/10" formatında string veya null
+            SatisTevkifatTipId = null,         // Luca doc: satisTevkifatTipId (NOT: satisTevkifatKod DEĞİL!)
             IhracatKategoriNo = string.Empty,
             UtsVeriAktarimiFlag = 0,
             BagDerecesi = 0
@@ -327,7 +483,7 @@ public partial class LucaService
             var jsonOptions = new JsonSerializerOptions
             {
                 PropertyNamingPolicy = null,
-                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never
             };
 
             var json = JsonSerializer.Serialize(request, jsonOptions);

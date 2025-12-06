@@ -1563,7 +1563,9 @@ public class LucaCreateStokKartiRequest
     public long KartTipi { get; set; }
 
     [JsonPropertyName("kategoriAgacKod")]
-    public string KategoriAgacKod { get; set; } = string.Empty;
+    public string? KategoriAgacKod { get; set; }
+
+    // NOT: stokKategoriId KALDIRILDI - Luca dokümantasyonunda bu alan YOK!
 
     [JsonPropertyName("kartAlisKdvOran")]
     public double KartAlisKdvOran { get; set; }
@@ -1575,7 +1577,7 @@ public class LucaCreateStokKartiRequest
     public DateTime? BitisTarihi { get; set; }
 
     [JsonPropertyName("barkod")]
-    public string Barkod { get; set; } = string.Empty;
+    public string? Barkod { get; set; }
 
     [JsonPropertyName("kartToptanAlisKdvOran")]
     public double KartToptanAlisKdvOran { get; set; }
@@ -1596,19 +1598,19 @@ public class LucaCreateStokKartiRequest
     public string GtipKodu { get; set; } = string.Empty;
 
     [JsonPropertyName("alisTevkifatOran")]
-    public string AlisTevkifatOran { get; set; } = string.Empty;
+    public string? AlisTevkifatOran { get; set; }
 
-    [JsonPropertyName("alisTevkifatKod")]
-    public int AlisTevkifatKod { get; set; }
+    [JsonPropertyName("alisTevkifatTipId")]
+    public int? AlisTevkifatTipId { get; set; }
 
     [JsonPropertyName("ihracatKategoriNo")]
     public string IhracatKategoriNo { get; set; } = string.Empty;
 
     [JsonPropertyName("satisTevkifatOran")]
-    public string SatisTevkifatOran { get; set; } = string.Empty;
+    public string? SatisTevkifatOran { get; set; }
 
-    [JsonPropertyName("satisTevkifatKod")]
-    public int SatisTevkifatKod { get; set; }
+    [JsonPropertyName("satisTevkifatTipId")]
+    public int? SatisTevkifatTipId { get; set; }
 
     [JsonPropertyName("minStokKontrol")]
     public long MinStokKontrol { get; set; }
