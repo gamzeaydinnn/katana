@@ -709,11 +709,11 @@ public static class MappingHelper
             KartToptanSatisKdvOran = vat,
             GarantiSuresi = 0,
             GtipKodu = string.Empty,
-            AlisTevkifatOran = "0",
-            AlisTevkifatKod = 0,
+            AlisTevkifatOran = null,           // Luca doc: "7/10" formatında string veya null
+            AlisTevkifatTipId = null,          // Luca doc: alisTevkifatTipId (NOT: alisTevkifatKod DEĞİL!)
             IhracatKategoriNo = string.Empty,
-            SatisTevkifatOran = "0",
-            SatisTevkifatKod = 0,
+            SatisTevkifatOran = null,          // Luca doc: "2/10" formatında string veya null
+            SatisTevkifatTipId = null,         // Luca doc: satisTevkifatTipId (NOT: satisTevkifatKod DEĞİL!)
             MinStokKontrol = 0,
             MinStokMiktari = 0,
             AlisIskontoOran1 = 0,

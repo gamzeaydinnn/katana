@@ -3,12 +3,27 @@ using Katana.Core.Entities;
 using Katana.Core.Interfaces;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace Katana.Business.Services;
 
 public class ProductService : IProductService
 {
     private readonly IntegrationDbContext _context;
+    private static readonly Expression<Func<Product, ProductDto>> ProductProjection = p => new ProductDto
+    {
+        Id = p.Id,
+        Name = p.Name,
+        SKU = p.SKU,
+        Price = p.Price,
+        Stock = p.StockSnapshot,
+        CategoryId = p.CategoryId,
+        MainImageUrl = p.MainImageUrl,
+        Description = p.Description,
+        IsActive = p.IsActive,
+        CreatedAt = p.CreatedAt,
+        UpdatedAt = p.UpdatedAt
+    };
 
     public ProductService(IntegrationDbContext context)
     {
@@ -18,19 +33,21 @@ public class ProductService : IProductService
     public async Task<IEnumerable<ProductDto>> GetAllProductsAsync()
     {
         var products = await _context.Products
-            .Include(p => p.StockMovements)
+            .AsNoTracking()
             .OrderBy(p => p.Name)
+            .Select(ProductProjection)
             .ToListAsync();
 
-        return products.Select(MapToDto);
+        return products;
     }
 
     public async Task<IEnumerable<ProductSummaryDto>> GetActiveProductsAsync()
     {
         var products = await _context.Products
-            .Include(p => p.StockMovements)
+            .AsNoTracking()
             .Where(p => p.IsActive)
             .OrderBy(p => p.Name)
+            .Select(ProductProjection)
             .ToListAsync();
 
         return products.Select(MapToSummaryDto);
@@ -39,67 +56,75 @@ public class ProductService : IProductService
     public async Task<ProductDto?> GetProductByIdAsync(int id)
     {
         var product = await _context.Products
-            .Include(p => p.StockMovements)
-            .FirstOrDefaultAsync(p => p.Id == id);
-        return product == null ? null : MapToDto(product);
+            .AsNoTracking()
+            .Where(p => p.Id == id)
+            .Select(ProductProjection)
+            .FirstOrDefaultAsync();
+        return product == null ? null : product;
     }
 
     public async Task<ProductDto?> GetProductBySkuAsync(string sku)
     {
         var product = await _context.Products
-            .Include(p => p.StockMovements)
-            .FirstOrDefaultAsync(p => p.SKU == sku);
-        return product == null ? null : MapToDto(product);
+            .AsNoTracking()
+            .Where(p => p.SKU == sku)
+            .Select(ProductProjection)
+            .FirstOrDefaultAsync();
+        return product == null ? null : product;
     }
 
     public async Task<IEnumerable<ProductDto>> GetProductsByCategoryAsync(int categoryId)
     {
         var products = await _context.Products
-            .Include(p => p.StockMovements)
+            .AsNoTracking()
             .Where(p => p.CategoryId == categoryId)
             .OrderBy(p => p.Name)
+            .Select(ProductProjection)
             .ToListAsync();
 
-        return products.Select(MapToDto);
+        return products;
     }
     
 
     public async Task<IEnumerable<ProductDto>> SearchProductsAsync(string searchTerm)
     {
         var products = await _context.Products
-            .Include(p => p.StockMovements)
+            .AsNoTracking()
             .Where(p => p.Name.Contains(searchTerm) ||
                        p.SKU.Contains(searchTerm) ||
                        (p.Description != null && p.Description.Contains(searchTerm)))
             .OrderBy(p => p.Name)
+            .Select(ProductProjection)
             .ToListAsync();
 
-        return products.Select(MapToDto);
+        return products;
     }
 
     public async Task<IEnumerable<ProductDto>> GetLowStockProductsAsync(int threshold = 10)
     {
         
         var products = await _context.Products
-            .Include(p => p.StockMovements)
+            .AsNoTracking()
             .Where(p => p.IsActive)
+            .Select(ProductProjection)
             .ToListAsync();
 
         products = products.Where(p => p.Stock > 0 && p.Stock <= threshold).OrderBy(p => p.Stock).ToList();
 
-        return products.Select(MapToDto);
+        return products;
     }
 
     public async Task<IEnumerable<ProductDto>> GetOutOfStockProductsAsync()
     {
         var products = await _context.Products
-            .Include(p => p.StockMovements)
+            .AsNoTracking()
             .Where(p => p.IsActive)
+            .Select(ProductProjection)
             .ToListAsync();
 
         products = products.Where(p => p.Stock == 0).OrderBy(p => p.Name).ToList();
 
-        return products.Select(MapToDto);
+        return products;
     }
 
     public async Task<ProductDto> CreateProductAsync(CreateProductDto dto)
@@ -389,7 +414,7 @@ public class ProductService : IProductService
         };
     }
 
-    private ProductSummaryDto MapToSummaryDto(Product product)
+    private ProductSummaryDto MapToSummaryDto(ProductDto product)
     {
         return new ProductSummaryDto
         {

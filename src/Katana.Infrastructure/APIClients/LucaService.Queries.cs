@@ -2058,6 +2058,7 @@ public partial class LucaService
 
         // 🔥 CACHE KONTROLÜ: Aynı session'da tekrar sorgulamayı önle
         await _stockCardCacheLock.WaitAsync();
+        bool cacheWasEmpty = _stockCardCache.Count == 0;
         try
         {
             if (_stockCardCache.TryGetValue(sku, out var cachedId))
@@ -2071,33 +2072,62 @@ public partial class LucaService
             _stockCardCacheLock.Release();
         }
 
+        // 🚨 FAILOVER: Cache boşsa UYAR!
+        if (cacheWasEmpty)
+        {
+            _logger.LogWarning("⚠️ CACHE BOŞ! Cache warming başarısız olmuş olabilir.");
+            _logger.LogWarning("   → SKU: {SKU} için CANLI API sorgusu yapılacak (yavaş!)", sku);
+        }
+
         try
         {
-            _logger.LogDebug("🔍 Luca'da stok kartı aranıyor: {SKU}", sku);
+            _logger.LogDebug("🔍 Luca'da stok kartı aranıyor (FUZZY SEARCH): {SKU}", sku);
             
             await EnsureAuthenticatedAsync();
             await EnsureBranchSelectedAsync();
 
+            // 🎯 FUZZY SEARCH: SKU ile BAŞLAYAN tüm kayıtları getir
+            // Bu sayede "81.06301-8211", "81.06301-8211-V2", "81.06301-8211-V3" hepsini bulabiliriz
             var request = new LucaListStockCardsRequest
             {
                 StkSkart = new LucaStockCardCodeFilter
                 {
                     KodBas = sku,
-                    KodBit = sku,
-                    KodOp = "between"
+                    KodBit = sku + "ZZZZ",  // Alfabetik range için üst limit
+                    KodOp = "between"       // SKU ile başlayan tüm kayıtlar
                 }
             };
 
             var result = await ListStockCardsAsync(request);
 
-            // 🔥 BOŞ/GEÇERSİZ RESPONSE KONTROLÜ
+            // 🔥 DEFENSIVE PROGRAMMING: BOŞ/GEÇERSİZ RESPONSE KONTROLÜ + RETRY
             if (result.ValueKind == JsonValueKind.Undefined || result.ValueKind == JsonValueKind.Null)
             {
-                _logger.LogWarning("⚠️ Luca'dan geçersiz response geldi (Undefined/Null) - SKU: {SKU}", sku);
-                return null;
+                _logger.LogWarning("⚠️ [RETRY] Luca'dan geçersiz response geldi (Undefined/Null) - SKU: {SKU}", sku);
+                _logger.LogWarning("   Session yenileniyor ve TEKRAR DENENİYOR...");
+                
+                try
+                {
+                    await ForceSessionRefreshAsync();
+                    _logger.LogInformation("✅ Session yenilendi, SKU: {SKU} için tekrar sorgulanıyor...", sku);
+                    
+                    result = await ListStockCardsAsync(request);
+                    
+                    // Retry sonrası hala boş/geçersiz mi?
+                    if (result.ValueKind == JsonValueKind.Undefined || result.ValueKind == JsonValueKind.Null)
+                    {
+                        _logger.LogError("❌ [RETRY FAILED] Session yenileme sonrası hala geçersiz response - SKU: {SKU}", sku);
+                        return null;
+                    }
+                }
+                catch (Exception retryEx)
+                {
+                    _logger.LogError(retryEx, "❌ [RETRY EXCEPTION] Session refresh başarısız - SKU: {SKU}", sku);
+                    return null;
+                }
             }
 
-            // Boş array kontrolü
+            // Boş array kontrolü (retry sonrası tekrar kontrol et)
             if (result.ValueKind == JsonValueKind.Array && result.GetArrayLength() == 0)
             {
                 _logger.LogInformation("ℹ️ Stok kartı bulunamadı (boş liste): {SKU}", sku);
@@ -2111,9 +2141,34 @@ public partial class LucaService
                 {
                     if (listProp.GetArrayLength() == 0)
                     {
-                        _logger.LogInformation("ℹ️ Stok kartı bulunamadı (list boş): {SKU}", sku);
+                        // 🔥 BOŞ LİSTE ama bu gerçekten "yok" mu yoksa API hatası mı?
+                        // Cache boşsa bu şüpheli bir durum (session/branch problemi olabilir)
+                        if (cacheWasEmpty)
+                        {
+                            _logger.LogWarning("⚠️ [SUSPICIOUS] Liste boş ANCAK cache de boştu - Session/Branch problemi olabilir!");
+                            _logger.LogWarning("   SKU: {SKU} - Bu gerçekten 'yok' mu yoksa API başarısız mı? DIKKATLI DAVRAN!", sku);
+                            // Boş dön ama logla - caller bu durumu handle etsin
+                        }
+                        else
+                        {
+                            _logger.LogInformation("ℹ️ Stok kartı bulunamadı (list boş): {SKU}", sku);
+                        }
                         return null;
                     }
+
+                    // 🎯 AKILLI EŞLEŞME: Öncelik sırası
+                    // 1. TAM EŞLEŞME (SKU = "81.06301-8211")
+                    // 2. VERSİYONLU EŞLEŞME (SKU-V2, SKU-V3, ..., SKU-V99)
+                    // 3. AUTO- PREFIX (AUTO-6d876996)
+                    
+                    long? exactMatchId = null;
+                    long? versionedMatchId = null;
+                    long? autoMatchId = null;
+                    string? exactMatchCode = null;
+                    string? versionedMatchCode = null;
+                    string? autoMatchCode = null;
+                    
+                    var candidates = new List<(string code, long id, string type)>();
 
                     foreach (var item in listProp.EnumerateArray())
                     {
@@ -2121,42 +2176,128 @@ public partial class LucaService
                         var kartKodu = item.TryGetProperty("kod", out var kodProp) ? kodProp.GetString() :
                                        item.TryGetProperty("kartKodu", out var kartKoduProp) ? kartKoduProp.GetString() : null;
 
-                        // SKU eşleşmesi kontrolü (case-insensitive)
-                        if (!string.IsNullOrEmpty(kartKodu) && 
-                            kartKodu.Trim().Equals(sku.Trim(), StringComparison.OrdinalIgnoreCase))
-                        {
-                            if (item.TryGetProperty("skartId", out var skartIdProp))
-                            {
-                                long? skartId = null;
-                                if (skartIdProp.ValueKind == JsonValueKind.Number)
-                                    skartId = skartIdProp.GetInt64();
-                                else if (skartIdProp.ValueKind == JsonValueKind.String && long.TryParse(skartIdProp.GetString(), out var parsed))
-                                    skartId = parsed;
+                        if (string.IsNullOrWhiteSpace(kartKodu))
+                            continue;
 
-                                if (skartId.HasValue)
-                                {
-                                    _logger.LogInformation("✅ Stok kartı bulundu: {SKU} → skartId: {SkartId}", sku, skartId.Value);
-                                    
-                                    // ✅ Cache'e ekle
-                                    await _stockCardCacheLock.WaitAsync();
-                                    try
-                                    {
-                                        _stockCardCache[sku] = skartId;
-                                    }
-                                    finally
-                                    {
-                                        _stockCardCacheLock.Release();
-                                    }
-                                    
-                                    return skartId;
-                                }
+                        var trimmedKod = kartKodu.Trim();
+                        
+                        // SkartId al
+                        if (!item.TryGetProperty("skartId", out var skartIdProp))
+                            continue;
+                            
+                        long? skartId = null;
+                        if (skartIdProp.ValueKind == JsonValueKind.Number)
+                            skartId = skartIdProp.GetInt64();
+                        else if (skartIdProp.ValueKind == JsonValueKind.String && long.TryParse(skartIdProp.GetString(), out var parsed))
+                            skartId = parsed;
+                            
+                        if (!skartId.HasValue || skartId.Value == 0)
+                            continue;
+
+                        // 1️⃣ TAM EŞLEŞME kontrolü
+                        if (trimmedKod.Equals(sku.Trim(), StringComparison.OrdinalIgnoreCase))
+                        {
+                            exactMatchId = skartId.Value;
+                            exactMatchCode = trimmedKod;
+                            candidates.Add((trimmedKod, skartId.Value, "EXACT"));
+                            _logger.LogDebug("  ✅ Tam eşleşme bulundu: {Code} → {Id}", trimmedKod, skartId.Value);
+                        }
+                        // 2️⃣ VERSİYONLU EŞLEŞME (-V2, -V3, -V99, timestamp sonekleri)
+                        else if (trimmedKod.StartsWith(sku.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                                 (System.Text.RegularExpressions.Regex.IsMatch(trimmedKod, @"-V\d+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase) ||
+                                  System.Text.RegularExpressions.Regex.IsMatch(trimmedKod, @"-\d{12}$"))) // Timestamp soneki (örn: -202512052307)
+                        {
+                            versionedMatchId ??= skartId.Value; // İlk bulduğunu al
+                            versionedMatchCode ??= trimmedKod;
+                            candidates.Add((trimmedKod, skartId.Value, "VERSIONED"));
+                            _logger.LogDebug("  📦 Versiyonlu eşleşme bulundu: {Code} → {Id}", trimmedKod, skartId.Value);
+                        }
+                        // 3️⃣ AUTO- PREFIX (AUTO-6d876996 gibi)
+                        else if (trimmedKod.StartsWith("AUTO-", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Stok Adı (tanim/kartAdi) alanında orijinal SKU olabilir mi kontrol et
+                            var kartAdi = item.TryGetProperty("tanim", out var tanimProp) ? tanimProp.GetString() :
+                                          item.TryGetProperty("kartAdi", out var kartAdiProp) ? kartAdiProp.GetString() : null;
+                            
+                            if (!string.IsNullOrWhiteSpace(kartAdi) && 
+                                kartAdi.Trim().Contains(sku.Trim(), StringComparison.OrdinalIgnoreCase))
+                            {
+                                autoMatchId ??= skartId.Value;
+                                autoMatchCode ??= trimmedKod;
+                                candidates.Add((trimmedKod, skartId.Value, "AUTO"));
+                                _logger.LogDebug("  🔧 AUTO- prefix eşleşme bulundu: {Code} (Stok Adı: {Name}) → {Id}", 
+                                    trimmedKod, kartAdi, skartId.Value);
                             }
                         }
+                    }
+                    
+                    // 🎯 SONUÇ: Öncelik sırasına göre dön
+                    if (exactMatchId.HasValue)
+                    {
+                        _logger.LogInformation("✅ [EXACT MATCH] Stok kartı bulundu: {SKU} → {Code} (skartId: {Id})", 
+                            sku, exactMatchCode, exactMatchId.Value);
+                        
+                        await _stockCardCacheLock.WaitAsync();
+                        try
+                        {
+                            _stockCardCache[sku] = exactMatchId;
+                        }
+                        finally
+                        {
+                            _stockCardCacheLock.Release();
+                        }
+                        
+                        return exactMatchId;
+                    }
+                    else if (versionedMatchId.HasValue)
+                    {
+                        _logger.LogWarning("⚠️ [VERSIONED MATCH] SKU: {SKU} Luca'da versiyonlanmış olarak bulundu: {Code} (skartId: {Id})", 
+                            sku, versionedMatchCode, versionedMatchId.Value);
+                        _logger.LogWarning("   ⚠️ DİKKAT: Bu ürün zaten var! Yeni kart açılmamalı.");
+                        
+                        if (candidates.Count > 1)
+                        {
+                            _logger.LogWarning("   📋 Bulunan {Count} varyasyon:", candidates.Count);
+                            foreach (var (code, id, type) in candidates)
+                            {
+                                _logger.LogWarning("      - {Code} ({Type}) → ID: {Id}", code, type, id);
+                            }
+                        }
+                        
+                        await _stockCardCacheLock.WaitAsync();
+                        try
+                        {
+                            _stockCardCache[sku] = versionedMatchId;
+                        }
+                        finally
+                        {
+                            _stockCardCacheLock.Release();
+                        }
+                        
+                        return versionedMatchId;
+                    }
+                    else if (autoMatchId.HasValue)
+                    {
+                        _logger.LogWarning("⚠️ [AUTO-PREFIX MATCH] SKU: {SKU} Luca'da AUTO- prefix ile bulundu: {Code} (skartId: {Id})", 
+                            sku, autoMatchCode, autoMatchId.Value);
+                        _logger.LogWarning("   ⚠️ DİKKAT: Bu ürün zaten var! Yeni kart açılmamalı.");
+                        
+                        await _stockCardCacheLock.WaitAsync();
+                        try
+                        {
+                            _stockCardCache[sku] = autoMatchId;
+                        }
+                        finally
+                        {
+                            _stockCardCacheLock.Release();
+                        }
+                        
+                        return autoMatchId;
                     }
                 }
             }
 
-            _logger.LogInformation("ℹ️ Stok kartı bulunamadı: {SKU}", sku);
+            _logger.LogInformation("ℹ️ Stok kartı bulunamadı (FUZZY SEARCH sonucu): {SKU}", sku);
             
             // ✅ Bulunamayan kartları da cache'e ekle (tekrar sorgulamayı önle)
             await _stockCardCacheLock.WaitAsync();
@@ -2344,31 +2485,57 @@ public partial class LucaService
             // Her değişiklik ayrı ayrı hesaplanır ve sonra OR (||) ile birleştirilir
             // Böylece "Fiyat 0" olsa bile İsim değişirse yeni versiyon oluşur!
 
-            // 1️⃣ İSİM KONTROLÜ - Wildcard (?) toleranslı karşılaştırma
+            // 1️⃣ İSİM KONTROLÜ - ÇOK TOLERANSLI KARŞILAŞTIRMA
+            // 🔥 KRİTİK FİX: Ø->O, ??->O, boşluk, büyük/küçük harf farklarını YOKSAY
+            // Sadece GERÇEKTEN farklı isimler için değişiklik say
             bool isNameChanged = false;
             if (!string.IsNullOrWhiteSpace(newCard.KartAdi) && !string.IsNullOrWhiteSpace(existingCard.KartAdi))
             {
-                var isNameEqual = AreEqualIgnoringTurkishChars(newCard.KartAdi, existingCard.KartAdi);
-                isNameChanged = !isNameEqual;
+                // 🔥 ULTRA TOLERANSLI KARŞILAŞTIRMA: Her türlü encoding sorununu tolere et
+                var normalizedNew = NormalizeForUltraLooseComparison(newCard.KartAdi);
+                var normalizedExisting = NormalizeForUltraLooseComparison(existingCard.KartAdi);
                 
-                if (isNameChanged)
+                // Karşılaştırma: Normalize edilmiş versiyonlar eşit mi?
+                var isNameEqual = normalizedNew.Equals(normalizedExisting, StringComparison.OrdinalIgnoreCase);
+                
+                // 🔥 EK KONTROL: Eğer normalize hala farklıysa, "benzerlik oranı" kontrolü yap
+                // Örnek: "Ø35*1,5 PIPE" vs "O35*1,5 PIPE" vs "??35*1,5 PIPE" → %90+ benzer
+                if (!isNameEqual)
                 {
-                    var normalizedNewWildcard = NormalizePreservingWildcard(newCard.KartAdi);
-                    var normalizedExistingWildcard = NormalizePreservingWildcard(existingCard.KartAdi);
-                    var normalizedNew = NormalizeTurkishCharsForComparison(newCard.KartAdi);
-                    var normalizedExisting = NormalizeTurkishCharsForComparison(existingCard.KartAdi);
-                    
-                    changeReasons.Add($"📝 İsim DEĞİŞTİ:");
-                    changeReasons.Add($"   Luca: '{existingCard.KartAdi}' (Wildcard: '{normalizedExistingWildcard}', Strict: '{normalizedExisting}')");
-                    changeReasons.Add($"   Katana: '{newCard.KartAdi}' (Wildcard: '{normalizedNewWildcard}', Strict: '{normalizedNew}')");
-                    
-                    _logger.LogDebug("İsim karşılaştırma detayı (Wildcard Mode):");
-                    _logger.LogDebug("  Luca RAW: '{LucaRaw}'", existingCard.KartAdi);
-                    _logger.LogDebug("  Luca WILDCARD: '{LucaWildcard}'", normalizedExistingWildcard);
-                    _logger.LogDebug("  Katana RAW: '{KatanaRaw}'", newCard.KartAdi);
-                    _logger.LogDebug("  Katana WILDCARD: '{KatanaWildcard}'", normalizedNewWildcard);
-                    _logger.LogDebug("  Match: {IsEqual}", isNameEqual);
+                    var similarity = CalculateStringSimilarity(normalizedNew, normalizedExisting);
+                    if (similarity >= 0.85) // %85 ve üzeri benzer ise "aynı" say
+                    {
+                        isNameEqual = true;
+                        _logger.LogDebug("⚠️ İsimler normalize sonrası farklı AMA %{Similarity:N0} benzer, aynı kabul ediliyor: '{Name1}' ≈ '{Name2}'",
+                            similarity * 100, normalizedNew, normalizedExisting);
+                    }
                 }
+                
+                // 🚫 İSİM DEĞİŞİKLİĞİ KONTROLÜ DEVRE DIŞI!
+                // Sebep: Katana DB'de bazı ürünlerin ismi yerine SKU yazılmış (örn: "81.06301-8212")
+                // Bu durum Luca'daki gerçek isimle ("COOLING WATER PIPE") çakışıyor ve gereksiz -V2 üretiyor.
+                // Çözüm: İsim farkını LOG'la ama değişiklik sayma (isNameChanged = false).
+                var actualNameDifference = !isNameEqual;
+                
+                if (actualNameDifference)
+                {
+                    // Bilgilendirici log - ama "değişiklik" olarak işaretlemiyoruz
+                    _logger.LogInformation("ℹ️ İsim farkı algılandı ama SYNC POLICY gereği GÖRMEZDEN GELİNİYOR:");
+                    _logger.LogInformation("   Luca: '{LucaName}'", existingCard.KartAdi);
+                    _logger.LogInformation("   Katana: '{KatanaName}'", newCard.KartAdi);
+                    _logger.LogInformation("   Sebep: Katana DB'de isim corruption var, Luca'daki orijinal ismi koruyoruz");
+                    
+                    // changeReasons'a EKLEME (isim farkını logla ama "değişiklik" sayma)
+                    // changeReasons.Add($"📝 İsim farkı var (ignored): Luca='{existingCard.KartAdi}' vs Katana='{newCard.KartAdi}'");
+                }
+                else
+                {
+                    _logger.LogDebug("✅ İsim AYNI kabul edildi (tolerance ile): '{Name1}' ≈ '{Name2}'", 
+                        normalizedNew, normalizedExisting);
+                }
+                
+                // 🔥 KRİTİK: İsim değişikliğini ASLA tetikleme!
+                isNameChanged = false;
             }
 
             // 2️⃣ FİYAT KONTROLÜ - Luca fiyatı 0 ise ATLA!
@@ -2914,6 +3081,111 @@ public partial class LucaService
         // %90 veya daha fazla eşleşme varsa KABUL ET
         double matchRate = (double)matchCount / compareLength;
         return matchRate >= 0.90;
+    }
+
+    /// <summary>
+    /// ULTRA TOLERANSLI NORMALİZASYON: Tüm encoding sorunlarını, boşlukları, noktalama işaretlerini temizler
+    /// Ø, ø, ?? karakterlerini O'ya çevirir. Sadece harf ve rakamları bırakır.
+    /// Örn: "Ø35*1,5 PIPE" → "O3515PIPE", "??35*1,5 PIPE" → "O3515PIPE"
+    /// </summary>
+    private static string NormalizeForUltraLooseComparison(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        // 1. BÜYÜK harfe çevir
+        var result = input.ToUpperInvariant();
+
+        // 2. ENCODING SORUNLARINI ÇÖZME - Tüm bilinen varyantları temizle
+        result = result
+            // Türkçe karakterler
+            .Replace("Ü", "U").Replace("Ö", "O")
+            .Replace("Ş", "S").Replace("Ç", "C")
+            .Replace("Ğ", "G").Replace("İ", "I")
+            // Çap sembolü (diameter) varyantları
+            .Replace("Ø", "O").Replace("ø", "O")
+            .Replace("Φ", "O").Replace("φ", "O")  // Greek Phi (bazen Ø yerine kullanılır)
+            // Encoding hatası karakterleri
+            .Replace("?", "")  // Tüm ? karakterlerini sil (encoding bozukluğu)
+            .Replace("�", "")  // Replacement character (Unicode U+FFFD)
+            // Diğer yaygın encoding sorunları
+            .Replace("Â", "A").Replace("â", "a")
+            .Replace("Î", "I").Replace("î", "i")
+            .Replace("Û", "U").Replace("û", "u")
+            // Windows-1254 <-> UTF-8 encoding sorunları
+            .Replace("Ã‡", "C")  // Ç encoding hatası
+            .Replace("Ã–", "O")  // Ö encoding hatası
+            .Replace("Å�", "I");  // İ encoding hatası
+
+        // 3. Noktalama işaretlerini, boşlukları, özel karakterleri SİL
+        // Sadece harf ve rakamları bırak
+        result = new string(result.Where(c => char.IsLetterOrDigit(c)).ToArray());
+
+        // 4. Trim
+        return result.Trim();
+    }
+
+    /// <summary>
+    /// İki string arasındaki benzerlik oranını hesaplar (Levenshtein Distance tabanlı)
+    /// 0.0 = Tamamen farklı, 1.0 = Tamamen aynı
+    /// Örn: "O3515PIPE" vs "O35151PIPE" → 0.91 (benzer)
+    /// </summary>
+    private static double CalculateStringSimilarity(string str1, string str2)
+    {
+        if (string.IsNullOrEmpty(str1) && string.IsNullOrEmpty(str2))
+            return 1.0;
+        if (string.IsNullOrEmpty(str1) || string.IsNullOrEmpty(str2))
+            return 0.0;
+        if (str1 == str2)
+            return 1.0;
+
+        // Levenshtein Distance hesapla
+        int distance = LevenshteinDistance(str1, str2);
+        int maxLength = Math.Max(str1.Length, str2.Length);
+        
+        // Similarity = 1 - (distance / maxLength)
+        double similarity = 1.0 - ((double)distance / maxLength);
+        return similarity;
+    }
+
+    /// <summary>
+    /// Levenshtein Distance (Edit Distance) hesaplar
+    /// İki string arasındaki minimum düzenleme sayısını (insertion, deletion, substitution) bulur
+    /// </summary>
+    private static int LevenshteinDistance(string str1, string str2)
+    {
+        int n = str1.Length;
+        int m = str2.Length;
+
+        // Boş string kontrolü
+        if (n == 0) return m;
+        if (m == 0) return n;
+
+        // DP matrisi
+        int[,] d = new int[n + 1, m + 1];
+
+        // İlk satır ve sütunu doldur
+        for (int i = 0; i <= n; i++)
+            d[i, 0] = i;
+        for (int j = 0; j <= m; j++)
+            d[0, j] = j;
+
+        // DP ile distance hesapla
+        for (int i = 1; i <= n; i++)
+        {
+            for (int j = 1; j <= m; j++)
+            {
+                int cost = (str1[i - 1] == str2[j - 1]) ? 0 : 1;
+
+                d[i, j] = Math.Min(
+                    Math.Min(
+                        d[i - 1, j] + 1,      // Deletion
+                        d[i, j - 1] + 1),     // Insertion
+                    d[i - 1, j - 1] + cost);  // Substitution
+            }
+        }
+
+        return d[n, m];
     }
 
     #endregion
