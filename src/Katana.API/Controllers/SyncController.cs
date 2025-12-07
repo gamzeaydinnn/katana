@@ -36,8 +36,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Senkronizasyon geçmişini getir (Admin, Manager, StokYonetici)
+    /// </summary>
     [HttpGet("history")]
-    [AllowAnonymous] 
+    [Authorize(Roles = "Admin,Manager,StokYonetici")]
     public async Task<IActionResult> GetSyncHistory()
     {
         try
@@ -76,8 +79,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Senkronizasyon başlat (SADECE Admin)
+    /// </summary>
     [HttpPost("start")]
-    [Authorize(Roles = "Admin,StokYonetici")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> StartSync([FromBody] StartSyncRequest request)
     {
         try
@@ -157,7 +163,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Tüm senkronizasyonu çalıştır (SADECE Admin)
+    /// </summary>
     [HttpPost("run")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<BatchSyncResultDto>> RunCompleteSync([FromQuery] DateTime? fromDate = null)
     {
         try
@@ -182,7 +192,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Stok senkronizasyonu (SADECE Admin)
+    /// </summary>
     [HttpPost("stock")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<SyncResultDto>> RunStockSync([FromQuery] DateTime? fromDate = null)
     {
         try
@@ -207,7 +221,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Fatura senkronizasyonu (SADECE Admin)
+    /// </summary>
     [HttpPost("invoices")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<SyncResultDto>> RunInvoiceSync([FromQuery] DateTime? fromDate = null)
     {
         try
@@ -232,7 +250,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Müşteri senkronizasyonu (SADECE Admin)
+    /// </summary>
     [HttpPost("customers")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<SyncResultDto>> RunCustomerSync([FromQuery] DateTime? fromDate = null)
     {
         try
@@ -257,7 +279,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Ürünleri Luca'ya senkronize et (SADECE Admin)
+    /// </summary>
     [HttpPost("to-luca/stock-cards")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<SyncResultDto>> SyncProductsToLuca(
         [FromBody] SyncOptionsDto? options = null,
         [FromQuery] DateTime? fromDate = null)
@@ -284,7 +310,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Tedarikçi senkronizasyonu (SADECE Admin)
+    /// </summary>
     [HttpPost("suppliers")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<SyncResultDto>> SyncSuppliers()
     {
         try
@@ -309,7 +339,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Depo senkronizasyonu (SADECE Admin)
+    /// </summary>
     [HttpPost("warehouses")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<SyncResultDto>> SyncWarehouses()
     {
         try
@@ -334,7 +368,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Müşteri Luca senkronizasyonu (SADECE Admin)
+    /// </summary>
     [HttpPost("customers-luca")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<SyncResultDto>> SyncCustomersLuca()
     {
         try
@@ -359,8 +397,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Senkronizasyon durumlarını getir (Admin, Manager, StokYonetici)
+    /// </summary>
     [HttpGet("status")]
-    [AllowAnonymous] 
+    [Authorize(Roles = "Admin,Manager,StokYonetici")] 
     public async Task<ActionResult<List<SyncStatusDto>>> GetSyncStatus()
     {
         try
@@ -378,8 +419,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Belirli sync tipi durumunu getir (Admin, Manager, StokYonetici)
+    /// </summary>
     [HttpGet("status/{syncType}")]
-    [AllowAnonymous] 
+    [Authorize(Roles = "Admin,Manager,StokYonetici")] 
     public async Task<ActionResult<object>> GetSyncTypeStatus(string syncType)
     {
         try
@@ -399,8 +443,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Luca'dan stok senkronizasyonu (SADECE Admin)
+    /// </summary>
     [HttpPost("from-luca/stock")]
-    [AllowAnonymous] 
+    [Authorize(Roles = "Admin")] 
     public async Task<ActionResult<SyncResultDto>> SyncStockFromLuca([FromQuery] DateTime? fromDate = null)
     {
         try
@@ -420,7 +467,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Luca'dan fatura senkronizasyonu (SADECE Admin)
+    /// </summary>
     [HttpPost("from-luca/invoices")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<SyncResultDto>> SyncInvoicesFromLuca([FromQuery] DateTime? fromDate = null)
     {
         try
@@ -440,7 +491,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Luca'dan müşteri senkronizasyonu (SADECE Admin)
+    /// </summary>
     [HttpPost("from-luca/customers")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<SyncResultDto>> SyncCustomersFromLuca([FromQuery] DateTime? fromDate = null)
     {
         try
@@ -460,7 +515,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Luca'dan irsaliye senkronizasyonu (SADECE Admin)
+    /// </summary>
     [HttpPost("from-luca/despatch")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<SyncResultDto>> SyncDespatchFromLuca([FromQuery] DateTime? fromDate = null)
     {
         try
@@ -480,7 +539,11 @@ public class SyncController : ControllerBase
     
     
     
+    /// <summary>
+    /// Luca'dan tüm senkronizasyon (SADECE Admin)
+    /// </summary>
     [HttpPost("from-luca/all")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<BatchSyncResultDto>> SyncAllFromLuca([FromQuery] DateTime? fromDate = null)
     {
         try
@@ -501,7 +564,7 @@ public class SyncController : ControllerBase
     /// DEBUG: Tek bir ürünün Katana ve Luca'daki durumunu karşılaştır
     /// </summary>
     [HttpGet("debug/product/{sku}")]
-    [AllowAnonymous]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult> DebugProductSync(string sku)
     {
         try
@@ -518,10 +581,10 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>
-    /// DEBUG: Tek bir ürünü zorla Luca'ya gönder (değişiklik kontrolü yapmadan)
+    /// DEBUG: Tek bir ürünü zorla Luca'ya gönder (SADECE Admin)
     /// </summary>
     [HttpPost("debug/force-sync/{sku}")]
-    [AllowAnonymous]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult> ForceSyncProduct(string sku)
     {
         try

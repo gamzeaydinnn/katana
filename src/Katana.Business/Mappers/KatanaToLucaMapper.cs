@@ -382,7 +382,8 @@ public static class KatanaToLucaMapper
         var sku = string.IsNullOrWhiteSpace(product.SKU) ? product.GetProductCode() : product.SKU.Trim();
         
         // 🔥 KRİTİK FİX: Katana'dan Name boş gelirse SKU kullan, ama LOG'A YAZ!
-        var name = string.IsNullOrWhiteSpace(product.Name) ? sku : product.Name.Trim();
+        var rawName = string.IsNullOrWhiteSpace(product.Name) ? sku : product.Name.Trim();
+        
         if (string.IsNullOrWhiteSpace(product.Name))
         {
             // UYARI: Katana'dan ürün ismi boş geldi, SKU kullanılıyor!
@@ -391,6 +392,20 @@ public static class KatanaToLucaMapper
             Console.WriteLine($"⚠️ MAPPING HATASI: Katana'dan Name boş geldi, SKU kullanılıyor: {sku}");
             Console.WriteLine($"   Bu durum Luca'da gereksiz versiyon oluşturabilir!");
             Console.WriteLine($"   ÇÖZÜM: Katana API'sinden 'name' alanını dolu gönder veya database'den ürün ismini çek.");
+        }
+        
+        // 🔥 ENCODING SORUNLARINI ÇÖZME: Ø, ?, ?? gibi karakterleri normalize et
+        // Luca API'si ISO-8859-9 (Turkish) encoding kullanıyor
+        // UTF-8'den gelen Ø karakteri Luca'da ?? olarak görünebilir
+        // Karşılaştırma sırasında sorun yaratmamak için normalize ediyoruz
+        var name = NormalizeProductNameForLuca(rawName);
+        
+        if (rawName != name)
+        {
+            Console.WriteLine($"🔧 ENCODING FIX: Ürün ismi normalize edildi");
+            Console.WriteLine($"   Orijinal: '{rawName}'");
+            Console.WriteLine($"   Normalize: '{name}'");
+            Console.WriteLine($"   SKU: {sku}");
         }
         
         // Prefer product.Category if provided; else fall back to configured default; otherwise leave null (Koza accepts null).
@@ -487,21 +502,27 @@ public static class KatanaToLucaMapper
         var dto = new LucaCreateStokKartiRequest
         {
             KartAdi = name,
-            KartTuru = 1,
+            KartTuru = 1, // 1=Stok, 2=Hizmet
             BaslangicTarihi = DateTime.UtcNow.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
             OlcumBirimiId = ResolveMeasurementUnitId(product, lucaSettings, katanaMapping),
             KartKodu = sku,
             MaliyetHesaplanacakFlag = 1,
             KartTipi = lucaSettings.DefaultKartTipi,
-            // Stok kartı için kategoriAgacKod boş olmalı (depo kartından farklı)
-            KategoriAgacKod = category ?? string.Empty,
+            // kategoriAgacKod - mapping varsa kullan, yoksa null
+            KategoriAgacKod = category,
             KartAlisKdvOran = 1,
             KartSatisKdvOran = 1,
-            Barkod = barcodeToSend, // 🔥 Versiyonlu SKU'lar için NULL
+            Barkod = barcodeToSend, // Versiyonlu SKU'lar için NULL
             UzunAdi = name,
             SatilabilirFlag = 1,
             SatinAlinabilirFlag = 1,
             LotNoFlag = 0,
+            MinStokKontrol = 0,
+            // 🔥 FIX: Tevkifat alanları - Luca dokümantasyonuna göre doğru isimler
+            AlisTevkifatOran = null,           // "7/10" formatında string veya null
+            SatisTevkifatOran = null,          // "2/10" formatında string veya null
+            AlisTevkifatTipId = null,          // NOT: alisTevkifatKod DEĞİL!
+            SatisTevkifatTipId = null,         // NOT: satisTevkifatKod DEĞİL!
             PerakendeAlisBirimFiyat = ConvertToDouble(product.CostPrice ?? product.PurchasePrice ?? 0),
             PerakendeSatisBirimFiyat = ConvertToDouble(product.SalesPrice ?? product.Price)
         };
@@ -601,6 +622,52 @@ public static class KatanaToLucaMapper
     {
         if (string.IsNullOrWhiteSpace(input)) return false;
         return System.Text.RegularExpressions.Regex.IsMatch(input.Trim(), "^\\d+$");
+    }
+    
+    /// <summary>
+    /// Ürün ismini Luca API'si için normalize eder (Encoding sorunlarını çözer)
+    /// Luca ISO-8859-9 (Turkish) encoding kullanıyor, UTF-8'den gelen bazı karakterler bozuluyor
+    /// Ø → O, ?? → temizle, özel karakterleri ASCII'ye çevir
+    /// </summary>
+    private static string NormalizeProductNameForLuca(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        var result = input.Trim();
+
+        // 1. DIAMETER (Çap) sembolü varyantları → O'ya çevir
+        result = result
+            .Replace("Ø", "O")   // Unicode U+00D8 (Latin Capital Letter O with Stroke)
+            .Replace("ø", "o")   // Unicode U+00F8 (Latin Small Letter O with Stroke)
+            .Replace("Φ", "O")   // Unicode U+03A6 (Greek Capital Letter Phi)
+            .Replace("φ", "o")   // Unicode U+03C6 (Greek Small Letter Phi)
+            .Replace("⌀", "O");  // Unicode U+2300 (Diameter Sign)
+
+        // 2. ENCODING HATASI karakterlerini temizle
+        // Luca'da ?? olarak görünen karakterler için fallback
+        result = result
+            .Replace("�", "")    // Unicode Replacement Character (U+FFFD)
+            .Replace("?", "");   // Soru işareti (encoding bozukluğu göstergesi)
+
+        // 3. TÜRKÇE KARAKTERLER - Luca API'si zaten ISO-8859-9 destekliyor, dokunma!
+        // Ü, Ö, Ş, Ç, Ğ, İ karakterlerini KORUYORUZ (Luca bunları destekliyor)
+
+        // 4. WINDOWS-1254 <-> UTF-8 encoding sorunlarını düzelt
+        result = result
+            .Replace("Ã‡", "Ç")  // Ç encoding hatası
+            .Replace("Ã–", "Ö")  // Ö encoding hatası
+            .Replace("Ãœ", "Ü")  // Ü encoding hatası
+            .Replace("Å�", "İ")  // İ encoding hatası
+            .Replace("Ã§", "ç")  // ç encoding hatası
+            .Replace("Ã¶", "ö")  // ö encoding hatası
+            .Replace("Ã¼", "ü")  // ü encoding hatası
+            .Replace("Ä±", "ı"); // ı encoding hatası
+
+        // 5. FAZLA BOŞLUKLARI TEMİZLE
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\s+", " ").Trim();
+
+        return result;
     }
 
     public static void ValidateLucaStockCard(LucaCreateStokKartiRequest dto)

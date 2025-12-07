@@ -401,18 +401,44 @@ public partial class LucaService : ILucaService
             }
         }
         
-        // 3. HttpClient'ı yeniden oluştur
+        // 3. HttpClient'ı YENİDEN OLUŞTUR (DISPOSE ETME - DI tarafından yönetiliyor!)
+        // ❌ ESKI KOD: _cookieHttpClient?.Dispose() → ObjectDisposedException'a sebep oluyor!
+        // ✅ YENİ KOD: Sadece referansları temizle, client'ı öldürme
         try
         {
-            _cookieHttpClient?.Dispose();
-            _cookieHttpClient = null;
-            _cookieHandler = null;
-            _cookieContainer = null;
-            _logger.LogDebug("🔌 HttpClient dispose edildi");
+            // HttpClient'ın kendisine DOKUNMA, sadece DefaultHeaders'ları temizle
+            if (_cookieHttpClient != null)
+            {
+                _cookieHttpClient.DefaultRequestHeaders.Clear();
+                _logger.LogDebug("🧹 HttpClient headers temizlendi (Client dispose EDİLMEDİ!)");
+            }
+            
+            // Cookie Handler ve Container'ı yeniden oluştur
+            _cookieContainer = new CookieContainer();
+            _cookieHandler = new HttpClientHandler
+            {
+                CookieContainer = _cookieContainer,
+                UseCookies = true,
+                AllowAutoRedirect = true,
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+            };
+            
+            // Yeni handler ile HttpClient'ı yeniden oluştur
+            _cookieHttpClient = new HttpClient(_cookieHandler)
+            {
+                BaseAddress = new Uri(_settings.BaseUrl.TrimEnd('/') + "/"),
+                Timeout = TimeSpan.FromMinutes(5)
+            };
+            
+            _cookieHttpClient.DefaultRequestHeaders.Accept.Clear();
+            _cookieHttpClient.DefaultRequestHeaders.Accept.Add(
+                new MediaTypeWithQualityHeaderValue("application/json"));
+            
+            _logger.LogDebug("🔌 HttpClient yeniden oluşturuldu (yeni CookieContainer ile)");
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "HttpClient dispose hatası");
+            _logger.LogError(ex, "HttpClient yenileme hatası");
         }
         
         // 4. Yeniden login yap
@@ -733,6 +759,15 @@ public partial class LucaService : ILucaService
             var changeBranchBody = await changeBranchResponse.Content.ReadAsStringAsync();
             _logger.LogDebug("ChangeBranch response status: {Status}", changeBranchResponse.StatusCode);
             _logger.LogDebug("ChangeBranch response body: {Body}", changeBranchBody);
+
+            // 🔥 DEFENSIVE PROGRAMMING STEP 3: STRUTS TIMING FIX
+            // Şube değiştikten sonra Struts framework'ün internal state'ini senkronize etmesi için
+            // KISA BİR BEKLEME süresi ekle. Yoksa ListStockCards isteği "Unable to instantiate Action" hatası alır.
+            // User feedback: "Şube değiştirdikten (ChangeBranch) sonra, liste çekme isteği (ListStockCards) 
+            //                 yapmadan önce araya çok kısa bir Task.Delay(500) koymayı dene"
+            _logger.LogDebug("⏳ [STRUTS SYNC] Waiting 500ms after ChangeBranch for Struts framework synchronization...");
+            await Task.Delay(500);
+            _logger.LogDebug("✅ [STRUTS SYNC] Delay complete - ready for ListStockCards");
 
                     if (!changeBranchResponse.IsSuccessStatusCode)
                     {
