@@ -1,4 +1,3 @@
-using Katana.Business.DTOs;
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Core.Enums;

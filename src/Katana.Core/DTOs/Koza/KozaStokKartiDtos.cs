@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Katana.Business.DTOs.Koza;
+namespace Katana.Core.DTOs.Koza;
 
 /// <summary>
 /// Basitleştirilmiş Koza Stok Kartı DTO

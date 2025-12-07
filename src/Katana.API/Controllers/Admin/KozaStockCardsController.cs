@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Katana.Business.Interfaces;
-using Katana.Business.DTOs.Koza;
+using Katana.Core.DTOs.Koza;
 
 namespace Katana.API.Controllers.Admin;
 

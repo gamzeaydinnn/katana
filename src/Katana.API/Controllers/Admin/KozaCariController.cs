@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Katana.Business.Interfaces;
-using Katana.Business.DTOs.Koza;
+using Katana.Core.DTOs.Koza;
 using Katana.Data.Context;
 using Katana.Core.Entities;
 using Katana.Core.DTOs;

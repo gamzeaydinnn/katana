@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
-using Katana.Business.DTOs;
+using Katana.Core.DTOs;
 using Katana.Business.Models.DTOs;
 using Katana.Data.Configuration;
 using Microsoft.Extensions.Logging;

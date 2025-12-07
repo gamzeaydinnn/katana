@@ -1,7 +1,6 @@
-﻿using Katana.Business.DTOs;
-using Katana.Business.DTOs.Koza;
+﻿using Katana.Core.DTOs;
+using Katana.Core.DTOs.Koza;
 using Katana.Business.Interfaces;
-using Katana.Core.DTOs;
 using Katana.Core.Enums;
 using Katana.Data.Context;
 using Katana.Business.Services;

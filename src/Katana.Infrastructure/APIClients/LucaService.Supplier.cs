@@ -1,6 +1,6 @@
 using System.Text;
 using System.Text.Json;
-using Katana.Business.DTOs.Koza;
+using Katana.Core.DTOs.Koza;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Microsoft.Extensions.Logging;
