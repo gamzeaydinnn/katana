@@ -238,7 +238,8 @@ public sealed class KozaDepotsController : ControllerBase
     /// </summary>
     [HttpPost("create")]
     [ProducesResponseType(typeof(KozaResult), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Create(
         [FromBody] KozaCreateDepotRequest? request,
@@ -310,6 +311,28 @@ public sealed class KozaDepotsController : ControllerBase
 
             _logger.LogInformation("Creating Koza depot: {Kod} - {Tanim} - {KategoriKod}", 
                 request.StkDepo.Kod, request.StkDepo.Tanim, request.StkDepo.KategoriKod);
+
+            // Duplicate location code check - önce database'de ara
+            var existingDepot = await _context.KozaDepots
+                .FirstOrDefaultAsync(d => d.Kod == request.StkDepo.Kod, ct);
+            
+            if (existingDepot != null)
+            {
+                _logger.LogWarning("Duplicate depot code detected: {Kod} (ID: {ExistingId})", 
+                    request.StkDepo.Kod, existingDepot.Id);
+                
+                return Conflict(new
+                {
+                    error = "Depo kodu zaten mevcut",
+                    code = "DUPLICATE_LOCATION",
+                    details = new
+                    {
+                        locationCode = request.StkDepo.Kod,
+                        existingId = existingDepot.Id,
+                        existingName = existingDepot.Tanim
+                    }
+                });
+            }
 
             // DEBUG 3: LucaService'e gönderilmeden HEMEN ÖNCE son kontrol
             _logger.LogWarning("=== SENDING TO LUCA SERVICE ===");
