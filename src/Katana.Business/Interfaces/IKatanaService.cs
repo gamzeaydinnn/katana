@@ -37,6 +37,7 @@ public interface IKatanaService
     Task<SalesOrderDto?> UpdateSalesOrderAsync(SalesOrderDto salesOrder);
     Task<List<LocationDto>> GetLocationsAsync();
     Task<LocationDto?> CreateLocationAsync(LocationDto location);
+    Task<LocationDto?> UpdateLocationAsync(int locationId, LocationDto location);
     Task<List<StockAdjustmentDto>> GetStockAdjustmentsAsync(DateTime? fromDate = null, DateTime? toDate = null);
     Task<StockAdjustmentDto?> CreateStockAdjustmentAsync(StockAdjustmentCreateRequest request);
     Task<List<InventoryMovementDto>> GetInventoryMovementsAsync(DateTime? fromDate = null, DateTime? toDate = null);
