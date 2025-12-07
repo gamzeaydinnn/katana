@@ -17,6 +17,8 @@ public interface IKatanaApiClient
     Task<List<Order>> GetSalesOrdersAsync(DateTime? fromDate = null);
     Task<Order?> CreateSalesOrderAsync(Order order);
     Task<Order?> UpdateSalesOrderAsync(Order order);
+    Task<LocationDto?> CreateLocationAsync(LocationDto location);
+    Task<LocationDto?> UpdateLocationAsync(int locationId, LocationDto location);
     Task<List<ServiceDto>> GetServicesAsync();
     Task<List<TaxRateDto>> GetTaxRatesAsync();
     Task<List<PriceListDto>> GetPriceListsAsync();
