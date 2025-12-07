@@ -821,6 +821,61 @@ public class KatanaService : IKatanaService
         return GetListAsync<LocationDto>(_settings.Endpoints.Locations, "locations");
     }
 
+    public async Task<LocationDto?> CreateLocationAsync(LocationDto location)
+    {
+        try
+        {
+            if (location == null)
+            {
+                _logger.LogError("CreateLocationAsync called with null location");
+                return null;
+            }
+
+            _logger.LogInformation("Creating location in Katana: {LocationName}", location.Name);
+
+            // Build payload matching Katana API specification
+            var payload = new Dictionary<string, object?>
+            {
+                { "name", location.Name },
+                { "legal_name", location.LegalName ?? location.Name },
+                { "is_primary", location.IsPrimary },
+                { "sales_allowed", location.SalesAllowed },
+                { "manufacturing_allowed", location.ManufacturingAllowed },
+                { "purchase_allowed", location.PurchaseAllowed }
+            };
+
+            // Add optional address_id if present
+            if (location.AddressId.HasValue && location.AddressId > 0)
+            {
+                payload["address_id"] = location.AddressId.Value;
+            }
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            _logger.LogDebug("CreateLocationAsync payload: {Payload}", json);
+
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync(_settings.Endpoints.Locations, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("CreateLocationAsync failed. Status: {StatusCode}, Response: {Response}", 
+                    response.StatusCode, responseContent);
+                return null;
+            }
+
+            _logger.LogInformation("Location created successfully in Katana: {LocationName}", location.Name);
+            
+            // Parse and return the created location
+            return JsonSerializer.Deserialize<LocationDto>(responseContent, _jsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating location in Katana API. Location: {LocationName}", location?.Name ?? "Unknown");
+            return null;
+        }
+    }
+
     public Task<List<ServiceDto>> GetServicesAsync()
     {
         return GetListAsync<ServiceDto>("services", "services");
