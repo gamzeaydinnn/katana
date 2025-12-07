@@ -1675,7 +1675,7 @@ public class LucaCreateStokKartiRequest
     public string KartKodu { get; set; } = string.Empty;
 
     [JsonPropertyName("maliyetHesaplanacakFlag")]
-    public int MaliyetHesaplanacakFlag { get; set; }
+    public bool MaliyetHesaplanacakFlag { get; set; }  // ✅ BOOLEAN - Luca dokümantasyonuna göre!
 
     [JsonPropertyName("kartTipi")]
     public long KartTipi { get; set; }

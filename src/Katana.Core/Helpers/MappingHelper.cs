@@ -800,82 +800,41 @@ public static class MappingHelper
         }
         var baseName = string.IsNullOrWhiteSpace(product.Name) ? normalizedSku : product.Name;
         var kartAdi = TrimAndTruncate(baseName, 255) ?? normalizedSku;
-        // Per Admin: UzunAdi should include SKU and product name, e.g. "BFM-01 / Metal Levha 10mm"
-        var uzunAdi = TrimAndTruncate($"{normalizedSku} / {kartAdi}", 500) ?? kartAdi;
-        var kategoriKod = TrimAndTruncate(product.CategoryId > 0 ? product.CategoryId.ToString() : string.Empty, 50) ?? string.Empty;
+        // ✅ RAPOR UYUMLU: SADECE LUCA DOKÜMANTASYONUNDA OLAN ALANLAR!
         var barkod = normalizedSku;
-        var detayAciklama = TrimAndTruncate(product.Description, 1000) ?? string.Empty;
         var startDate = (product.CreatedAt == default ? DateTime.UtcNow : product.CreatedAt).Date;
-
-        // Dokümana göre KDV oranları 0.18 formatında gönderilmeli (%18)
-        var vat = defaultVat ?? 0.18;
 
         return new LucaCreateStokKartiRequest
         {
+            // Zorunlu alanlar
             KartAdi = kartAdi,
-            KartTuru = 1,
-            BaslangicTarihi = startDate.ToString("dd/MM/yyyy"),
-            // Dokümana göre "Adet" için 5 tipik ID; gerekirse dışarıdan sağlanır.
-            OlcumBirimiId = olcumBirimiId ?? 5,
             KartKodu = normalizedSku,
-            MaliyetHesaplanacakFlag = 1,
+            BaslangicTarihi = startDate.ToString("dd/MM/yyyy"), // dd/MM/yyyy format!
+            
+            // Tip ve kategori
             KartTipi = 1,
-            // Stok kartı için kategoriAgacKod boş olmalı (depo kartından farklı)
-            KategoriAgacKod = string.Empty,
-            KartAlisKdvOran = vat,
-            KartSatisKdvOran = vat,
-            BitisTarihi = null,
+            KartTuru = 1, // 1=Stok
+            KategoriAgacKod = null, // Rapor: null gönderilmeli
+            
+            // KDV ve ölçü birimi
+            KartAlisKdvOran = 1, // Rapor: Sadece alış KDV, 1=sabit ID
+            OlcumBirimiId = olcumBirimiId ?? 1, // 1=ADET
+            
+            // Barkod
             Barkod = barkod,
-            KartToptanAlisKdvOran = vat,
-            RafOmru = 0,
-            UzunAdi = uzunAdi,
-            KartToptanSatisKdvOran = vat,
-            GarantiSuresi = 0,
-            GtipKodu = string.Empty,
-            AlisTevkifatOran = null,           // Luca doc: "7/10" formatında string veya null
-            AlisTevkifatTipId = null,          // Luca doc: alisTevkifatTipId (NOT: alisTevkifatKod DEĞİL!)
-            IhracatKategoriNo = string.Empty,
-            SatisTevkifatOran = null,          // Luca doc: "2/10" formatında string veya null
-            SatisTevkifatTipId = null,         // Luca doc: satisTevkifatTipId (NOT: satisTevkifatKod DEĞİL!)
+            
+            // Tevkifat bilgileri (null)
+            AlisTevkifatOran = null,
+            SatisTevkifatOran = null,
+            AlisTevkifatTipId = null,
+            SatisTevkifatTipId = null,
+            
+            // Flagler
+            SatilabilirFlag = 1,
+            SatinAlinabilirFlag = 1,
+            LotNoFlag = 1,
             MinStokKontrol = 0,
-            MinStokMiktari = 0,
-            AlisIskontoOran1 = 0,
-            SatilabilirFlag = product.IsActive ? 1 : 0,
-            SatinAlinabilirFlag = product.IsActive ? 1 : 0,
-            UtsVeriAktarimiFlag = 0,
-            BagDerecesi = 0,
-            MaxStokKontrol = 0,
-            MaxStokMiktari = 0,
-            SatisIskontoOran1 = 0,
-            SatisAlternatifFlag = 0,
-            UretimSuresi = 0,
-            UretimSuresiBirim = 0,
-            SeriNoFlag = 0,
-            LotNoFlag = 0,
-            DetayAciklama = detayAciklama,
-            OtvMaliyetFlag = 0,
-            OtvTutarKdvFlag = 0,
-            OtvIskontoFlag = 0,
-            OtvTipi = string.Empty,
-            StopajOran = 0,
-            AlisIskontoOran2 = 0,
-            AlisIskontoOran3 = 0,
-            AlisIskontoOran4 = 0,
-            AlisIskontoOran5 = 0,
-            SatisIskontoOran2 = 0,
-            SatisIskontoOran3 = 0,
-            SatisIskontoOran4 = 0,
-            SatisIskontoOran5 = 0,
-            AlisMaktuVergi = 0,
-            SatisMaktuVergi = 0,
-            AlisOtvOran = 0,
-            AlisOtvTutar = 0,
-            AlisTecilOtv = 0,
-            SatisOtvOran = 0,
-            SatisOtvTutar = 0,
-            SatisTecilOtv = 0,
-            PerakendeAlisBirimFiyat = (double)product.Price,
-            PerakendeSatisBirimFiyat = (double)product.Price
+            MaliyetHesaplanacakFlag = true // ✅ BOOLEAN!
         };
     }
 
@@ -915,52 +874,60 @@ public static class MappingHelper
             barcodeToSend = string.IsNullOrWhiteSpace(product.Barcode) ? sku : product.Barcode;
         }
         
+        // ✅ RAPOR UYUMLU: SADECE LUCA DOKÜMANTASYONUNDA OLAN ALANLAR!
         return new LucaCreateStokKartiRequest
         {
+            // Zorunlu alanlar
             KartAdi = TrimAndTruncate(name, 255) ?? sku,
-            KartTuru = 1,
-            BaslangicTarihi = startDate.ToString("dd/MM/yyyy"),
-            OlcumBirimiId = olcumBirimiId ?? 5, // "Adet" varsayılanı
             KartKodu = sku,
-            MaliyetHesaplanacakFlag = 1,
+            BaslangicTarihi = startDate.ToString("dd/MM/yyyy"),
+            
+            // Tip ve kategori
             KartTipi = 1,
-            // Stok kartı için kategoriAgacKod boş olmalı (depo kartından farklı)
-            KategoriAgacKod = string.Empty,
-            KartAlisKdvOran = vatRate,
-            KartSatisKdvOran = vatRate,
-            Barkod = barcodeToSend, // 🔥 Versiyonlu SKU'lar için NULL
-            UzunAdi = uzun,
-            PerakendeAlisBirimFiyat = (double)(product.PurchasePrice ?? product.Price),
-            PerakendeSatisBirimFiyat = (double)(product.SalesPrice ?? product.Price),
-            SatilabilirFlag = product.IsActive ? 1 : 0,
-            SatinAlinabilirFlag = product.IsActive ? 1 : 0,
-            DetayAciklama = desc
+            KartTuru = 1,
+            KategoriAgacKod = null,
+            
+            // KDV ve ölçü birimi
+            KartAlisKdvOran = 1, // Rapor: Sabit 1 (ID)
+            OlcumBirimiId = olcumBirimiId ?? 1,
+            
+            // Barkod (versiyonlu SKU'lar için NULL)
+            Barkod = barcodeToSend,
+            
+            // Tevkifat (null)
+            AlisTevkifatOran = null,
+            SatisTevkifatOran = null,
+            AlisTevkifatTipId = null,
+            SatisTevkifatTipId = null,
+            
+            // Flagler
+            SatilabilirFlag = 1,
+            SatinAlinabilirFlag = 1,
+            LotNoFlag = 1,
+            MinStokKontrol = 0,
+            MaliyetHesaplanacakFlag = true // ✅ BOOLEAN!
         };
     }
 
     /// <summary>
     /// Luca stok kartı gönderimi öncesi minimum alan doğrulaması.
+    /// ✅ RAPOR UYUMLU: Sadece dokümantasyondaki zorunlu alanları kontrol eder
     /// </summary>
     public static (bool IsValid, List<string> Errors) ValidateLucaStockCard(LucaCreateStokKartiRequest stockCard)
     {
         var errors = new List<string>();
 
+        // Zorunlu alanlar
         if (string.IsNullOrWhiteSpace(stockCard.KartAdi))
             errors.Add("kartAdi zorunlu");
         if (string.IsNullOrWhiteSpace(stockCard.KartKodu))
             errors.Add("kartKodu (SKU) zorunlu");
+        if (string.IsNullOrWhiteSpace(stockCard.BaslangicTarihi))
+            errors.Add("baslangicTarihi zorunlu (dd/MM/yyyy formatında)");
         if (stockCard.OlcumBirimiId <= 0)
             errors.Add("olcumBirimiId zorunlu");
         if (stockCard.KartAlisKdvOran < 0)
             errors.Add("KartAlisKdvOran geçersiz");
-        if (stockCard.KartSatisKdvOran < 0)
-            errors.Add("KartSatisKdvOran geçersiz");
-        if (stockCard.PerakendeAlisBirimFiyat < 0 || stockCard.PerakendeSatisBirimFiyat < 0)
-            errors.Add("Birim fiyatlar negatif olamaz");
-        if (stockCard.KartSatisKdvOran < 0 || stockCard.KartSatisKdvOran > 1)
-            errors.Add("KartSatisKdvOran 0 ile 1 arasında olmalı");
-        if (stockCard.KartAlisKdvOran < 0 || stockCard.KartAlisKdvOran > 1)
-            errors.Add("KartAlisKdvOran 0 ile 1 arasında olmalı");
 
         return (!errors.Any(), errors);
     }
