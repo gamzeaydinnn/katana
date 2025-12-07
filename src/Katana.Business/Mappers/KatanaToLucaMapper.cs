@@ -69,26 +69,38 @@ public static class KatanaToLucaMapper
             ?? excelRow.VatRate
             ?? Convert.ToDecimal(defaultVatRate ?? 0, CultureInfo.InvariantCulture);
 
+        // ✅ RAPOR UYUMLU: SADECE LUCA DOKÜMANTASYONUNDA OLAN ALANLAR!
         var request = new LucaCreateStokKartiRequest
         {
+            // Zorunlu alanlar
             KartAdi = excelRow.Name?.Trim() ?? excelRow.SKU?.Trim() ?? string.Empty,
             KartKodu = excelRow.SKU?.Trim() ?? string.Empty,
-            KartTuru = 1,
             BaslangicTarihi = excelRow.StartDate.ToString(KozaDateFormat, CultureInfo.InvariantCulture),
-            OlcumBirimiId = defaultOlcumBirimiId ?? 5,
-            KartTipi = defaultKartTipi ?? 4,
-            KategoriAgacKod = !string.IsNullOrWhiteSpace(excelRow.CategoryCode) ? excelRow.CategoryCode : defaultKategoriKod ?? string.Empty,
+            
+            // Tip ve kategori
+            KartTipi = defaultKartTipi ?? 1,
+            KartTuru = 1,
+            KategoriAgacKod = !string.IsNullOrWhiteSpace(excelRow.CategoryCode) ? excelRow.CategoryCode : defaultKategoriKod,
+            
+            // KDV ve ölçü birimi
             KartAlisKdvOran = ConvertToDouble(vatPurchaseDecimal),
-            KartSatisKdvOran = ConvertToDouble(vatSalesDecimal),
-            PerakendeAlisBirimFiyat = 0,
-            PerakendeSatisBirimFiyat = 0,
+            OlcumBirimiId = defaultOlcumBirimiId ?? 5,
+            
+            // Barkod
+            Barkod = excelRow.Barcode ?? string.Empty,
+            
+            // Tevkifat (null)
+            AlisTevkifatOran = null,
+            SatisTevkifatOran = null,
+            AlisTevkifatTipId = null,
+            SatisTevkifatTipId = null,
+            
+            // Flagler
             SatilabilirFlag = BoolToInt(excelRow.IsActive),
             SatinAlinabilirFlag = BoolToInt(excelRow.IsActive),
             LotNoFlag = BoolToInt(excelRow.TrackStock),
             MinStokKontrol = 0,
-            MaliyetHesaplanacakFlag = BoolToInt(excelRow.CalculateCostOnPurchase),
-            Barkod = excelRow.Barcode ?? string.Empty,
-            UzunAdi = excelRow.Name ?? excelRow.SKU ?? string.Empty
+            MaliyetHesaplanacakFlag = excelRow.CalculateCostOnPurchase  // ✅ BOOLEAN
         };
 
         return request;
@@ -126,30 +138,37 @@ public static class KatanaToLucaMapper
         // 1. Kart Tipi
         card.KartTipi = 1;
 
-        // 2. KDV Oran ID'leri
-        card.KartAlisKdvOran = 1;
-        card.KartSatisKdvOran = 1;
-
-        // 3. Ölçüm Birimi
+        // ✅ RAPOR UYUMLU: Luca dokümantasyonuna göre sabitlenmiş ayarlar
+        
+        // Tip ve KDV
+        card.KartTipi = 1;
+        card.KartAlisKdvOran = 1; // Sadece alış KDV (satış GÖNDERİLMİYOR!)
+        
+        // Ölçü birimi ve tür
         card.OlcumBirimiId = 1;
-
-        // 4. Kart Türü (Stok)
-        card.KartTuru = 1;
-
-        // 5. Kategori Ağaç Kodu - NULL bırak (Luca örnekte gösterildiği gibi)
-        // Eğer defaultKategoriKod numeric kod ise ("001" gibi) kullan, yoksa null
+        card.KartTuru = 1; // 1=Stok
+        
+        // Kategori (null veya numeric kod)
         card.KategoriAgacKod = (!string.IsNullOrWhiteSpace(defaultKategoriKod) && 
                                  defaultKategoriKod!.All(c => char.IsDigit(c) || c == '.')) 
                                  ? defaultKategoriKod 
                                  : null;
-
-        // 6. Tarih Formatı (gg/aa/yyyy)
+        
+        // Tarih formatı (dd/MM/yyyy)
         card.BaslangicTarihi = DateTime.Now.ToString(KozaDateFormat, CultureInfo.InvariantCulture);
-
-        // 7. Diğer flag'ler
+        
+        // Flagler
         card.SatilabilirFlag = 1;
         card.SatinAlinabilirFlag = 1;
-        card.MaliyetHesaplanacakFlag = 1;
+        card.LotNoFlag = 1;
+        card.MinStokKontrol = 0;
+        card.MaliyetHesaplanacakFlag = true; // ✅ BOOLEAN!
+        
+        // Tevkifat (null)
+        card.AlisTevkifatOran = null;
+        card.SatisTevkifatOran = null;
+        card.AlisTevkifatTipId = null;
+        card.SatisTevkifatTipId = null;
 
         return card;
     }
@@ -496,7 +515,7 @@ public static class KatanaToLucaMapper
             BaslangicTarihi = DateTime.UtcNow.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
             OlcumBirimiId = lucaSettings.DefaultOlcumBirimiId,
             KartKodu = sku,
-            MaliyetHesaplanacakFlag = 1,
+            MaliyetHesaplanacakFlag = true,  // ✅ BOOLEAN - Luca dokümantasyonuna göre!
             KartTipi = lucaSettings.DefaultKartTipi,
             // 🔥 FIX: kategoriAgacKod - mapping varsa kullan, yoksa null
             KategoriAgacKod = category,

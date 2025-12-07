@@ -2485,10 +2485,9 @@ public partial class LucaService
             // Her değişiklik ayrı ayrı hesaplanır ve sonra OR (||) ile birleştirilir
             // Böylece "Fiyat 0" olsa bile İsim değişirse yeni versiyon oluşur!
 
-            // 1️⃣ İSİM KONTROLÜ - ÇOK TOLERANSLI KARŞILAŞTIRMA
-            // 🔥 KRİTİK FİX: Ø->O, ??->O, boşluk, büyük/küçük harf farklarını YOKSAY
-            // Sadece GERÇEKTEN farklı isimler için değişiklik say
-            bool isNameChanged = false;
+            // 1️⃣ İSİM KONTROLÜ - SADECE LOGLARken İÇİN (VERSİYONLAMAYA ETKİ ETMEZ!)
+            // 🔥 KRİTİK: İsim değişikliği ASLA yeni versiyon oluşturmaz
+            // Sebep: Katana DB'de isim corruption var (SKU yazılmış), Luca'daki orijinal isim korunmalı
             if (!string.IsNullOrWhiteSpace(newCard.KartAdi) && !string.IsNullOrWhiteSpace(existingCard.KartAdi))
             {
                 // 🔥 ULTRA TOLERANSLI KARŞILAŞTIRMA: Her türlü encoding sorununu tolere et
@@ -2533,9 +2532,6 @@ public partial class LucaService
                     _logger.LogDebug("✅ İsim AYNI kabul edildi (tolerance ile): '{Name1}' ≈ '{Name2}'", 
                         normalizedNew, normalizedExisting);
                 }
-                
-                // 🔥 KRİTİK: İsim değişikliğini ASLA tetikleme!
-                isNameChanged = false;
             }
 
             // 2️⃣ FİYAT KONTROLÜ - Luca fiyatı 0 ise ATLA!
@@ -2558,7 +2554,36 @@ public partial class LucaService
                 }
             }
 
-            // 3️⃣ KATEGORİ KONTROLÜ
+            // 3️⃣ KDV ORANI KONTROLÜ (Kritik Alan!)
+            bool isVatChanged = false;
+            // Sadece HER İKİSİ de geçerli değere sahipse karşılaştır (0 veya çok küçük değilse)
+            if (newCard.KartAlisKdvOran > 0.01 && existingCard.KartAlisKdvOran > 0.01)
+            {
+                if (Math.Abs(newCard.KartAlisKdvOran - existingCard.KartAlisKdvOran) > 0.01)
+                {
+                    isVatChanged = true;
+                    changeReasons.Add($"📊 KDV Oranı DEĞİŞTİ: {existingCard.KartAlisKdvOran:N2} -> {newCard.KartAlisKdvOran:N2}");
+                }
+            }
+            else
+            {
+                _logger.LogInformation("⚠️ KDV kontrolü atlandı (0/geçersiz değer): {KartKodu} (Luca: {LucaKdv}, Katana: {KatanaKdv})",
+                    newCard.KartKodu, existingCard.KartAlisKdvOran, newCard.KartAlisKdvOran);
+            }
+
+            // 4️⃣ ÖLÇÜ BİRİMİ KONTROLÜ (Kritik Alan!)
+            bool isUnitChanged = false;
+            // Sadece HER İKİSİ de geçerli ve default değil ise karşılaştır (ID > 1)
+            if (newCard.OlcumBirimiId > 1 && existingCard.OlcumBirimiId > 1)
+            {
+                if (newCard.OlcumBirimiId != existingCard.OlcumBirimiId)
+                {
+                    isUnitChanged = true;
+                    changeReasons.Add($"📏 Ölçü Birimi DEĞİŞTİ: ID {existingCard.OlcumBirimiId} -> {newCard.OlcumBirimiId}");
+                }
+            }
+
+            // 5️⃣ KATEGORİ KONTROLÜ (İsteğe bağlı)
             bool isCategoryChanged = false;
             if (!string.IsNullOrWhiteSpace(newCard.KategoriAgacKod) && !string.IsNullOrWhiteSpace(existingCard.KategoriAgacKod))
             {
@@ -2569,8 +2594,9 @@ public partial class LucaService
                 }
             }
 
-            // 🎯 SONUÇ: Herhangi biri değiştiyse TRUE dön (OR mantığı)
-            hasChanges = isNameChanged || isPriceChanged || isCategoryChanged;
+            // 🎯 SONUÇ: KRİTİK ALANLARDAN HERHANGİ BİRİ DEĞİŞTİYSE TRUE (OR mantığı)
+            // İsim değişikliği ASLA versiyonlamaya sebep olmaz!
+            hasChanges = isPriceChanged || isVatChanged || isUnitChanged || isCategoryChanged;
 
             if (hasChanges)
             {
