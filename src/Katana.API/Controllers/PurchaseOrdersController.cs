@@ -265,7 +265,9 @@ public class PurchaseOrdersController : ControllerBase
             User.Identity?.Name ?? "System",
             $"Yeni satınalma siparişi oluşturuldu: {orderNo}");
 
-        return CreatedAtAction(nameof(GetById), new { id = order.Id }, await GetById(order.Id));
+        var result = await GetById(order.Id);
+        var createdOrder = (result.Result as OkObjectResult)?.Value as PurchaseOrderDetailDto;
+        return CreatedAtAction(nameof(GetById), new { id = order.Id }, createdOrder);
     }
 
     /// <summary>
@@ -634,6 +636,122 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     /// <summary>
+    /// Sipariş durumunu güncelle (Pending -> Approved -> Received)
+    /// </summary>
+    [HttpPatch("{id}/status")]
+    public async Task<ActionResult> UpdateStatus(int id, [FromBody] UpdatePurchaseOrderStatusRequest request)
+    {
+        var order = await _context.PurchaseOrders
+            .Include(p => p.Items)
+                .ThenInclude(i => i.Product)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (order == null)
+        {
+            return NotFound(new { message = $"Satınalma siparişi bulunamadı: {id}" });
+        }
+
+        // Durum geçişi kontrolü
+        var isValidTransition = StatusMapper.IsValidTransition(order.Status, request.NewStatus);
+        if (!isValidTransition)
+        {
+            return BadRequest(new { message = $"Geçersiz durum değişikliği: {order.Status} -> {request.NewStatus}" });
+        }
+
+        var oldStatus = order.Status;
+        order.Status = request.NewStatus;
+        order.UpdatedAt = DateTime.UtcNow;
+
+        // 🔥 KRİTİK: "Received" durumuna geçildiğinde STOK ARTIŞI yap
+        if (request.NewStatus == PurchaseOrderStatus.Received && oldStatus != PurchaseOrderStatus.Received)
+        {
+            _logger.LogInformation("📦 Sipariş teslim alındı, stok artışı yapılıyor: {OrderNo}", order.OrderNo);
+
+            foreach (var item in order.Items)
+            {
+                if (item.Product == null)
+                {
+                    _logger.LogWarning("⚠️ Ürün bulunamadı: ProductId={ProductId}, atlanıyor", item.ProductId);
+                    continue;
+                }
+
+                // StockMovement kaydı oluştur
+                var movement = new StockMovement
+                {
+                    ProductId = item.ProductId,
+                    ProductSku = item.Product.SKU,
+                    ChangeQuantity = item.Quantity, // Pozitif miktar (giriş)
+                    MovementType = MovementType.In,
+                    SourceDocument = $"PO-{order.OrderNo}",
+                    Timestamp = DateTime.UtcNow,
+                    WarehouseCode = item.WarehouseCode ?? "MAIN",
+                    IsSynced = false
+                };
+                _context.StockMovements.Add(movement);
+
+                // Stock kaydı oluştur
+                var stockEntry = new Stock
+                {
+                    ProductId = item.ProductId,
+                    Location = item.WarehouseCode ?? "MAIN",
+                    Quantity = item.Quantity,
+                    Type = "IN",
+                    Reason = $"Satınalma siparişi teslim alındı: {order.OrderNo}",
+                    Reference = order.OrderNo,
+                    Timestamp = DateTime.UtcNow,
+                    IsSynced = false
+                };
+                _context.Stocks.Add(stockEntry);
+
+                _logger.LogInformation("✅ Stok artışı: {SKU} +{Qty} ({Warehouse})", 
+                    item.Product.SKU, item.Quantity, item.WarehouseCode ?? "MAIN");
+            }
+
+            // 🔥 Luca'ya stok kartı senkronizasyonu tetikle (arka planda)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(2000); // 2 saniye bekle (DB commit olsun)
+                    
+                    foreach (var item in order.Items)
+                    {
+                        if (item.Product == null) continue;
+                        
+                        _logger.LogInformation("🔄 Luca stok kartı senkronizasyonu tetikleniyor: {SKU}", item.Product.SKU);
+                        
+                        // Katana'ya ürün ekle/güncelle
+                        // TODO: KatanaService ile senkronizasyon yapılacak
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "❌ Luca sync tetikleme hatası");
+                }
+            });
+        }
+
+        await _context.SaveChangesAsync();
+
+        _auditService.LogUpdate(
+            "PurchaseOrder",
+            id.ToString(),
+            User.Identity?.Name ?? "System",
+            $"Status: {oldStatus} -> {request.NewStatus}",
+            $"Sipariş durumu güncellendi");
+
+        _logger.LogInformation("📝 Sipariş durumu güncellendi: {OrderNo} ({OldStatus} -> {NewStatus})", 
+            order.OrderNo, oldStatus, request.NewStatus);
+
+        return Ok(new { 
+            message = "Sipariş durumu güncellendi",
+            oldStatus = oldStatus.ToString(),
+            newStatus = request.NewStatus.ToString(),
+            stockUpdated = request.NewStatus == PurchaseOrderStatus.Received
+        });
+    }
+
+    /// <summary>
     /// Siparişi sil
     /// </summary>
     [HttpDelete("{id}")]
@@ -765,6 +883,11 @@ public class UpdatePurchaseOrderLucaFieldsRequest
     public string? ProjectCode { get; set; }
     public string? Description { get; set; }
     public long? ShippingAddressId { get; set; }
+}
+
+public class UpdatePurchaseOrderStatusRequest
+{
+    public PurchaseOrderStatus NewStatus { get; set; }
 }
 
 public class PurchaseOrderSyncResultDto

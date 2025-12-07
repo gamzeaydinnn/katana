@@ -637,16 +637,30 @@ baslangicTarihi = "2025-12-06"  // ISO format çalışmaz
 
 ### 7.3 Boolean vs Integer
 
-**DİKKAT**: `maliyetHesaplanacakFlag` boolean, diğer flagler integer!
+**✅ GÜNCEL DURUM**: `maliyetHesaplanacakFlag` boolean, diğer flagler integer!
 
+**DTO Tanımı** (`LucaCreateStokKartiRequest`):
+```csharp
+[JsonPropertyName("maliyetHesaplanacakFlag")]
+public bool MaliyetHesaplanacakFlag { get; set; }  // ✅ BOOLEAN
+```
+
+**JSON Gönderimi** (`LucaService.Operations.cs`):
 ```json
 {
-  "satilabilirFlag": 1, // integer
-  "satinAlinabilirFlag": 1, // integer
-  "lotNoFlag": 1, // integer
-  "maliyetHesaplanacakFlag": true // boolean!
+  "satilabilirFlag": 1,              // ✅ integer
+  "satinAlinabilirFlag": 1,          // ✅ integer
+  "lotNoFlag": 1,                    // ✅ integer
+  "maliyetHesaplanacakFlag": true    // ✅ boolean!
 }
 ```
+
+**Kullanımlar**:
+- `ProductsController.cs:538` → `MaliyetHesaplanacakFlag = true` ✅
+- `KatanaToLucaMapper.cs:152` → `card.MaliyetHesaplanacakFlag = true` ✅
+- `LucaService.Operations.cs:2049` → `["maliyetHesaplanacakFlag"] = true` ✅
+
+**SONUÇ**: %100 uyumlu! Boolean olarak kullanılıyor.
 
 ### 7.4 Tevkifat Alan İsimleri
 

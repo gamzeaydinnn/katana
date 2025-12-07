@@ -38,7 +38,7 @@ public static class LucaRequestFactory
             PerakendeAlisBirimFiyat = perakendeAlisBirimFiyat,
             PerakendeSatisBirimFiyat = perakendeSatisBirimFiyat,
             KartTipi = kartTipi,
-            MaliyetHesaplanacakFlag = maliyetHesaplanacakFlag ? 1 : 0,
+            MaliyetHesaplanacakFlag = maliyetHesaplanacakFlag,
             SatilabilirFlag = satilabilirFlag ? 1 : 0,
             SatinAlinabilirFlag = satinAlinabilirFlag ? 1 : 0,
             BaslangicTarihi = DateTime.UtcNow.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),

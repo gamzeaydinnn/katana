@@ -2569,7 +2569,7 @@ public partial class LucaService
             Barkod = stockCard.Barkod ?? stockCard.KartKodu ?? string.Empty,
             UzunAdi = stockCard.UzunAdi ?? stockCard.KartAdi,
             BitisTarihi = stockCard.BitisTarihi,
-            MaliyetHesaplanacakFlag = stockCard.MaliyetHesaplanacakFlag ? 1 : 0,
+            MaliyetHesaplanacakFlag = stockCard.MaliyetHesaplanacakFlag,
             GtipKodu = stockCard.GtipKodu ?? string.Empty,
             GarantiSuresi = stockCard.GarantiSuresi ?? 0,
             RafOmru = stockCard.RafOmru ?? 0,
