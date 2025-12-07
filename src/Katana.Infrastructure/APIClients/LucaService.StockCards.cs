@@ -207,6 +207,11 @@ public partial class LucaService
                 try
                 {
                     await ForceSessionRefreshAsync();
+                    
+                    // 🔥 KRİTİK FİX: Struts framework'ün hazır olması için kısa bir delay ekle
+                    _logger.LogInformation("⏳ Struts framework'ün stabilize olması için 1 saniye bekleniyor...");
+                    await Task.Delay(1000, ct);
+                    
                     _logger.LogInformation("✅ Session yenilendi, ListStockCards tekrar deneniyor...");
                     
                     // Retry
@@ -294,6 +299,11 @@ public partial class LucaService
                     try
                     {
                         await EnsureBranchSelectedAsync();
+                        
+                        // 🔥 KRİTİK FİX: Branch seçiminden sonra Struts stabilize olsun
+                        _logger.LogInformation("⏳ Struts framework'ün stabilize olması için 1 saniye bekleniyor...");
+                        await Task.Delay(1000, ct);
+                        
                         _logger.LogInformation("✅ Branch seçildi, ListStockCards tekrar deneniyor...");
                         
                         // Retry
@@ -468,7 +478,7 @@ public partial class LucaService
             MaxStokMiktari = simple.MaxStokMiktari,
             SatilabilirFlag = simple.SatilabilirFlag,
             SatinAlinabilirFlag = simple.SatinAlinabilirFlag,
-            MaliyetHesaplanacakFlag = simple.MaliyetHesaplanacakFlag,
+            MaliyetHesaplanacakFlag = simple.MaliyetHesaplanacakFlag != 0,  // int → bool dönüşümü
             
             // Varsayılan değerler
             KartToptanAlisKdvOran = simple.KartAlisKdvOran,

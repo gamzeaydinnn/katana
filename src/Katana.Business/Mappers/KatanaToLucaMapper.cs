@@ -2,15 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using Katana.Core.Enums;
-using Katana.Core.DTOs;
+using Katana.Business.Enums;
+using Katana.Business.Models.DTOs;
 using Katana.Core.Constants;
+using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Core.Helpers;
 using Katana.Data.Configuration;
 using System.ComponentModel.DataAnnotations;
 
-namespace Katana.Business.Mappers;
+namespace Katana.Infrastructure.Mappers;
 
 public static class KatanaToLucaMapper
 {
@@ -68,26 +69,38 @@ public static class KatanaToLucaMapper
             ?? excelRow.VatRate
             ?? Convert.ToDecimal(defaultVatRate ?? 0, CultureInfo.InvariantCulture);
 
+        // ✅ RAPOR UYUMLU: SADECE LUCA DOKÜMANTASYONUNDA OLAN ALANLAR!
         var request = new LucaCreateStokKartiRequest
         {
+            // Zorunlu alanlar
             KartAdi = excelRow.Name?.Trim() ?? excelRow.SKU?.Trim() ?? string.Empty,
             KartKodu = excelRow.SKU?.Trim() ?? string.Empty,
-            KartTuru = 1,
             BaslangicTarihi = excelRow.StartDate.ToString(KozaDateFormat, CultureInfo.InvariantCulture),
-            OlcumBirimiId = defaultOlcumBirimiId ?? 5,
-            KartTipi = defaultKartTipi ?? 4,
-            KategoriAgacKod = !string.IsNullOrWhiteSpace(excelRow.CategoryCode) ? excelRow.CategoryCode : defaultKategoriKod ?? string.Empty,
+            
+            // Tip ve kategori
+            KartTipi = defaultKartTipi ?? 1,
+            KartTuru = 1,
+            KategoriAgacKod = !string.IsNullOrWhiteSpace(excelRow.CategoryCode) ? excelRow.CategoryCode : defaultKategoriKod,
+            
+            // KDV ve ölçü birimi
             KartAlisKdvOran = ConvertToDouble(vatPurchaseDecimal),
-            KartSatisKdvOran = ConvertToDouble(vatSalesDecimal),
-            PerakendeAlisBirimFiyat = 0,
-            PerakendeSatisBirimFiyat = 0,
+            OlcumBirimiId = defaultOlcumBirimiId ?? 5,
+            
+            // Barkod
+            Barkod = excelRow.Barcode ?? string.Empty,
+            
+            // Tevkifat (null)
+            AlisTevkifatOran = null,
+            SatisTevkifatOran = null,
+            AlisTevkifatTipId = null,
+            SatisTevkifatTipId = null,
+            
+            // Flagler
             SatilabilirFlag = BoolToInt(excelRow.IsActive),
             SatinAlinabilirFlag = BoolToInt(excelRow.IsActive),
             LotNoFlag = BoolToInt(excelRow.TrackStock),
             MinStokKontrol = 0,
-            MaliyetHesaplanacakFlag = BoolToInt(excelRow.CalculateCostOnPurchase),
-            Barkod = excelRow.Barcode ?? string.Empty,
-            UzunAdi = excelRow.Name ?? excelRow.SKU ?? string.Empty
+            MaliyetHesaplanacakFlag = excelRow.CalculateCostOnPurchase  // ✅ BOOLEAN
         };
 
         return request;
@@ -95,12 +108,12 @@ public static class KatanaToLucaMapper
 
     public static (int BelgeTurId, int BelgeTurDetayId) GetInvoiceTypeIds(InvoiceType type)
     {
-        return DocumentTypeMapper.GetInvoiceTypeIds(type);
+        return Katana.Business.Mappers.DocumentTypeMapper.GetInvoiceTypeIds(type);
     }
 
     public static (int BelgeTurId, int BelgeTurDetayId) GetWaybillTypeIds(WaybillType type)
     {
-        return DocumentTypeMapper.GetWaybillTypeIds(type);
+        return Katana.Business.Mappers.DocumentTypeMapper.GetWaybillTypeIds(type);
     }
 
     private static string FormatDateForKoza(DateTime date)
@@ -109,7 +122,6 @@ public static class KatanaToLucaMapper
     }
 
     private static int BoolToInt(bool value) => value ? 1 : 0;
-
     public static LucaCreateStokKartiRequest MapProductToStockCard(
         Product product,
         double? defaultVat = null,
@@ -119,39 +131,91 @@ public static class KatanaToLucaMapper
     {
         var card = MappingHelper.MapToLucaStockCard(product, defaultOlcumBirimiId, defaultVat);
 
-        card.KartTuru = 1;
-        card.KartTipi = defaultKartTipi ?? card.KartTipi;
-        card.KartAlisKdvOran = card.KartAlisKdvOran == 0 ? 1 : card.KartAlisKdvOran;
-        card.KartSatisKdvOran = card.KartSatisKdvOran == 0 ? 1 : card.KartSatisKdvOran;
-        card.OlcumBirimiId = defaultOlcumBirimiId ?? card.OlcumBirimiId;
+        // ========================================================================
+        // SENİN ATTIĞIN "DOĞRU VERİ" ÖRNEĞİNE GÖRE SABİTLENMİŞ AYARLAR
+        // ========================================================================
 
-        if (!string.IsNullOrWhiteSpace(defaultKategoriKod))
-        {
-            card.KategoriAgacKod = defaultKategoriKod;
-        }
+        // 1. Kart Tipi
+        card.KartTipi = 1;
+
+        // ✅ RAPOR UYUMLU: Luca dokümantasyonuna göre sabitlenmiş ayarlar
+        
+        // Tip ve KDV
+        card.KartTipi = 1;
+        card.KartAlisKdvOran = 1; // Sadece alış KDV (satış GÖNDERİLMİYOR!)
+        
+        // Ölçü birimi ve tür
+        card.OlcumBirimiId = 1;
+        card.KartTuru = 1; // 1=Stok
+        
+        // Kategori (null veya numeric kod)
+        card.KategoriAgacKod = (!string.IsNullOrWhiteSpace(defaultKategoriKod) && 
+                                 defaultKategoriKod!.All(c => char.IsDigit(c) || c == '.')) 
+                                 ? defaultKategoriKod 
+                                 : null;
+        
+        // Tarih formatı (dd/MM/yyyy)
+        card.BaslangicTarihi = DateTime.Now.ToString(KozaDateFormat, CultureInfo.InvariantCulture);
+        
+        // Flagler
+        card.SatilabilirFlag = 1;
+        card.SatinAlinabilirFlag = 1;
+        card.LotNoFlag = 1;
+        card.MinStokKontrol = 0;
+        card.MaliyetHesaplanacakFlag = true; // ✅ BOOLEAN!
+        
+        // Tevkifat (null)
+        card.AlisTevkifatOran = null;
+        card.SatisTevkifatOran = null;
+        card.AlisTevkifatTipId = null;
+        card.SatisTevkifatTipId = null;
 
         return card;
+    }
+
+    public static LucaCreateCustomerRequest MapCustomerToCreateRequest(
+        Customer customer,
+        IReadOnlyDictionary<string, string>? customerTypeMappings = null)
+    {
+        var request = MappingHelper.MapToLucaCustomerCreate(customer);
+
+        if (customerTypeMappings != null && customerTypeMappings.Count > 0)
+        {
+            foreach (var key in ResolveCustomerTypeKeys(customer))
+            {
+                if (customerTypeMappings.TryGetValue(key, out var mappedValue) &&
+                    long.TryParse(mappedValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+                {
+                    request.CariTipId = parsed;
+                    break;
+                }
+            }
+        }
+
+        return request;
     }
 
     public static LucaCreateInvoiceHeaderRequest MapInvoiceToCreateRequest(
         Invoice invoice,
         Customer customer,
-        List<InvoiceItem> items,
-        Dictionary<string, string> skuToAccountMapping,
+        IEnumerable<InvoiceItem> items,
+        IReadOnlyDictionary<string, string> skuAccountMappings,
         string belgeSeri,
         long belgeTurDetayId,
-        string? defaultWarehouseCode)
+        string? defaultWarehouseCode = null)
     {
         if (invoice == null) throw new ArgumentNullException(nameof(invoice));
         if (customer == null) throw new ArgumentNullException(nameof(customer));
         if (items == null) throw new ArgumentNullException(nameof(items));
 
-        var baseDto = MappingHelper.MapToLucaInvoice(invoice, customer, items, skuToAccountMapping);
+        var invoiceItems = items.ToList();
+        var accountMappings = skuAccountMappings ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+        var baseDto = MappingHelper.MapToLucaInvoice(invoice, customer, invoiceItems, accountMappings.ToDictionary(k => k.Key, v => v.Value, StringComparer.OrdinalIgnoreCase));
         var belge = new LucaCreateInvoiceHeaderRequest
         {
-            BelgeSeri = belgeSeri,
-            BelgeNo = null,
+            BelgeSeri = string.IsNullOrWhiteSpace(belgeSeri) ? "A" : belgeSeri.Trim(),
+            BelgeNo = ParseDocumentNo(baseDto.DocumentNo),
             BelgeTarihi = invoice.InvoiceDate == default ? DateTime.UtcNow : invoice.InvoiceDate,
             VadeTarihi = invoice.DueDate,
             BelgeTakipNo = baseDto.DocumentNo,
@@ -178,74 +242,12 @@ public static class KatanaToLucaMapper
         return belge;
     }
 
-    public static LucaCreateCustomerRequest MapCustomerToCreateRequest(Customer customer, Dictionary<string, string>? resolvedMappings = null)
-    {
-        return MappingHelper.MapToLucaCustomerCreate(customer);
-    }
-
-    public static LucaCreateStokKartiRequest MapKatanaProductToStockCard(
-        KatanaProductDto product,
-        LucaApiSettings lucaSettings,
-        IReadOnlyDictionary<string, string>? categoryMappings,
-        KatanaMappingSettings katanaMapping)
-    {
-        var defaultVat = lucaSettings.DefaultKdvOran;
-        var defaultUnitId = lucaSettings.DefaultOlcumBirimiId;
-        var defaultKartTipi = lucaSettings.DefaultKartTipi;
-        var defaultKategoriKod = lucaSettings.DefaultKategoriKodu;
-
-        var card = MappingHelper.MapToLucaStockCard(product, defaultUnitId, defaultVat);
-
-        card.KartTuru = 1;
-        card.KartTipi = defaultKartTipi > 0 ? defaultKartTipi : card.KartTipi;
-        card.KartAlisKdvOran = card.KartAlisKdvOran == 0 ? 1 : card.KartAlisKdvOran;
-        card.KartSatisKdvOran = card.KartSatisKdvOran == 0 ? 1 : card.KartSatisKdvOran;
-        card.OlcumBirimiId = defaultUnitId > 0 ? defaultUnitId : card.OlcumBirimiId;
-
-        if (!string.IsNullOrWhiteSpace(product.Category))
-        {
-            var normalizedMappings = NormalizeMappingDictionary(katanaMapping.CategoryToLucaCategory);
-            var key = NormalizeMappingKey(product.Category);
-            if (!string.IsNullOrWhiteSpace(key) && normalizedMappings.TryGetValue(key, out var mappedCategory) && !string.IsNullOrWhiteSpace(mappedCategory))
-            {
-                card.KategoriAgacKod = mappedCategory;
-            }
-            else
-            {
-                card.KategoriAgacKod = defaultKategoriKod ?? card.KategoriAgacKod;
-            }
-        }
-        else
-        {
-            card.KategoriAgacKod = defaultKategoriKod ?? card.KategoriAgacKod;
-        }
-
-        return card;
-    }
-
-    public static void ValidateLucaStockCard(LucaCreateStokKartiRequest dto)
-    {
-        if (dto == null) throw new ArgumentNullException(nameof(dto));
-
-        if (string.IsNullOrWhiteSpace(dto.KartKodu))
-        {
-            throw new ValidationException("Stok kodu zorunlu");
-        }
-
-        if (string.IsNullOrWhiteSpace(dto.KartAdi))
-        {
-            throw new ValidationException("Stok tanımı zorunlu");
-        }
-
-        dto.KartAdi = EncodingHelper.ConvertToIso88599(dto.KartAdi);
-        dto.UzunAdi = EncodingHelper.ConvertToIso88599(dto.UzunAdi);
-    }
-
     public static long GetBelgeTurDetayIdForInvoiceType(Invoice invoice)
     {
         if (invoice == null) return KozaBelgeTurleri.MalSatisFaturasi;
 
-        var hintSources = new[] { invoice.Notes, invoice.Status.ToString(), invoice.InvoiceNo };
+        // try to infer direction/isReturn/isProforma/isExchangeRate from invoice hints
+        var hintSources = new[] { invoice.Notes, invoice.Status, invoice.InvoiceNo };
         var isProforma = false;
         var isExchangeRate = false;
         InvoiceDirection direction = InvoiceDirection.Sales;
@@ -262,60 +264,62 @@ public static class KatanaToLucaMapper
             if (normalized.Contains("RETURN") || normalized.Contains("IADE") || normalized.Contains("CREDIT")) isReturn = true;
         }
 
+        // negative total usually indicates a return
         if (invoice.TotalAmount < 0) isReturn = true;
 
-        var (_, belgeTurDetayId) = GetBelgeTurForInvoice(direction, isReturn, isProforma, isExchangeRate);
+        var (belgeTurId, belgeTurDetayId) = GetBelgeTurForInvoice(direction, isReturn, isProforma, isExchangeRate);
         return belgeTurDetayId;
     }
 
-    private static string NormalizeTypeHint(string? input)
+    private static List<LucaCreateInvoiceDetailRequest> ConvertLines(
+        IEnumerable<LucaInvoiceItemDto> lines,
+        string? defaultWarehouseCode)
     {
-        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
-        var s = input.Trim().ToUpperInvariant();
-        s = s.Replace('/', ' ').Replace('\\', ' ').Replace('-', ' ');
-        s = RemoveDiacritics(s);
-        while (s.Contains("  ")) s = s.Replace("  ", " ");
-        return s;
-    }
-
-    private static string NormalizeTaxNo(string? taxNo)
-    {
-        if (string.IsNullOrWhiteSpace(taxNo))
+        var list = new List<LucaCreateInvoiceDetailRequest>();
+        foreach (var line in lines)
         {
-            return "0000000000";
-        }
-
-        var normalized = new string(taxNo.Where(char.IsDigit).ToArray());
-        if (normalized.Length == 10 || normalized.Length == 11)
-        {
-            return normalized;
-        }
-
-        return normalized.PadLeft(10, '0')[..10];
-    }
-
-    private static string GenerateCustomerCode(string? taxNo, int customerId)
-    {
-        if (!string.IsNullOrWhiteSpace(taxNo))
-        {
-            var normalizedTaxNo = NormalizeTaxNo(taxNo);
-            if (normalizedTaxNo.Length == 10)
+            var detail = new LucaCreateInvoiceDetailRequest
             {
-                return $"CK-{normalizedTaxNo}";
-            }
+                KartTuru = 1,
+                KartKodu = line.ProductCode,
+                KartAdi = Truncate(line.Description, 200),
+                BirimFiyat = ConvertToDouble(line.UnitPrice),
+                Miktar = ConvertToDouble(line.Quantity),
+                KdvOran = ConvertToDouble(line.TaxRate),
+                Tutar = ConvertToDouble(line.NetAmount),
+                HesapKod = string.IsNullOrWhiteSpace(line.AccountCode) ? null : line.AccountCode,
+                DepoKodu = string.IsNullOrWhiteSpace(defaultWarehouseCode) ? null : defaultWarehouseCode,
+                OlcuBirimi = null,
+                Barkod = null
+            };
+
+            list.Add(detail);
         }
 
-        return $"CK-{customerId:D6}";
+        return list;
     }
 
-    private static string? Truncate(string? value, int maxLength)
+    private static IEnumerable<string> ResolveCustomerTypeKeys(Customer customer)
     {
-        if (string.IsNullOrEmpty(value))
+        if (!string.IsNullOrWhiteSpace(customer.Country))
         {
-            return value;
+            yield return customer.Country.Trim();
         }
 
-        return value.Length <= maxLength ? value : value[..maxLength];
+        if (!string.IsNullOrWhiteSpace(customer.City))
+        {
+            yield return customer.City.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(customer.TaxNo))
+        {
+            yield return customer.TaxNo.Trim();
+            yield return customer.TaxNo.Length == 11 ? "PERSON" : "COMPANY";
+        }
+        else
+        {
+            yield return "COMPANY";
+        }
     }
 
     private static int ResolveCariTip(Customer customer)
@@ -324,41 +328,217 @@ public static class KatanaToLucaMapper
         return taxNo.Length == 11 ? 2 : 1;
     }
 
-    private static double ConvertToDouble(decimal value)
+    private static int? ParseDocumentNo(string? documentNo)
     {
-        return Convert.ToDouble(value, CultureInfo.InvariantCulture);
-    }
-
-    private static double ConvertToDouble(decimal? value)
-    {
-        return value.HasValue ? Convert.ToDouble(value.Value, CultureInfo.InvariantCulture) : 0;
-    }
-
-    private static double ConvertToDouble(int value)
-    {
-        return Convert.ToDouble(value, CultureInfo.InvariantCulture);
-    }
-
-    private static Dictionary<string, string> NormalizeMappingDictionary(IReadOnlyDictionary<string, string>? mappings)
-    {
-        var normalized = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (mappings == null)
+        if (string.IsNullOrWhiteSpace(documentNo))
         {
-            return normalized;
+            return null;
         }
 
-        foreach (var mapping in mappings)
+        if (int.TryParse(documentNo, out var parsed))
         {
-            var key = NormalizeMappingKey(mapping.Key);
-            if (string.IsNullOrWhiteSpace(key))
+            return parsed;
+        }
+
+        var digits = new string(documentNo.Where(char.IsDigit).ToArray());
+        return int.TryParse(digits, out var fallback) ? fallback : null;
+    }
+
+    private static string NormalizeTypeHint(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        return value.Trim().Replace(" ", string.Empty, StringComparison.OrdinalIgnoreCase).Replace("-", string.Empty).ToUpperInvariant();
+    }
+
+    private static double ConvertToDouble(decimal value) =>
+        Convert.ToDouble(value, CultureInfo.InvariantCulture);
+
+    private static double ConvertToDouble(decimal? value) =>
+        value.HasValue ? Convert.ToDouble(value.Value, CultureInfo.InvariantCulture) : 0d;
+
+    private static string? Truncate(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed.Substring(0, maxLength);
+    }
+
+    private static string GenerateCustomerCode(string? taxNo, int customerId)
+    {
+        if (!string.IsNullOrWhiteSpace(taxNo))
+        {
+            return $"CUST_{taxNo}";
+        }
+
+        return $"CUST_{customerId:000000}";
+    }
+
+    private static string? NormalizeTaxNo(string? taxNo)
+    {
+        if (string.IsNullOrWhiteSpace(taxNo)) return null;
+        var digits = new string(taxNo.Where(char.IsDigit).ToArray());
+        return string.IsNullOrWhiteSpace(digits) ? null : digits;
+    }
+
+    public static LucaCreateStokKartiRequest MapKatanaProductToStockCard(
+        KatanaProductDto product,
+        LucaApiSettings lucaSettings,
+        IReadOnlyDictionary<string, string>? productCategoryMappings = null)
+    {
+        if (product == null) throw new ArgumentNullException(nameof(product));
+        if (lucaSettings == null) throw new ArgumentNullException(nameof(lucaSettings));
+
+        var sku = string.IsNullOrWhiteSpace(product.SKU) ? product.GetProductCode() : product.SKU.Trim();
+        
+        // 🔥 KRİTİK FİX: Katana'dan Name boş gelirse SKU kullan, ama LOG'A YAZ!
+        var rawName = string.IsNullOrWhiteSpace(product.Name) ? sku : product.Name.Trim();
+        
+        if (string.IsNullOrWhiteSpace(product.Name))
+        {
+            // UYARI: Katana'dan ürün ismi boş geldi, SKU kullanılıyor!
+            // Bu durumda Luca'da "COOLING WATER PIPE" varsa ama biz "81.06301-8211" gönderiyorsak
+            // sistem isim değişikliği algılar ve gereksiz versiyon oluşturur!
+            Console.WriteLine($"⚠️ MAPPING HATASI: Katana'dan Name boş geldi, SKU kullanılıyor: {sku}");
+            Console.WriteLine($"   Bu durum Luca'da gereksiz versiyon oluşturabilir!");
+            Console.WriteLine($"   ÇÖZÜM: Katana API'sinden 'name' alanını dolu gönder veya database'den ürün ismini çek.");
+        }
+        
+        // 🔥 ENCODING SORUNLARINI ÇÖZME: Ø, ?, ?? gibi karakterleri normalize et
+        // Luca API'si ISO-8859-9 (Turkish) encoding kullanıyor
+        // UTF-8'den gelen Ø karakteri Luca'da ?? olarak görünebilir
+        // Karşılaştırma sırasında sorun yaratmamak için normalize ediyoruz
+        var name = NormalizeProductNameForLuca(rawName);
+        
+        if (rawName != name)
+        {
+            Console.WriteLine($"🔧 ENCODING FIX: Ürün ismi normalize edildi");
+            Console.WriteLine($"   Orijinal: '{rawName}'");
+            Console.WriteLine($"   Normalize: '{name}'");
+            Console.WriteLine($"   SKU: {sku}");
+        }
+        
+        // Prefer product.Category if provided; else fall back to configured default; otherwise leave null (Koza accepts null).
+        // However, some products get assigned an internal default Category.Id (e.g. "1") which is NOT a valid
+        // Luca tree code. Treat that as missing and use the configured DefaultKategoriKodu when available.
+        // Resolve product category to Luca KategoriAgacKod using provided mapping dictionary
+        string? category = null;
+        var rawCategory = !string.IsNullOrWhiteSpace(product.Category) ? product.Category : null;
+
+        // 🔥 ÖNCE: Database mapping tablosundan kontrol et (productCategoryMappings)
+        if (productCategoryMappings != null && !string.IsNullOrWhiteSpace(rawCategory))
+        {
+            var lookupKey = NormalizeMappingKey(rawCategory);
+            if (productCategoryMappings.TryGetValue(lookupKey, out var mapped) && !string.IsNullOrWhiteSpace(mapped))
             {
-                continue;
+                category = mapped;
             }
-
-            normalized[key] = mapping.Value ?? string.Empty;
         }
 
-        return normalized;
+        // 🔥 SONRA: appsettings.json CategoryMapping'den kontrol et (fallback)
+        if (string.IsNullOrWhiteSpace(category) && !string.IsNullOrWhiteSpace(rawCategory))
+        {
+            var lookupKey = NormalizeMappingKey(rawCategory);
+            if (lucaSettings.CategoryMapping != null && 
+                lucaSettings.CategoryMapping.TryGetValue(lookupKey, out var configMapped) && 
+                !string.IsNullOrWhiteSpace(configMapped))
+            {
+                category = configMapped;
+            }
+        }
+
+        // If mapping not found, DO NOT use raw category name as code
+        // Only use numeric codes like "001", "220", etc. Never use category names!
+        if (string.IsNullOrWhiteSpace(category))
+        {
+            if (!string.IsNullOrWhiteSpace(rawCategory))
+            {
+                // If rawCategory is numeric-only (internal id), it's still not a valid Luca code
+                // Only use DefaultKategoriKodu if it looks like a numeric code ("001" format)
+                if (IsNumericOnly(rawCategory))
+                {
+                    // Numeric internal ID - use default if it's a valid code format
+                    if (!string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu) && 
+                        lucaSettings.DefaultKategoriKodu!.All(c => char.IsDigit(c) || c == '.'))
+                    {
+                        category = lucaSettings.DefaultKategoriKodu;
+                    }
+                    else
+                    {
+                        category = null; // No valid code, leave null
+                    }
+                }
+                else
+                {
+                    // rawCategory is a NAME (like "3YARI MAMUL") - Try appsettings fallback first
+                    if (lucaSettings.CategoryMapping != null && 
+                        lucaSettings.CategoryMapping.TryGetValue("default", out var defaultCategory) && 
+                        !string.IsNullOrWhiteSpace(defaultCategory))
+                    {
+                        category = defaultCategory;
+                    }
+                    else
+                    {
+                        // Last resort: use DefaultKategoriKodu
+                        category = null;
+                    }
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(lucaSettings.DefaultKategoriKodu) &&
+                     lucaSettings.DefaultKategoriKodu!.All(c => char.IsDigit(c) || c == '.'))
+            {
+                category = lucaSettings.DefaultKategoriKodu;
+            }
+        }
+
+        // 🔥 KRİTİK FİX: Versiyonlu SKU'lar için barkod NULL olmalı (Duplicate Barcode hatasını önlemek için)
+        // Eğer SKU "-V" ile bitiyorsa (örn: "PIPE-V2", "silll12344-V3"), bu yeni bir versiyon demektir
+        // Luca'da aynı barkod birden fazla stok kartında olamaz, bu yüzden versiyonlu kartlarda barkod boş gönderilmeli
+        bool isVersionedSku = System.Text.RegularExpressions.Regex.IsMatch(sku, @"-V\d+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        string? barcodeToSend = null;
+        
+        if (isVersionedSku)
+        {
+            // Versiyonlu SKU - Barkod NULL gönder
+            barcodeToSend = null;
+            Console.WriteLine($"⚠️ VERSIYONLU SKU TESPİT EDİLDİ: {sku} - Barkod NULL gönderiliyor (Duplicate Barcode hatasını önlemek için)");
+        }
+        else
+        {
+            // Normal SKU - Barkod gönder
+            barcodeToSend = string.IsNullOrWhiteSpace(product.Barcode) ? sku : product.Barcode.Trim();
+        }
+        
+        var dto = new LucaCreateStokKartiRequest
+        {
+            KartAdi = name,
+            KartTuru = 1, // 1=Stok, 2=Hizmet
+            BaslangicTarihi = DateTime.UtcNow.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
+            OlcumBirimiId = lucaSettings.DefaultOlcumBirimiId,
+            KartKodu = sku,
+            MaliyetHesaplanacakFlag = true,  // ✅ BOOLEAN - Luca dokümantasyonuna göre!
+            KartTipi = lucaSettings.DefaultKartTipi,
+            // 🔥 FIX: kategoriAgacKod - mapping varsa kullan, yoksa null
+            KategoriAgacKod = category,
+            KartAlisKdvOran = 1,
+            KartSatisKdvOran = 1,
+            Barkod = barcodeToSend, // Versiyonlu SKU'lar için NULL
+            UzunAdi = name,
+            SatilabilirFlag = 1,
+            SatinAlinabilirFlag = 1,
+            LotNoFlag = 0,
+            MinStokKontrol = 0,
+            // 🔥 FIX: Tevkifat alanları - Luca dokümantasyonuna göre doğru isimler
+            AlisTevkifatOran = null,           // "7/10" formatında string veya null
+            SatisTevkifatOran = null,          // "2/10" formatında string veya null
+            AlisTevkifatTipId = null,          // NOT: alisTevkifatKod DEĞİL!
+            SatisTevkifatTipId = null,         // NOT: satisTevkifatKod DEĞİL!
+            PerakendeAlisBirimFiyat = ConvertToDouble(product.CostPrice ?? product.PurchasePrice ?? 0),
+            PerakendeSatisBirimFiyat = ConvertToDouble(product.SalesPrice ?? product.Price)
+        };
+
+        dto.KartAdi = EncodingHelper.ConvertToIso88599(dto.KartAdi);
+        dto.UzunAdi = EncodingHelper.ConvertToIso88599(dto.UzunAdi);
+        return dto;
     }
 
     private static string NormalizeMappingKey(string? input)
@@ -387,18 +567,75 @@ public static class KatanaToLucaMapper
         return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
     }
 
-    private static List<LucaCreateInvoiceDetailRequest> ConvertLines(List<LucaInvoiceItemDto> lines, string? defaultWarehouseCode)
+    // Use regex to reliably detect numeric-only strings (avoid culture/parsing surprises)
+    private static bool IsNumericOnly(string? input)
     {
-        return lines.Select(line => new LucaCreateInvoiceDetailRequest
-        {
-            KartTuru = 1,
-            KartKodu = line.ProductCode ?? string.Empty,
-            KartAdi = line.Description ?? string.Empty,
-            Miktar = Convert.ToDouble(line.Quantity),
-            BirimFiyat = Convert.ToDouble(line.UnitPrice),
-            KdvOran = Convert.ToDouble(line.TaxRate),
-            DepoKodu = defaultWarehouseCode ?? "MAIN"
-        }).ToList();
+        if (string.IsNullOrWhiteSpace(input)) return false;
+        return System.Text.RegularExpressions.Regex.IsMatch(input.Trim(), "^\\d+$");
     }
-}
+    
+    /// <summary>
+    /// Ürün ismini Luca API'si için normalize eder (Encoding sorunlarını çözer)
+    /// Luca ISO-8859-9 (Turkish) encoding kullanıyor, UTF-8'den gelen bazı karakterler bozuluyor
+    /// Ø → O, ?? → temizle, özel karakterleri ASCII'ye çevir
+    /// </summary>
+    private static string NormalizeProductNameForLuca(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
 
+        var result = input.Trim();
+
+        // 1. DIAMETER (Çap) sembolü varyantları → O'ya çevir
+        result = result
+            .Replace("Ø", "O")   // Unicode U+00D8 (Latin Capital Letter O with Stroke)
+            .Replace("ø", "o")   // Unicode U+00F8 (Latin Small Letter O with Stroke)
+            .Replace("Φ", "O")   // Unicode U+03A6 (Greek Capital Letter Phi)
+            .Replace("φ", "o")   // Unicode U+03C6 (Greek Small Letter Phi)
+            .Replace("⌀", "O");  // Unicode U+2300 (Diameter Sign)
+
+        // 2. ENCODING HATASI karakterlerini temizle
+        // Luca'da ?? olarak görünen karakterler için fallback
+        result = result
+            .Replace("�", "")    // Unicode Replacement Character (U+FFFD)
+            .Replace("?", "");   // Soru işareti (encoding bozukluğu göstergesi)
+
+        // 3. TÜRKÇE KARAKTERLER - Luca API'si zaten ISO-8859-9 destekliyor, dokunma!
+        // Ü, Ö, Ş, Ç, Ğ, İ karakterlerini KORUYORUZ (Luca bunları destekliyor)
+
+        // 4. WINDOWS-1254 <-> UTF-8 encoding sorunlarını düzelt
+        result = result
+            .Replace("Ã‡", "Ç")  // Ç encoding hatası
+            .Replace("Ã–", "Ö")  // Ö encoding hatası
+            .Replace("Ãœ", "Ü")  // Ü encoding hatası
+            .Replace("Å�", "İ")  // İ encoding hatası
+            .Replace("Ã§", "ç")  // ç encoding hatası
+            .Replace("Ã¶", "ö")  // ö encoding hatası
+            .Replace("Ã¼", "ü")  // ü encoding hatası
+            .Replace("Ä±", "ı"); // ı encoding hatası
+
+        // 5. FAZLA BOŞLUKLARI TEMİZLE
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\s+", " ").Trim();
+
+        return result;
+    }
+
+    public static void ValidateLucaStockCard(LucaCreateStokKartiRequest dto)
+    {
+        if (dto == null) throw new ArgumentNullException(nameof(dto));
+
+        if (string.IsNullOrWhiteSpace(dto.KartKodu))
+        {
+            throw new ValidationException("Stok kodu zorunlu");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.KartAdi))
+        {
+            throw new ValidationException("Stok tanımı zorunlu");
+        }
+
+        dto.KartAdi = EncodingHelper.ConvertToIso88599(dto.KartAdi);
+        dto.UzunAdi = EncodingHelper.ConvertToIso88599(dto.UzunAdi);
+    }
+    
+}
