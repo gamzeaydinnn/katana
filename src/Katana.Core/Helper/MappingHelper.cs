@@ -282,11 +282,11 @@ public static class MappingHelper
             BelgeTurDetayId = order.BelgeTurDetayId ?? 17,
             TeklifSiparisTur = order.TeklifSiparisTur ?? 1,
             NakliyeBedeliTuru = order.NakliyeBedeliTuru ?? 0,
-            OnayFlag = order.OnayFlag,
+            OnayFlag = order.OnayFlag ? 1 : 0,
             ParaBirimKod = string.IsNullOrWhiteSpace(order.Currency) ? "TRY" : order.Currency,
             KdvFlag = true,
             TeslimTarihi = order.DeliveryDate,
-            TeslimTarihiFlag = order.DeliveryDate.HasValue,
+            TeslimTarihiFlag = order.DeliveryDate.HasValue ? 1 : null,
             CariKodu = cariKod,
             CariTanim = customer.Title,
             CariYasalUnvan = customer.Title,
@@ -411,7 +411,7 @@ public static class MappingHelper
         return new LucaCreatePurchaseOrderRequest
         {
             BelgeSeri = po.DocumentSeries ?? "A",
-            BelgeNo = po.LucaDocumentNo ?? belgeTakipNo,
+            BelgeNo = int.TryParse(po.LucaDocumentNo ?? belgeTakipNo, out var belgeNoInt) ? belgeNoInt : null,
             BelgeTakipNo = belgeTakipNo,
             BelgeTarihi = po.OrderDate == default ? DateTime.UtcNow : po.OrderDate,
             BelgeTurDetayId = po.DocumentTypeDetailId > 0 ? po.DocumentTypeDetailId : 2,
@@ -420,7 +420,7 @@ public static class MappingHelper
             ParaBirimKod = "TRY",
             KdvFlag = po.VatIncluded,
             TeslimTarihi = po.ExpectedDate ?? DateTime.UtcNow.AddDays(7),
-            TeslimTarihiFlag = po.ExpectedDate.HasValue,
+            TeslimTarihiFlag = po.ExpectedDate.HasValue ? 1 : null,
             CariKodu = cariKod,
             CariTanim = supplier.Name,
             CariYasalUnvan = supplier.Name,
@@ -1652,7 +1652,10 @@ public static class MappingHelper
     private static string NormalizeWarehouseCode(string code)
     {
         if (string.IsNullOrWhiteSpace(code))
+        {
+            // Boş depo kodu - default kullan
             return "002"; // Luca MERKEZ DEPO default
+        }
 
         var trimmed = code.Trim();
         
@@ -1668,7 +1671,26 @@ public static class MappingHelper
         if (int.TryParse(trimmed, out var single))
             return single.ToString("000");
 
-        return trimmed;
+        // Alfanumerik kod - uppercase yap
+        return trimmed.ToUpperInvariant();
+    }
+
+    /// <summary>
+    /// Depo kodunu validate et - boş veya geçersizse exception fırlat
+    /// </summary>
+    public static void ValidateWarehouseCode(string? code, string paramName = "warehouseCode")
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            throw new ArgumentException("Depo kodu boş olamaz. Fatura/irsaliye/satış siparişi satırı eklenirken depo kodu zorunludur.", paramName);
+        }
+
+        var normalized = NormalizeWarehouseCode(code);
+        
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            throw new ArgumentException($"Depo kodu geçersiz: '{code}'. Normalize edilmiş değer boş.", paramName);
+        }
     }
 
     // Validation methods

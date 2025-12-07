@@ -44,8 +44,14 @@ public class ProductLucaMapping
     public string? LastSyncError { get; set; }
     public DateTime? SyncedAt { get; set; }
     
+    /// <summary>
+    /// Son senkronize edilen verinin hash'i (değişiklik tespiti için)
+    /// </summary>
+    public string? LastSyncHash { get; set; }
+    
     // Audit
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public string? CreatedBy { get; set; }
+    public string? UpdatedBy { get; set; }
 }

@@ -244,7 +244,7 @@ public class DeduplicationService : IDeduplicationService
     /// <summary>
     /// Exports analysis results to specified format
     /// </summary>
-    public async Task<string> ExportResultsAsync(
+    public Task<string> ExportResultsAsync(
         DuplicateAnalysisResult analysis, 
         ExportFormat format, 
         CancellationToken ct = default)

@@ -31,6 +31,7 @@ public class SyncService : ISyncService
     private readonly IntegrationDbContext _dbContext;
     private readonly ILogger<SyncService> _logger;
     private readonly LucaApiSettings _lucaSettings;
+    private readonly KatanaMappingSettings _katanaMappingSettings;
 
     public SyncService(
         IKatanaService katanaService,
@@ -40,7 +41,8 @@ public class SyncService : ISyncService
         ILucaService lucaService,
         IntegrationDbContext dbContext,
         ILogger<SyncService> logger,
-        IOptions<LucaApiSettings> lucaOptions)
+        IOptions<LucaApiSettings> lucaOptions,
+        IOptions<KatanaMappingSettings> mappingOptions)
     {
         _katanaService = katanaService;
         _extractorService = extractorService;
@@ -50,6 +52,7 @@ public class SyncService : ISyncService
         _dbContext = dbContext;
         _logger = logger;
         _lucaSettings = lucaOptions.Value;
+        _katanaMappingSettings = mappingOptions.Value;
     }
 
     public Task<SyncResultDto> SyncStockAsync(DateTime? fromDate = null) =>
@@ -135,7 +138,7 @@ public class SyncService : ISyncService
             katanaProducts = katanaProducts.Take(options.Limit.Value).ToList();
         }
 
-        var lucaStockCards = await _lucaService.ListStockCardsAsync();
+        var lucaStockCards = await _lucaService.ListStockCardsAsync(CancellationToken.None);
         var lucaStockCardsList = lucaStockCards.ToList();
 
         // Load PRODUCT_CATEGORY mappings for change detection
@@ -188,7 +191,7 @@ public class SyncService : ISyncService
                 _logger.LogDebug("SyncService => SKU={Sku} rawCategory='{RawCategory}' lookupKey='{LookupKey}' mappingExists={MappingExists}",
                     product.SKU, rawCategory ?? "(null)", lookupKey, mappingExists);
 
-                var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(product, _lucaSettings, productCategoryMappings);
+                var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(product, _lucaSettings, productCategoryMappings, _katanaMappingSettings);
 
                 // If mapping was not found and we fell back to default, log that too
                 if (!mappingExists)
@@ -310,7 +313,7 @@ public class SyncService : ISyncService
     public async Task<List<StockComparisonDto>> CompareStockCardsAsync()
     {
         var katanaProducts = await _katanaService.GetProductsAsync();
-        var lucaStockCards = await _lucaService.ListStockCardsAsync();
+        var lucaStockCards = await _lucaService.ListStockCardsAsync(CancellationToken.None);
 
         var comparisons = new List<StockComparisonDto>();
         foreach (var product in katanaProducts)
@@ -1861,7 +1864,7 @@ public class SyncService : ISyncService
         }
 
         // 2. Luca'dan stok kartını çek
-        var lucaStockCards = await _lucaService.ListStockCardsAsync();
+        var lucaStockCards = await _lucaService.ListStockCardsAsync(CancellationToken.None);
         var lucaCard = FindLucaMatch(lucaStockCards, NormalizeSku(katanaProduct), katanaProduct.Barcode, true);
 
         // 3. Luca'dan skartId'yi çek
@@ -1949,7 +1952,7 @@ public class SyncService : ISyncService
         var categoryMappings = await GetMappingDictionaryAsync("PRODUCT_CATEGORY", CancellationToken.None);
 
         // 3. Luca stok kartı oluştur
-        var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(katanaProduct, _lucaSettings, categoryMappings);
+        var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(katanaProduct, _lucaSettings, categoryMappings, _katanaMappingSettings);
 
         _logger.LogWarning("🔥 FORCE SYNC: Ürün bilgileri:");
         _logger.LogWarning("   SKU: {SKU}", dto.KartKodu);
@@ -1991,4 +1994,3 @@ public class SyncService : ISyncService
 
     #endregion
 }
-

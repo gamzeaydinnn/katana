@@ -6,7 +6,6 @@
 using Katana.Business.Interfaces;
 using Katana.Core.Entities;
 using Katana.Data.Context;
-using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 

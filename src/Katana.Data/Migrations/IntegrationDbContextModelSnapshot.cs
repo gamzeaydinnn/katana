@@ -91,6 +91,58 @@ namespace Katana.Data.Migrations
                     b.ToTable("AccountingRecords");
                 });
 
+            modelBuilder.Entity("Katana.Core.Entities.AuditLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Changes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Details")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EntityId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EntityName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("IpAddress")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserAgent")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActionType");
+
+                    b.HasIndex("EntityName");
+
+                    b.HasIndex("Timestamp", "ActionType");
+
+                    b.HasIndex("EntityName", "ActionType", "Timestamp")
+                        .HasDatabaseName("IX_AuditLogs_EntityName_ActionType_Timestamp");
+
+                    b.ToTable("AuditLogs");
+                });
+
             modelBuilder.Entity("Katana.Core.Entities.Batch", b =>
                 {
                     b.Property<int>("Id")
@@ -257,6 +309,10 @@ namespace Katana.Data.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("LastSyncHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<string>("LucaCode")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -271,6 +327,13 @@ namespace Katana.Data.Migrations
                     b.Property<string>("ReferenceId")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("SyncStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("PENDING");
 
                     b.Property<DateTime?>("SyncedAt")
                         .HasColumnType("datetime2");
@@ -297,10 +360,89 @@ namespace Katana.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("LastSyncHash");
+
+                    b.HasIndex("SyncStatus");
+
+                    b.HasIndex("SyncedAt");
+
                     b.HasIndex("TaxNo")
                         .IsUnique();
 
                     b.ToTable("Customers");
+                });
+
+            modelBuilder.Entity("Katana.Core.Entities.CustomerKozaCariMapping", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("KatanaCustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("KatanaCustomerName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("KatanaCustomerTaxNo")
+                        .HasMaxLength(11)
+                        .HasColumnType("nvarchar(11)");
+
+                    b.Property<string>("KozaCariKodu")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("KozaCariTanim")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<long?>("KozaFinansalNesneId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("LastSyncAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastSyncError")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LastSyncHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("SyncStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("PENDING");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KatanaCustomerId")
+                        .IsUnique();
+
+                    b.HasIndex("KatanaCustomerTaxNo");
+
+                    b.HasIndex("KozaCariKodu");
+
+                    b.HasIndex("KozaFinansalNesneId");
+
+                    b.HasIndex("LastSyncAt");
+
+                    b.HasIndex("SyncStatus");
+
+                    b.ToTable("CustomerKozaCariMappings");
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.DataCorrectionLog", b =>
@@ -412,6 +554,53 @@ namespace Katana.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("FailedNotifications", (string)null);
+                });
+
+            modelBuilder.Entity("Katana.Core.Entities.InventoryMovement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<long?>("LocationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("MovementType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("VariantId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("Timestamp");
+
+                    b.HasIndex("VariantId");
+
+                    b.HasIndex("ProductId", "Timestamp")
+                        .HasDatabaseName("IX_InventoryMovements_Product_Timestamp");
+
+                    b.ToTable("InventoryMovements");
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.Invoice", b =>
@@ -607,6 +796,9 @@ namespace Katana.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("KatanaLocationId")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -628,6 +820,24 @@ namespace Katana.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<DateTime?>("LastSyncAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastSyncError")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LastSyncHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("SyncStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("PENDING");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -639,6 +849,10 @@ namespace Katana.Data.Migrations
                     b.HasIndex("KozaDepoId");
 
                     b.HasIndex("KozaDepoKodu");
+
+                    b.HasIndex("LastSyncAt");
+
+                    b.HasIndex("SyncStatus");
 
                     b.ToTable("LocationKozaDepotMappings");
                 });
@@ -894,6 +1108,92 @@ namespace Katana.Data.Migrations
                     b.ToTable("Products");
                 });
 
+            modelBuilder.Entity("Katana.Core.Entities.ProductLucaMapping", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("KatanaProductId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("KatanaSku")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("LastSyncError")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LastSyncHash")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LucaStockCode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<long?>("LucaStockId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SyncStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(450)")
+                        .HasDefaultValue("PENDING");
+
+                    b.Property<DateTime?>("SyncedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SyncedBarcode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("SyncedPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("SyncedProductName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("SyncedVatRate")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LucaStockCode");
+
+                    b.HasIndex("SyncStatus");
+
+                    b.HasIndex("SyncedAt");
+
+                    b.HasIndex("KatanaProductId", "IsActive")
+                        .IsUnique();
+
+                    b.ToTable("ProductLucaMappings");
+                });
+
             modelBuilder.Entity("Katana.Core.Entities.ProductVariant", b =>
                 {
                     b.Property<int>("Id")
@@ -1082,6 +1382,8 @@ namespace Katana.Data.Migrations
                         .HasColumnType("nvarchar(10)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LucaDetailId");
 
                     b.HasIndex("ProductId");
 
@@ -1278,7 +1580,11 @@ namespace Katana.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("KatanaRowId");
+
                     b.HasIndex("SalesOrderId");
+
+                    b.HasIndex("VariantId");
 
                     b.ToTable("SalesOrderLines");
                 });
@@ -1376,7 +1682,11 @@ namespace Katana.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("IsSynced");
+
                     b.HasIndex("ProductId");
+
+                    b.HasIndex("Timestamp");
 
                     b.ToTable("StockMovements");
                 });
@@ -1457,9 +1767,19 @@ namespace Katana.Data.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsSynced")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastSyncAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("LastSyncError")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LastSyncHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<string>("LucaCode")
                         .HasMaxLength(50)
@@ -1476,6 +1796,11 @@ namespace Katana.Data.Migrations
                     b.Property<string>("Phone")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("SyncStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("TaxNo")
                         .HasMaxLength(50)
@@ -1523,6 +1848,24 @@ namespace Katana.Data.Migrations
                     b.Property<long?>("KozaFinansalNesneId")
                         .HasColumnType("bigint");
 
+                    b.Property<DateTime?>("LastSyncAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastSyncError")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LastSyncHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("SyncStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("PENDING");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -1534,6 +1877,10 @@ namespace Katana.Data.Migrations
                     b.HasIndex("KozaCariKodu");
 
                     b.HasIndex("KozaFinansalNesneId");
+
+                    b.HasIndex("LastSyncAt");
+
+                    b.HasIndex("SyncStatus");
 
                     b.ToTable("SupplierKozaCariMappings");
                 });
@@ -1614,6 +1961,119 @@ namespace Katana.Data.Migrations
                     b.ToTable("SyncLogs", (string)null);
                 });
 
+            modelBuilder.Entity("Katana.Core.Entities.TaxRateMapping", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("KatanaTaxRateId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("KozaKdvOran")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("decimal(5,4)");
+
+                    b.Property<DateTime?>("LastSyncAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastSyncError")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LastSyncHash")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SyncStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("PENDING");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KatanaTaxRateId")
+                        .IsUnique();
+
+                    b.HasIndex("LastSyncAt");
+
+                    b.HasIndex("SyncStatus");
+
+                    b.ToTable("TaxRateMappings");
+                });
+
+            modelBuilder.Entity("Katana.Core.Entities.UoMMapping", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("KatanaUoMString")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<long>("KozaOlcumBirimiId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("LastSyncAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastSyncError")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LastSyncHash")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SyncStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("PENDING");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KatanaUoMString")
+                        .IsUnique();
+
+                    b.HasIndex("LastSyncAt");
+
+                    b.HasIndex("SyncStatus");
+
+                    b.ToTable("UoMMappings");
+                });
+
             modelBuilder.Entity("Katana.Core.Entities.User", b =>
                 {
                     b.Property<int>("Id")
@@ -1659,7 +2119,7 @@ namespace Katana.Data.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("Katana.Data.Models.AuditLog", b =>
+            modelBuilder.Entity("Katana.Core.Entities.VariantMapping", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -1667,48 +2127,32 @@ namespace Katana.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("ActionType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Changes")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Details")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("EntityId")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("EntityName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("IpAddress")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PerformedBy")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("Timestamp")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("UserAgent")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<long>("KatanaVariantId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ProductVariantId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Sku")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ActionType");
+                    b.HasIndex("KatanaVariantId")
+                        .IsUnique();
 
-                    b.HasIndex("EntityName");
-
-                    b.HasIndex("Timestamp", "ActionType");
-
-                    b.HasIndex("EntityName", "ActionType", "Timestamp")
-                        .HasDatabaseName("IX_AuditLogs_EntityName_ActionType_Timestamp");
-
-                    b.ToTable("AuditLogs");
+                    b.ToTable("VariantMappings");
                 });
 
             modelBuilder.Entity("Katana.Data.Models.DashboardMetric", b =>
@@ -1982,6 +2426,17 @@ namespace Katana.Data.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<DateTime?>("LastSyncAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastSyncError")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LastSyncHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<string>("MappingType")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -1991,6 +2446,13 @@ namespace Katana.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("SyncStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("PENDING");
 
                     b.Property<string>("TargetValue")
                         .IsRequired()
@@ -2008,6 +2470,10 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("IsActive");
 
+                    b.HasIndex("LastSyncAt");
+
+                    b.HasIndex("SyncStatus");
+
                     b.HasIndex("MappingType", "SourceValue")
                         .IsUnique();
 
@@ -2022,6 +2488,18 @@ namespace Katana.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("BelgeNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("BelgeSeri")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("BelgeTakipNo")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -2034,11 +2512,29 @@ namespace Katana.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<DateTime?>("LastSyncAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastSyncError")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LastSyncHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<long>("LucaInvoiceId")
                         .HasColumnType("bigint");
 
                     b.Property<int>("OrderId")
                         .HasColumnType("int");
+
+                    b.Property<string>("SyncStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("SYNCED");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -2047,7 +2543,11 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("ExternalOrderId");
 
+                    b.HasIndex("LastSyncAt");
+
                     b.HasIndex("LucaInvoiceId");
+
+                    b.HasIndex("SyncStatus");
 
                     b.HasIndex("OrderId", "EntityType")
                         .IsUnique();
@@ -2172,6 +2672,15 @@ namespace Katana.Data.Migrations
                     b.Navigation("Parent");
                 });
 
+            modelBuilder.Entity("Katana.Core.Entities.InventoryMovement", b =>
+                {
+                    b.HasOne("Katana.Core.Entities.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Katana.Core.Entities.Invoice", b =>
                 {
                     b.HasOne("Katana.Core.Entities.Customer", "Customer")
@@ -2235,7 +2744,7 @@ namespace Katana.Data.Migrations
                     b.HasOne("Katana.Core.Entities.Product", "Product")
                         .WithMany()
                         .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Order");
@@ -2290,7 +2799,7 @@ namespace Katana.Data.Migrations
                     b.HasOne("Katana.Core.Entities.Product", "Product")
                         .WithMany()
                         .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Katana.Core.Entities.PurchaseOrder", "PurchaseOrder")

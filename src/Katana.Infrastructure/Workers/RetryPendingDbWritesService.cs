@@ -3,9 +3,9 @@ using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
 using System.Threading;
 using Microsoft.Extensions.DependencyInjection;
+using Katana.Core.Entities;
 using Katana.Core.Services;
 using Katana.Data.Context;
-using Katana.Data.Models;
 
 namespace Katana.Infrastructure.Workers
 {

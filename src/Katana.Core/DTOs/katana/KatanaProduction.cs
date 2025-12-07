@@ -52,17 +52,11 @@ public class BomRowCreateRequest
     public string? Notes { get; set; }
 }
 
-
-
-
 public class BomRowBatchCreateRequest
 {
     [JsonPropertyName("data")]
     public List<BomRowCreateRequest> Data { get; set; } = new();
 }
-
-
-
 
 public class BomRowUpdateRequest
 {
@@ -75,9 +69,6 @@ public class BomRowUpdateRequest
     [JsonPropertyName("notes")]
     public string? Notes { get; set; }
 }
-
-
-
 
 public class BomRowListQuery
 {

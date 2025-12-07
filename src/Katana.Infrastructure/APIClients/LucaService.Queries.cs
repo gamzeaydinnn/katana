@@ -27,7 +27,48 @@ namespace Katana.Infrastructure.APIClients;
 /// </summary>
 public partial class LucaService
 {
-    public async Task<JsonElement> ListInvoicesAsync(LucaListInvoicesRequest request, bool detayliListe = false)
+    /// <summary>
+    /// Fatura Listesi - Filtreleme ile (ListeleFtrSsFaturaBaslik.do)
+    /// </summary>
+    public async Task<JsonElement> ListInvoicesAsync(
+        int? parUstHareketTuru = null,
+        int? parAltHareketTuru = null,
+        long? belgeNoBas = null,
+        long? belgeNoBit = null,
+        string? belgeTarihiBas = null,
+        string? belgeTarihiBit = null,
+        bool detayliListe = false,
+        CancellationToken ct = default)
+    {
+        var request = new LucaListInvoicesRequest
+        {
+            ParUstHareketTuru = parUstHareketTuru,
+            ParAltHareketTuru = parAltHareketTuru
+        };
+
+        if (belgeNoBas.HasValue || belgeTarihiBas != null)
+        {
+            request.FtrSsFaturaBaslik = new LucaInvoiceOrgBelgeFilter
+            {
+                GnlOrgSsBelge = new LucaInvoiceBelgeFilter
+                {
+                    BelgeNoBas = belgeNoBas,
+                    BelgeNoBit = belgeNoBit,
+                    BelgeNoOp = belgeNoBas.HasValue && belgeNoBit.HasValue ? "between" : null,
+                    BelgeTarihiBas = belgeTarihiBas,
+                    BelgeTarihiBit = belgeTarihiBit,
+                    BelgeTarihiOp = belgeTarihiBas != null && belgeTarihiBit != null ? "between" : null
+                }
+            };
+        }
+
+        return await ListInvoicesAsync(request, detayliListe, ct);
+    }
+
+    /// <summary>
+    /// Fatura Listesi - Request ile (ListeleFtrSsFaturaBaslik.do)
+    /// </summary>
+    public async Task<JsonElement> ListInvoicesAsync(LucaListInvoicesRequest request, bool detayliListe = false, CancellationToken ct = default)
     {
         await EnsureAuthenticatedAsync();
 
@@ -44,8 +85,8 @@ public partial class LucaService
         ApplyManualSessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
-        var response = await client.SendAsync(httpRequest);
-        var responseContent = await response.Content.ReadAsStringAsync();
+        var response = await client.SendAsync(httpRequest, ct);
+        var responseContent = await response.Content.ReadAsStringAsync(ct);
         response.EnsureSuccessStatusCode();
 
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
@@ -70,7 +111,15 @@ public partial class LucaService
         var json = JsonSerializer.Serialize(request, _jsonOptions);
         var content = CreateKozaContent(json);
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-        var response = await client.PostAsync(_settings.Endpoints.InvoiceClose, content);
+        
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.InvoiceClose)
+        {
+            Content = content
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        
+        var response = await client.SendAsync(httpRequest);
         var responseContent = await response.Content.ReadAsStringAsync();
         response.EnsureSuccessStatusCode();
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
@@ -82,7 +131,15 @@ public partial class LucaService
         var json = JsonSerializer.Serialize(request, _jsonOptions);
         var content = CreateKozaContent(json);
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-        var response = await client.PostAsync(_settings.Endpoints.InvoiceDelete, content);
+        
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.InvoiceDelete)
+        {
+            Content = content
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        
+        var response = await client.SendAsync(httpRequest);
         var responseContent = await response.Content.ReadAsStringAsync();
         response.EnsureSuccessStatusCode();
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
@@ -150,7 +207,16 @@ public partial class LucaService
         var content = CreateKozaContent(json);
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var url = $"{_settings.Endpoints.CustomerRisk}?gnlFinansalNesne.finansalNesneId={request.GnlFinansalNesne.FinansalNesneId}";
-        var response = await client.PostAsync(url, content);
+        
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = content
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        httpRequest.Headers.Add("No-Paging", "true");
+        
+        var response = await client.SendAsync(httpRequest);
         var responseContent = await response.Content.ReadAsStringAsync();
         response.EnsureSuccessStatusCode();
 
@@ -192,6 +258,7 @@ public partial class LucaService
             Content = CreateKozaContent("{}")
         };
         ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
 
         var response = await client.SendAsync(httpRequest);

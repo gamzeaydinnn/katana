@@ -1,3 +1,4 @@
+using Katana.Core.DTOs;
 using Katana.Core.Interfaces;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
@@ -57,12 +58,17 @@ public class OrderMappingRepository : IOrderMappingRepository
         return Task.FromResult(0.18); // Varsayılan KDV %18
     }
 
-    public async Task SaveLucaInvoiceIdAsync(int orderId, long lucaFaturaId, string orderType, string? externalOrderId = null)
+    public async Task SaveLucaInvoiceIdAsync(
+        int orderId,
+        long lucaFaturaId,
+        string orderType,
+        string? externalOrderId = null,
+        string? belgeSeri = null,
+        string? belgeNo = null,
+        string? belgeTakipNo = null)
     {
-        // OrderMappings tablosuna kaydet (idempotent - aynı sipariş için sadece bir kez kaydeder)
-        var existing = await _context.OrderMappings
-            .FirstOrDefaultAsync(m => m.OrderId == orderId && m.EntityType == orderType);
-        
+        var existing = await GetEntityMappingAsync(orderId, orderType);
+
         if (existing == null)
         {
             _context.OrderMappings.Add(new Katana.Data.Models.OrderMapping
@@ -71,27 +77,35 @@ public class OrderMappingRepository : IOrderMappingRepository
                 LucaInvoiceId = lucaFaturaId,
                 EntityType = orderType,
                 ExternalOrderId = externalOrderId,
+                BelgeSeri = belgeSeri,
+                BelgeNo = belgeNo,
+                BelgeTakipNo = belgeTakipNo,
                 CreatedAt = DateTime.UtcNow
             });
-            await _context.SaveChangesAsync();
         }
-        // Zaten varsa hiçbir şey yapma (idempotency)
+        else
+        {
+            existing.LucaInvoiceId = lucaFaturaId;
+            existing.ExternalOrderId = externalOrderId ?? existing.ExternalOrderId;
+            existing.BelgeSeri = belgeSeri ?? existing.BelgeSeri;
+            existing.BelgeNo = belgeNo ?? existing.BelgeNo;
+            existing.BelgeTakipNo = belgeTakipNo ?? existing.BelgeTakipNo;
+            existing.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync();
     }
 
     public async Task<long?> GetLucaInvoiceIdByOrderIdAsync(int orderId, string orderType)
     {
-        // OrderMappings tablosundan çek
-        var mapping = await _context.OrderMappings
-            .FirstOrDefaultAsync(m => m.OrderId == orderId && m.EntityType == orderType);
-        
+        var mapping = await GetEntityMappingAsync(orderId, orderType);
         return mapping?.LucaInvoiceId;
     }
 
     public async Task UpdateLucaInvoiceIdAsync(int orderId, long lucaFaturaId, string orderType, string? externalOrderId = null)
     {
         // Mevcut mapping'i güncelle (sipariş Luca'da güncellenmiş se)
-        var existing = await _context.OrderMappings
-            .FirstOrDefaultAsync(m => m.OrderId == orderId && m.EntityType == orderType);
+        var existing = await GetEntityMappingAsync(orderId, orderType);
         
         if (existing != null)
         {
@@ -128,5 +142,81 @@ public class OrderMappingRepository : IOrderMappingRepository
     public async Task<string> GetDefaultCashAccountCodeAsync()
     {
         return await Task.FromResult("100"); // Varsayılan kasa hesap kodu
+    }
+
+    public async Task<OrderMappingInfo?> GetMappingInfoAsync(int orderId, string orderType)
+    {
+        var mapping = await GetEntityMappingAsync(orderId, orderType);
+        if (mapping == null)
+        {
+            return null;
+        }
+
+        return new OrderMappingInfo
+        {
+            BelgeSeri = mapping.BelgeSeri,
+            BelgeNo = mapping.BelgeNo,
+            BelgeTakipNo = mapping.BelgeTakipNo
+        };
+    }
+
+    public async Task UpsertMappingInfoAsync(
+        int orderId,
+        string entityType,
+        string? externalOrderId,
+        string belgeSeri,
+        string belgeNo,
+        string belgeTakipNo,
+        CancellationToken ct)
+    {
+        var existing = await _context.OrderMappings
+            .FirstOrDefaultAsync(m => m.OrderId == orderId && m.EntityType == entityType, ct);
+
+        if (existing == null)
+        {
+            _context.OrderMappings.Add(new Katana.Data.Models.OrderMapping
+            {
+                OrderId = orderId,
+                EntityType = entityType,
+                ExternalOrderId = externalOrderId,
+                BelgeSeri = belgeSeri,
+                BelgeNo = belgeNo,
+                BelgeTakipNo = belgeTakipNo,
+                LucaInvoiceId = 0, // Henüz senkronlanmadı
+                SyncStatus = "PENDING",
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+        else
+        {
+            // ⚠️ KRİTİK: SYNCED kayıtlara asla dokunma!
+            if (existing.SyncStatus == "SYNCED")
+            {
+                return; // SYNCED kayıt → güncelleme yapma
+            }
+
+            // Sadece boş alanları güncelle (override etme)
+            if (string.IsNullOrWhiteSpace(existing.BelgeSeri))
+                existing.BelgeSeri = belgeSeri;
+            
+            if (string.IsNullOrWhiteSpace(existing.BelgeNo))
+                existing.BelgeNo = belgeNo;
+            
+            if (string.IsNullOrWhiteSpace(existing.BelgeTakipNo))
+                existing.BelgeTakipNo = belgeTakipNo;
+            
+            if (!string.IsNullOrWhiteSpace(externalOrderId))
+                existing.ExternalOrderId = externalOrderId;
+
+            existing.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync(ct);
+    }
+
+    private async Task<Katana.Data.Models.OrderMapping?> GetEntityMappingAsync(int orderId, string orderType)
+    {
+        return await _context.OrderMappings
+            .FirstOrDefaultAsync(m => m.OrderId == orderId && m.EntityType == orderType);
     }
 }

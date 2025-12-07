@@ -275,7 +275,7 @@ public class KatanaService : IKatanaService
     }
 
     
-    private async Task<string?> GetVariantSkuAsync(int variantId)
+    public async Task<string?> GetVariantSkuAsync(long variantId)
     {
         var cacheKey = $"variant-sku-{variantId}";
         if (_cache.TryGetValue<string?>(cacheKey, out var cached))

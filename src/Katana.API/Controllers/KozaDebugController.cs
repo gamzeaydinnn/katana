@@ -20,6 +20,7 @@ public class KozaDebugController : ControllerBase
 {
     private readonly ILucaService _lucaService;
     private readonly LucaApiSettings _lucaSettings;
+    private readonly KatanaMappingSettings _katanaMappingSettings;
     private readonly ILogger<KozaDebugController> _logger;
     private readonly IKatanaService _katanaService;
     private readonly IntegrationDbContext _dbContext;
@@ -27,12 +28,14 @@ public class KozaDebugController : ControllerBase
     public KozaDebugController(
         ILucaService lucaService,
         IOptions<LucaApiSettings> lucaOptions,
+        IOptions<KatanaMappingSettings> mappingOptions,
         ILogger<KozaDebugController> logger,
         IKatanaService katanaService,
         IntegrationDbContext dbContext)
     {
         _lucaService = lucaService;
         _lucaSettings = lucaOptions.Value;
+        _katanaMappingSettings = mappingOptions.Value;
         _logger = logger;
         _katanaService = katanaService;
         _dbContext = dbContext;
@@ -102,7 +105,7 @@ public class KozaDebugController : ControllerBase
             var output = new System.Collections.Generic.List<object>();
             foreach (var p in selected)
             {
-                var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(p, _lucaSettings, mappings);
+                var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(p, _lucaSettings, mappings, _katanaMappingSettings);
                 // Apply DefaultKategoriKodu override to preview so debug output matches actual send behavior
                 if (!string.IsNullOrWhiteSpace(_lucaSettings.DefaultKategoriKodu))
                 {

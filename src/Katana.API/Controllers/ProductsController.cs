@@ -362,7 +362,7 @@ public class ProductsController : ControllerBase
     {
         try
         {
-            var cards = await _lucaService.ListStockCardsAsync();
+            var cards = await _lucaService.ListStockCardsAsync(CancellationToken.None);
             _logger.LogInformation("[CONTROLLER] Frontend'e {Count} adet stok kartı gönderiliyor.", cards?.Count ?? 0);
             return Ok(cards);
         }

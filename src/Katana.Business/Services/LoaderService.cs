@@ -21,18 +21,21 @@ public class LoaderService : ILoaderService
     private readonly ILogger<LoaderService> _logger;
     private readonly InventorySettings _inventorySettings;
     private readonly LucaApiSettings _lucaSettings;
+    private readonly KatanaMappingSettings _katanaMappingSettings;
 
     public LoaderService(
         ILucaService lucaService,
         IntegrationDbContext dbContext,
         IOptions<InventorySettings> inventoryOptions,
         IOptions<LucaApiSettings> lucaOptions,
+        IOptions<KatanaMappingSettings> mappingOptions,
         ILogger<LoaderService> logger)
     {
         _lucaService = lucaService;
         _dbContext = dbContext;
         _inventorySettings = inventoryOptions.Value;
         _lucaSettings = lucaOptions.Value;
+        _katanaMappingSettings = mappingOptions.Value;
         _logger = logger;
     }
 
@@ -220,7 +223,8 @@ public class LoaderService : ILoaderService
             var card = KatanaToLucaMapper.MapKatanaProductToStockCard(
                 productDto,
                 _lucaSettings,
-                productCategoryMappings);
+                productCategoryMappings,
+                _katanaMappingSettings);
             
             lucaStockCards.Add(card);
         }
