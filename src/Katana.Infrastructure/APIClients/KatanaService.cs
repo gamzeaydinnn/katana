@@ -876,6 +876,68 @@ public class KatanaService : IKatanaService
         }
     }
 
+    public async Task<LocationDto?> UpdateLocationAsync(int locationId, LocationDto location)
+    {
+        try
+        {
+            if (locationId <= 0)
+            {
+                _logger.LogError("UpdateLocationAsync called with invalid locationId: {LocationId}", locationId);
+                return null;
+            }
+
+            if (location == null)
+            {
+                _logger.LogError("UpdateLocationAsync called with null location for locationId: {LocationId}", locationId);
+                return null;
+            }
+
+            _logger.LogInformation("Updating location in Katana. LocationId: {LocationId}, LocationName: {LocationName}", locationId, location.Name);
+
+            // Build payload matching Katana API specification
+            var payload = new Dictionary<string, object?>
+            {
+                { "name", location.Name },
+                { "legal_name", location.LegalName ?? location.Name },
+                { "is_primary", location.IsPrimary },
+                { "sales_allowed", location.SalesAllowed },
+                { "manufacturing_allowed", location.ManufacturingAllowed },
+                { "purchase_allowed", location.PurchaseAllowed }
+            };
+
+            // Add optional address_id if present
+            if (location.AddressId.HasValue && location.AddressId > 0)
+            {
+                payload["address_id"] = location.AddressId.Value;
+            }
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            _logger.LogDebug("UpdateLocationAsync payload for LocationId {LocationId}: {Payload}", locationId, json);
+
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var updateUrl = $"{_settings.Endpoints.Locations}/{locationId}";
+            var response = await _httpClient.PutAsync(updateUrl, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("UpdateLocationAsync failed for LocationId: {LocationId}. Status: {StatusCode}, Response: {Response}", 
+                    locationId, response.StatusCode, responseContent);
+                return null;
+            }
+
+            _logger.LogInformation("Location updated successfully in Katana. LocationId: {LocationId}, LocationName: {LocationName}", locationId, location.Name);
+            
+            // Parse and return the updated location
+            return JsonSerializer.Deserialize<LocationDto>(responseContent, _jsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating location in Katana API. LocationId: {LocationId}, Location: {LocationName}", locationId, location?.Name ?? "Unknown");
+            return null;
+        }
+    }
+
     public Task<List<ServiceDto>> GetServicesAsync()
     {
         return GetListAsync<ServiceDto>("services", "services");
