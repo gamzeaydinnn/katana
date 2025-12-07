@@ -46,6 +46,29 @@ public class SupplierKozaCariMapping
     public string? KozaCariTanim { get; set; }
     
     /// <summary>
+    /// Senkronizasyon durumu: PENDING, SYNCED, FAILED
+    /// </summary>
+    [MaxLength(20)]
+    public string SyncStatus { get; set; } = "PENDING";
+    
+    /// <summary>
+    /// Son senkronize edilen verinin hash'i (değişiklik tespiti için)
+    /// </summary>
+    [MaxLength(64)]
+    public string? LastSyncHash { get; set; }
+    
+    /// <summary>
+    /// Son senkronizasyon hatası (varsa)
+    /// </summary>
+    [MaxLength(500)]
+    public string? LastSyncError { get; set; }
+    
+    /// <summary>
+    /// Son senkronize edilen tarih
+    /// </summary>
+    public DateTime? LastSyncAt { get; set; }
+    
+    /// <summary>
     /// Son güncelleme zamanı
     /// </summary>
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

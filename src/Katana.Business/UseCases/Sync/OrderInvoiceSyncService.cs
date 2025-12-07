@@ -191,7 +191,14 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                 try
                 {
                     // 6. Luca ID'yi mapping tablosuna kaydet
-                    await _mappingRepo.SaveLucaInvoiceIdAsync(orderId, lucaFaturaId.Value, "SalesOrder");
+                        await _mappingRepo.SaveLucaInvoiceIdAsync(
+                            orderId,
+                            lucaFaturaId.Value,
+                            "SalesOrder",
+                            externalOrderId: order.OrderNo,
+                            belgeSeri: lucaRequest.BelgeSeri,
+                            belgeNo: lucaRequest.BelgeNo?.ToString(),
+                            belgeTakipNo: lucaRequest.BelgeTakipNo ?? order.OrderNo);
                     
                     // 7. Order'ı synced olarak işaretle
                     order.IsSynced = true;
@@ -280,68 +287,91 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
     private async Task<LucaCreateInvoiceHeaderRequest?> BuildSalesInvoiceRequestAsync(Order order)
     {
         var validationErrors = new List<string>();
+        const string entityType = "SalesOrder";
 
-        // Müşteri Luca kodu
+        // 1) mapping info çek
+        var map = await _mappingRepo.GetMappingInfoAsync(order.Id, entityType);
+
+        // 2) Belge alanlarını mapping'den al; yoksa deterministik üret
+        var belgeSeri = !string.IsNullOrWhiteSpace(map?.BelgeSeri) ? map!.BelgeSeri : "A";
+
+        var belgeNo = !string.IsNullOrWhiteSpace(map?.BelgeNo)
+            ? map!.BelgeNo!
+            : TryExtractDigitsLast9(order.OrderNo) ?? (1_000_000 + order.Id).ToString();
+
+        var belgeTakipNo = !string.IsNullOrWhiteSpace(map?.BelgeTakipNo)
+            ? map!.BelgeTakipNo!
+            : Left50(order.OrderNo ?? $"{entityType}-{order.Id}");
+
+        // 3) mapping eksikse (veya alanlar boşsa) DB'ye yaz ki retry'da aynı belge kullansın
+        if (map is null || string.IsNullOrWhiteSpace(map.BelgeSeri) || string.IsNullOrWhiteSpace(map.BelgeNo) || string.IsNullOrWhiteSpace(map.BelgeTakipNo))
+        {
+            await _mappingRepo.UpsertMappingInfoAsync(
+                orderId: order.Id,
+                entityType: entityType,
+                externalOrderId: order.OrderNo,
+                belgeSeri: belgeSeri,
+                belgeNo: belgeNo,
+                belgeTakipNo: belgeTakipNo,
+                ct: default
+            );
+        }
+
         var cariKodu = await _mappingRepo.GetLucaCariKoduByCustomerIdAsync(order.CustomerId);
-        
-        // Validation: Cari kodu kontrolü
+
         var cariValidation = Validators.LucaDataValidator.ValidateCariKodu(cariKodu, "Müşteri Kodu");
         if (!cariValidation.IsValid)
         {
-            _logger.LogWarning("Customer {CustomerId} validation failed: {Error}", 
-                order.CustomerId, cariValidation.ErrorMessage);
-            
-            // Fallback: Customer entity'den oluştur
+            _logger.LogWarning("Customer {CustomerId} validation failed: {Error}", order.CustomerId, cariValidation.ErrorMessage);
             cariKodu = $"MUS-{order.CustomerId:D5}";
             _logger.LogWarning("Fallback cari kodu kullanılıyor: {CariKodu}", cariKodu);
         }
 
-        // Validation: Para birimi
         var currencyValidation = Validators.LucaDataValidator.ValidateCurrency(order.Currency);
         if (!currencyValidation.IsValid)
         {
-            _logger.LogWarning("Order {OrderNo} currency validation failed: {Error}. Using fallback.", 
-                order.OrderNo, currencyValidation.ErrorMessage);
-            
-            // Fallback: Default TRY
+            _logger.LogWarning("Order {OrderNo} currency validation failed: {Error}. Using fallback.", order.OrderNo, currencyValidation.ErrorMessage);
             order.Currency = "TRY";
         }
 
-        // Validation: Belge numarası
         var docNoValidation = Validators.LucaDataValidator.ValidateDocumentNo(order.OrderNo, "Sipariş No");
         if (!docNoValidation.IsValid)
         {
-            _logger.LogWarning("Order {OrderNo} document no validation failed: {Error}. Using fallback.", 
-                order.OrderNo, docNoValidation.ErrorMessage);
-            
-            // Fallback: Order ID ile oluştur
+            _logger.LogWarning("Order {OrderNo} document no validation failed: {Error}. Using fallback.", order.OrderNo, docNoValidation.ErrorMessage);
             order.OrderNo = $"ORD-{order.Id:D8}";
         }
 
-        // Validation: Tarih
         var dateValidation = Validators.LucaDataValidator.ValidateDate(order.OrderDate, "Sipariş Tarihi", allowFuture: false);
         if (!dateValidation.IsValid)
         {
-            _logger.LogWarning("Order {OrderNo} date validation failed: {Error}. Using fallback.", 
-                order.OrderNo, dateValidation.ErrorMessage);
-            
-            // Fallback: DateTime.UtcNow kullan
+            _logger.LogWarning("Order {OrderNo} date validation failed: {Error}. Using fallback.", order.OrderNo, dateValidation.ErrorMessage);
             order.OrderDate = DateTime.UtcNow;
         }
 
         var belgeTurDetayId = await _mappingRepo.GetBelgeTurDetayIdAsync(isSalesOrder: true);
 
+        // BelgeNo string'i int'e parse et (Luca int bekliyor)
+        // Parse edemezse deterministik fallback üret (0/NULL göndermemek için)
+        int belgeNoInt;
+        if (!int.TryParse(belgeNo, out belgeNoInt))
+        {
+            // map bozuksa deterministik numeric üret
+            var fallback = TryExtractDigitsLast9(belgeNo) ?? (1_000_000 + order.Id).ToString();
+            belgeNoInt = int.Parse(fallback);
+        }
+
         var request = new LucaCreateInvoiceHeaderRequest
         {
-            BelgeSeri = "A", // Fatura serisi
-            BelgeNo = TryParseOrderNo(order.OrderNo),
+            BelgeSeri = belgeSeri,
+            BelgeNo = belgeNoInt,
             BelgeTarihi = order.OrderDate,
-            VadeTarihi = order.OrderDate.AddDays(30), // 30 gün vade
+            VadeTarihi = order.OrderDate.AddDays(30),
             BelgeAciklama = $"Katana Sales Order #{order.OrderNo}",
             BelgeTurDetayId = belgeTurDetayId,
+            BelgeTakipNo = belgeTakipNo,
             FaturaTur = MAL_HIZMET,
             ParaBirimKod = order.Currency ?? "TRY",
-            KdvFlag = false, // KDV hariç (genelde ERP'ler hariç çalışır)
+            KdvFlag = false,
             MusteriTedarikci = MUSTERI,
             CariKodu = cariKodu,
             CariTanim = order.Customer?.Title,
@@ -435,11 +465,11 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
         }
         
         // Fallback kullanımını log'la
-        _logger.LogInformation("Order {OrderNo} converted to Luca invoice with fallback values where needed", 
-            order.OrderNo);
+            _logger.LogInformation("Order {OrderNo} converted to Luca invoice with fallback values where needed", 
+                order.OrderNo);
 
-        return request;
-    }
+            return request;
+        }
 
     #endregion
 
@@ -688,7 +718,21 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
 
     #region Helpers
 
-    private int? TryParseOrderNo(string orderNo)
+    private static string Left50(string s) => s.Length <= 50 ? s : s.Substring(0, 50);
+
+    private static string? TryExtractDigitsLast9(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return null;
+        var digits = new string(input.Where(char.IsDigit).ToArray());
+        if (digits.Length == 0) return null;
+
+        // INT taşmasın diye son 9 haneyi al
+        if (digits.Length > 9) digits = digits.Substring(digits.Length - 9);
+
+        return digits;
+    }
+
+    private int? TryParseOrderNo(string? orderNo)
     {
         // "SO-1001" gibi formatları handle et
         if (string.IsNullOrEmpty(orderNo))

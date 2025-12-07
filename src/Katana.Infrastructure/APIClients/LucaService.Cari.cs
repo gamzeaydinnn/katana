@@ -212,13 +212,49 @@ public partial class LucaService
     /// </summary>
     public async Task<IReadOnlyList<KozaCariDto>> ListMusteriCarilerAsync(CancellationToken ct = default)
     {
+        return await ListMusteriCarilerAsync(null, null, "between", ct);
+    }
+
+    /// <summary>
+    /// Koza Müşteri Carilerini Listele (ListeleFinMusteri.do) - Filtreleme ile
+    /// </summary>
+    public async Task<IReadOnlyList<KozaCariDto>> ListMusteriCarilerAsync(
+        string? kodBas, 
+        string? kodBit, 
+        string kodOp = "between",
+        CancellationToken ct = default)
+    {
         try
         {
             await EnsureAuthenticatedAsync();
 
+            object payload;
+            if (!string.IsNullOrEmpty(kodBas) && !string.IsNullOrEmpty(kodBit))
+            {
+                // Filtreleme ile
+                payload = new
+                {
+                    finMusteri = new
+                    {
+                        gnlFinansalNesne = new
+                        {
+                            kodBas = kodBas,
+                            kodBit = kodBit,
+                            kodOp = kodOp
+                        }
+                    }
+                };
+            }
+            else
+            {
+                // Filtreleme olmadan (tümü)
+                payload = new { };
+            }
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
             var req = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.CustomerList ?? "/api/finMusteri/listele")
             {
-                Content = new StringContent("{}", Encoding.UTF8, "application/json")
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
             req.Headers.TryAddWithoutValidation("No-Paging", "true");
 
@@ -245,13 +281,101 @@ public partial class LucaService
 
             var müsteriler = dto?.FinMusteriListesi ?? new List<KozaCariDto>();
             
-            _logger.LogInformation("Koza'dan {Count} müşteri cari listelendi", müsteriler.Count);
+            _logger.LogInformation("Koza'dan {Count} müşteri cari listelendi (Filtre: {KodBas}-{KodBit})", 
+                müsteriler.Count, kodBas ?? "Tümü", kodBit ?? "Tümü");
             return müsteriler;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "ListMusteriCarilerAsync failed");
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Koza Müşteri Kartı Ekleme (EkleFinMusteriWS.do) - Dokümantasyona tam uyumlu
+    /// </summary>
+    public async Task<KozaResult> CreateMusteriCariAsync(KozaMusteriEkleRequest request, CancellationToken ct = default)
+    {
+        try
+        {
+            await EnsureAuthenticatedAsync();
+
+            var json = JsonSerializer.Serialize(new { finMusteri = request }, _jsonOptions);
+            
+            _logger.LogDebug("CreateMusteriCariAsync request: {Json}", json);
+
+            var httpReq = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.CustomerCreate)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+
+            ApplySessionCookie(httpReq);
+            ApplyManualSessionCookie(httpReq);
+
+            var client = _cookieHttpClient ?? _httpClient;
+            var res = await client.SendAsync(httpReq, ct);
+            var body = await res.Content.ReadAsStringAsync(ct);
+
+            _logger.LogDebug("CreateMusteriCariAsync response status: {Status}, body: {Body}", 
+                res.StatusCode, body.Length > 500 ? body.Substring(0, 500) : body);
+
+            if (body.TrimStart().StartsWith("<"))
+            {
+                _logger.LogError("Koza NO_JSON (HTML döndü) - CreateMusteriCariAsync");
+                return new KozaResult 
+                { 
+                    Success = false, 
+                    Message = "Koza NO_JSON (HTML döndü). Auth/şube/cookie kırık olabilir." 
+                };
+            }
+
+            if (!res.IsSuccessStatusCode)
+            {
+                return new KozaResult 
+                { 
+                    Success = false, 
+                    Message = $"HTTP {res.StatusCode}: {body}" 
+                };
+            }
+
+            // Response'dan finansalNesneId ve cariKodu almaya çalış
+            long? finansalNesneId = null;
+            string? cariKodu = null;
+            try
+            {
+                var respJson = JsonSerializer.Deserialize<JsonElement>(body);
+                if (respJson.TryGetProperty("finansalNesneId", out var fnId))
+                {
+                    finansalNesneId = fnId.GetInt64();
+                }
+                else if (respJson.TryGetProperty("finMusteri", out var fm))
+                {
+                    if (fm.TryGetProperty("finansalNesneId", out var fmId))
+                        finansalNesneId = fmId.GetInt64();
+                    if (fm.TryGetProperty("kod", out var kod))
+                        cariKodu = kod.GetString();
+                }
+                
+                if (respJson.TryGetProperty("kod", out var kod2))
+                    cariKodu = kod2.GetString();
+            }
+            catch { /* Ignore parse errors */ }
+
+            _logger.LogInformation("Müşteri cari başarıyla oluşturuldu: {CariKodu} (FinansalNesneId: {Id})", 
+                cariKodu ?? request.KartKod ?? "N/A", finansalNesneId);
+            
+            return new KozaResult 
+            { 
+                Success = true, 
+                Message = "OK",
+                Data = new { CariKodu = cariKodu ?? request.KartKod, FinansalNesneId = finansalNesneId }
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CreateMusteriCariAsync failed for kartKod: {KartKod}", request.KartKod);
+            return new KozaResult { Success = false, Message = ex.Message };
         }
     }
 

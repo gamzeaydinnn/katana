@@ -1232,7 +1232,7 @@ namespace Katana.Data.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("Katana.Data.Models.AuditLog", b =>
+            modelBuilder.Entity("Katana.Core.Entities.AuditLog", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()

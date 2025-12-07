@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using Katana.Core.DTOs;
 
 namespace Katana.Core.Interfaces;
 
@@ -36,7 +37,14 @@ public interface IOrderMappingRepository
     /// <summary>
     /// Luca'ya gönderilmiş fatura ID'sini kaydeder (idem potent)
     /// </summary>
-    Task SaveLucaInvoiceIdAsync(int orderId, long lucaFaturaId, string orderType, string? externalOrderId = null);
+    Task SaveLucaInvoiceIdAsync(
+        int orderId,
+        long lucaFaturaId,
+        string orderType,
+        string? externalOrderId = null,
+        string? belgeSeri = null,
+        string? belgeNo = null,
+        string? belgeTakipNo = null);
     
     /// <summary>
     /// Order ID'den daha önce kaydedilmiş Luca Fatura ID'sini getirir
@@ -47,6 +55,23 @@ public interface IOrderMappingRepository
     /// Mevcut Luca fatura ID mapping'ini günceller
     /// </summary>
     Task UpdateLucaInvoiceIdAsync(int orderId, long lucaFaturaId, string orderType, string? externalOrderId = null);
+
+    /// <summary>
+    /// Sipariş-level mapping bilgilerini (serı/no) getirir
+    /// </summary>
+    Task<OrderMappingInfo?> GetMappingInfoAsync(int orderId, string orderType);
+    
+    /// <summary>
+    /// Sipariş-level mapping bilgilerini (seri/no/takip) upsert eder
+    /// </summary>
+    Task UpsertMappingInfoAsync(
+        int orderId,
+        string entityType,
+        string? externalOrderId,
+        string belgeSeri,
+        string belgeNo,
+        string belgeTakipNo,
+        CancellationToken ct);
     
     /// <summary>
     /// Luca Belge Tür Detay ID'sini getirir (Satış/Alım için)

@@ -26,6 +26,7 @@ public interface IKatanaService
     Task<List<KatanaStockTransferDto>> GetStockTransfersAsync(string? status = null);
     Task<List<KatanaSalesReturnDto>> GetSalesReturnsAsync(DateTime? fromDate = null);
     Task<List<SalesOrderDto>> GetSalesOrdersAsync(DateTime? fromDate = null);
+    Task<string?> GetVariantSkuAsync(long variantId);
     
     /// <summary>
     /// Memory-efficient batched sales order retrieval for large datasets

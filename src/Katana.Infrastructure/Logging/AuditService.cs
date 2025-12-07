@@ -1,6 +1,6 @@
 using Katana.Business.Interfaces;
+using Katana.Core.Entities;
 using Katana.Data.Context;
-using Katana.Data.Models;
 using Microsoft.Extensions.Logging;
 
 namespace Katana.Infrastructure.Logging;

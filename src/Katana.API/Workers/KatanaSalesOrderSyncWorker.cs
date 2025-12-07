@@ -13,6 +13,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Polly;
 using Polly.Retry;
+using System.Collections.Generic;
 
 namespace Katana.API.Workers;
 
@@ -79,6 +80,7 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
         var katanaService = scope.ServiceProvider.GetRequiredService<IKatanaService>();
         var pendingService = scope.ServiceProvider.GetRequiredService<IPendingStockAdjustmentService>();
         var context = scope.ServiceProvider.GetRequiredService<IntegrationDbContext>();
+        var variantMappingService = scope.ServiceProvider.GetRequiredService<IVariantMappingService>();
 
         _logger.LogInformation("Starting Katana sales order sync...");
 
@@ -108,16 +110,22 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
 
             // Ürün listesini al (variant ID -> SKU mapping için)
             var products = await katanaService.GetProductsAsync();
+            var skuToProductId = await context.Products
+                .Where(p => !string.IsNullOrWhiteSpace(p.SKU))
+                .ToDictionaryAsync(p => p.SKU!, p => p.Id, StringComparer.OrdinalIgnoreCase);
+
             var variantToProduct = new Dictionary<long, (int ProductId, string Sku)>();
             foreach (var p in products)
             {
-                // Katana'da variant_id genellikle product id ile ilişkili
-                // Bu mapping'i daha detaylı yapmak gerekebilir
                 if (long.TryParse(p.Id, out var variantId))
                 {
-                    variantToProduct[variantId] = (0, p.SKU ?? p.Id);
+                    var sku = p.SKU ?? p.Id;
+                    var productId = skuToProductId.TryGetValue(sku, out var localId) ? localId : 0;
+                    variantToProduct[variantId] = (productId, sku);
                 }
             }
+
+            var variantMappingCache = new Dictionary<long, VariantMapping?>();
 
             var newOrdersCount = 0;
             var newItemsCount = 0;
@@ -148,19 +156,14 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                     {
                         foreach (var row in order.SalesOrderRows)
                         {
-                            // Variant ID'den ürün bilgisi al
-                            string sku;
-                            int productId = 0;
-                            
-                            if (variantToProduct.TryGetValue(row.VariantId, out var productInfo))
-                            {
-                                sku = productInfo.Sku;
-                                productId = productInfo.ProductId;
-                            }
-                            else
-                            {
-                                sku = $"VARIANT-{row.VariantId}";
-                            }
+                            var (resolvedProductId, resolvedSku) = await ResolveVariantMappingAsync(
+                                row.VariantId,
+                                variantToProduct,
+                                variantMappingCache,
+                                variantMappingService);
+
+                            string sku = resolvedSku;
+                            int productId = resolvedProductId;
 
                             var quantity = (int)row.Quantity;
                             var negativeQuantity = -Math.Abs(quantity);
@@ -335,6 +338,33 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
         {
             _logger.LogWarning(ex, "Failed to process approved orders for Luca sync");
         }
+    }
+
+    private static async Task<(int ProductId, string Sku)> ResolveVariantMappingAsync(
+        long variantId,
+        IDictionary<long, (int ProductId, string Sku)> fallback,
+        Dictionary<long, VariantMapping?> cache,
+        IVariantMappingService variantMappingService)
+    {
+        if (!cache.TryGetValue(variantId, out var cached))
+        {
+            cached = await variantMappingService.GetMappingAsync(variantId);
+            cache[variantId] = cached;
+        }
+
+        if (cached != null)
+        {
+            return (cached.ProductId, cached.Sku);
+        }
+
+        if (fallback.TryGetValue(variantId, out var fallbackValue))
+        {
+            var created = await variantMappingService.CreateOrUpdateAsync(variantId, fallbackValue.ProductId, fallbackValue.Sku);
+            cache[variantId] = created;
+            return (created.ProductId, created.Sku);
+        }
+
+        return (0, $"VARIANT-{variantId}");
     }
 
     private async Task CreateNewOrderNotificationAsync(IServiceScope scope, int orderCount, int itemCount, 

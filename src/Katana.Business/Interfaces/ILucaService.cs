@@ -42,7 +42,8 @@ public interface ILucaService
     Task<List<Katana.Core.DTOs.LucaProductDto>> FetchProductsAsync(System.Threading.CancellationToken cancellationToken = default);
 
     
-    Task<System.Text.Json.JsonElement> ListStockCardsAsync(LucaListStockCardsRequest request);
+    Task<System.Text.Json.JsonElement> ListStockCardsAsync(LucaListStockCardsRequest request, CancellationToken ct = default);
+    Task<System.Text.Json.JsonElement> ListStockCardsAsync(string? kodBas = null, string? kodBit = null, string kodOp = "between", CancellationToken ct = default);
     Task<List<LucaStockCardSummaryDto>> ListStockCardsAsync(System.Threading.CancellationToken cancellationToken = default);
     Task<System.Text.Json.JsonElement> ListStockCardPriceListsAsync(LucaListStockCardPriceListsRequest request);
     Task<System.Text.Json.JsonElement> ListStockCardAltUnitsAsync(LucaStockCardByIdRequest request);
@@ -51,7 +52,16 @@ public interface ILucaService
     Task<System.Text.Json.JsonElement> ListStockCategoriesAsync(LucaListStockCategoriesRequest request);
 
     
-    Task<System.Text.Json.JsonElement> ListInvoicesAsync(LucaListInvoicesRequest request, bool detayliListe = false);
+    Task<System.Text.Json.JsonElement> ListInvoicesAsync(LucaListInvoicesRequest request, bool detayliListe = false, CancellationToken ct = default);
+    Task<System.Text.Json.JsonElement> ListInvoicesAsync(
+        int? parUstHareketTuru = null,
+        int? parAltHareketTuru = null,
+        long? belgeNoBas = null,
+        long? belgeNoBit = null,
+        string? belgeTarihiBas = null,
+        string? belgeTarihiBit = null,
+        bool detayliListe = false,
+        CancellationToken ct = default);
     Task<System.Text.Json.JsonElement> CreateInvoiceRawAsync(LucaCreateInvoiceHeaderRequest request);
     Task<System.Text.Json.JsonElement> CloseInvoiceAsync(LucaCloseInvoiceRequest request);
     Task<System.Text.Json.JsonElement> DeleteInvoiceAsync(LucaDeleteInvoiceRequest request);
@@ -162,7 +172,8 @@ public interface ILucaService
     Task<List<LucaMeasurementUnitDto>> GetMeasurementUnitsAsync();
     Task<SyncResultDto> SendProductsFromExcelAsync(List<ExcelProductDto> products, System.Threading.CancellationToken cancellationToken = default);
     
-    Task<JsonElement> ListStockCardSuppliersAsync(LucaStockCardByIdRequest request);
+    Task<JsonElement> ListStockCardSuppliersAsync(LucaStockCardByIdRequest request, CancellationToken ct = default);
+    Task<JsonElement> ListStockCardSuppliersAsync(long skartId, CancellationToken ct = default);
     
     Task<JsonElement> ListCustomerContactsAsync(LucaListCustomerContactsRequest request);
     
@@ -189,7 +200,12 @@ public interface ILucaService
     Task<KozaResult> CreateCariHareketAsync(KozaCariHareketRequest req, CancellationToken ct = default);
     
     // Koza Tedarikçi Listesi
+    Task<IReadOnlyList<KozaCariDto>> ListMusteriCarilerAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<KozaCariDto>> ListMusteriCarilerAsync(string? kodBas, string? kodBit, string kodOp = "between", CancellationToken ct = default);
     Task<IReadOnlyList<KozaCariDto>> ListTedarikciCarilerAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<KozaCariDto>> ListTedarikciCarilerAsync(string? kodBas, string? kodBit, string kodOp = "between", CancellationToken ct = default);
+    Task<KozaResult> CreateMusteriCariAsync(KozaMusteriEkleRequest request, CancellationToken ct = default);
+    Task<KozaResult> CreateTedarikciCariAsync(KozaTedarikciEkleRequest request, CancellationToken ct = default);
     
     // Katana Supplier → Koza Tedarikçi Cari Sync
     Task<KozaResult> EnsureSupplierCariAsync(KatanaSupplierToCariDto supplier, CancellationToken ct = default);

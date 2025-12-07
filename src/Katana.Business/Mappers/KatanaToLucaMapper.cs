@@ -259,6 +259,15 @@ public static class KatanaToLucaMapper
         var list = new List<LucaCreateInvoiceDetailRequest>();
         foreach (var line in lines)
         {
+            // Depo kodu validation - boş olamaz
+            var depoKodu = defaultWarehouseCode;
+            if (string.IsNullOrWhiteSpace(depoKodu))
+            {
+                throw new InvalidOperationException(
+                    $"Depo kodu boş olamaz. Fatura satırı eklenirken depo kodu zorunludur. " +
+                    $"Ürün: {line.ProductCode}, Açıklama: {line.Description}");
+            }
+
             var detail = new LucaCreateInvoiceDetailRequest
             {
                 KartTuru = 1,
@@ -269,7 +278,7 @@ public static class KatanaToLucaMapper
                 KdvOran = ConvertToDouble(line.TaxRate),
                 Tutar = ConvertToDouble(line.NetAmount),
                 HesapKod = string.IsNullOrWhiteSpace(line.AccountCode) ? null : line.AccountCode,
-                DepoKodu = string.IsNullOrWhiteSpace(defaultWarehouseCode) ? null : defaultWarehouseCode,
+                DepoKodu = depoKodu,
                 OlcuBirimi = null,
                 Barkod = null
             };
@@ -364,7 +373,8 @@ public static class KatanaToLucaMapper
     public static LucaCreateStokKartiRequest MapKatanaProductToStockCard(
         KatanaProductDto product,
         LucaApiSettings lucaSettings,
-        IReadOnlyDictionary<string, string>? productCategoryMappings = null)
+        IReadOnlyDictionary<string, string>? productCategoryMappings = null,
+        KatanaMappingSettings? katanaMapping = null)
     {
         if (product == null) throw new ArgumentNullException(nameof(product));
         if (lucaSettings == null) throw new ArgumentNullException(nameof(lucaSettings));
@@ -479,12 +489,12 @@ public static class KatanaToLucaMapper
             KartAdi = name,
             KartTuru = 1,
             BaslangicTarihi = DateTime.UtcNow.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
-            OlcumBirimiId = lucaSettings.DefaultOlcumBirimiId,
+            OlcumBirimiId = ResolveMeasurementUnitId(product, lucaSettings, katanaMapping),
             KartKodu = sku,
             MaliyetHesaplanacakFlag = 1,
             KartTipi = lucaSettings.DefaultKartTipi,
             // Stok kartı için kategoriAgacKod boş olmalı (depo kartından farklı)
-            KategoriAgacKod = string.Empty,
+            KategoriAgacKod = category ?? string.Empty,
             KartAlisKdvOran = 1,
             KartSatisKdvOran = 1,
             Barkod = barcodeToSend, // 🔥 Versiyonlu SKU'lar için NULL
@@ -499,6 +509,65 @@ public static class KatanaToLucaMapper
         dto.KartAdi = EncodingHelper.ConvertToIso88599(dto.KartAdi);
         dto.UzunAdi = EncodingHelper.ConvertToIso88599(dto.UzunAdi);
         return dto;
+    }
+
+    private static long ResolveMeasurementUnitId(
+        KatanaProductDto product,
+        LucaApiSettings lucaSettings,
+        KatanaMappingSettings? katanaMapping)
+    {
+        var defaultId = lucaSettings.DefaultOlcumBirimiId > 0 ? lucaSettings.DefaultOlcumBirimiId : 1;
+        if (katanaMapping == null)
+        {
+            return defaultId;
+        }
+
+        var unitToResolve = !string.IsNullOrWhiteSpace(product.Unit)
+            ? product.Unit
+            : katanaMapping.DefaultUnit;
+
+        if (string.IsNullOrWhiteSpace(unitToResolve))
+        {
+            return defaultId;
+        }
+
+        var normalizedUnit = NormalizeMappingKey(unitToResolve);
+        if (string.IsNullOrWhiteSpace(normalizedUnit))
+        {
+            return defaultId;
+        }
+
+        var normalizedMappings = NormalizeMappingDictionary(katanaMapping.UnitToMeasurementUnit);
+        if (normalizedMappings.TryGetValue(normalizedUnit, out var mappedValue) &&
+            !string.IsNullOrWhiteSpace(mappedValue) &&
+            long.TryParse(mappedValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+        {
+            return parsed;
+        }
+
+        return defaultId;
+    }
+
+    private static Dictionary<string, string> NormalizeMappingDictionary(IReadOnlyDictionary<string, string>? mappings)
+    {
+        var normalized = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (mappings == null)
+        {
+            return normalized;
+        }
+
+        foreach (var mapping in mappings)
+        {
+            var key = NormalizeMappingKey(mapping.Key);
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            normalized[key] = mapping.Value ?? string.Empty;
+        }
+
+        return normalized;
     }
 
     private static string NormalizeMappingKey(string? input)

@@ -3,6 +3,7 @@ using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using Katana.Core.Interfaces;
+using AuditLogEntity = Katana.Core.Entities.AuditLog;
 
 namespace Katana.Data.Context;
 public class IntegrationDbContext : DbContext
@@ -27,6 +28,7 @@ public class IntegrationDbContext : DbContext
     public DbSet<InvoiceItem> InvoiceItems { get; set; } = null!;
     public DbSet<AccountingRecord> AccountingRecords { get; set; } = null!;
     public DbSet<ProductVariant> ProductVariants { get; set; } = null!;
+    public DbSet<VariantMapping> VariantMappings { get; set; } = null!;
     public DbSet<Batch> Batches { get; set; } = null!;
     public DbSet<ManufacturingOrder> ManufacturingOrders { get; set; } = null!;
     public DbSet<BillOfMaterials> BillOfMaterials { get; set; } = null!;
@@ -40,12 +42,13 @@ public class IntegrationDbContext : DbContext
     public DbSet<FailedSyncRecord> FailedSyncRecords { get; set; } = null!;
     
     public DbSet<ErrorLog> ErrorLogs { get; set; } = null!;
-    public DbSet<AuditLog> AuditLogs { get; set; } = null!; 
+    public DbSet<AuditLogEntity> AuditLogs { get; set; } = null!; 
     public DbSet<PendingStockAdjustment> PendingStockAdjustments { get; set; } = null!;
     public DbSet<Katana.Core.Entities.Notification> Notifications { get; set; } = null!;
     public DbSet<Katana.Core.Entities.FailedNotification> FailedNotifications { get; set; } = null!;
     public DbSet<DashboardMetric> DashboardMetrics { get; set; } = null!;
     public DbSet<StockMovement> StockMovements { get; set; } = null!;
+    public DbSet<InventoryMovement> InventoryMovements { get; set; } = null!;
     public DbSet<DataCorrectionLog> DataCorrectionLogs { get; set; } = null!;
     public DbSet<Category> Categories { get; set; }
     public DbSet<Order> Orders { get; set; }
@@ -59,9 +62,12 @@ public class IntegrationDbContext : DbContext
     public DbSet<Katana.Core.Entities.User> Users { get; set; } = null!;
     public DbSet<LocationKozaDepotMapping> LocationKozaDepotMappings => Set<LocationKozaDepotMapping>();
     public DbSet<SupplierKozaCariMapping> SupplierKozaCariMappings => Set<SupplierKozaCariMapping>();
+    public DbSet<CustomerKozaCariMapping> CustomerKozaCariMappings => Set<CustomerKozaCariMapping>();
     public DbSet<KozaDepot> KozaDepots => Set<KozaDepot>();
     public DbSet<Katana.Data.Models.OrderMapping> OrderMappings => Set<Katana.Data.Models.OrderMapping>();
     public DbSet<ProductLucaMapping> ProductLucaMappings => Set<ProductLucaMapping>();
+    public DbSet<TaxRateMapping> TaxRateMappings => Set<TaxRateMapping>();
+    public DbSet<UoMMapping> UoMMappings => Set<UoMMapping>();
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
@@ -138,6 +144,44 @@ public class IntegrationDbContext : DbContext
             entity.HasIndex(e => e.IsSynced);
         });
         
+        modelBuilder.Entity<InventoryMovement>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.MovementType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Reference).HasMaxLength(200);
+            entity.Property(e => e.Quantity).HasPrecision(18, 4);
+            entity.Property(e => e.Timestamp).IsRequired();
+            
+            entity.HasIndex(e => e.ProductId);
+            entity.HasIndex(e => e.VariantId);
+            entity.HasIndex(e => e.Timestamp);
+            entity.HasIndex(e => new { e.ProductId, e.Timestamp })
+                .HasDatabaseName("IX_InventoryMovements_Product_Timestamp");
+            
+            entity.HasOne<Product>()
+                .WithMany()
+                .HasForeignKey(e => e.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+        
+        modelBuilder.Entity<StockMovement>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ProductSku).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.SourceDocument).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.WarehouseCode).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Timestamp).IsRequired();
+            
+            entity.HasIndex(e => e.ProductId);
+            entity.HasIndex(e => e.Timestamp);
+            entity.HasIndex(e => e.IsSynced);
+            
+            entity.HasOne(e => e.Product)
+                .WithMany(p => p.StockMovements)
+                .HasForeignKey(e => e.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        
         modelBuilder.Entity<Category>()
             .HasMany(c => c.Children)
             .WithOne(c => c.Parent)
@@ -167,6 +211,12 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.District).HasMaxLength(100);
             entity.Property(e => e.ReferenceId).HasMaxLength(100);
             entity.Property(e => e.LastSyncError).HasMaxLength(1000);
+            entity.Property(e => e.SyncStatus).HasDefaultValue("PENDING");
+            
+            // Sync tracking için index
+            entity.HasIndex(e => e.SyncStatus);
+            entity.HasIndex(e => e.LastSyncHash);
+            entity.HasIndex(e => e.SyncedAt);
 
             entity.HasMany(e => e.Invoices)
                 .WithOne(e => e.Customer)
@@ -226,6 +276,9 @@ public class IntegrationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.MappingType, e.SourceValue }).IsUnique();
             entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => e.SyncStatus);
+            entity.HasIndex(e => e.LastSyncAt);
+            entity.Property(e => e.SyncStatus).HasDefaultValue("PENDING");
         });
 
         
@@ -237,7 +290,7 @@ public class IntegrationDbContext : DbContext
         });
 
         
-        modelBuilder.Entity<AuditLog>(entity =>
+        modelBuilder.Entity<AuditLogEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.EntityName);
@@ -327,6 +380,14 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.Barcode).HasMaxLength(100);
             entity.Property(e => e.Attributes).HasMaxLength(1000);
             entity.Property(e => e.Price).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<VariantMapping>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.KatanaVariantId).IsUnique();
+            entity.Property(e => e.Sku).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.ProductId).IsRequired();
         });
 
         modelBuilder.Entity<Batch>(entity =>
@@ -426,6 +487,25 @@ public class IntegrationDbContext : DbContext
                 .HasForeignKey(e => e.CustomerId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
+        
+        modelBuilder.Entity<OrderItem>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UnitPrice).HasColumnType("decimal(18,2)");
+            
+            entity.HasIndex(e => e.OrderId);
+            entity.HasIndex(e => e.ProductId);
+            
+            entity.HasOne(i => i.Order)
+                .WithMany(o => o.Items)
+                .HasForeignKey(i => i.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasOne(i => i.Product)
+                .WithMany()
+                .HasForeignKey(i => i.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
 
         modelBuilder.Entity<AccountingRecord>(entity =>
         {
@@ -453,6 +533,29 @@ public class IntegrationDbContext : DbContext
                 .HasForeignKey(e => e.CustomerId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
+        
+        modelBuilder.Entity<SalesOrderLine>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.SKU).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.ProductName).HasMaxLength(500);
+            entity.Property(e => e.ProductAvailability).HasMaxLength(50);
+            entity.Property(e => e.Quantity).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.PricePerUnit).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.PricePerUnitInBaseCurrency).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.Total).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TotalInBaseCurrency).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TaxRate).HasColumnType("decimal(5,2)");
+            
+            entity.HasIndex(e => e.SalesOrderId);
+            entity.HasIndex(e => e.KatanaRowId);
+            entity.HasIndex(e => e.VariantId);
+            
+            entity.HasOne(l => l.SalesOrder)
+                .WithMany(o => o.Lines)
+                .HasForeignKey(l => l.SalesOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         // PurchaseOrder - PurchaseOrderItem cascade delete
         modelBuilder.Entity<PurchaseOrder>(entity =>
@@ -475,6 +578,31 @@ public class IntegrationDbContext : DbContext
             entity.HasOne(po => po.Supplier)
                 .WithMany()
                 .HasForeignKey(po => po.SupplierId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+        
+        modelBuilder.Entity<PurchaseOrderItem>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UnitPrice).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.LucaStockCode).HasMaxLength(50);
+            entity.Property(e => e.WarehouseCode).HasMaxLength(10);
+            entity.Property(e => e.VatRate).HasColumnType("decimal(5,2)");
+            entity.Property(e => e.UnitCode).HasMaxLength(10);
+            entity.Property(e => e.DiscountAmount).HasColumnType("decimal(18,2)");
+            
+            entity.HasIndex(e => e.PurchaseOrderId);
+            entity.HasIndex(e => e.ProductId);
+            entity.HasIndex(e => e.LucaDetailId);
+            
+            entity.HasOne(i => i.PurchaseOrder)
+                .WithMany(o => o.Items)
+                .HasForeignKey(i => i.PurchaseOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasOne(i => i.Product)
+                .WithMany()
+                .HasForeignKey(i => i.ProductId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -513,6 +641,8 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.KatanaLocationName).HasMaxLength(200);
             entity.Property(e => e.KozaDepoTanim).HasMaxLength(200);
             entity.Property(e => e.UpdatedAt).IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.SyncStatus).HasDefaultValue("PENDING");
             
             // KatanaLocationId unique olmalı (her location sadece bir Koza depo'ya map olur)
             entity.HasIndex(e => e.KatanaLocationId).IsUnique();
@@ -522,6 +652,10 @@ public class IntegrationDbContext : DbContext
             
             // KozaDepoId'ye göre arama için index
             entity.HasIndex(e => e.KozaDepoId);
+            
+            // Sync tracking için index
+            entity.HasIndex(e => e.SyncStatus);
+            entity.HasIndex(e => e.LastSyncAt);
         });
 
         // Koza Supplier Cari Mapping
@@ -534,6 +668,7 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.KozaCariTanim).HasMaxLength(200);
             entity.Property(e => e.UpdatedAt).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.SyncStatus).HasDefaultValue("PENDING");
             
             // KatanaSupplierId unique olmalı
             entity.HasIndex(e => e.KatanaSupplierId).IsUnique();
@@ -543,6 +678,40 @@ public class IntegrationDbContext : DbContext
             
             // KozaFinansalNesneId'ye göre arama için index
             entity.HasIndex(e => e.KozaFinansalNesneId);
+            
+            // Sync tracking için index
+            entity.HasIndex(e => e.SyncStatus);
+            entity.HasIndex(e => e.LastSyncAt);
+        });
+
+        // Koza Customer Cari Mapping
+        modelBuilder.Entity<CustomerKozaCariMapping>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.KatanaCustomerId).IsRequired();
+            entity.Property(e => e.KozaCariKodu).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.KatanaCustomerName).HasMaxLength(200);
+            entity.Property(e => e.KozaCariTanim).HasMaxLength(200);
+            entity.Property(e => e.KatanaCustomerTaxNo).HasMaxLength(11);
+            entity.Property(e => e.UpdatedAt).IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.SyncStatus).HasDefaultValue("PENDING");
+            
+            // KatanaCustomerId unique olmalı
+            entity.HasIndex(e => e.KatanaCustomerId).IsUnique();
+            
+            // KozaCariKodu'na göre arama için index
+            entity.HasIndex(e => e.KozaCariKodu);
+            
+            // KozaFinansalNesneId'ye göre arama için index
+            entity.HasIndex(e => e.KozaFinansalNesneId);
+            
+            // Vergi numarasına göre arama için index (duplicate kontrolü)
+            entity.HasIndex(e => e.KatanaCustomerTaxNo);
+            
+            // Sync tracking için index
+            entity.HasIndex(e => e.SyncStatus);
+            entity.HasIndex(e => e.LastSyncAt);
         });
 
         // Order Mappings - İdempotency için
@@ -555,6 +724,7 @@ public class IntegrationDbContext : DbContext
             entity.Property(e => e.ExternalOrderId).HasMaxLength(200);
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.Property(e => e.UpdatedAt);
+            entity.Property(e => e.SyncStatus).HasDefaultValue("SYNCED");
             
             // Her OrderId + EntityType kombinasyonu unique olmalı
             entity.HasIndex(e => new { e.OrderId, e.EntityType }).IsUnique();
@@ -564,8 +734,74 @@ public class IntegrationDbContext : DbContext
             
             // ExternalOrderId'ye göre arama için index (Katana sipariş no ile mapping bulmak için)
             entity.HasIndex(e => e.ExternalOrderId);
+            
+            // Sync tracking için index
+            entity.HasIndex(e => e.SyncStatus);
+            entity.HasIndex(e => e.LastSyncAt);
         });
 
+        // Product Luca Mapping
+        modelBuilder.Entity<ProductLucaMapping>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.KatanaProductId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.KatanaSku).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.LucaStockCode).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.SyncStatus).HasDefaultValue("PENDING");
+            entity.Property(e => e.SyncedPrice).HasPrecision(18, 2);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
+            
+            // Her Katana ürünü için sadece 1 aktif mapping olmalı
+            entity.HasIndex(e => new { e.KatanaProductId, e.IsActive }).IsUnique();
+            
+            // Luca stock code'a göre arama için index
+            entity.HasIndex(e => e.LucaStockCode);
+            
+            // Sync durumuna göre arama için index
+            entity.HasIndex(e => e.SyncStatus);
+            
+            // Son sync zamanına göre arama için index
+            entity.HasIndex(e => e.SyncedAt);
+        });
+
+        // Tax Rate Mapping
+        modelBuilder.Entity<TaxRateMapping>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.KatanaTaxRateId).IsRequired();
+            entity.Property(e => e.KozaKdvOran).IsRequired().HasPrecision(5, 4); // 0.1800 format
+            entity.Property(e => e.Description).HasMaxLength(200);
+            entity.Property(e => e.SyncStatus).HasDefaultValue("PENDING").HasMaxLength(20);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
+            
+            // Her Katana tax_rate_id için sadece 1 mapping olmalı
+            entity.HasIndex(e => e.KatanaTaxRateId).IsUnique();
+            
+            // Sync tracking için index
+            entity.HasIndex(e => e.SyncStatus);
+            entity.HasIndex(e => e.LastSyncAt);
+        });
+
+        // UoM Mapping
+        modelBuilder.Entity<UoMMapping>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.KatanaUoMString).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.KozaOlcumBirimiId).IsRequired();
+            entity.Property(e => e.Description).HasMaxLength(200);
+            entity.Property(e => e.SyncStatus).HasDefaultValue("PENDING").HasMaxLength(20);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
+            
+            // Her UoM string için sadece 1 mapping olmalı (case-insensitive)
+            entity.HasIndex(e => e.KatanaUoMString).IsUnique();
+            
+            // Sync tracking için index
+            entity.HasIndex(e => e.SyncStatus);
+            entity.HasIndex(e => e.LastSyncAt);
+        });
         
         modelBuilder.Entity<ErrorLog>(entity =>
         {
@@ -574,7 +810,7 @@ public class IntegrationDbContext : DbContext
                 .HasDatabaseName("IX_ErrorLogs_Level_CreatedAt");
         });
 
-        modelBuilder.Entity<AuditLog>(entity =>
+        modelBuilder.Entity<AuditLogEntity>(entity =>
         {
             
             entity.HasIndex(a => new { a.EntityName, a.ActionType, a.Timestamp })
@@ -620,7 +856,7 @@ public class IntegrationDbContext : DbContext
         
         var entries = ChangeTracker.Entries()
             .Where(e => e.State is EntityState.Modified or EntityState.Added or EntityState.Deleted)
-            .Where(e => e.Entity is not AuditLog && e.Entity is not ErrorLog)
+            .Where(e => e.Entity is not AuditLogEntity && e.Entity is not ErrorLog)
             .ToList();
 
         foreach (var entry in entries)
@@ -662,7 +898,7 @@ public class IntegrationDbContext : DbContext
 
             var details = BuildDetails(entry.Entity.GetType().Name, entityId, display, action, changes);
 
-            AuditLogs.Add(new AuditLog
+            AuditLogs.Add(new AuditLogEntity
             {
                 EntityName = entry.Entity.GetType().Name,
                 EntityId = entityId,
@@ -688,8 +924,8 @@ public class IntegrationDbContext : DbContext
                 try
                 {
                     var audits = ChangeTracker.Entries()
-                        .Where(e => e.Entity is AuditLog)
-                        .Select(e => e.Entity as AuditLog)
+                        .Where(e => e.Entity is AuditLogEntity)
+                        .Select(e => e.Entity as AuditLogEntity)
                         .Where(a => a != null)
                         .ToList()!;
 

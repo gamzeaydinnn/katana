@@ -1,6 +1,7 @@
 using Katana.Core.Interfaces;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Katana.Data.Repositories;
 
@@ -10,17 +11,68 @@ namespace Katana.Data.Repositories;
 public class StockMovementMappingRepository : IStockMovementMappingRepository
 {
     private readonly IntegrationDbContext _context;
+    private readonly ILogger<StockMovementMappingRepository> _logger;
+    private const string DEFAULT_DEPO_KODU = "001"; // Fallback depo kodu
 
-    public StockMovementMappingRepository(IntegrationDbContext context)
+    public StockMovementMappingRepository(
+        IntegrationDbContext context,
+        ILogger<StockMovementMappingRepository> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<string?> GetLucaDepoKoduByLocationIdAsync(int locationId)
     {
-        // Location tablosu yoksa varsayılan depo kodu
-        // Gerçek implementasyonda Location tablosu kullanılmalı
-        return await Task.FromResult("001"); // Varsayılan depo
+        try
+        {
+            // LocationKozaDepotMapping tablosundan depo kodunu al
+            var mapping = await _context.LocationKozaDepotMappings
+                .Where(m => m.KatanaLocationId == locationId.ToString())
+                .FirstOrDefaultAsync();
+
+            if (mapping != null)
+            {
+                if (string.IsNullOrWhiteSpace(mapping.KozaDepoKodu))
+                {
+                    _logger.LogWarning(
+                        "Location {LocationId} mapping found but KozaDepoKodu is empty. Using default: {DefaultDepo}",
+                        locationId, DEFAULT_DEPO_KODU);
+                    return DEFAULT_DEPO_KODU;
+                }
+
+                return mapping.KozaDepoKodu;
+            }
+
+            // Mapping bulunamadı - MappingTable'dan fallback kontrol et
+            var fallbackMapping = await _context.MappingTables
+                .Where(m => m.MappingType == "LOCATION_WAREHOUSE" 
+                    && m.SourceValue == locationId.ToString()
+                    && m.IsActive)
+                .FirstOrDefaultAsync();
+
+            if (fallbackMapping != null && !string.IsNullOrWhiteSpace(fallbackMapping.TargetValue))
+            {
+                _logger.LogInformation(
+                    "Using fallback mapping for Location {LocationId}: {DepoKodu}",
+                    locationId, fallbackMapping.TargetValue);
+                return fallbackMapping.TargetValue;
+            }
+
+            // Hiçbir mapping bulunamadı - default depo kodu kullan
+            _logger.LogWarning(
+                "No mapping found for Location {LocationId}. Using default depo: {DefaultDepo}",
+                locationId, DEFAULT_DEPO_KODU);
+
+            return DEFAULT_DEPO_KODU;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, 
+                "Error getting depo kodu for Location {LocationId}. Using default: {DefaultDepo}",
+                locationId, DEFAULT_DEPO_KODU);
+            return DEFAULT_DEPO_KODU;
+        }
     }
 
     public async Task<string?> GetLucaStokKoduByVariantIdAsync(int variantId)
@@ -53,8 +105,21 @@ public class StockMovementMappingRepository : IStockMovementMappingRepository
 
     public async Task<Dictionary<int, string>> GetAllLocationMappingsAsync()
     {
-        // Tüm Location -> Depo mapping'lerini dön
-        // Şimdilik boş dictionary
-        return await Task.FromResult(new Dictionary<int, string>());
+        try
+        {
+            // LocationKozaDepotMapping'den tüm mapping'leri al
+            var mappings = await _context.LocationKozaDepotMappings
+                .Where(m => !string.IsNullOrWhiteSpace(m.KozaDepoKodu))
+                .ToDictionaryAsync(
+                    m => int.TryParse(m.KatanaLocationId, out var id) ? id : 0,
+                    m => m.KozaDepoKodu);
+
+            return mappings.Where(kvp => kvp.Key > 0).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting all location mappings");
+            return new Dictionary<int, string>();
+        }
     }
 }

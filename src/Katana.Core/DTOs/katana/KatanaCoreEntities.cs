@@ -4,9 +4,6 @@ namespace Katana.Core.DTOs;
 
 #region Product & Variant
 
-
-
-
 public class ProductDto
 {
     [JsonPropertyName("id")]

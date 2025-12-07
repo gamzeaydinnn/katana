@@ -182,6 +182,8 @@ builder.Services.AddScoped<IRepository<Category>, CategoryRepository>();
 // Mapping Repositories - Order ve StockMovement sync için
 builder.Services.AddScoped<IOrderMappingRepository, OrderMappingRepository>();
 builder.Services.AddScoped<IStockMovementMappingRepository, StockMovementMappingRepository>();
+builder.Services.AddScoped<IVariantMappingRepository, VariantMappingRepository>();
+builder.Services.AddScoped<IVariantMappingService, VariantMappingService>();
 
 builder.Services.AddScoped<IExtractorService, ExtractorService>();
 builder.Services.AddScoped<ITransformerService, TransformerService>();
@@ -212,6 +214,12 @@ builder.Services.AddScoped<IEventPublisher, EventPublisher>();
 builder.Services.AddScoped<INotificationService, EmailNotificationService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<IMappingService, MappingService>();
+builder.Services.AddScoped<IMappingSyncService, MappingSyncService>();
+builder.Services.AddScoped<ILocationMappingService, LocationMappingService>();
+builder.Services.AddScoped<ICustomerMappingService, CustomerMappingService>();
+builder.Services.AddScoped<IDocumentMappingService, DocumentMappingService>();
+builder.Services.AddScoped<ITaxRateMappingService, TaxRateMappingService>();
+builder.Services.AddScoped<IUoMMappingService, UoMMappingService>();
 builder.Services.AddScoped<IIntegrationTestService, IntegrationTestService>();
 builder.Services.AddScoped<IDataCorrectionService, DataCorrectionService>();
 builder.Services.AddScoped<OrderInvoiceSyncService>();
@@ -463,7 +471,7 @@ _ = Task.Run(async () =>
         await Task.Delay(5000); // API tamamen hazır olana kadar bekle
         
         logger.LogInformation("Luca stok kartları cache'i ısıtılıyor...");
-        var cards = await lucaService.ListStockCardsAsync();
+        var cards = await lucaService.ListStockCardsAsync(CancellationToken.None);
         logger.LogInformation("Luca cache hazır: {Count} stok kartı yüklendi", cards?.Count ?? 0);
     }
     catch (Exception ex)

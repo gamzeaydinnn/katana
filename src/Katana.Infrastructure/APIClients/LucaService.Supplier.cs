@@ -34,13 +34,49 @@ public partial class LucaService
     /// </summary>
     public async Task<IReadOnlyList<KozaCariDto>> ListTedarikciCarilerAsync(CancellationToken ct = default)
     {
+        return await ListTedarikciCarilerAsync(null, null, "between", ct);
+    }
+
+    /// <summary>
+    /// Luca Tedarikçi Carilerini Listele (ListeleFinTedarikci.do) - Filtreleme ile
+    /// </summary>
+    public async Task<IReadOnlyList<KozaCariDto>> ListTedarikciCarilerAsync(
+        string? kodBas, 
+        string? kodBit, 
+        string kodOp = "between",
+        CancellationToken ct = default)
+    {
         try
         {
             await EnsureAuthenticatedAsync();
 
+            object payload;
+            if (!string.IsNullOrEmpty(kodBas) && !string.IsNullOrEmpty(kodBit))
+            {
+                // Filtreleme ile
+                payload = new
+                {
+                    finTedarikci = new
+                    {
+                        gnlFinansalNesne = new
+                        {
+                            kodBas = kodBas,
+                            kodBit = kodBit,
+                            kodOp = kodOp
+                        }
+                    }
+                };
+            }
+            else
+            {
+                // Filtreleme olmadan (tümü)
+                payload = new { };
+            }
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
             var req = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.SupplierList)
             {
-                Content = new StringContent("{}", Encoding.UTF8, "application/json")
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
             req.Headers.TryAddWithoutValidation("No-Paging", "true");
 
@@ -69,13 +105,101 @@ public partial class LucaService
 
             var tedarikçiler = dto?.FinTedarikciListesi ?? new List<KozaCariDto>();
             
-            _logger.LogInformation("Luca'dan {Count} tedarikçi cari listelendi", tedarikçiler.Count);
+            _logger.LogInformation("Luca'dan {Count} tedarikçi cari listelendi (Filtre: {KodBas}-{KodBit})", 
+                tedarikçiler.Count, kodBas ?? "Tümü", kodBit ?? "Tümü");
             return tedarikçiler;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "ListTedarikciCarilerAsync failed");
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Koza Tedarikçi Kartı Ekleme (EkleFinTedarikciWS.do) - Dokümantasyona tam uyumlu
+    /// </summary>
+    public async Task<KozaResult> CreateTedarikciCariAsync(KozaTedarikciEkleRequest request, CancellationToken ct = default)
+    {
+        try
+        {
+            await EnsureAuthenticatedAsync();
+
+            var json = JsonSerializer.Serialize(new { finTedarikci = request }, _jsonOptions);
+            
+            _logger.LogDebug("CreateTedarikciCariAsync request: {Json}", json);
+
+            var httpReq = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.SupplierCreate)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+
+            ApplySessionCookie(httpReq);
+            ApplyManualSessionCookie(httpReq);
+
+            var client = _cookieHttpClient ?? _httpClient;
+            var res = await client.SendAsync(httpReq, ct);
+            var body = await res.Content.ReadAsStringAsync(ct);
+
+            _logger.LogDebug("CreateTedarikciCariAsync response status: {Status}, body: {Body}", 
+                res.StatusCode, body.Length > 500 ? body.Substring(0, 500) : body);
+
+            if (body.TrimStart().StartsWith("<"))
+            {
+                _logger.LogError("Koza NO_JSON (HTML döndü) - CreateTedarikciCariAsync");
+                return new KozaResult 
+                { 
+                    Success = false, 
+                    Message = "Koza NO_JSON (HTML döndü). Auth/şube/cookie kırık olabilir." 
+                };
+            }
+
+            if (!res.IsSuccessStatusCode)
+            {
+                return new KozaResult 
+                { 
+                    Success = false, 
+                    Message = $"HTTP {res.StatusCode}: {body}" 
+                };
+            }
+
+            // Response'dan finansalNesneId ve cariKodu almaya çalış
+            long? finansalNesneId = null;
+            string? cariKodu = null;
+            try
+            {
+                var respJson = JsonSerializer.Deserialize<JsonElement>(body);
+                if (respJson.TryGetProperty("finansalNesneId", out var fnId))
+                {
+                    finansalNesneId = fnId.GetInt64();
+                }
+                else if (respJson.TryGetProperty("finTedarikci", out var ft))
+                {
+                    if (ft.TryGetProperty("finansalNesneId", out var ftId))
+                        finansalNesneId = ftId.GetInt64();
+                    if (ft.TryGetProperty("kod", out var kod))
+                        cariKodu = kod.GetString();
+                }
+                
+                if (respJson.TryGetProperty("kod", out var kod2))
+                    cariKodu = kod2.GetString();
+            }
+            catch { /* Ignore parse errors */ }
+
+            _logger.LogInformation("Tedarikçi cari başarıyla oluşturuldu: {CariKodu} (FinansalNesneId: {Id})", 
+                cariKodu ?? request.KartKod ?? "N/A", finansalNesneId);
+            
+            return new KozaResult 
+            { 
+                Success = true, 
+                Message = "OK",
+                Data = new { CariKodu = cariKodu ?? request.KartKod, FinansalNesneId = finansalNesneId }
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CreateTedarikciCariAsync failed for kartKod: {KartKod}", request.KartKod);
+            return new KozaResult { Success = false, Message = ex.Message };
         }
     }
 

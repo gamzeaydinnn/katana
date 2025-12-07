@@ -1111,7 +1111,38 @@ public partial class LucaService
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
 
-    public async Task<JsonElement> ListStockCardsAsync(LucaListStockCardsRequest request)
+    /// <summary>
+    /// Stok Kartları Listeleme - Filtreleme ile (ListeleStkSkart.do)
+    /// </summary>
+    public async Task<JsonElement> ListStockCardsAsync(
+        string? kodBas = null,
+        string? kodBit = null,
+        string kodOp = "between",
+        CancellationToken ct = default)
+    {
+        var request = new LucaListStockCardsRequest();
+        
+        if (!string.IsNullOrEmpty(kodBas) && !string.IsNullOrEmpty(kodBit))
+        {
+            request.StkSkart = new LucaStockCardCodeFilter
+            {
+                KodBas = kodBas,
+                KodBit = kodBit,
+                KodOp = kodOp
+            };
+        }
+        else
+        {
+            request.StkSkart = new LucaStockCardCodeFilter();
+        }
+        
+        return await ListStockCardsAsync(request, ct);
+    }
+
+    /// <summary>
+    /// Stok Kartları Listeleme - Request ile (ListeleStkSkart.do)
+    /// </summary>
+    public async Task<JsonElement> ListStockCardsAsync(LucaListStockCardsRequest request, CancellationToken ct = default)
     {
         try
         {
@@ -1154,6 +1185,7 @@ public partial class LucaService
                 try
                 {
                     using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+                    cts.Token.Register(() => ct.ThrowIfCancellationRequested());
                     response = await client.SendAsync(httpRequest, cts.Token);
                     responseContent = await ReadResponseContentAsync(response);
                 }
@@ -1508,7 +1540,22 @@ public partial class LucaService
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
 
-    public async Task<JsonElement> ListStockCardSuppliersAsync(LucaStockCardByIdRequest request)
+    /// <summary>
+    /// Stok Kartı Temin Yerleri Listesi - skartId ile (ListeleStkSkartTeminYeri.do)
+    /// </summary>
+    public async Task<JsonElement> ListStockCardSuppliersAsync(long skartId, CancellationToken ct = default)
+    {
+        var request = new LucaStockCardByIdRequest
+        {
+            StkSkart = new LucaStockCardKey { SkartId = skartId }
+        };
+        return await ListStockCardSuppliersAsync(request, ct);
+    }
+
+    /// <summary>
+    /// Stok Kartı Temin Yerleri Listesi - Request ile (ListeleStkSkartTeminYeri.do)
+    /// </summary>
+    public async Task<JsonElement> ListStockCardSuppliersAsync(LucaStockCardByIdRequest request, CancellationToken ct = default)
     {
         await EnsureAuthenticatedAsync();
         var json = JsonSerializer.Serialize(request, _jsonOptions);
@@ -1521,8 +1568,8 @@ public partial class LucaService
         ApplyManualSessionCookie(httpRequest);
         ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
-        var response = await client.SendAsync(httpRequest);
-        var responseContent = await response.Content.ReadAsStringAsync();
+        var response = await client.SendAsync(httpRequest, ct);
+        var responseContent = await response.Content.ReadAsStringAsync(ct);
         response.EnsureSuccessStatusCode();
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }

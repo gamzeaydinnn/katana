@@ -269,6 +269,237 @@ public sealed class KatanaCustomerToCariDto
 
 #endregion
 
+#region Cari Listeleme Filtreleme
+
+/// <summary>
+/// Cari Listeleme Filtreleme Request
+/// Müşteri ve Tedarikçi listeleme için kod aralığı filtreleme
+/// </summary>
+public sealed class KozaCariListFilterRequest
+{
+    [JsonPropertyName("finMusteri")]
+    public KozaCariFilter? FinMusteri { get; set; }
+    
+    [JsonPropertyName("finTedarikci")]
+    public KozaCariFilter? FinTedarikci { get; set; }
+}
+
+/// <summary>
+/// Cari Filtreleme (kodBas, kodBit, kodOp)
+/// </summary>
+public sealed class KozaCariFilter
+{
+    [JsonPropertyName("gnlFinansalNesne")]
+    public KozaKodFiltre? GnlFinansalNesne { get; set; }
+}
+
+/// <summary>
+/// Kod Filtreleme (kodBas, kodBit, kodOp)
+/// </summary>
+public sealed class KozaKodFiltre
+{
+    [JsonPropertyName("kodBas")]
+    public string? KodBas { get; set; }
+    
+    [JsonPropertyName("kodBit")]
+    public string? KodBit { get; set; }
+    
+    [JsonPropertyName("kodOp")]
+    public string KodOp { get; set; } = "between"; // "between", "equal", "greater", "less", vb.
+}
+
+#endregion
+
+#region Müşteri Kartı Ekleme (Tam Uyumlu)
+
+/// <summary>
+/// Koza Müşteri Kartı Ekleme Request (EkleFinMusteriWS.do)
+/// Dokümantasyona tam uyumlu
+/// </summary>
+public sealed class KozaMusteriEkleRequest
+{
+    // Genel Alanlar
+    [JsonPropertyName("tip")]
+    public string Tip { get; set; } = "1"; // "1": Şirket, "2": Kişi
+    
+    [JsonPropertyName("cariTipId")]
+    public long CariTipId { get; set; } = 5; // 1: Bayi, 2: Bağımlı, 5: Diğer I (default)
+    
+    [JsonPropertyName("takipNoFlag")]
+    public bool? TakipNoFlag { get; set; }
+    
+    [JsonPropertyName("efaturaTuru")]
+    public int? EfaturaTuru { get; set; } // 1: Temel Fatura, 2: Ticari Fatura, 3: İhracat, 4: SGK
+    
+    [JsonPropertyName("kategoriKod")]
+    public string? KategoriKod { get; set; }
+    
+    [JsonPropertyName("kartKod")]
+    public string? KartKod { get; set; } // Boş gönderilirse sistem kod verir
+    
+    [JsonPropertyName("tanim")]
+    public string Tanim { get; set; } = string.Empty;
+    
+    [JsonPropertyName("mutabakatMektubuGonderilecek")]
+    public bool? MutabakatMektubuGonderilecek { get; set; }
+    
+    [JsonPropertyName("paraBirimKod")]
+    public string ParaBirimKod { get; set; } = "TRY";
+    
+    // Şirket ise (VKN üzerinden eşleştirme)
+    [JsonPropertyName("vergiNo")]
+    public string? VergiNo { get; set; }
+    
+    [JsonPropertyName("kisaAd")]
+    public string? KisaAd { get; set; }
+    
+    [JsonPropertyName("yasalUnvan")]
+    public string? YasalUnvan { get; set; }
+    
+    // Kişi ise (TCKN üzerinden eşleştirme)
+    [JsonPropertyName("tcKimlikNo")]
+    public string? TcKimlikNo { get; set; }
+    
+    [JsonPropertyName("ad")]
+    public string? Ad { get; set; }
+    
+    [JsonPropertyName("soyad")]
+    public string? Soyad { get; set; }
+    
+    [JsonPropertyName("dogumTarihi")]
+    public DateTime? DogumTarihi { get; set; } // dd/mm/yyyy formatı
+    
+    [JsonPropertyName("mustahsil")]
+    public bool? Mustahsil { get; set; }
+    
+    [JsonPropertyName("tcUyruklu")]
+    public bool? TcUyruklu { get; set; }
+    
+    // Vergi Dairesi
+    [JsonPropertyName("vergiDairesiId")]
+    public long? VergiDairesiId { get; set; }
+    
+    // Adres (Kartla birlikte eklenecek)
+    [JsonPropertyName("adresTipId")]
+    public int? AdresTipId { get; set; } // 9: Fatura, 8: Sevk, 6: Yazışma, 5: İletişim
+    
+    [JsonPropertyName("ulke")]
+    public string? Ulke { get; set; }
+    
+    [JsonPropertyName("il")]
+    public string? Il { get; set; }
+    
+    [JsonPropertyName("ilce")]
+    public string? Ilce { get; set; }
+    
+    [JsonPropertyName("adresSerbest")]
+    public string? AdresSerbest { get; set; }
+    
+    // İletişim (Kartla birlikte eklenecek)
+    [JsonPropertyName("iletisimTipId")]
+    public int? IletisimTipId { get; set; } // 3: Cep, 5: E-Posta, 4: Faks, 7: Telefon I, vb.
+    
+    [JsonPropertyName("iletisimTanim")]
+    public string? IletisimTanim { get; set; }
+}
+
+#endregion
+
+#region Tedarikçi Kartı Ekleme (Tam Uyumlu)
+
+/// <summary>
+/// Koza Tedarikçi Kartı Ekleme Request (EkleFinTedarikciWS.do)
+/// Müşteri kartı ekleme ile aynı alanlar
+/// </summary>
+public sealed class KozaTedarikciEkleRequest
+{
+    // Genel Alanlar
+    [JsonPropertyName("tip")]
+    public string Tip { get; set; } = "1"; // "1": Şirket, "2": Kişi
+    
+    [JsonPropertyName("cariTipId")]
+    public long CariTipId { get; set; } = 2; // Tedarikçi için genelde 2
+    
+    [JsonPropertyName("takipNoFlag")]
+    public bool? TakipNoFlag { get; set; }
+    
+    [JsonPropertyName("efaturaTuru")]
+    public int? EfaturaTuru { get; set; } // 1: Temel Fatura, 2: Ticari Fatura, 3: İhracat, 4: SGK
+    
+    [JsonPropertyName("kategoriKod")]
+    public string? KategoriKod { get; set; }
+    
+    [JsonPropertyName("kartKod")]
+    public string? KartKod { get; set; } // Boş gönderilirse sistem kod verir
+    
+    [JsonPropertyName("tanim")]
+    public string Tanim { get; set; } = string.Empty;
+    
+    [JsonPropertyName("mutabakatMektubuGonderilecek")]
+    public bool? MutabakatMektubuGonderilecek { get; set; }
+    
+    [JsonPropertyName("paraBirimKod")]
+    public string ParaBirimKod { get; set; } = "TRY";
+    
+    // Şirket ise (VKN üzerinden eşleştirme)
+    [JsonPropertyName("vergiNo")]
+    public string? VergiNo { get; set; }
+    
+    [JsonPropertyName("kisaAd")]
+    public string? KisaAd { get; set; }
+    
+    [JsonPropertyName("yasalUnvan")]
+    public string? YasalUnvan { get; set; }
+    
+    // Kişi ise (TCKN üzerinden eşleştirme)
+    [JsonPropertyName("tcKimlikNo")]
+    public string? TcKimlikNo { get; set; }
+    
+    [JsonPropertyName("ad")]
+    public string? Ad { get; set; }
+    
+    [JsonPropertyName("soyad")]
+    public string? Soyad { get; set; }
+    
+    [JsonPropertyName("dogumTarihi")]
+    public DateTime? DogumTarihi { get; set; } // dd/mm/yyyy formatı
+    
+    [JsonPropertyName("mustahsil")]
+    public bool? Mustahsil { get; set; }
+    
+    [JsonPropertyName("tcUyruklu")]
+    public bool? TcUyruklu { get; set; }
+    
+    // Vergi Dairesi
+    [JsonPropertyName("vergiDairesiId")]
+    public long? VergiDairesiId { get; set; }
+    
+    // Adres (Kartla birlikte eklenecek)
+    [JsonPropertyName("adresTipId")]
+    public int? AdresTipId { get; set; } // 9: Fatura, 8: Sevk, 6: Yazışma, 5: İletişim
+    
+    [JsonPropertyName("ulke")]
+    public string? Ulke { get; set; }
+    
+    [JsonPropertyName("il")]
+    public string? Il { get; set; }
+    
+    [JsonPropertyName("ilce")]
+    public string? Ilce { get; set; }
+    
+    [JsonPropertyName("adresSerbest")]
+    public string? AdresSerbest { get; set; }
+    
+    // İletişim (Kartla birlikte eklenecek)
+    [JsonPropertyName("iletisimTipId")]
+    public int? IletisimTipId { get; set; } // 3: Cep, 5: E-Posta, 4: Faks, 7: Telefon I, vb.
+    
+    [JsonPropertyName("iletisimTanim")]
+    public string? IletisimTanim { get; set; }
+}
+
+#endregion
+
 #region Koza Cari (Müşteri/Tedarikçi) Response
 
 /// <summary>

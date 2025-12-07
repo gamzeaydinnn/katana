@@ -1,4 +1,5 @@
 using Katana.Business.Interfaces;
+using Katana.Core.Entities;
 using Katana.Core.Enums;
 using Katana.Data.Context;
 using Katana.Data.Models;
