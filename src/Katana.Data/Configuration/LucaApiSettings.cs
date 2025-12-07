@@ -22,7 +22,7 @@ public class LucaApiSettings
     
     
     
-    public string Encoding { get; set; } = "windows-1254";
+    public string Encoding { get; set; } = "ISO-8859-9"; // ← Luca API'nin native Turkish encoding
     
     
     public long? DefaultBranchId { get; set; }

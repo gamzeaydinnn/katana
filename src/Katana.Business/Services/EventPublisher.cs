@@ -1,3 +1,4 @@
+using Katana.Core.Enums;
 using Katana.Core.Events;
 using Katana.Core.Interfaces;
 using Katana.Data.Context;
@@ -209,7 +210,7 @@ public class EventPublisher : IEventPublisher
 
             foreach (var invoice in invoices)
             {
-                invoice.Status = "CANCELLED";
+                invoice.Status = InvoiceStatus.Cancelled;
                 invoice.UpdatedAt = DateTime.UtcNow;
             }
 

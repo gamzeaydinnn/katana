@@ -6,6 +6,7 @@ import {
     mapKatanaLocationToKozaDepo,
 } from "../cards/DepoMapper";
 import { depoService } from "../cards/DepoService";
+import { locationSyncLogger, LogContext } from "./LocationSyncLogger";
 
 /**
  * Location senkronizasyon sonucu
@@ -43,14 +44,24 @@ export class LocationSyncService {
   /**
    * Tek bir location'ı senkronize et
    */
-  async syncLocation(location: KatanaLocation): Promise<LocationSyncResult> {
+  async syncLocation(location: KatanaLocation, context?: LogContext): Promise<LocationSyncResult> {
+    const syncContext = context || locationSyncLogger.createContext('syncLocation');
+    const startTime = Date.now();
+
     const kozaDepo = mapKatanaLocationToKozaDepo(
       location,
       this.config.defaultKategoriKod
     );
 
+    // Log location attempt
+    locationSyncLogger.logLocationAttempt(syncContext, location, kozaDepo);
+
     try {
       const result = await depoService.getirVeyaOlustur(kozaDepo);
+      const duration = Date.now() - startTime;
+
+      // Log success
+      locationSyncLogger.logLocationSuccess(syncContext, location, result, duration);
 
       return {
         katanaId: location.id,
@@ -60,6 +71,11 @@ export class LocationSyncService {
         status: result.depoId ? "existing" : "created",
       };
     } catch (error) {
+      const duration = Date.now() - startTime;
+
+      // Log error
+      locationSyncLogger.logLocationError(syncContext, location, error, duration);
+
       return {
         katanaId: location.id,
         katanaName: location.name,
@@ -74,17 +90,24 @@ export class LocationSyncService {
    * Birden fazla location'ı senkronize et
    */
   async syncLocations(locations: KatanaLocation[]): Promise<LocationSyncResult[]> {
+    const batchContext = locationSyncLogger.createContext('syncLocations');
+
     // Aktif olmayanları filtrele (opsiyonel)
     const toSync = this.config.skipInactive
       ? filterActiveLocations(locations)
       : locations;
 
-    console.log(`${toSync.length} location senkronize edilecek...`);
+    // Log batch start
+    locationSyncLogger.logBatchStart(batchContext, toSync.length);
 
     const results: LocationSyncResult[] = [];
+    const batchStartTime = Date.now();
 
-    for (const location of toSync) {
-      const result = await this.syncLocation(location);
+    for (let index = 0; index < toSync.length; index++) {
+      const location = toSync[index];
+      console.log(`[Depot Sync] Progress: ${index + 1}/${toSync.length} - Processing location: ${location.code}`);
+      
+      const result = await this.syncLocation(location, batchContext);
       results.push(result);
 
       // Rate limiting - Koza API'ye fazla yük bindirmemek için
@@ -95,10 +118,15 @@ export class LocationSyncService {
     const created = results.filter((r) => r.status === "created").length;
     const existing = results.filter((r) => r.status === "existing").length;
     const errors = results.filter((r) => r.status === "error").length;
+    const totalTime = Date.now() - batchStartTime;
 
-    console.log(
-      `Location senkronizasyon tamamlandı: ${created} oluşturuldu, ${existing} mevcut, ${errors} hata`
-    );
+    // Log batch completion
+    locationSyncLogger.logBatchComplete(batchContext, {
+      successful: created + existing,
+      failed: errors,
+      skipped: locations.length - toSync.length,
+      totalTime,
+    });
 
     return results;
   }

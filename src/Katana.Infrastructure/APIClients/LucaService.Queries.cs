@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using Katana.Core.DTOs;
-using Katana.Business.Models.DTOs;
 using Katana.Data.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -15,8 +14,7 @@ using System.Net.Http.Headers;
 using System.Net;
 using System.Globalization;
 using Katana.Business.Interfaces;
-using Katana.Infrastructure.Mappers;
-using Katana.Core.DTOs;
+using Katana.Business.Mappers;
 using Katana.Core.Entities;
 using Katana.Core.Helpers;
 

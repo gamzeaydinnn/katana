@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using Katana.Core.DTOs;
-using Katana.Business.Models.DTOs;
 using Katana.Data.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -15,8 +14,7 @@ using System.Net.Http.Headers;
 using System.Net;
 using System.Globalization;
 using Katana.Business.Interfaces;
-using Katana.Infrastructure.Mappers;
-using Katana.Core.DTOs;
+using Katana.Business.Mappers;
 using Katana.Core.Entities;
 using Katana.Core.Helpers;
 
@@ -1792,6 +1790,41 @@ public partial class LucaService
                     await ForceSessionRefreshAsync();
                     await EnsureBranchSelectedAsync(); // Branch selection da yap
                     _logger.LogInformation("✅ Session ve branch hazır");
+                    
+                    // 🔥 SESSION WARMUP: Session'un gerçekten hazır olduğunu doğrula
+                    // Basit bir query ile Luca API'nin yanıt verdiğini kontrol et
+                    _logger.LogDebug("🎯 Session warmup ping gönderiliyor...");
+                    try
+                    {
+                        var warmupReq = new HttpRequestMessage(HttpMethod.Post, "ListeleStkKart.do")
+                        {
+                            Content = new StringContent("{\"start\":0,\"limit\":1}", Encoding.UTF8, "application/json")
+                        };
+                        warmupReq.Headers.TryAddWithoutValidation("No-Paging", "false");
+                        ApplySessionCookie(warmupReq);
+                        ApplyManualSessionCookie(warmupReq);
+                        
+                        var warmupClient = _cookieHttpClient ?? _httpClient;
+                        var warmupRes = await warmupClient.SendAsync(warmupReq, CancellationToken.None);
+                        var warmupBody = await warmupRes.Content.ReadAsStringAsync();
+                        
+                        if (warmupBody.TrimStart().StartsWith("{") || warmupBody.TrimStart().StartsWith("["))
+                        {
+                            _logger.LogInformation("✅ Session warmup başarılı - Luca API hazır");
+                        }
+                        else
+                        {
+                            _logger.LogWarning("⚠️ Session warmup beklenmeyen cevap döndü, yine de devam ediliyor: {Body}", 
+                                warmupBody.Length > 100 ? warmupBody.Substring(0, 100) : warmupBody);
+                            // Ek bekleme
+                            await Task.Delay(2000);
+                        }
+                    }
+                    catch (Exception warmupEx)
+                    {
+                        _logger.LogWarning(warmupEx, "⚠️ Session warmup ping başarısız, yine de devam ediliyor");
+                        await Task.Delay(2000);
+                    }
                     
                     // 🚀 CACHE WARMING: Tüm Luca stok kartlarını ön-yükle (tek seferde!)
                     // Bu sayede her ürün için ayrı API çağrısı yapmayız (10x-100x hızlanma!)

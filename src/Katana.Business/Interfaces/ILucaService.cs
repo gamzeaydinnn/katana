@@ -1,6 +1,5 @@
 ﻿using Katana.Core.DTOs;
 using Katana.Core.DTOs.Koza;
-using Katana.Business.Models.DTOs;
 using Katana.Core.Entities;
 using System.Text.Json;
 

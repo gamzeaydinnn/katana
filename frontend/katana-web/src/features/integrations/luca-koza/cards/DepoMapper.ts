@@ -44,19 +44,30 @@ function toAdresSerbest(a?: KatanaLocation["address"]): string {
 }
 
 /**
- * Depo kodu stratejisi:
- * - id numeric ise 4 hane pad (0002 gibi)
- * - id string ise deterministic kısa bir kod üret (Koza formatına göre)
+ * Koza depo kodu üretimi
+ * Örnekler:
+ *  - "KTN-171569"
+ *  - "DEP-istanbul-merkez"
  */
-function makeDepoKodu(id: number | string): string {
-  if (typeof id === "number" || /^\d+$/.test(String(id))) {
-    return String(id).padStart(4, "0");
+export function generateKozaDepotCode(location: KatanaLocation): string {
+  const rawId = location.id;
+  const idStr = String(rawId ?? "").trim();
+
+  // Opsiyon 1: Katana ID'den deterministik kod
+  if (idStr) {
+    return `KTN-${idStr}`;
   }
-  // string id fallback (ör: "loc_abc123") → "LOC_ABC123" (max 20)
-  return norm(String(id))
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "_")
-    .slice(0, 20);
+
+  // Opsiyon 2: Name'den slug oluştur
+  const baseName = norm(location.name) || norm(location.legal_name);
+  const slug =
+    baseName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") // baştaki/sondaki tireleri temizle
+      .substring(0, 20) || "depo";
+
+  return `DEP-${slug}`;
 }
 
 /**
@@ -68,7 +79,7 @@ export function mapKatanaLocationToKozaDepo(
   location: KatanaLocation,
   defaultKategoriKod: string
 ): KozaStkDepo {
-  const kod = makeDepoKodu(location.id);
+  const kod = generateKozaDepotCode(location);
   const tanim = norm(location.legal_name) || norm(location.name);
 
   return {

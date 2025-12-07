@@ -78,9 +78,9 @@ console.log('Stok Kartları:', stoklar);
 
 // 4. Yeni depo oluştur
 const yeniDepo: KozaStkDepo = {
-  kod: 'TEST-001',
+  kod: 'KTN-TEST-001',
   tanim: 'Test Deposu',
-  kategoriKod: 'MERKEZ',
+  kategoriKod: '01',
 };
 const sonuc = await depoService.ekle({ stkDepo: yeniDepo });
 

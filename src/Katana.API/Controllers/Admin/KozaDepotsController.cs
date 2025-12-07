@@ -234,7 +234,9 @@ public sealed class KozaDepotsController : ControllerBase
 
     /// <summary>
     /// Koza'da yeni depo oluştur
-    /// POST /api/admin/koza/depots/create
+    /// POST /api/admin/koza/depots/create?idempotent=true
+    /// idempotent=true: Mevcut depot'lar skip edilir (idempotent işlem)
+    /// idempotent=false (default): Mevcut depot'lar 409 Conflict döner
     /// </summary>
     [HttpPost("create")]
     [ProducesResponseType(typeof(KozaResult), StatusCodes.Status200OK)]
@@ -243,7 +245,8 @@ public sealed class KozaDepotsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Create(
         [FromBody] KozaCreateDepotRequest? request,
-        CancellationToken ct)
+        CancellationToken ct,
+        [FromQuery] bool idempotent = false)
     {
         try
         {
@@ -262,7 +265,7 @@ public sealed class KozaDepotsController : ControllerBase
             }
 
             // DEBUG 1: Request ilk geldiği andaki HAM veriyi logla
-            _logger.LogWarning("=== DEPOT CREATE - RAW REQUEST ===");
+            _logger.LogWarning("=== DEPOT CREATE - RAW REQUEST (idempotent={Idempotent}) ===", idempotent);
             _logger.LogWarning("RECEIVED Kod: {Kod}", request.StkDepo.Kod ?? "NULL");
             _logger.LogWarning("RECEIVED Tanim: {Tanim}", request.StkDepo.Tanim ?? "NULL");
             _logger.LogWarning("RECEIVED KategoriKod (BEFORE normalization): {KategoriKod}", request.StkDepo.KategoriKod ?? "NULL");
@@ -312,26 +315,75 @@ public sealed class KozaDepotsController : ControllerBase
             _logger.LogInformation("Creating Koza depot: {Kod} - {Tanim} - {KategoriKod}", 
                 request.StkDepo.Kod, request.StkDepo.Tanim, request.StkDepo.KategoriKod);
 
-            // Duplicate location code check - önce database'de ara
-            var existingDepot = await _context.KozaDepots
-                .FirstOrDefaultAsync(d => d.Kod == request.StkDepo.Kod, ct);
+            // Location Existence Check with Transaction Safety
+            // Transaction'ı başlat race condition'dan korunmak için
+            using var transaction = await _context.Database.BeginTransactionAsync(ct);
             
-            if (existingDepot != null)
+            try
             {
-                _logger.LogWarning("Duplicate depot code detected: {Kod} (ID: {ExistingId})", 
-                    request.StkDepo.Kod, existingDepot.Id);
+                // Mevcut location'ı sorgula (pessimistic lock ile)
+                var existingDepot = await _context.KozaDepots
+                    .FromSqlInterpolated($"SELECT * FROM KozaDepots WHERE Kod = {request.StkDepo.Kod} FOR UPDATE")
+                    .FirstOrDefaultAsync(ct);
                 
-                return Conflict(new
+                // Eğer zaten varsa
+                if (existingDepot != null)
                 {
-                    error = "Depo kodu zaten mevcut",
-                    code = "DUPLICATE_LOCATION",
-                    details = new
+                    _logger.LogWarning("Location existence check - Depot found: {Kod} (ID: {ExistingId}, Name: {ExistingName})", 
+                        request.StkDepo.Kod, existingDepot.Id, existingDepot.Tanim);
+                    
+                    // Idempotent mode: skip silently ve success döner
+                    if (idempotent)
                     {
-                        locationCode = request.StkDepo.Kod,
-                        existingId = existingDepot.Id,
-                        existingName = existingDepot.Tanim
+                        _logger.LogInformation("Skipping depot creation (idempotent mode): {Kod} - Already exists with ID {ExistingId}", 
+                            request.StkDepo.Kod, existingDepot.Id);
+                        
+                        await transaction.CommitAsync(ct);
+                        
+                        return Ok(new KozaResult
+                        {
+                            Success = true,
+                            Message = $"Depo zaten mevcut (ID: {existingDepot.Id}) - İşlem atlandı (idempotent mode)",
+                            Data = new
+                            {
+                                skipped = true,
+                                existingId = existingDepot.Id,
+                                existingName = existingDepot.Tanim
+                            }
+                        });
                     }
-                });
+                    // Default mode: conflict error döner
+                    else
+                    {
+                        _logger.LogWarning("Duplicate depot code detected: {Kod} (ID: {ExistingId})", 
+                            request.StkDepo.Kod, existingDepot.Id);
+                        
+                        await transaction.CommitAsync(ct);
+                        
+                        return Conflict(new
+                        {
+                            error = "Depo kodu zaten mevcut",
+                            code = "DUPLICATE_LOCATION",
+                            details = new
+                            {
+                                locationCode = request.StkDepo.Kod,
+                                existingId = existingDepot.Id,
+                                existingName = existingDepot.Tanim
+                            }
+                        });
+                    }
+                }
+                
+                _logger.LogInformation("Location existence check passed - No existing depot found for code: {Kod}", request.StkDepo.Kod);
+                
+                // Transaction'ı kapat - mutex lock'u serbest bırak
+                await transaction.CommitAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync(ct);
+                _logger.LogError(ex, "Error during location existence check transaction for depot: {Kod}", request.StkDepo.Kod);
+                throw;
             }
 
             // DEBUG 3: LucaService'e gönderilmeden HEMEN ÖNCE son kontrol

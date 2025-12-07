@@ -1,5 +1,6 @@
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
+using Katana.Core.Enums;
 using Katana.Core.Interfaces;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
@@ -199,7 +200,7 @@ public class CustomerService : ICustomerService
     public async Task<decimal> GetCustomerBalanceAsync(int customerId)
     {
         var invoices = await _context.Invoices
-            .Where(i => i.CustomerId == customerId && i.Status != "PAID" && i.Status != "CANCELLED")
+            .Where(i => i.CustomerId == customerId && i.Status != InvoiceStatus.Paid && i.Status != InvoiceStatus.Cancelled)
             .ToListAsync();
 
         return invoices.Sum(i => i.TotalAmount);

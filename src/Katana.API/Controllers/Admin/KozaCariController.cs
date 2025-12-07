@@ -209,7 +209,7 @@ public sealed class KozaCariController : ControllerBase
             {
                 var item = new SupplierSyncItem
                 {
-                    KatanaSupplierId = katanaSupplier.Id,
+                    KatanaSupplierId = katanaSupplier.Id.ToString(),
                     SupplierName = katanaSupplier.Name
                 };
 
@@ -217,7 +217,7 @@ public sealed class KozaCariController : ControllerBase
                 {
                     // Mapping tablosunda var mı kontrol et
                     var existingMapping = await _dbContext.SupplierKozaCariMappings
-                        .FirstOrDefaultAsync(m => m.KatanaSupplierId == katanaSupplier.Id, ct);
+                        .FirstOrDefaultAsync(m => m.KatanaSupplierId == katanaSupplier.Id.ToString(), ct);
 
                     if (existingMapping != null)
                     {
@@ -233,7 +233,7 @@ public sealed class KozaCariController : ControllerBase
                         // Koza'da oluştur
                         var supplierDto = new KatanaSupplierToCariDto
                         {
-                            KatanaSupplierId = katanaSupplier.Id,
+                            KatanaSupplierId = katanaSupplier.Id.ToString(),
                             Name = katanaSupplier.Name,
                             Email = katanaSupplier.Email,
                             Phone = katanaSupplier.Phone,
@@ -263,7 +263,7 @@ public sealed class KozaCariController : ControllerBase
 
                             var mapping = new SupplierKozaCariMapping
                             {
-                                KatanaSupplierId = katanaSupplier.Id,
+                                KatanaSupplierId = katanaSupplier.Id.ToString(),
                                 KozaCariKodu = cariKodu,
                                 KozaFinansalNesneId = finansalNesneId,
                                 KatanaSupplierName = katanaSupplier.Name,

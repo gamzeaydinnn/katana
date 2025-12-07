@@ -33,5 +33,10 @@ public enum InvoiceStatus
     
     
     
-    Cancelled = 6
+    Cancelled = 6,
+    
+    
+    
+    
+    Received = 7
 }

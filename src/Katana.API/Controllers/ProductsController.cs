@@ -5,7 +5,7 @@ using Katana.Core.Enums;
 using Katana.Core.Interfaces;
 using Katana.Core.Helpers;
 using Katana.Data.Configuration;
-using Katana.Infrastructure.Mappers;
+using Katana.Business.Mappers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;

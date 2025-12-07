@@ -1,36 +1,36 @@
-import React, { useState, useEffect } from "react";
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Alert,
-  CircularProgress,
-  Tabs,
-  Tab,
-  IconButton,
-  Tooltip,
-  Stack,
-  Chip,
-  useMediaQuery,
-} from "@mui/material";
 import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
 import EditIcon from "@mui/icons-material/Edit";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SaveIcon from "@mui/icons-material/Save";
+import {
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    IconButton,
+    Paper,
+    Stack,
+    Tab,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Tabs,
+    TextField,
+    Tooltip,
+    Typography,
+    useMediaQuery,
+} from "@mui/material";
+import React, { useEffect, useState } from "react";
 import api from "../../services/api";
 import { decodeJwtPayload, getJwtRoles } from "../../utils/jwt";
 
@@ -441,7 +441,7 @@ const DataCorrectionPanel: React.FC = () => {
                     <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                       {comp.issues.map((issue, idx) => (
                         <Chip
-                          key={idx}
+                          key={`issue-${issue.field}-${idx}`}
                           label={issue.issue}
                           size="small"
                           color="warning"
@@ -564,7 +564,7 @@ const DataCorrectionPanel: React.FC = () => {
                             <Stack spacing={0.5}>
                               {comp.issues.map((issue, idx) => (
                                 <Chip
-                                  key={idx}
+                                  key={`issue-${issue.field}-${idx}`}
                                   label={issue.issue}
                                   size="small"
                                   color="warning"

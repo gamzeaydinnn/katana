@@ -2,9 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net.Http;
-using Katana.Business.Models.DTOs;
-using Katana.Infrastructure.Mappers;
 using Katana.Core.DTOs;
+using Katana.Business.Mappers;
 using Katana.Core.Constants;
 
 namespace Katana.Infrastructure.Helpers;
@@ -189,4 +188,3 @@ public static class LucaRequestFactory
         return list;
     }
 }
-

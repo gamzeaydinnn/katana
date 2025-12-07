@@ -18,7 +18,6 @@ using Quartz;
 using Serilog;
 using System.Text;
 using Katana.Infrastructure.APIClients;
-using Katana.Business.UseCases.Sync;
 using Katana.Infrastructure.Utils;
 using Katana.Infrastructure.Notifications;
 using Katana.API.Notifications;
@@ -204,6 +203,9 @@ builder.Services.AddScoped<IErrorHandler, ErrorHandlerService>();
 // Sync Services - Order Invoice ve Stock Movement entegrasyonları için
 builder.Services.AddScoped<IOrderInvoiceSyncService, OrderInvoiceSyncService>();
 builder.Services.AddScoped<IStockMovementSyncService, StockMovementSyncService>();
+
+// Query Services - Controller'dan DB logic'i ayırma
+builder.Services.AddScoped<IOrderSyncQueryService, OrderSyncQueryService>();
 
 builder.Services.AddSingleton<Katana.Infrastructure.Services.CacheService>();
 builder.Services.AddScoped<ILoggingService, LoggingService>();

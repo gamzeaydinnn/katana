@@ -180,7 +180,7 @@ public class CircuitBreakerHealthController : ControllerBase
     [HttpGet]
     public IActionResult GetCircuitStates()
     {
-        var lucaState = Katana.Business.UseCases.Sync.OrderInvoiceSyncService.LucaCircuitState;
+        var lucaState = Katana.Business.Services.OrderInvoiceSyncService.LucaCircuitState;
         
         return Ok(new
         {

@@ -2,60 +2,10 @@ using System.Text.Json.Serialization;
 
 namespace Katana.Core.DTOs;
 
-#region Service
-public class ServiceDto
-{
-    [JsonPropertyName("id")]
-    public long Id { get; set; }
+// ✅ NOT: ServiceDto tanımı KatanaDtos.cs'de bulunuyor
+// ServiceVariantDto, ServiceListQuery, ServiceCreateRequest, ServiceUpdateRequest de orada
 
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = string.Empty;
-
-    [JsonPropertyName("uom")]
-    public string Uom { get; set; } = string.Empty;
-
-    [JsonPropertyName("category_name")]
-    public string? CategoryName { get; set; }
-
-    [JsonPropertyName("is_sellable")]
-    public bool? IsSellable { get; set; }
-
-    [JsonPropertyName("type")]
-    public string? Type { get; set; } 
-
-    [JsonPropertyName("additional_info")]
-    public string? AdditionalInfo { get; set; }
-
-    [JsonPropertyName("variants")]
-    public List<ServiceVariantDto> Variants { get; set; } = new();
-
-    [JsonPropertyName("created_at")]
-    public DateTime CreatedAt { get; set; }
-
-    [JsonPropertyName("updated_at")]
-    public DateTime UpdatedAt { get; set; }
-
-    [JsonPropertyName("deleted_at")]
-    public DateTime? DeletedAt { get; set; }
-
-    [JsonPropertyName("archived_at")]
-    public DateTime? ArchivedAt { get; set; }
-}
-
-public class ServiceVariantDto
-{
-    [JsonPropertyName("id")]
-    public long Id { get; set; }
-
-    [JsonPropertyName("sku")]
-    public string Sku { get; set; } = string.Empty;
-
-    [JsonPropertyName("sales_price")]
-    public decimal? SalesPrice { get; set; }
-
-    [JsonPropertyName("default_cost")]
-    public decimal? DefaultCost { get; set; }
-}
+#region Service - See KatanaDtos.cs for definitions
 
 public class ServiceListQuery
 {
@@ -158,37 +108,7 @@ public class ServiceUpdateRequest
 
 #endregion
 
-#region Tax & Pricing
-
-
-
-
-public class TaxRateDto
-{
-    [JsonPropertyName("id")]
-    public long Id { get; set; }
-
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = string.Empty;
-
-    [JsonPropertyName("rate")]
-    public decimal Rate { get; set; }
-
-    [JsonPropertyName("is_default_sales")]
-    public bool? IsDefaultSales { get; set; }
-
-    [JsonPropertyName("is_default_purchases")]
-    public bool? IsDefaultPurchases { get; set; }
-
-    [JsonPropertyName("display_name")]
-    public string? DisplayName { get; set; }
-
-    [JsonPropertyName("created_at")]
-    public DateTime? CreatedAt { get; set; }
-
-    [JsonPropertyName("updated_at")]
-    public DateTime? UpdatedAt { get; set; }
-}
+#region Tax & Pricing - See KatanaDtos.cs for TaxRateDto, PriceListDto definitions
 
 public class TaxRateCreateRequest
 {
@@ -234,24 +154,6 @@ public class TaxRateListQuery
     [JsonPropertyName("updated_at_max")]
     public DateTime? UpdatedAtMax { get; set; }
 }
-public class PriceListDto
-{
-    [JsonPropertyName("id")]
-    public long Id { get; set; }
-
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = string.Empty;
-
-    [JsonPropertyName("is_active")]
-    public bool? IsActive { get; set; }
-
-    [JsonPropertyName("created_at")]
-    public DateTime? CreatedAt { get; set; }
-
-    [JsonPropertyName("updated_at")]
-    public DateTime? UpdatedAt { get; set; }
-}
-
 public class PriceListCreateRequest
 {
     [JsonPropertyName("name")]
@@ -389,50 +291,12 @@ public class PriceListCustomerListQuery
 
 #endregion
 
-#region Misc
+#region Misc - See KatanaDtos.cs for WebhookDto definition
 
 
 
 
 public class CustomFieldsCollectionDto
-{
-    [JsonPropertyName("id")]
-    public long Id { get; set; }
-
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = string.Empty;
-
-    [JsonPropertyName("created_at")]
-    public DateTime CreatedAt { get; set; }
-
-    [JsonPropertyName("updated_at")]
-    public DateTime UpdatedAt { get; set; }
-}
-public class WebhookDto
-{
-    [JsonPropertyName("id")]
-    public long Id { get; set; }
-
-    [JsonPropertyName("url")]
-    public string Url { get; set; } = string.Empty;
-
-    [JsonPropertyName("token")]
-    public string? Token { get; set; }
-
-    [JsonPropertyName("enabled")]
-    public bool Enabled { get; set; }
-
-    [JsonPropertyName("subscribed_events")]
-    public List<string> SubscribedEvents { get; set; } = new();
-
-    [JsonPropertyName("created_at")]
-    public DateTime? CreatedAt { get; set; }
-
-    [JsonPropertyName("updated_at")]
-    public DateTime? UpdatedAt { get; set; }
-}
-
-public class WebhookCreateRequest
 {
     [JsonPropertyName("url")]
     public string Url { get; set; } = string.Empty;
@@ -517,34 +381,10 @@ public class FactoryDto
 
 #endregion
 
-#region Serial Number
+#region Serial Number - See KatanaDtos.cs for SerialNumberDto definition
 
 
 
-
-public class SerialNumberDto
-{
-    [JsonPropertyName("id")]
-    public long Id { get; set; }
-
-    [JsonPropertyName("transaction_id")]
-    public long TransactionId { get; set; }
-
-    [JsonPropertyName("serial_number")]
-    public string SerialNumber { get; set; } = string.Empty;
-
-    [JsonPropertyName("resource_type")]
-    public string ResourceType { get; set; } = string.Empty;
-
-    [JsonPropertyName("resource_id")]
-    public long ResourceId { get; set; }
-
-    [JsonPropertyName("transaction_date")]
-    public DateTime TransactionDate { get; set; }
-
-    [JsonPropertyName("quantity_change")]
-    public decimal QuantityChange { get; set; }
-}
 
 public class SerialNumberListQuery
 {
@@ -602,34 +442,10 @@ public class SerialNumberStockDto
 
 #endregion
 
-#region User
+#region User - See KatanaDtos.cs for UserDto definition
 
 
 
-
-public class UserDto
-{
-    [JsonPropertyName("id")]
-    public int Id { get; set; }
-
-    [JsonPropertyName("username")]
-    public string? Username { get; set; }
-
-    [JsonPropertyName("role")]
-    public string? Role { get; set; }
-
-    [JsonPropertyName("email")]
-    public string? Email { get; set; }
-
-    [JsonPropertyName("is_active")]
-    public bool IsActive { get; set; }
-
-    [JsonPropertyName("created_at")]
-    public DateTime? CreatedAt { get; set; }
-
-    [JsonPropertyName("updated_at")]
-    public DateTime? UpdatedAt { get; set; }
-}
 
 public class UserListQuery
 {

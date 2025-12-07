@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using Katana.Business.Interfaces;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
-using Katana.Infrastructure.Mappers;
+using Katana.Business.Mappers;
 using Katana.Core.DTOs;
 using Katana.Data.Configuration;
 using Katana.Infrastructure.APIClients;

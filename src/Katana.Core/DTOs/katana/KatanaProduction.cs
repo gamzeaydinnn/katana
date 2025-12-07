@@ -2,37 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Katana.Core.DTOs;
 
-#region BOM
-
-public class BomRowDto
-{
-    [JsonPropertyName("id")]
-    public long Id { get; set; }
-
-    [JsonPropertyName("product_variant_id")]
-    public long ProductVariantId { get; set; }
-
-    [JsonPropertyName("product_item_id")]
-    public long ProductItemId { get; set; }
-
-    [JsonPropertyName("ingredient_variant_id")]
-    public long IngredientVariantId { get; set; }
-
-    [JsonPropertyName("quantity")]
-    public decimal? Quantity { get; set; }
-
-    [JsonPropertyName("notes")]
-    public string? Notes { get; set; }
-
-    [JsonPropertyName("created_at")]
-    public DateTime CreatedAt { get; set; }
-
-    [JsonPropertyName("updated_at")]
-    public DateTime UpdatedAt { get; set; }
-}
-
-
-
+#region BOM - See KatanaDtos.cs for BomRowDto definition
 
 public class BomRowCreateRequest
 {
@@ -105,64 +75,10 @@ public class BomRowListQuery
 
 #endregion
 
-#region Material
+#region Material - See KatanaDtos.cs for MaterialDto definition
 
 
 
-
-public class MaterialDto
-{
-    [JsonPropertyName("id")]
-    public long Id { get; set; }
-
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = string.Empty;
-
-    [JsonPropertyName("uom")]
-    public string Uom { get; set; } = string.Empty;
-
-    [JsonPropertyName("category_name")]
-    public string? CategoryName { get; set; }
-
-    [JsonPropertyName("is_sellable")]
-    public bool? IsSellable { get; set; }
-
-    [JsonPropertyName("default_supplier_id")]
-    public long? DefaultSupplierId { get; set; }
-
-    [JsonPropertyName("type")]
-    public string? Type { get; set; }
-
-    [JsonPropertyName("additional_info")]
-    public string? AdditionalInfo { get; set; }
-
-    [JsonPropertyName("purchase_uom")]
-    public string? PurchaseUom { get; set; }
-
-    [JsonPropertyName("purchase_uom_conversion_rate")]
-    public decimal? PurchaseUomConversionRate { get; set; }
-
-    [JsonPropertyName("batch_tracked")]
-    public bool? BatchTracked { get; set; }
-
-    [JsonPropertyName("variants")]
-    public List<MaterialVariantDto> Variants { get; set; } = new();
-
-    [JsonPropertyName("configs")]
-    public List<MaterialConfigDto>? Configs { get; set; }
-
-    [JsonPropertyName("created_at")]
-    public DateTime CreatedAt { get; set; }
-
-    [JsonPropertyName("updated_at")]
-    public DateTime UpdatedAt { get; set; }
-
-    [JsonPropertyName("archived_at")]
-    public DateTime? ArchivedAt { get; set; }
-
-    [JsonPropertyName("custom_field_collection_id")]
-    public long? CustomFieldCollectionId { get; set; }
-}
 
 public class MaterialConfigDto
 {
