@@ -7,7 +7,6 @@ using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Text;
 using System.Net.Http.Headers;
-using Katana.Core.DTOs;
 using System.Linq;
 using System.Globalization;
 using Microsoft.Extensions.Caching.Memory;
@@ -72,7 +71,7 @@ public class KatanaService : IKatanaService
     {
         var allProducts = new List<KatanaProductDto>();
         var page = 1;
-        const int PAGE_SIZE = 250; // Katana MRP API maksimum sayfa boyutu
+        const int PAGE_SIZE = 100; // ✅ Katana MRP API maksimum limit (250 yerine 100)
         var moreRecords = true;
 
         try
@@ -109,8 +108,8 @@ public class KatanaService : IKatanaService
                     _logger.LogInformation("Page {Page}: +{Count} products (Total: {Total})", page, pageProducts.Count, allProducts.Count + pageProducts.Count);
                     allProducts.AddRange(pageProducts);
 
-                    // Eğer dönen kayıt sayısı PAGE_SIZE'dan azsa, son sayfaya ulaştık demektir
-                    if (pageProducts.Count < PAGE_SIZE)
+                    // ✅ Sonsuz döngü önleme: Hem empty hem de count kontrolü
+                    if (pageProducts.Count == 0 || pageProducts.Count < PAGE_SIZE)
                     {
                         moreRecords = false;
                     }
@@ -132,17 +131,652 @@ public class KatanaService : IKatanaService
             _loggingService.LogInfo($"Successfully fetched {allProducts.Count} products from Katana ({page} pages)", null, "GetProductsAsync", LogCategory.ExternalAPI);
             return allProducts;
         }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogError(ex, "Katana API request timeout (page {Page}, total products: {Count}). Consider increasing TimeoutSeconds in appsettings.", page, allProducts.Count);
+            _loggingService.LogError($"Katana API timeout at page {page}", ex, null, "GetProductsAsync", LogCategory.ExternalAPI);
+            // Zaman aşımında bile önceki sayfalardan alınan ürünleri döndür
+            return allProducts;
+        }
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Katana API connection error: {Message}", ex.Message);
             _loggingService.LogError("Katana API connection failed", ex, null, "GetProductsAsync", LogCategory.ExternalAPI);
-            return new List<KatanaProductDto>();
+            return allProducts.Count > 0 ? allProducts : new List<KatanaProductDto>();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error calling Katana API");
             _loggingService.LogError("Unexpected error in Katana API call", ex, null, "GetProductsAsync", LogCategory.ExternalAPI);
-            return new List<KatanaProductDto>();
+            return allProducts.Count > 0 ? allProducts : new List<KatanaProductDto>();
+        }
+    }
+
+    public async Task<List<KatanaCustomerDto>> GetCustomersAsync()
+    {
+        var allCustomers = new List<KatanaCustomerDto>();
+        var page = 1;
+        const int PAGE_SIZE = 100; // ✅ Katana MRP API maksimum limit (250 yerine 100)
+        var moreRecords = true;
+
+        try
+        {
+            _logger.LogInformation("Getting customers from Katana with pagination (pageSize={PageSize})", PAGE_SIZE);
+            _loggingService.LogInfo("Katana API: Fetching customers (paged)", null, "GetCustomersAsync", LogCategory.ExternalAPI);
+
+            while (moreRecords)
+            {
+                var url = $"{_settings.Endpoints.Customers}?limit={PAGE_SIZE}&page={page}";
+                var response = await _httpClient.GetAsync(url);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Katana API failed on page {Page}. Status: {StatusCode}", page, response.StatusCode);
+                    break;
+                }
+
+                try
+                {
+                    using var doc = JsonDocument.Parse(responseContent);
+                    var root = doc.RootElement;
+                    var pageCustomers = new List<KatanaCustomerDto>();
+                    if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var custEl in dataEl.EnumerateArray())
+                        {
+                            var mapped = MapCustomerElement(custEl);
+                            pageCustomers.Add(mapped);
+                        }
+                    }
+
+                    _logger.LogInformation("Page {Page}: +{Count} customers (Total: {Total})", page, pageCustomers.Count, allCustomers.Count + pageCustomers.Count);
+                    allCustomers.AddRange(pageCustomers);
+
+                    // ✅ Sonsuz döngü önleme: Hem empty hem de count kontrolü
+                    if (pageCustomers.Count == 0 || pageCustomers.Count < PAGE_SIZE)
+                    {
+                        moreRecords = false;
+                    }
+                    else
+                    {
+                        page++;
+                        // Rate limit için minimal bekleme
+                        await Task.Delay(50);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to parse Katana customers response on page {Page}", page);
+                    moreRecords = false;
+                }
+            }
+
+            _logger.LogInformation("✅ TOTAL {Count} customers loaded from Katana across {Pages} pages.", allCustomers.Count, page);
+            _loggingService.LogInfo($"Successfully fetched {allCustomers.Count} customers from Katana ({page} pages)", null, "GetCustomersAsync", LogCategory.ExternalAPI);
+            return allCustomers;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Katana API connection error: {Message}", ex.Message);
+            _loggingService.LogError("Katana API connection failed", ex, null, "GetCustomersAsync", LogCategory.ExternalAPI);
+            return new List<KatanaCustomerDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error calling Katana API");
+            _loggingService.LogError("Unexpected error in Katana API call", ex, null, "GetCustomersAsync", LogCategory.ExternalAPI);
+            return new List<KatanaCustomerDto>();
+        }
+    }
+
+    private KatanaCustomerDto MapCustomerElement(JsonElement custEl)
+    {
+        var dto = new KatanaCustomerDto();
+
+        // ID
+        if (custEl.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.Number)
+        {
+            try { dto.Id = idEl.GetInt32(); } catch { dto.Id = 0; }
+        }
+
+        // Basic fields - önce parçaları al
+        dto.FirstName = custEl.TryGetProperty("first_name", out var fnEl) ? fnEl.GetString() : null;
+        dto.LastName = custEl.TryGetProperty("last_name", out var lnEl) ? lnEl.GetString() : null;
+        dto.Company = custEl.TryGetProperty("company", out var compEl) ? compEl.GetString() : null;
+        dto.Email = custEl.TryGetProperty("email", out var emailEl) ? emailEl.GetString() : null;
+        
+        // ✅ NULL-SAFE NAME MAPPING: Fallback stratejisi
+        dto.Name = custEl.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String
+            ? nameEl.GetString() ?? string.Empty
+            : string.Empty;
+        
+        // Eğer Name boşsa, Company veya FirstName+LastName kullan
+        if (string.IsNullOrWhiteSpace(dto.Name))
+        {
+            if (!string.IsNullOrWhiteSpace(dto.Company))
+            {
+                dto.Name = dto.Company;
+            }
+            else if (!string.IsNullOrWhiteSpace(dto.FirstName) || !string.IsNullOrWhiteSpace(dto.LastName))
+            {
+                dto.Name = $"{dto.FirstName} {dto.LastName}".Trim();
+            }
+            else
+            {
+                dto.Name = $"UNNAMED_CUSTOMER_{dto.Id}";
+                _logger.LogWarning("Customer {Id} has no name, company, or full name - using fallback", dto.Id);
+            }
+        }
+        
+        // 🔥 DEBUG: Katana API'sinden gelen customer alanını logla
+        _logger.LogDebug("🔍 Katana API Response - Customer ID: {Id}, Name: '{Name}', Email: '{Email}'", dto.Id, dto.Name, dto.Email ?? "N/A");
+        
+        dto.Phone = custEl.TryGetProperty("phone", out var phoneEl) ? phoneEl.GetString() : null;
+        dto.Comment = custEl.TryGetProperty("comment", out var commentEl) ? commentEl.GetString() : null;
+        dto.Currency = custEl.TryGetProperty("currency", out var currEl) ? currEl.GetString() ?? "TRY" : "TRY";
+        dto.ReferenceId = custEl.TryGetProperty("reference_id", out var refEl) ? refEl.GetString() : null;
+        dto.Category = custEl.TryGetProperty("category", out var catEl) ? catEl.GetString() : null;
+
+        // Decimal fields
+        if (custEl.TryGetProperty("discount_rate", out var discEl))
+            dto.DiscountRate = ReadDecimalProperty(custEl, "discount_rate");
+
+        // Default address IDs
+        if (custEl.TryGetProperty("default_billing_id", out var billEl) && billEl.ValueKind == JsonValueKind.Number)
+        {
+            try { dto.DefaultBillingId = billEl.GetInt32(); } catch { }
+        }
+        if (custEl.TryGetProperty("default_shipping_id", out var shipEl) && shipEl.ValueKind == JsonValueKind.Number)
+        {
+            try { dto.DefaultShippingId = shipEl.GetInt32(); } catch { }
+        }
+
+        // Timestamps
+        if (custEl.TryGetProperty("created_at", out var createdEl) && createdEl.ValueKind == JsonValueKind.String)
+        {
+            if (DateTime.TryParse(createdEl.GetString(), out var createdDate))
+                dto.CreatedAt = createdDate;
+        }
+        if (custEl.TryGetProperty("updated_at", out var updatedEl) && updatedEl.ValueKind == JsonValueKind.String)
+        {
+            if (DateTime.TryParse(updatedEl.GetString(), out var updatedDate))
+                dto.UpdatedAt = updatedDate;
+        }
+
+        // Addresses
+        if (custEl.TryGetProperty("addresses", out var addrsEl) && addrsEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var addrEl in addrsEl.EnumerateArray())
+            {
+                var address = MapCustomerAddressElement(addrEl);
+                dto.Addresses.Add(address);
+            }
+        }
+
+        return dto;
+    }
+
+    private KatanaCustomerAddressDto MapCustomerAddressElement(JsonElement addrEl)
+    {
+        var dto = new KatanaCustomerAddressDto();
+
+        if (addrEl.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.Number)
+        {
+            try { dto.Id = idEl.GetInt32(); } catch { dto.Id = 0; }
+        }
+        if (addrEl.TryGetProperty("customer_id", out var custIdEl) && custIdEl.ValueKind == JsonValueKind.Number)
+        {
+            try { dto.CustomerId = custIdEl.GetInt32(); } catch { dto.CustomerId = 0; }
+        }
+
+        dto.EntityType = addrEl.TryGetProperty("entity_type", out var etEl) ? etEl.GetString() ?? string.Empty : string.Empty;
+        
+        if (addrEl.TryGetProperty("default", out var defEl) && defEl.ValueKind == JsonValueKind.True)
+            dto.Default = true;
+
+        dto.FirstName = addrEl.TryGetProperty("first_name", out var fnEl) ? fnEl.GetString() : null;
+        dto.LastName = addrEl.TryGetProperty("last_name", out var lnEl) ? lnEl.GetString() : null;
+        dto.Company = addrEl.TryGetProperty("company", out var compEl) ? compEl.GetString() : null;
+        dto.Phone = addrEl.TryGetProperty("phone", out var phoneEl) ? phoneEl.GetString() : null;
+        dto.Line1 = addrEl.TryGetProperty("line1", out var l1El) ? l1El.GetString() : null;
+        dto.Line2 = addrEl.TryGetProperty("line2", out var l2El) ? l2El.GetString() : null;
+        dto.City = addrEl.TryGetProperty("city", out var cityEl) ? cityEl.GetString() : null;
+        dto.State = addrEl.TryGetProperty("state", out var stateEl) ? stateEl.GetString() : null;
+        dto.Zip = addrEl.TryGetProperty("zip", out var zipEl) ? zipEl.GetString() : null;
+        dto.Country = addrEl.TryGetProperty("country", out var countryEl) ? countryEl.GetString() : null;
+
+        if (addrEl.TryGetProperty("created_at", out var createdEl) && createdEl.ValueKind == JsonValueKind.String)
+        {
+            if (DateTime.TryParse(createdEl.GetString(), out var createdDate))
+                dto.CreatedAt = createdDate;
+        }
+        if (addrEl.TryGetProperty("updated_at", out var updatedEl) && updatedEl.ValueKind == JsonValueKind.String)
+        {
+            if (DateTime.TryParse(updatedEl.GetString(), out var updatedDate))
+                dto.UpdatedAt = updatedDate;
+        }
+
+        return dto;
+    }
+
+    public async Task<KatanaCustomerDto?> GetCustomerByIdAsync(int customerId)
+    {
+        if (customerId <= 0)
+        {
+            _logger.LogError("GetCustomerByIdAsync called with invalid customerId: {CustomerId}", customerId);
+            return null;
+        }
+
+        var cacheKey = $"customer-{customerId}";
+        if (_cache.TryGetValue<KatanaCustomerDto?>(cacheKey, out var cached))
+        {
+            _logger.LogDebug("Retrieved customer {CustomerId} from cache", customerId);
+            return cached;
+        }
+
+        try
+        {
+            _logger.LogInformation("Getting customer by ID from Katana: {CustomerId}", customerId);
+            
+            var response = await _httpClient.GetAsync($"{_settings.Endpoints.Customers}/{customerId}");
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    _logger.LogWarning("Customer not found in Katana: {CustomerId}", customerId);
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogWarning("Failed to get customer {CustomerId} from Katana. Status: {Status}, Error: {Error}", 
+                        customerId, response.StatusCode, errorContent);
+                }
+                return null;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(content);
+            var root = doc.RootElement;
+            
+            JsonElement customerElement = root;
+            if (root.TryGetProperty("data", out var wrapped) && wrapped.ValueKind == JsonValueKind.Object)
+                customerElement = wrapped;
+
+            var mapped = MapCustomerElement(customerElement);
+            
+            // Cache for 5 minutes
+            _cache.Set(cacheKey, mapped, TimeSpan.FromMinutes(5));
+            
+            _logger.LogInformation("Retrieved customer {CustomerId} from Katana: {Name}", customerId, mapped?.Name);
+            return mapped;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Katana API connection error for customer ID {CustomerId}", customerId);
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse customer response for ID {CustomerId}", customerId);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error getting customer by ID {CustomerId}", customerId);
+            return null;
+        }
+    }
+
+    public async Task<KatanaCustomerDto?> CreateCustomerAsync(KatanaCustomerDto customer)
+    {
+        try
+        {
+            // Validate input
+            if (customer == null)
+            {
+                _logger.LogError("CreateCustomerAsync called with null customer");
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(customer.Name))
+            {
+                _logger.LogError("CreateCustomerAsync: Customer name is required");
+                return null;
+            }
+
+            _logger.LogInformation("Creating customer in Katana: {CustomerName}", customer.Name);
+            _loggingService.LogInfo($"Creating customer: {customer.Name}", null, "CreateCustomerAsync", LogCategory.ExternalAPI);
+
+            // Build payload matching Katana API specification
+            var payload = new Dictionary<string, object?>
+            {
+                { "name", customer.Name }
+            };
+
+            // Add optional fields
+            if (!string.IsNullOrWhiteSpace(customer.FirstName))
+                payload["first_name"] = customer.FirstName;
+
+            if (!string.IsNullOrWhiteSpace(customer.LastName))
+                payload["last_name"] = customer.LastName;
+
+            if (!string.IsNullOrWhiteSpace(customer.Company))
+                payload["company"] = customer.Company;
+
+            if (!string.IsNullOrWhiteSpace(customer.Email))
+                payload["email"] = customer.Email;
+
+            if (!string.IsNullOrWhiteSpace(customer.Phone))
+                payload["phone"] = customer.Phone;
+
+            if (!string.IsNullOrWhiteSpace(customer.Currency))
+                payload["currency"] = customer.Currency;
+            else
+                payload["currency"] = "TRY"; // Default currency
+
+            if (!string.IsNullOrWhiteSpace(customer.ReferenceId))
+                payload["reference_id"] = customer.ReferenceId;
+
+            if (!string.IsNullOrWhiteSpace(customer.Category))
+                payload["category"] = customer.Category;
+
+            if (!string.IsNullOrWhiteSpace(customer.Comment))
+                payload["comment"] = customer.Comment;
+
+            if (customer.DiscountRate.HasValue)
+                payload["discount_rate"] = customer.DiscountRate.Value;
+
+            // Add addresses if present
+            if (customer.Addresses != null && customer.Addresses.Count > 0)
+            {
+                var addresses = customer.Addresses.Select(addr => new Dictionary<string, object?>
+                {
+                    { "entity_type", addr.EntityType },
+                    { "default", addr.Default },
+                    { "first_name", addr.FirstName },
+                    { "last_name", addr.LastName },
+                    { "company", addr.Company },
+                    { "phone", addr.Phone },
+                    { "line1", addr.Line1 },
+                    { "line2", addr.Line2 },
+                    { "city", addr.City },
+                    { "state", addr.State },
+                    { "zip", addr.Zip },
+                    { "country", addr.Country }
+                }).ToList();
+
+                payload["addresses"] = addresses;
+            }
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            _logger.LogDebug("CreateCustomerAsync payload: {Payload}", json);
+
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync(_settings.Endpoints.Customers, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                // Handle 422 validation errors specifically
+                if ((int)response.StatusCode == 422)
+                {
+                    _logger.LogError("CreateCustomerAsync validation error. Status: {StatusCode}, Response: {Response}", 
+                        response.StatusCode, responseContent);
+                    _loggingService.LogError("Customer creation validation failed", null, responseContent, "CreateCustomerAsync", LogCategory.ExternalAPI);
+                }
+                else
+                {
+                    _logger.LogError("CreateCustomerAsync failed. Status: {StatusCode}, Response: {Response}", 
+                        response.StatusCode, responseContent);
+                    _loggingService.LogError($"Customer creation failed: {response.StatusCode}", null, responseContent, "CreateCustomerAsync", LogCategory.ExternalAPI);
+                }
+                return null;
+            }
+
+            _logger.LogInformation("Customer created successfully in Katana: {CustomerName}", customer.Name);
+            _loggingService.LogInfo($"Customer created successfully: {customer.Name}", null, "CreateCustomerAsync", LogCategory.ExternalAPI);
+            
+            // Parse and return the created customer
+            using var doc = JsonDocument.Parse(responseContent);
+            var root = doc.RootElement;
+            
+            JsonElement customerElement = root;
+            if (root.TryGetProperty("data", out var wrapped) && wrapped.ValueKind == JsonValueKind.Object)
+                customerElement = wrapped;
+
+            var createdCustomer = MapCustomerElement(customerElement);
+            return createdCustomer;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse customer response. Customer: {CustomerName}", customer?.Name ?? "Unknown");
+            _loggingService.LogError("JSON parsing error in customer creation", ex, null, "CreateCustomerAsync", LogCategory.ExternalAPI);
+            return null;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Katana API connection error creating customer. Customer: {CustomerName}", customer?.Name ?? "Unknown");
+            _loggingService.LogError("Connection error in customer creation", ex, null, "CreateCustomerAsync", LogCategory.ExternalAPI);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating customer in Katana API. Customer: {CustomerName}", customer?.Name ?? "Unknown");
+            _loggingService.LogError("Unexpected error in customer creation", ex, null, "CreateCustomerAsync", LogCategory.ExternalAPI);
+            return null;
+        }
+    }
+
+    public async Task<KatanaCustomerDto?> UpdateCustomerAsync(int customerId, KatanaCustomerDto customer)
+    {
+        try
+        {
+            if (customerId <= 0)
+            {
+                _logger.LogError("UpdateCustomerAsync called with invalid customerId: {CustomerId}", customerId);
+                return null;
+            }
+
+            if (customer == null)
+            {
+                _logger.LogError("UpdateCustomerAsync called with null customer for customerId: {CustomerId}", customerId);
+                return null;
+            }
+
+            _logger.LogInformation("Updating customer in Katana. CustomerId: {CustomerId}, CustomerName: {CustomerName}", customerId, customer.Name);
+            _loggingService.LogInfo($"Updating customer {customerId}: {customer.Name}", null, "UpdateCustomerAsync", LogCategory.ExternalAPI);
+
+            // Build payload with all fields (Katana PATCH accepts full payload)
+            var payload = new Dictionary<string, object?>();
+
+            // Add fields if they are not null/empty
+            if (!string.IsNullOrWhiteSpace(customer.Name))
+                payload["name"] = customer.Name;
+
+            if (!string.IsNullOrWhiteSpace(customer.FirstName))
+                payload["first_name"] = customer.FirstName;
+
+            if (!string.IsNullOrWhiteSpace(customer.LastName))
+                payload["last_name"] = customer.LastName;
+
+            if (!string.IsNullOrWhiteSpace(customer.Company))
+                payload["company"] = customer.Company;
+
+            if (!string.IsNullOrWhiteSpace(customer.Email))
+                payload["email"] = customer.Email;
+
+            if (!string.IsNullOrWhiteSpace(customer.Phone))
+                payload["phone"] = customer.Phone;
+
+            if (!string.IsNullOrWhiteSpace(customer.Currency))
+                payload["currency"] = customer.Currency;
+
+            if (!string.IsNullOrWhiteSpace(customer.ReferenceId))
+                payload["reference_id"] = customer.ReferenceId;
+
+            if (!string.IsNullOrWhiteSpace(customer.Category))
+                payload["category"] = customer.Category;
+
+            if (!string.IsNullOrWhiteSpace(customer.Comment))
+                payload["comment"] = customer.Comment;
+
+            if (customer.DiscountRate.HasValue)
+                payload["discount_rate"] = customer.DiscountRate.Value;
+
+            if (customer.DefaultBillingId.HasValue)
+                payload["default_billing_id"] = customer.DefaultBillingId.Value;
+
+            if (customer.DefaultShippingId.HasValue)
+                payload["default_shipping_id"] = customer.DefaultShippingId.Value;
+
+            // Add addresses if present
+            if (customer.Addresses != null && customer.Addresses.Count > 0)
+            {
+                var addresses = customer.Addresses.Select(addr => new Dictionary<string, object?>
+                {
+                    { "entity_type", addr.EntityType },
+                    { "default", addr.Default },
+                    { "first_name", addr.FirstName },
+                    { "last_name", addr.LastName },
+                    { "company", addr.Company },
+                    { "phone", addr.Phone },
+                    { "line1", addr.Line1 },
+                    { "line2", addr.Line2 },
+                    { "city", addr.City },
+                    { "state", addr.State },
+                    { "zip", addr.Zip },
+                    { "country", addr.Country }
+                }).ToList();
+
+                payload["addresses"] = addresses;
+            }
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            _logger.LogDebug("UpdateCustomerAsync payload for CustomerId {CustomerId}: {Payload}", customerId, json);
+
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var updateUrl = $"{_settings.Endpoints.Customers}/{customerId}";
+            var response = await _httpClient.PatchAsync(updateUrl, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    _logger.LogWarning("Customer not found for update: {CustomerId}", customerId);
+                    _loggingService.LogWarning($"Customer not found: {customerId}", null, "UpdateCustomerAsync", LogCategory.ExternalAPI);
+                }
+                else if ((int)response.StatusCode == 422)
+                {
+                    _logger.LogError("UpdateCustomerAsync validation error for CustomerId: {CustomerId}. Status: {StatusCode}, Response: {Response}", 
+                        customerId, response.StatusCode, responseContent);
+                    _loggingService.LogError("Customer update validation failed", null, responseContent, "UpdateCustomerAsync", LogCategory.ExternalAPI);
+                }
+                else
+                {
+                    _logger.LogError("UpdateCustomerAsync failed for CustomerId: {CustomerId}. Status: {StatusCode}, Response: {Response}", 
+                        customerId, response.StatusCode, responseContent);
+                    _loggingService.LogError($"Customer update failed: {response.StatusCode}", null, responseContent, "UpdateCustomerAsync", LogCategory.ExternalAPI);
+                }
+                return null;
+            }
+
+            // Invalidate cache
+            _cache.Remove($"customer-{customerId}");
+
+            _logger.LogInformation("Customer updated successfully in Katana. CustomerId: {CustomerId}, CustomerName: {CustomerName}", customerId, customer.Name);
+            _loggingService.LogInfo($"Customer updated successfully: {customerId}", null, "UpdateCustomerAsync", LogCategory.ExternalAPI);
+            
+            // Parse and return the updated customer
+            using var doc = JsonDocument.Parse(responseContent);
+            var root = doc.RootElement;
+            
+            JsonElement customerElement = root;
+            if (root.TryGetProperty("data", out var wrapped) && wrapped.ValueKind == JsonValueKind.Object)
+                customerElement = wrapped;
+
+            var updatedCustomer = MapCustomerElement(customerElement);
+            return updatedCustomer;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse customer response. CustomerId: {CustomerId}", customerId);
+            _loggingService.LogError("JSON parsing error in customer update", ex, null, "UpdateCustomerAsync", LogCategory.ExternalAPI);
+            return null;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Katana API connection error updating customer. CustomerId: {CustomerId}", customerId);
+            _loggingService.LogError("Connection error in customer update", ex, null, "UpdateCustomerAsync", LogCategory.ExternalAPI);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating customer in Katana API. CustomerId: {CustomerId}, Customer: {CustomerName}", customerId, customer?.Name ?? "Unknown");
+            _loggingService.LogError("Unexpected error in customer update", ex, null, "UpdateCustomerAsync", LogCategory.ExternalAPI);
+            return null;
+        }
+    }
+
+    public async Task<bool> DeleteCustomerAsync(int customerId)
+    {
+        try
+        {
+            if (customerId <= 0)
+            {
+                _logger.LogError("DeleteCustomerAsync called with invalid customerId: {CustomerId}", customerId);
+                return false;
+            }
+
+            _logger.LogInformation("Deleting customer from Katana: {CustomerId}", customerId);
+            _loggingService.LogInfo($"Deleting customer: {customerId}", null, "DeleteCustomerAsync", LogCategory.ExternalAPI);
+
+            var response = await _httpClient.DeleteAsync($"{_settings.Endpoints.Customers}/{customerId}");
+
+            if (response.StatusCode == HttpStatusCode.NoContent)
+            {
+                _logger.LogInformation("Successfully deleted customer: {CustomerId}", customerId);
+                _loggingService.LogInfo($"Customer deleted successfully: {customerId}", null, "DeleteCustomerAsync", LogCategory.ExternalAPI);
+                
+                // Clear cache
+                _cache.Remove($"customer-{customerId}");
+                return true;
+            }
+
+            // Handle specific error cases
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning("Customer not found for deletion: {CustomerId}", customerId);
+                _loggingService.LogWarning($"Customer not found for deletion: {customerId}", null, "DeleteCustomerAsync", LogCategory.ExternalAPI);
+                return false;
+            }
+
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                _logger.LogError("Unauthorized to delete customer: {CustomerId}", customerId);
+                _loggingService.LogError("Unauthorized to delete customer", null, null, "DeleteCustomerAsync", LogCategory.ExternalAPI);
+                return false;
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Failed to delete customer: {CustomerId}. Status: {StatusCode}, Response: {Response}", 
+                customerId, response.StatusCode, errorContent);
+            _loggingService.LogError($"Customer deletion failed: {response.StatusCode}", null, errorContent, "DeleteCustomerAsync", LogCategory.ExternalAPI);
+            return false;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Katana API connection error deleting customer: {CustomerId}", customerId);
+            _loggingService.LogError("Connection error in customer deletion", ex, null, "DeleteCustomerAsync", LogCategory.ExternalAPI);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting customer from Katana API. CustomerId: {CustomerId}", customerId);
+            _loggingService.LogError("Unexpected error in customer deletion", ex, null, "DeleteCustomerAsync", LogCategory.ExternalAPI);
+            return false;
         }
     }
 
@@ -521,6 +1155,75 @@ public class KatanaService : IKatanaService
         }
     }
 
+    public async Task<KatanaProductDto?> GetProductByIdAsync(int productId)
+    {
+        if (productId <= 0)
+        {
+            _logger.LogError("GetProductByIdAsync called with invalid productId: {ProductId}", productId);
+            return null;
+        }
+
+        var cacheKey = $"product-{productId}";
+        if (_cache.TryGetValue<KatanaProductDto?>(cacheKey, out var cached))
+        {
+            _logger.LogDebug("Retrieved product {ProductId} from cache", productId);
+            return cached;
+        }
+
+        try
+        {
+            _logger.LogInformation("Getting product by ID from Katana: {ProductId}", productId);
+            
+            var response = await _httpClient.GetAsync($"{_settings.Endpoints.Products}/{productId}");
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    _logger.LogWarning("Product not found in Katana: {ProductId}", productId);
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogWarning("Failed to get product {ProductId} from Katana. Status: {Status}, Error: {Error}", 
+                        productId, response.StatusCode, errorContent);
+                }
+                return null;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(content);
+            var root = doc.RootElement;
+            
+            JsonElement productElement = root;
+            if (root.TryGetProperty("data", out var wrapped) && wrapped.ValueKind == JsonValueKind.Object)
+                productElement = wrapped;
+
+            var mapped = MapProductElement(productElement);
+            
+            // Cache for 5 minutes
+            _cache.Set(cacheKey, mapped, TimeSpan.FromMinutes(5));
+            
+            _logger.LogInformation("Retrieved product {ProductId} from Katana: {SKU}", productId, mapped?.SKU);
+            return mapped;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Katana API connection error for product ID {ProductId}", productId);
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse product response for ID {ProductId}", productId);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error getting product by ID {ProductId}", productId);
+            return null;
+        }
+    }
+
     public async Task<bool> TestConnectionAsync()
     {
         try
@@ -582,6 +1285,175 @@ public class KatanaService : IKatanaService
         }
     }
 
+    /// <summary>
+    /// Creates a new product in Katana API
+    /// 
+    /// Payload structure:
+    /// {
+    ///   "name": "Product Name",           // Required
+    ///   "uom": "pcs",                     // Required
+    ///   "category_name": "Category",      // Optional
+    ///   "is_sellable": true,              // Optional, default true
+    ///   "is_producible": false,           // Optional
+    ///   "is_purchasable": true,           // Optional
+    ///   "variants": [                     // Required, at least 1
+    ///     {
+    ///       "sku": "PROD-001",
+    ///       "sales_price": 100.00,
+    ///       "purchase_price": 50.00
+    ///     }
+    ///   ]
+    /// }
+    /// </summary>
+    public async Task<KatanaProductDto?> CreateProductAsync(KatanaProductDto product)
+    {
+        try
+        {
+            // Validate input
+            if (product == null)
+            {
+                _logger.LogError("CreateProductAsync called with null product");
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(product.Name))
+            {
+                _logger.LogError("CreateProductAsync: Product name is required");
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(product.Unit))
+            {
+                _logger.LogError("CreateProductAsync: Product unit (uom) is required");
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(product.SKU))
+            {
+                _logger.LogError("CreateProductAsync: Product SKU is required");
+                return null;
+            }
+
+            _logger.LogInformation("Creating product in Katana: {ProductName} (SKU: {SKU})", product.Name, product.SKU);
+
+            // Build payload matching Katana API specification
+            var variants = new List<object>
+            {
+                new
+                {
+                    sku = product.SKU,
+                    sales_price = product.SalesPrice ?? product.Price,
+                    purchase_price = product.PurchasePrice ?? 0
+                }
+            };
+
+            var payload = new Dictionary<string, object?>
+            {
+                { "name", product.Name },
+                { "uom", product.Unit },
+                { "is_sellable", true },
+                { "is_producible", false },
+                { "is_purchasable", true },
+                { "variants", variants }
+            };
+
+            // Add optional fields
+            if (!string.IsNullOrWhiteSpace(product.Category))
+            {
+                payload["category_name"] = product.Category;
+            }
+
+            if (!string.IsNullOrWhiteSpace(product.Description))
+            {
+                payload["description"] = product.Description;
+            }
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            _logger.LogDebug("CreateProductAsync payload: {Payload}", json);
+
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync(_settings.Endpoints.Products, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                // Handle 422 validation errors specifically
+                if ((int)response.StatusCode == 422)
+                {
+                    _logger.LogError("CreateProductAsync validation error. Status: {StatusCode}, Response: {Response}", 
+                        response.StatusCode, responseContent);
+                }
+                else
+                {
+                    _logger.LogError("CreateProductAsync failed. Status: {StatusCode}, Response: {Response}", 
+                        response.StatusCode, responseContent);
+                }
+                return null;
+            }
+
+            _logger.LogInformation("Product created successfully in Katana: {ProductName} (SKU: {SKU})", product.Name, product.SKU);
+            
+            // Parse and return the created product
+            var createdProduct = JsonSerializer.Deserialize<KatanaProductDto>(responseContent, _jsonOptions);
+            return createdProduct;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating product in Katana API. Product: {ProductName}", product?.Name ?? "Unknown");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Deletes a product from Katana API
+    /// </summary>
+    /// <param name="productId">The Katana product ID to delete</param>
+    /// <returns>True if deletion successful (204 No Content), false otherwise</returns>
+    public async Task<bool> DeleteProductAsync(int productId)
+    {
+        try
+        {
+            if (productId <= 0)
+            {
+                _logger.LogError("DeleteProductAsync called with invalid productId: {ProductId}", productId);
+                return false;
+            }
+
+            _logger.LogInformation("Deleting product from Katana: {ProductId}", productId);
+
+            var response = await _httpClient.DeleteAsync($"{_settings.Endpoints.Products}/{productId}");
+
+            if (response.StatusCode == HttpStatusCode.NoContent)
+            {
+                _logger.LogInformation("Successfully deleted product: {ProductId}", productId);
+                return true;
+            }
+
+            // Handle specific error cases
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning("Product not found for deletion: {ProductId}", productId);
+                return false;
+            }
+
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                _logger.LogError("Unauthorized to delete product: {ProductId}", productId);
+                return false;
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Failed to delete product: {ProductId}. Status: {StatusCode}, Response: {Response}", 
+                productId, response.StatusCode, errorContent);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting product from Katana API. ProductId: {ProductId}", productId);
+            return false;
+        }
+    }
+
     public Task<List<KatanaPurchaseOrderDto>> GetPurchaseOrdersAsync(string? status = null, DateTime? fromDate = null)
     {
         _logger.LogInformation("GetPurchaseOrdersAsync called (status: {Status}, fromDate: {FromDate}), placeholder implementation returning empty list.", status, fromDate);
@@ -600,16 +1472,696 @@ public class KatanaService : IKatanaService
         return Task.FromResult<string?>(null);
     }
 
-    public Task<List<KatanaSupplierDto>> GetSuppliersAsync()
+    public async Task<List<KatanaSupplierDto>> GetSuppliersAsync()
     {
-        _logger.LogInformation("GetSuppliersAsync called, but Katana endpoint mapping is not configured. Returning empty list.");
-        return Task.FromResult(new List<KatanaSupplierDto>());
+        var allSuppliers = new List<KatanaSupplierDto>();
+        var page = 1;
+        const int PAGE_SIZE = 100; // ✅ Katana MRP API maksimum limit (250 yerine 100)
+        var moreRecords = true;
+
+        try
+        {
+            _logger.LogInformation("Getting suppliers from Katana with pagination (pageSize={PageSize})", PAGE_SIZE);
+            _loggingService.LogInfo("Katana API: Fetching suppliers (paged)", null, "GetSuppliersAsync", LogCategory.ExternalAPI);
+
+            while (moreRecords)
+            {
+                var url = $"{_settings.Endpoints.Suppliers}?limit={PAGE_SIZE}&page={page}";
+                var response = await _httpClient.GetAsync(url);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Katana API failed on page {Page}. Status: {StatusCode}", page, response.StatusCode);
+                    break;
+                }
+
+                try
+                {
+                    using var doc = JsonDocument.Parse(responseContent);
+                    var root = doc.RootElement;
+                    var pageSuppliers = new List<KatanaSupplierDto>();
+                    if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var supplierEl in dataEl.EnumerateArray())
+                        {
+                            var mapped = MapSupplierElement(supplierEl);
+                            pageSuppliers.Add(mapped);
+                        }
+                    }
+
+                    _logger.LogInformation("Page {Page}: +{Count} suppliers (Total: {Total})", page, pageSuppliers.Count, allSuppliers.Count + pageSuppliers.Count);
+                    allSuppliers.AddRange(pageSuppliers);
+
+                    // ✅ Sonsuz döngü önleme: Hem empty hem de count kontrolü
+                    if (pageSuppliers.Count == 0 || pageSuppliers.Count < PAGE_SIZE)
+                    {
+                        moreRecords = false;
+                    }
+                    else
+                    {
+                        page++;
+                        await Task.Delay(50);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to parse Katana suppliers response on page {Page}", page);
+                    moreRecords = false;
+                }
+            }
+
+            _logger.LogInformation("✅ TOTAL {Count} suppliers loaded from Katana across {Pages} pages.", allSuppliers.Count, page);
+            _loggingService.LogInfo($"Successfully fetched {allSuppliers.Count} suppliers from Katana ({page} pages)", null, "GetSuppliersAsync", LogCategory.ExternalAPI);
+            return allSuppliers;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Katana API connection error: {Message}", ex.Message);
+            _loggingService.LogError("Katana API connection failed", ex, null, "GetSuppliersAsync", LogCategory.ExternalAPI);
+            return new List<KatanaSupplierDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error calling Katana API");
+            _loggingService.LogError("Unexpected error in Katana API call", ex, null, "GetSuppliersAsync", LogCategory.ExternalAPI);
+            return new List<KatanaSupplierDto>();
+        }
     }
 
-    public Task<KatanaSupplierDto?> GetSupplierByIdAsync(string id)
+    public async Task<KatanaSupplierDto?> GetSupplierByIdAsync(string id)
     {
-        _logger.LogInformation("GetSupplierByIdAsync called for Id: {Id}, placeholder implementation returning null.", id);
-        return Task.FromResult<KatanaSupplierDto?>(null);
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            _logger.LogError("GetSupplierByIdAsync called with invalid id");
+            return null;
+        }
+
+        var cacheKey = $"supplier-{id}";
+        if (_cache.TryGetValue<KatanaSupplierDto?>(cacheKey, out var cached))
+        {
+            _logger.LogDebug("Retrieved supplier {SupplierId} from cache", id);
+            return cached;
+        }
+
+        try
+        {
+            _logger.LogInformation("Getting supplier by ID from Katana: {SupplierId}", id);
+            
+            var response = await _httpClient.GetAsync($"{_settings.Endpoints.Suppliers}/{id}");
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    _logger.LogWarning("Supplier not found in Katana: {SupplierId}", id);
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogWarning("Failed to get supplier {SupplierId} from Katana. Status: {Status}, Error: {Error}", 
+                        id, response.StatusCode, errorContent);
+                }
+                return null;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(content);
+            var root = doc.RootElement;
+            
+            JsonElement supplierElement = root;
+            if (root.TryGetProperty("data", out var wrapped) && wrapped.ValueKind == JsonValueKind.Object)
+                supplierElement = wrapped;
+
+            var mapped = MapSupplierElement(supplierElement);
+            
+            _cache.Set(cacheKey, mapped, TimeSpan.FromMinutes(5));
+            
+            _logger.LogInformation("Retrieved supplier {SupplierId} from Katana: {Name}", id, mapped?.Name);
+            return mapped;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Katana API connection error for supplier ID {SupplierId}", id);
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse supplier response for ID {SupplierId}", id);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error getting supplier by ID {SupplierId}", id);
+            return null;
+        }
+    }
+
+    public async Task<KatanaSupplierDto?> CreateSupplierAsync(KatanaSupplierDto supplier)
+    {
+        try
+        {
+            if (supplier == null)
+            {
+                _logger.LogError("CreateSupplierAsync called with null supplier");
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(supplier.Name))
+            {
+                _logger.LogError("CreateSupplierAsync: Supplier name is required");
+                return null;
+            }
+
+            _logger.LogInformation("Creating supplier in Katana: {SupplierName}", supplier.Name);
+            _loggingService.LogInfo($"Creating supplier: {supplier.Name}", null, "CreateSupplierAsync", LogCategory.ExternalAPI);
+
+            var payload = new Dictionary<string, object?>
+            {
+                { "name", supplier.Name }
+            };
+
+            if (!string.IsNullOrWhiteSpace(supplier.Email))
+                payload["email"] = supplier.Email;
+
+            if (!string.IsNullOrWhiteSpace(supplier.Phone))
+                payload["phone"] = supplier.Phone;
+
+            if (!string.IsNullOrWhiteSpace(supplier.Currency))
+                payload["currency"] = supplier.Currency;
+            else
+                payload["currency"] = "TRY";
+
+            if (!string.IsNullOrWhiteSpace(supplier.Comment))
+                payload["comment"] = supplier.Comment;
+
+            if (supplier.Addresses != null && supplier.Addresses.Count > 0)
+            {
+                var addresses = supplier.Addresses.Select(addr => new Dictionary<string, object?>
+                {
+                    { "line_1", addr.Line1 },
+                    { "line_2", addr.Line2 },
+                    { "city", addr.City },
+                    { "state", addr.State },
+                    { "zip", addr.Zip },
+                    { "country", addr.Country ?? "TR" }
+                }).ToList();
+
+                payload["addresses"] = addresses;
+            }
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            _logger.LogDebug("CreateSupplierAsync payload: {Payload}", json);
+
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync(_settings.Endpoints.Suppliers, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if ((int)response.StatusCode == 422)
+                {
+                    _logger.LogError("CreateSupplierAsync validation error. Status: {StatusCode}, Response: {Response}", 
+                        response.StatusCode, responseContent);
+                    _loggingService.LogError("Supplier creation validation failed", null, responseContent, "CreateSupplierAsync", LogCategory.ExternalAPI);
+                }
+                else
+                {
+                    _logger.LogError("CreateSupplierAsync failed. Status: {StatusCode}, Response: {Response}", 
+                        response.StatusCode, responseContent);
+                    _loggingService.LogError($"Supplier creation failed: {response.StatusCode}", null, responseContent, "CreateSupplierAsync", LogCategory.ExternalAPI);
+                }
+                return null;
+            }
+
+            _logger.LogInformation("Supplier created successfully in Katana: {SupplierName}", supplier.Name);
+            _loggingService.LogInfo($"Supplier created successfully: {supplier.Name}", null, "CreateSupplierAsync", LogCategory.ExternalAPI);
+            
+            using var doc = JsonDocument.Parse(responseContent);
+            var root = doc.RootElement;
+            
+            JsonElement supplierElement = root;
+            if (root.TryGetProperty("data", out var wrapped) && wrapped.ValueKind == JsonValueKind.Object)
+                supplierElement = wrapped;
+
+            var createdSupplier = MapSupplierElement(supplierElement);
+            return createdSupplier;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse supplier response. Supplier: {SupplierName}", supplier?.Name ?? "Unknown");
+            _loggingService.LogError("JSON parsing error in supplier creation", ex, null, "CreateSupplierAsync", LogCategory.ExternalAPI);
+            return null;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Katana API connection error creating supplier. Supplier: {SupplierName}", supplier?.Name ?? "Unknown");
+            _loggingService.LogError("Connection error in supplier creation", ex, null, "CreateSupplierAsync", LogCategory.ExternalAPI);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating supplier in Katana API. Supplier: {SupplierName}", supplier?.Name ?? "Unknown");
+            _loggingService.LogError("Unexpected error in supplier creation", ex, null, "CreateSupplierAsync", LogCategory.ExternalAPI);
+            return null;
+        }
+    }
+
+    public async Task<KatanaSupplierDto?> UpdateSupplierAsync(int supplierId, KatanaSupplierDto supplier)
+    {
+        try
+        {
+            if (supplierId <= 0)
+            {
+                _logger.LogError("UpdateSupplierAsync called with invalid supplierId: {SupplierId}", supplierId);
+                return null;
+            }
+
+            if (supplier == null)
+            {
+                _logger.LogError("UpdateSupplierAsync called with null supplier for supplierId: {SupplierId}", supplierId);
+                return null;
+            }
+
+            _logger.LogInformation("Updating supplier in Katana. SupplierId: {SupplierId}, SupplierName: {SupplierName}", supplierId, supplier.Name);
+            _loggingService.LogInfo($"Updating supplier {supplierId}: {supplier.Name}", null, "UpdateSupplierAsync", LogCategory.ExternalAPI);
+
+            var payload = new Dictionary<string, object?>();
+
+            if (!string.IsNullOrWhiteSpace(supplier.Name))
+                payload["name"] = supplier.Name;
+
+            if (!string.IsNullOrWhiteSpace(supplier.Email))
+                payload["email"] = supplier.Email;
+
+            if (!string.IsNullOrWhiteSpace(supplier.Phone))
+                payload["phone"] = supplier.Phone;
+
+            if (!string.IsNullOrWhiteSpace(supplier.Currency))
+                payload["currency"] = supplier.Currency;
+
+            if (!string.IsNullOrWhiteSpace(supplier.Comment))
+                payload["comment"] = supplier.Comment;
+
+            if (supplier.Addresses != null && supplier.Addresses.Count > 0)
+            {
+                var addresses = supplier.Addresses.Select(addr => new Dictionary<string, object?>
+                {
+                    { "line_1", addr.Line1 },
+                    { "line_2", addr.Line2 },
+                    { "city", addr.City },
+                    { "state", addr.State },
+                    { "zip", addr.Zip },
+                    { "country", addr.Country }
+                }).ToList();
+
+                payload["addresses"] = addresses;
+            }
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            _logger.LogDebug("UpdateSupplierAsync payload for SupplierId {SupplierId}: {Payload}", supplierId, json);
+
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var updateUrl = $"{_settings.Endpoints.Suppliers}/{supplierId}";
+            var response = await _httpClient.PatchAsync(updateUrl, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    _logger.LogWarning("Supplier not found for update: {SupplierId}", supplierId);
+                    _loggingService.LogWarning($"Supplier not found: {supplierId}", null, "UpdateSupplierAsync", LogCategory.ExternalAPI);
+                }
+                else if ((int)response.StatusCode == 422)
+                {
+                    _logger.LogError("UpdateSupplierAsync validation error for SupplierId: {SupplierId}. Status: {StatusCode}, Response: {Response}", 
+                        supplierId, response.StatusCode, responseContent);
+                    _loggingService.LogError("Supplier update validation failed", null, responseContent, "UpdateSupplierAsync", LogCategory.ExternalAPI);
+                }
+                else
+                {
+                    _logger.LogError("UpdateSupplierAsync failed for SupplierId: {SupplierId}. Status: {StatusCode}, Response: {Response}", 
+                        supplierId, response.StatusCode, responseContent);
+                    _loggingService.LogError($"Supplier update failed: {response.StatusCode}", null, responseContent, "UpdateSupplierAsync", LogCategory.ExternalAPI);
+                }
+                return null;
+            }
+
+            _cache.Remove($"supplier-{supplierId}");
+
+            _logger.LogInformation("Supplier updated successfully in Katana. SupplierId: {SupplierId}, SupplierName: {SupplierName}", supplierId, supplier.Name);
+            _loggingService.LogInfo($"Supplier updated successfully: {supplierId}", null, "UpdateSupplierAsync", LogCategory.ExternalAPI);
+            
+            using var doc = JsonDocument.Parse(responseContent);
+            var root = doc.RootElement;
+            
+            JsonElement supplierElement = root;
+            if (root.TryGetProperty("data", out var wrapped) && wrapped.ValueKind == JsonValueKind.Object)
+                supplierElement = wrapped;
+
+            var updatedSupplier = MapSupplierElement(supplierElement);
+            return updatedSupplier;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse supplier response. SupplierId: {SupplierId}", supplierId);
+            _loggingService.LogError("JSON parsing error in supplier update", ex, null, "UpdateSupplierAsync", LogCategory.ExternalAPI);
+            return null;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Katana API connection error updating supplier. SupplierId: {SupplierId}", supplierId);
+            _loggingService.LogError("Connection error in supplier update", ex, null, "UpdateSupplierAsync", LogCategory.ExternalAPI);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating supplier in Katana API. SupplierId: {SupplierId}, Supplier: {SupplierName}", supplierId, supplier?.Name ?? "Unknown");
+            _loggingService.LogError("Unexpected error in supplier update", ex, null, "UpdateSupplierAsync", LogCategory.ExternalAPI);
+            return null;
+        }
+    }
+
+    public async Task<bool> DeleteSupplierAsync(int supplierId)
+    {
+        try
+        {
+            if (supplierId <= 0)
+            {
+                _logger.LogError("DeleteSupplierAsync called with invalid supplierId: {SupplierId}", supplierId);
+                return false;
+            }
+
+            _logger.LogInformation("Deleting supplier from Katana: {SupplierId}", supplierId);
+            _loggingService.LogInfo($"Deleting supplier: {supplierId}", null, "DeleteSupplierAsync", LogCategory.ExternalAPI);
+
+            var response = await _httpClient.DeleteAsync($"{_settings.Endpoints.Suppliers}/{supplierId}");
+
+            if (response.StatusCode == HttpStatusCode.NoContent)
+            {
+                _logger.LogInformation("Successfully deleted supplier: {SupplierId}", supplierId);
+                _loggingService.LogInfo($"Supplier deleted successfully: {supplierId}", null, "DeleteSupplierAsync", LogCategory.ExternalAPI);
+                
+                _cache.Remove($"supplier-{supplierId}");
+                return true;
+            }
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning("Supplier not found for deletion: {SupplierId}", supplierId);
+                _loggingService.LogWarning($"Supplier not found for deletion: {supplierId}", null, "DeleteSupplierAsync", LogCategory.ExternalAPI);
+                return false;
+            }
+
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                _logger.LogError("Unauthorized to delete supplier: {SupplierId}", supplierId);
+                _loggingService.LogError("Unauthorized to delete supplier", null, null, "DeleteSupplierAsync", LogCategory.ExternalAPI);
+                return false;
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Failed to delete supplier: {SupplierId}. Status: {StatusCode}, Response: {Response}", 
+                supplierId, response.StatusCode, errorContent);
+            _loggingService.LogError($"Supplier deletion failed: {response.StatusCode}", null, errorContent, "DeleteSupplierAsync", LogCategory.ExternalAPI);
+            return false;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Katana API connection error deleting supplier: {SupplierId}", supplierId);
+            _loggingService.LogError("Connection error in supplier deletion", ex, null, "DeleteSupplierAsync", LogCategory.ExternalAPI);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting supplier from Katana API. SupplierId: {SupplierId}", supplierId);
+            _loggingService.LogError("Unexpected error in supplier deletion", ex, null, "DeleteSupplierAsync", LogCategory.ExternalAPI);
+            return false;
+        }
+    }
+
+    private KatanaSupplierDto MapSupplierElement(JsonElement supplierEl)
+    {
+        var dto = new KatanaSupplierDto();
+
+        if (supplierEl.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.Number)
+        {
+            try { dto.Id = idEl.GetInt32(); } catch { dto.Id = 0; }
+        }
+
+        dto.Name = supplierEl.TryGetProperty("name", out var nameEl) ? nameEl.GetString() ?? string.Empty : string.Empty;
+        dto.Email = supplierEl.TryGetProperty("email", out var emailEl) ? emailEl.GetString() : null;
+        dto.Phone = supplierEl.TryGetProperty("phone", out var phoneEl) ? phoneEl.GetString() : null;
+        dto.Currency = supplierEl.TryGetProperty("currency", out var currEl) ? currEl.GetString() : null;
+        dto.Comment = supplierEl.TryGetProperty("comment", out var commentEl) ? commentEl.GetString() : null;
+
+        if (supplierEl.TryGetProperty("created_at", out var createdEl) && createdEl.ValueKind == JsonValueKind.String)
+        {
+            if (DateTime.TryParse(createdEl.GetString(), out var createdDate))
+                dto.CreatedAt = createdDate;
+        }
+        if (supplierEl.TryGetProperty("updated_at", out var updatedEl) && updatedEl.ValueKind == JsonValueKind.String)
+        {
+            if (DateTime.TryParse(updatedEl.GetString(), out var updatedDate))
+                dto.UpdatedAt = updatedDate;
+        }
+
+        if (supplierEl.TryGetProperty("addresses", out var addrsEl) && addrsEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var addrEl in addrsEl.EnumerateArray())
+            {
+                var address = MapSupplierAddressElement(addrEl);
+                dto.Addresses.Add(address);
+            }
+        }
+
+        return dto;
+    }
+
+    private KatanaSupplierAddressDto MapSupplierAddressElement(JsonElement addrEl)
+    {
+        var dto = new KatanaSupplierAddressDto();
+
+        if (addrEl.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.Number)
+        {
+            try { dto.Id = idEl.GetInt32(); } catch { dto.Id = 0; }
+        }
+        if (addrEl.TryGetProperty("supplier_id", out var supplierIdEl) && supplierIdEl.ValueKind == JsonValueKind.Number)
+        {
+            try { dto.SupplierId = supplierIdEl.GetInt32(); } catch { dto.SupplierId = 0; }
+        }
+
+        dto.Line1 = addrEl.TryGetProperty("line_1", out var l1El) ? l1El.GetString() : null;
+        dto.Line2 = addrEl.TryGetProperty("line_2", out var l2El) ? l2El.GetString() : null;
+        dto.City = addrEl.TryGetProperty("city", out var cityEl) ? cityEl.GetString() : null;
+        dto.State = addrEl.TryGetProperty("state", out var stateEl) ? stateEl.GetString() : null;
+        dto.Zip = addrEl.TryGetProperty("zip", out var zipEl) ? zipEl.GetString() : null;
+        dto.Country = addrEl.TryGetProperty("country", out var countryEl) ? countryEl.GetString() : null;
+        
+        if (addrEl.TryGetProperty("is_default", out var defEl) && defEl.ValueKind == JsonValueKind.True)
+            dto.IsDefault = true;
+
+        if (addrEl.TryGetProperty("created_at", out var createdEl) && createdEl.ValueKind == JsonValueKind.String)
+        {
+            if (DateTime.TryParse(createdEl.GetString(), out var createdDate))
+                dto.CreatedAt = createdDate;
+        }
+        if (addrEl.TryGetProperty("updated_at", out var updatedEl) && updatedEl.ValueKind == JsonValueKind.String)
+        {
+            if (DateTime.TryParse(updatedEl.GetString(), out var updatedDate))
+                dto.UpdatedAt = updatedDate;
+        }
+
+        return dto;
+    }
+
+    public async Task<List<KatanaSupplierAddressDto>> GetSupplierAddressesAsync(int? supplierId = null)
+    {
+        try
+        {
+            _logger.LogInformation("Getting supplier addresses from Katana. SupplierId filter: {SupplierId}", supplierId);
+            
+            var url = supplierId.HasValue 
+                ? $"{_settings.Endpoints.Suppliers}/{supplierId}/addresses"
+                : "supplier-addresses";
+                
+            var response = await _httpClient.GetAsync(url);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Failed to get supplier addresses. Status: {StatusCode}", response.StatusCode);
+                return new List<KatanaSupplierAddressDto>();
+            }
+
+            using var doc = JsonDocument.Parse(responseContent);
+            var root = doc.RootElement;
+            var addresses = new List<KatanaSupplierAddressDto>();
+
+            if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var addrEl in dataEl.EnumerateArray())
+                {
+                    var address = MapSupplierAddressElement(addrEl);
+                    addresses.Add(address);
+                }
+            }
+
+            return addresses;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting supplier addresses from Katana API");
+            return new List<KatanaSupplierAddressDto>();
+        }
+    }
+
+    public async Task<KatanaSupplierAddressDto?> CreateSupplierAddressAsync(KatanaSupplierAddressDto address)
+    {
+        try
+        {
+            if (address == null || address.SupplierId <= 0)
+            {
+                _logger.LogError("CreateSupplierAddressAsync called with invalid address");
+                return null;
+            }
+
+            _logger.LogInformation("Creating supplier address for SupplierId: {SupplierId}", address.SupplierId);
+
+            var payload = new Dictionary<string, object?>
+            {
+                { "supplier_id", address.SupplierId },
+                { "line_1", address.Line1 },
+                { "line_2", address.Line2 },
+                { "city", address.City },
+                { "state", address.State },
+                { "zip", address.Zip },
+                { "country", address.Country ?? "TR" },
+                { "is_default", address.IsDefault }
+            };
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync("supplier-addresses", content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("CreateSupplierAddressAsync failed. Status: {StatusCode}, Response: {Response}", 
+                    response.StatusCode, responseContent);
+                return null;
+            }
+
+            using var doc = JsonDocument.Parse(responseContent);
+            var root = doc.RootElement;
+            
+            JsonElement addressElement = root;
+            if (root.TryGetProperty("data", out var wrapped) && wrapped.ValueKind == JsonValueKind.Object)
+                addressElement = wrapped;
+
+            return MapSupplierAddressElement(addressElement);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating supplier address");
+            return null;
+        }
+    }
+
+    public async Task<KatanaSupplierAddressDto?> UpdateSupplierAddressAsync(int addressId, KatanaSupplierAddressDto address)
+    {
+        try
+        {
+            if (addressId <= 0 || address == null)
+            {
+                _logger.LogError("UpdateSupplierAddressAsync called with invalid parameters");
+                return null;
+            }
+
+            _logger.LogInformation("Updating supplier address: {AddressId}", addressId);
+
+            var payload = new Dictionary<string, object?>();
+            
+            if (!string.IsNullOrWhiteSpace(address.Line1))
+                payload["line_1"] = address.Line1;
+            if (!string.IsNullOrWhiteSpace(address.Line2))
+                payload["line_2"] = address.Line2;
+            if (!string.IsNullOrWhiteSpace(address.City))
+                payload["city"] = address.City;
+            if (!string.IsNullOrWhiteSpace(address.State))
+                payload["state"] = address.State;
+            if (!string.IsNullOrWhiteSpace(address.Zip))
+                payload["zip"] = address.Zip;
+            if (!string.IsNullOrWhiteSpace(address.Country))
+                payload["country"] = address.Country;
+            
+            payload["is_default"] = address.IsDefault;
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await _httpClient.PatchAsync($"supplier-addresses/{addressId}", content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("UpdateSupplierAddressAsync failed. Status: {StatusCode}, Response: {Response}", 
+                    response.StatusCode, responseContent);
+                return null;
+            }
+
+            using var doc = JsonDocument.Parse(responseContent);
+            var root = doc.RootElement;
+            
+            JsonElement addressElement = root;
+            if (root.TryGetProperty("data", out var wrapped) && wrapped.ValueKind == JsonValueKind.Object)
+                addressElement = wrapped;
+
+            return MapSupplierAddressElement(addressElement);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating supplier address");
+            return null;
+        }
+    }
+
+    public async Task<bool> DeleteSupplierAddressAsync(int addressId)
+    {
+        try
+        {
+            if (addressId <= 0)
+            {
+                _logger.LogError("DeleteSupplierAddressAsync called with invalid addressId: {AddressId}", addressId);
+                return false;
+            }
+
+            _logger.LogInformation("Deleting supplier address: {AddressId}", addressId);
+
+            var response = await _httpClient.DeleteAsync($"supplier-addresses/{addressId}");
+
+            if (response.StatusCode == HttpStatusCode.NoContent)
+            {
+                _logger.LogInformation("Successfully deleted supplier address: {AddressId}", addressId);
+                return true;
+            }
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning("Supplier address not found for deletion: {AddressId}", addressId);
+                return false;
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Failed to delete supplier address: {AddressId}. Status: {StatusCode}, Response: {Response}", 
+                addressId, response.StatusCode, errorContent);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting supplier address. AddressId: {AddressId}", addressId);
+            return false;
+        }
     }
 
     public Task<List<KatanaManufacturingOrderDto>> GetManufacturingOrdersAsync(string? status = null)

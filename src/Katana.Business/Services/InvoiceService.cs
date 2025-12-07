@@ -1,5 +1,6 @@
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
+using Katana.Core.Enums;
 using Katana.Core.Interfaces;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
@@ -65,10 +66,13 @@ public class InvoiceService : IInvoiceService
 
     public async Task<List<InvoiceSummaryDto>> GetInvoicesByStatusAsync(string status)
     {
+        if (!Enum.TryParse<InvoiceStatus>(status, true, out var statusEnum))
+            return new List<InvoiceSummaryDto>();
+            
         var invoices = await _context.Invoices
             .Include(i => i.Customer)
             .Include(i => i.InvoiceItems)
-            .Where(i => i.Status == status)
+            .Where(i => i.Status == statusEnum)
             .OrderByDescending(i => i.InvoiceDate)
             .ToListAsync();
 
@@ -93,7 +97,7 @@ public class InvoiceService : IInvoiceService
         var invoices = await _context.Invoices
             .Include(i => i.Customer)
             .Include(i => i.InvoiceItems)
-            .Where(i => i.DueDate.HasValue && i.DueDate.Value < today && i.Status != "PAID")
+            .Where(i => i.DueDate.HasValue && i.DueDate.Value < today && i.Status != InvoiceStatus.Paid)
             .OrderByDescending(i => i.InvoiceDate)
             .ToListAsync();
 
@@ -129,7 +133,7 @@ public class InvoiceService : IInvoiceService
             DueDate = dto.DueDate,
             Currency = dto.Currency,
             Notes = dto.Notes,
-            Status = "DRAFT",
+            Status = InvoiceStatus.Draft,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -198,7 +202,11 @@ public class InvoiceService : IInvoiceService
         if (invoice == null)
             return false;
 
-        invoice.Status = dto.Status;
+        if (Enum.TryParse<InvoiceStatus>(dto.Status, true, out var statusEnum))
+            invoice.Status = statusEnum;
+        else
+            return false;
+            
         invoice.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
@@ -264,13 +272,13 @@ public class InvoiceService : IInvoiceService
         {
             TotalInvoices = invoices.Count,
             TotalAmount = invoices.Sum(i => i.TotalAmount),
-            PaidAmount = invoices.Where(i => i.Status == "PAID").Sum(i => i.TotalAmount),
-            UnpaidAmount = invoices.Where(i => i.Status != "PAID" && i.Status != "CANCELLED").Sum(i => i.TotalAmount),
-            OverdueAmount = invoices.Where(i => i.DueDate.HasValue && i.DueDate.Value < today && i.Status != "PAID").Sum(i => i.TotalAmount),
-            DraftCount = invoices.Count(i => i.Status == "DRAFT"),
-            SentCount = invoices.Count(i => i.Status == "SENT"),
-            PaidCount = invoices.Count(i => i.Status == "PAID"),
-            OverdueCount = invoices.Count(i => i.DueDate.HasValue && i.DueDate.Value < today && i.Status != "PAID")
+            PaidAmount = invoices.Where(i => i.Status == InvoiceStatus.Paid).Sum(i => i.TotalAmount),
+            UnpaidAmount = invoices.Where(i => i.Status != InvoiceStatus.Paid && i.Status != InvoiceStatus.Cancelled).Sum(i => i.TotalAmount),
+            OverdueAmount = invoices.Where(i => i.DueDate.HasValue && i.DueDate.Value < today && i.Status != InvoiceStatus.Paid).Sum(i => i.TotalAmount),
+            DraftCount = invoices.Count(i => i.Status == InvoiceStatus.Draft),
+            SentCount = invoices.Count(i => i.Status == InvoiceStatus.Sent),
+            PaidCount = invoices.Count(i => i.Status == InvoiceStatus.Paid),
+            OverdueCount = invoices.Count(i => i.DueDate.HasValue && i.DueDate.Value < today && i.Status != InvoiceStatus.Paid)
         };
     }
 
@@ -286,7 +294,7 @@ public class InvoiceService : IInvoiceService
             Amount = invoice.Amount,
             TaxAmount = invoice.TaxAmount,
             TotalAmount = invoice.TotalAmount,
-            Status = invoice.Status,
+            Status = invoice.Status.ToString(),
             InvoiceDate = invoice.InvoiceDate,
             DueDate = invoice.DueDate,
             Currency = invoice.Currency,
@@ -319,7 +327,7 @@ public class InvoiceService : IInvoiceService
             InvoiceNo = invoice.InvoiceNo,
             CustomerName = invoice.Customer?.Title ?? "",
             TotalAmount = invoice.TotalAmount,
-            Status = invoice.Status,
+            Status = invoice.Status.ToString(),
             InvoiceDate = invoice.InvoiceDate,
             DueDate = invoice.DueDate,
             IsSynced = invoice.IsSynced,

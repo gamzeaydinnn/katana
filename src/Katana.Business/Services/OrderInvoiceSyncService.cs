@@ -18,7 +18,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace Katana.Business.UseCases.Sync;
+namespace Katana.Business.Services;
 
 /// <summary>
 /// Katana Sales Order & Purchase Order'ları Luca'ya Fatura olarak aktaran,

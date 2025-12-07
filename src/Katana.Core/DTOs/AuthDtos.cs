@@ -1,24 +1,21 @@
-
 using System;
 using System.Text.Json.Serialization;
 
-namespace Katana.Business.DTOs
-{
-    
-    
-    
-    public record LoginRequest(string Username, string Password);
+namespace Katana.Core.DTOs;
 
-    
-    
-    
-    
-    public record LoginResponse(
-        [property: JsonPropertyName("token")] string Token
-    );
+/// <summary>
+/// Login request DTO
+/// </summary>
+public record LoginRequest(string Username, string Password);
 
-    
-    
-    
-    public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
-}
+/// <summary>
+/// Login response DTO
+/// </summary>
+public record LoginResponse(
+    [property: JsonPropertyName("token")] string Token
+);
+
+/// <summary>
+/// Change password request DTO
+/// </summary>
+public record ChangePasswordRequest(string CurrentPassword, string NewPassword);

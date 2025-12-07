@@ -1,4 +1,4 @@
-using Katana.Business.UseCases.Sync;
+using Katana.Business.Services;
 using System.Threading.Tasks;
 
 namespace Katana.Business.Interfaces;

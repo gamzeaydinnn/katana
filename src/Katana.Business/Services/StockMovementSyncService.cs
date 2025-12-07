@@ -6,7 +6,7 @@ using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace Katana.Business.UseCases.Sync;
+namespace Katana.Business.Services;
 
 /// <summary>
 /// Stok Transfer ve Adjustment Luca Senkronizasyon Servisi

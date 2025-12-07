@@ -1,5 +1,6 @@
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
+using Katana.Core.Enums;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 
@@ -43,7 +44,7 @@ public class DashboardService : IDashboardService
         var criticalStock = activeProducts.Count(p => (balancesById.TryGetValue(p.Id, out var b) ? b : p.StockSnapshot) <= 5);
         var pendingSync = await _context.PendingStockAdjustments.CountAsync(p => p.Status == "Pending");
         var totalSales = await _context.Invoices
-            .Where(i => i.Status == "PAID")
+            .Where(i => i.Status == InvoiceStatus.Paid)
             .SumAsync(i => (decimal?)i.TotalAmount) ?? 0m;
 
         return new DashboardStatsDto

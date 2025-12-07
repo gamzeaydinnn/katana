@@ -33,15 +33,86 @@ public class KatanaApiClient : IKatanaApiClient
         if (string.IsNullOrWhiteSpace(productId))
             return null;
 
+        // Try parsing as integer for direct ID lookup
+        if (int.TryParse(productId, out var id))
+        {
+            var byId = await _katanaService.GetProductByIdAsync(id);
+            if (byId != null)
+                return MappingHelper.MapToProduct(byId);
+        }
+
+        // Fallback to SKU search
         var bySku = await _katanaService.GetProductBySkuAsync(productId);
         if (bySku != null)
             return MappingHelper.MapToProduct(bySku);
 
-        var products = await _katanaService.GetProductsAsync();
-        var match = products.FirstOrDefault(p =>
-            string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase));
+        return null;
+    }
 
-        return match != null ? MappingHelper.MapToProduct(match) : null;
+    public async Task<Product?> CreateProductAsync(Product product)
+    {
+        if (product == null || string.IsNullOrWhiteSpace(product.Name))
+            return null;
+
+        // Map domain Product to KatanaProductDto
+        var dto = MappingHelper.MapToKatanaProductDto(product);
+        
+        var createdDto = await _katanaService.CreateProductAsync(dto);
+        
+        return createdDto != null ? MappingHelper.MapToProduct(createdDto) : null;
+    }
+
+    public async Task<bool> DeleteProductAsync(int katanaProductId)
+    {
+        if (katanaProductId <= 0)
+            return false;
+
+        return await _katanaService.DeleteProductAsync(katanaProductId);
+    }
+
+    public async Task<List<Customer>> GetCustomersAsync()
+    {
+        var dtos = await _katanaService.GetCustomersAsync();
+        return dtos.Select(MappingHelper.MapToCustomer).ToList();
+    }
+
+    public async Task<Customer?> GetCustomerByIdAsync(int customerId)
+    {
+        if (customerId <= 0)
+            return null;
+
+        var dto = await _katanaService.GetCustomerByIdAsync(customerId);
+        return dto != null ? MappingHelper.MapToCustomer(dto) : null;
+    }
+
+    public async Task<Customer?> CreateCustomerAsync(Customer customer)
+    {
+        if (customer == null || string.IsNullOrWhiteSpace(customer.Title))
+            return null;
+
+        var dto = MappingHelper.MapToKatanaCustomerDto(customer);
+        var createdDto = await _katanaService.CreateCustomerAsync(dto);
+        
+        return createdDto != null ? MappingHelper.MapToCustomer(createdDto) : null;
+    }
+
+    public async Task<Customer?> UpdateCustomerAsync(int customerId, Customer customer)
+    {
+        if (customerId <= 0 || customer == null)
+            return null;
+
+        var dto = MappingHelper.MapToKatanaCustomerDto(customer);
+        var updatedDto = await _katanaService.UpdateCustomerAsync(customerId, dto);
+        
+        return updatedDto != null ? MappingHelper.MapToCustomer(updatedDto) : null;
+    }
+
+    public async Task<bool> DeleteCustomerAsync(int customerId)
+    {
+        if (customerId <= 0)
+            return false;
+
+        return await _katanaService.DeleteCustomerAsync(customerId);
     }
 
     public async Task<List<StockMovement>> GetStockMovementsAsync(DateTime? fromDate = null, int? page = null)

@@ -7,6 +7,13 @@ public interface IKatanaApiClient
 {
     Task<List<Product>> GetProductsAsync(int? page = null, int? limit = null);
     Task<Product?> GetProductByIdAsync(string productId);
+    Task<Product?> CreateProductAsync(Product product);
+    Task<bool> DeleteProductAsync(int katanaProductId);
+    Task<List<Customer>> GetCustomersAsync();
+    Task<Customer?> GetCustomerByIdAsync(int customerId);
+    Task<Customer?> CreateCustomerAsync(Customer customer);
+    Task<Customer?> UpdateCustomerAsync(int customerId, Customer customer);
+    Task<bool> DeleteCustomerAsync(int customerId);
     Task<List<StockMovement>> GetStockMovementsAsync(DateTime? fromDate = null, int? page = null);
     Task<List<Stock>> GetStockAdjustmentsAsync(DateTime? fromDate = null, DateTime? toDate = null);
     Task<List<InventoryMovement>> GetInventoryMovementsAsync(DateTime? fromDate = null, DateTime? toDate = null);
@@ -17,6 +24,7 @@ public interface IKatanaApiClient
     Task<List<Order>> GetSalesOrdersAsync(DateTime? fromDate = null);
     Task<Order?> CreateSalesOrderAsync(Order order);
     Task<Order?> UpdateSalesOrderAsync(Order order);
+    Task<bool> UpdateProductAsync(int katanaProductId, string name, decimal? salesPrice, int? stock);
     Task<LocationDto?> CreateLocationAsync(LocationDto location);
     Task<LocationDto?> UpdateLocationAsync(int locationId, LocationDto location);
     Task<List<ServiceDto>> GetServicesAsync();
@@ -37,7 +45,6 @@ public interface IKatanaApiClient
     Task<List<StockTransfer>> GetStockTransfersAsync(string? status = null);
     Task<List<Order>> GetSalesReturnsAsync(DateTime? fromDate = null);
     Task<ApiHealthStatus> CheckHealthAsync();
-    Task<bool> UpdateProductAsync(int katanaProductId, string name, decimal? salesPrice, int? stock);
 }
 
 public class ApiHealthStatus

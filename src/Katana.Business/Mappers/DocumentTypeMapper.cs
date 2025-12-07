@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Katana.Business.Enums;
+using Katana.Core.Enums;
 
 namespace Katana.Business.Mappers
 {

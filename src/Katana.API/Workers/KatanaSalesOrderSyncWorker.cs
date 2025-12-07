@@ -1,5 +1,5 @@
 using Katana.Business.Interfaces;
-using Katana.Business.UseCases.Sync;
+using Katana.Business.Services;
 using Katana.Core.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Data.Context;

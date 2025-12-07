@@ -46,6 +46,7 @@ public class KatanaApiEndpoints
     public string BinLocations { get; set; } = "bin-locations";
     public string Contacts { get; set; } = "contacts";
     public string ContactAddresses { get; set; } = "contact-addresses";
+    public string Customers { get; set; } = "customers";
     public string SalesOrders { get; set; } = "sales-orders";
     public string PurchaseOrders { get; set; } = "purchase-orders";
     public string ManufacturingOrders { get; set; } = "manufacturing-orders";
@@ -60,12 +61,12 @@ public class KatanaApiEndpoints
 
     public string PriceLists { get; set; } = "price-lists";
     public string TaxRates { get; set; } = "tax-rates";
+    public string Suppliers { get; set; } = "suppliers";
 
     
     public string Stock => StockAdjustments;
     public string Invoices => SalesOrders;
     public string Health { get; set; } = "health";
-    public string Customers => Contacts;
 }
 
 public class KatanaWebhookEvents

@@ -916,29 +916,33 @@ const PurchaseOrders: React.FC = () => {
                     </Tooltip>
                     {!order.isSyncedToLuca && (
                       <Tooltip title="Koza'ya Gönder">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => handleSyncOrder(order.id)}
-                          disabled={syncing}
-                        >
-                          <CloudUploadIcon fontSize="small" />
-                        </IconButton>
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => handleSyncOrder(order.id)}
+                            disabled={syncing}
+                          >
+                            <CloudUploadIcon fontSize="small" />
+                          </IconButton>
+                        </span>
                       </Tooltip>
                     )}
                     <Tooltip title="Sil">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleDelete(order.id)}
-                        disabled={deleting === order.id || order.isSyncedToLuca}
-                      >
-                        {deleting === order.id ? (
-                          <CircularProgress size={16} />
-                        ) : (
-                          <DeleteIcon fontSize="small" />
-                        )}
-                      </IconButton>
+                      <span>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDelete(order.id)}
+                          disabled={deleting === order.id || order.isSyncedToLuca}
+                        >
+                          {deleting === order.id ? (
+                            <CircularProgress size={16} />
+                          ) : (
+                            <DeleteIcon fontSize="small" />
+                          )}
+                        </IconButton>
+                      </span>
                     </Tooltip>
                   </TableCell>
                 </TableRow>
@@ -1549,7 +1553,7 @@ const PurchaseOrders: React.FC = () => {
                         !!item.lucaStockCode || !!product?.sku;
 
                       return (
-                        <TableRow key={index}>
+                        <TableRow key={`item-${item.productId}-${index}`}>
                           <TableCell>
                             <FormControl
                               fullWidth

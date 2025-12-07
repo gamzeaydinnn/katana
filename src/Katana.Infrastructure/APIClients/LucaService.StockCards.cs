@@ -236,7 +236,7 @@ public partial class LucaService
             }
             
             // 'U', 'E', 'F' gibi tek karakterle başlayan hata mesajları
-            // Örn: "Unauthorized", "Error: ...", "Failed to ..."
+            // Örn: "Unauthorized", "Error: ...", "Failed to ...", "Unable to instantiate Action"
             if (trimmedBody.Length > 0 && 
                 char.IsLetter(trimmedBody[0]) && 
                 !trimmedBody.StartsWith("{") && 
@@ -247,8 +247,47 @@ public partial class LucaService
                 _logger.LogError("   ⚠️ İLK KARAKTER: '{FirstChar}' (ASCII: {Ascii})", 
                     trimmedBody[0], (int)trimmedBody[0]);
                 
+                // 🔥 "Unable to instantiate Action" hatası - Struts timing issue
+                if (trimmedBody.Contains("Unable to instantiate Action", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning("🔄 Struts 'Unable to instantiate Action' hatası - Session yenileniyor ve 3 saniye bekleniyor...");
+                    try
+                    {
+                        await ForceSessionRefreshAsync();
+                        await EnsureBranchSelectedAsync();
+                        
+                        // Struts'un session'ı işlemesi için ek bekleme
+                        await Task.Delay(3000);
+                        
+                        _logger.LogInformation("✅ Session ve branch hazır, ListStockCards 2. kez deneniyor...");
+                        
+                        // 2. Retry
+                        var retryReq2 = new HttpRequestMessage(HttpMethod.Post, "ListeleStkKart.do")
+                        {
+                            Content = new StringContent("{}", Encoding.UTF8, "application/json")
+                        };
+                        retryReq2.Headers.TryAddWithoutValidation("No-Paging", "true");
+                        ApplySessionCookie(retryReq2);
+                        ApplyManualSessionCookie(retryReq2);
+                        
+                        var retryRes2 = await client.SendAsync(retryReq2, ct);
+                        body = await retryRes2.Content.ReadAsStringAsync(ct);
+                        trimmedBody = body.TrimStart();
+                        
+                        if (trimmedBody.StartsWith("<") || (trimmedBody.Length > 0 && char.IsLetter(trimmedBody[0]) && !trimmedBody.StartsWith("{") && !trimmedBody.StartsWith("[")))
+                        {
+                            _logger.LogError("❌ 2. retry sonrası hala hata döndü. Cache boş kalacak.");
+                            return new List<KozaStokKartiDto>();
+                        }
+                    }
+                    catch (Exception strutsEx)
+                    {
+                        _logger.LogError(strutsEx, "Struts hatası düzeltme denemesi başarısız");
+                        return new List<KozaStokKartiDto>();
+                    }
+                }
                 // Branch selection kontrolü
-                if (trimmedBody.Contains("branch", StringComparison.OrdinalIgnoreCase) ||
+                else if (trimmedBody.Contains("branch", StringComparison.OrdinalIgnoreCase) ||
                     trimmedBody.Contains("şube", StringComparison.OrdinalIgnoreCase))
                 {
                     _logger.LogError("   ⚠️ Branch (Şube) seçilmemiş olabilir. EnsureBranchSelectedAsync() çağrılıyor...");

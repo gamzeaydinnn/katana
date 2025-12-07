@@ -43,10 +43,24 @@ export class DepoService {
    */
   async sync(batchSize = 50): Promise<{ success: boolean; message: string; stats?: any }> {
     try {
+      console.log(`[Depot Sync] Starting batch sync with batch size: ${batchSize}`);
       const response = await kozaAPI.depots.sync(batchSize);
+      
+      if (response?.success) {
+        console.log('[Depot Sync] Sync completed successfully', {
+          message: response.message,
+          stats: response.stats
+        });
+      } else {
+        console.warn('[Depot Sync] Sync returned with non-success status', response);
+      }
+      
       return response as { success: boolean; message: string; stats?: any };
     } catch (error) {
-      console.error("Depo sync hatası:", error);
+      console.error('[Depot Sync] Batch sync failed:', {
+        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.constructor.name : typeof error
+      });
       return {
         success: false,
         message: error instanceof Error ? error.message : "Depo sync hatası",
@@ -83,11 +97,41 @@ export class DepoService {
    * Backend: POST /api/admin/koza/depots/create
    */
   async ekle(req: DepoEkleRequest): Promise<DepoEkleResponse> {
+    const depoKod = req.stkDepo?.kod || 'unknown';
+    
     try {
+      console.log('[Depot Sync] Request:', {
+        kod: depoKod,
+        tanim: req.stkDepo?.tanim,
+        payload: JSON.stringify(req, null, 2)
+      });
+      
       const response = await kozaAPI.depots.create(req);
+      
+      if (response && !response.error) {
+        console.log('[Depot Sync] Success:', {
+          kod: depoKod,
+          responseId: response.depoId,
+          message: response.message
+        });
+      } else {
+        console.warn('[Depot Sync] Failed:', {
+          kod: depoKod,
+          errorMessage: response?.message
+        });
+      }
+      
       return response ?? { error: true, message: "Bilinmeyen hata" };
-    } catch (error) {
-      console.error("Depo ekleme hatası:", error);
+    } catch (error: any) {
+      console.error('[Depot Sync] Failed:', {
+        kod: depoKod,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        errorData: error.response?.data,
+        headers: error.response?.headers,
+        requestPayload: req,
+        errorMessage: error instanceof Error ? error.message : String(error)
+      });
       return {
         error: true,
         message: error instanceof Error ? error.message : "Depo ekleme hatası",
@@ -103,12 +147,20 @@ export class DepoService {
     // Önce var mı kontrol et
     const mevcut = await this.getirByKod(depo.kod);
     if (mevcut) {
-      console.log(`Depo zaten mevcut: ${depo.kod} (depoId: ${mevcut.depoId})`);
+      console.log('[Depot Sync] Depot already exists, skipping creation:', {
+        kod: depo.kod,
+        depoId: mevcut.depoId,
+        tanim: mevcut.tanim
+      });
       return mevcut;
     }
 
     // Yoksa oluştur
-    console.log(`Yeni depo oluşturuluyor: ${depo.kod}`);
+    console.log('[Depot Sync] Creating new depot:', {
+      kod: depo.kod,
+      tanim: depo.tanim,
+      kategoriKod: depo.kategoriKod
+    });
     const createRes = await this.ekle({ stkDepo: depo });
 
     if (createRes?.error) {
@@ -118,11 +170,17 @@ export class DepoService {
     // depoId vs. eldeki miktar için lazım → tekrar listeleyip depoId yakala
     const yeni = await this.getirByKod(depo.kod);
     if (!yeni) {
-      console.warn(`Depo oluşturuldu ama listede bulunamadı: ${depo.kod}`);
+      console.warn('[Depot Sync] Depot created but not found in list:', {
+        kod: depo.kod
+      });
       return depo;
     }
 
-    console.log(`Depo başarıyla oluşturuldu: ${depo.kod} (depoId: ${yeni.depoId})`);
+    console.log('[Depot Sync] Depot created successfully:', {
+      kod: depo.kod,
+      depoId: yeni.depoId,
+      tanim: yeni.tanim
+    });
     return yeni;
   }
 
@@ -131,16 +189,26 @@ export class DepoService {
    */
   async topluSenkronize(depolar: KozaStkDepo[]): Promise<Map<string, KozaStkDepo>> {
     const sonuclar = new Map<string, KozaStkDepo>();
+    const totalDepots = depolar.length;
 
-    for (const depo of depolar) {
+    for (let index = 0; index < depolar.length; index++) {
+      const depo = depolar[index];
+      console.log(`[Depot Sync] Progress: ${index + 1}/${totalDepots} - Processing depot: ${depo.kod}`);
+      
       try {
         const sonuc = await this.getirVeyaOlustur(depo);
         sonuclar.set(depo.kod, sonuc);
       } catch (error) {
-        console.error(`Depo senkronizasyon hatası (${depo.kod}):`, error);
+        console.error(`[Depot Sync] Synchronization failed for depot ${depo.kod} (${index + 1}/${totalDepots}):`, error);
       }
     }
 
+    console.log('[Depot Sync] Batch synchronization completed:', {
+      totalDepots,
+      successfulCount: sonuclar.size,
+      failedCount: totalDepots - sonuclar.size
+    });
+    
     return sonuclar;
   }
 }

@@ -1,43 +1,42 @@
 import {
-  Business,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Inventory,
-  HourglassEmpty as PendingIcon,
-  People,
-  Refresh,
-  Sync as SyncIcon,
-  Warehouse,
+    Business,
+    CheckCircle as CheckCircleIcon,
+    Error as ErrorIcon,
+    Inventory,
+    HourglassEmpty as PendingIcon,
+    People,
+    Refresh,
+    Sync as SyncIcon,
+    Warehouse,
 } from "@mui/icons-material";
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  IconButton,
-  Paper,
-  Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Tabs,
-  Tooltip,
-  Typography,
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    IconButton,
+    Paper,
+    Tab,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Tabs,
+    Typography
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import type {
-  KozaStkDepo,
-  KozaStokKarti,
+    KozaStkDepo,
+    KozaStokKarti,
 } from "../../features/integrations/luca-koza";
 import {
-  mapKatanaLocationToKozaDepo,
-  mapKatanaProductToKozaStokKarti,
+    mapKatanaLocationToKozaDepo,
+    mapKatanaProductToKozaStokKarti,
 } from "../../features/integrations/luca-koza";
 import api, { kozaAPI } from "../../services/api";
 
@@ -562,8 +561,8 @@ const KozaIntegration: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {depots.map((depo, idx) => (
-                      <TableRow key={depo.depoId || `depo-${idx}`}>
+                    {depots.map((depo) => (
+                      <TableRow key={`depot-${depo.depoId || depo.kod}-${depo.kod}`}>
                         <TableCell>{depo.depoId || "-"}</TableCell>
                         <TableCell>
                           <Chip

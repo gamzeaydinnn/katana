@@ -3,7 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Katana.Business.Interfaces;
-using Katana.Business.Models.DTOs;
+using Katana.Core.DTOs;
 using Katana.Data.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;

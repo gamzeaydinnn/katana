@@ -2,6 +2,7 @@ using Katana.Business.Interfaces;
 using Katana.Business.Validators;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
+using Katana.Core.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace Katana.Business.Services;
@@ -78,7 +79,7 @@ public class TransformerService : ITransformerService
                 Amount = dto.Amount,
                 TaxAmount = dto.TaxAmount,
                 TotalAmount = dto.TotalAmount,
-                Status = string.IsNullOrWhiteSpace(dto.Status) ? "DRAFT" : dto.Status,
+                Status = Enum.TryParse<InvoiceStatus>(dto.Status, true, out var status) ? status : InvoiceStatus.Draft,
                 InvoiceDate = dto.InvoiceDate,
                 DueDate = dto.DueDate,
                 Currency = string.IsNullOrWhiteSpace(dto.Currency) ? "TRY" : dto.Currency,

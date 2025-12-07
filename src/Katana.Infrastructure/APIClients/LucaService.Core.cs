@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using Katana.Core.DTOs;
-using Katana.Business.Models.DTOs;
 using Katana.Data.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -15,8 +14,7 @@ using System.Net.Http.Headers;
 using System.Net;
 using System.Globalization;
 using Katana.Business.Interfaces;
-using Katana.Infrastructure.Mappers;
-using Katana.Core.DTOs;
+using Katana.Business.Mappers;
 using Katana.Core.Entities;
 using Katana.Core.Helpers;
 
@@ -444,6 +442,11 @@ public partial class LucaService : ILucaService
         // 4. Yeniden login yap
         _logger.LogInformation("🔑 Yeniden login yapılıyor...");
         await EnsureSessionAsync();
+        
+        // 5. 🔥 Session'un tam olarak hazır olması için kısa bir bekleme
+        // Struts framework'u bazen session'ı hemen hazır etmiyor
+        _logger.LogDebug("⏳ Session stabilizasyon bekleniyor (2 saniye)...");
+        await Task.Delay(2000);
         
         _logger.LogInformation("✅ ForceSessionRefreshAsync tamamlandı. Authenticated: {IsAuth}, Cookie: {HasCookie}", 
             _isCookieAuthenticated, 

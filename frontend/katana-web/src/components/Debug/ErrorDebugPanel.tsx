@@ -188,7 +188,7 @@ export const ErrorDebugPanel: React.FC = () => {
                 ) : (
                   filteredLogs.map((log, idx) => (
                     <TableRow
-                      key={idx}
+                      key={`${log.timestamp}-${log.message}-${idx}`}
                       sx={{
                         backgroundColor: log.level === 'error' ? '#ffebee' : log.level === 'warning' ? '#fff3e0' : 'inherit',
                         '&:hover': { backgroundColor: '#f5f5f5' },

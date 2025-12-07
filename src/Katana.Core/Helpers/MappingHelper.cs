@@ -61,6 +61,94 @@ public static class MappingHelper
         };
     }
 
+    public static Customer MapToCustomer(KatanaCustomerDto dto)
+    {
+        if (dto == null)
+            throw new ArgumentNullException(nameof(dto));
+
+        return new Customer
+        {
+            // Map Katana ID as ReferenceId (not database ID)
+            ReferenceId = dto.ReferenceId ?? dto.Id.ToString(),
+            
+            // Basic info
+            Title = dto.Company ?? dto.Name,
+            ContactPerson = string.IsNullOrWhiteSpace(dto.FirstName) && string.IsNullOrWhiteSpace(dto.LastName)
+                ? null
+                : $"{dto.FirstName} {dto.LastName}".Trim(),
+            
+            // Contact details
+            Phone = dto.Phone,
+            Email = dto.Email,
+            
+            // Address from first shipping address
+            Address = dto.Addresses?.FirstOrDefault(a => a.EntityType == "shipping")?.Line1,
+            City = dto.Addresses?.FirstOrDefault(a => a.EntityType == "shipping")?.City,
+            District = dto.Addresses?.FirstOrDefault(a => a.EntityType == "shipping")?.State,
+            Country = dto.Addresses?.FirstOrDefault(a => a.EntityType == "shipping")?.Country ?? "Turkey",
+            
+            // Business fields
+            Currency = dto.Currency,
+            DefaultDiscountRate = dto.DiscountRate,
+            GroupCode = dto.Category,
+            
+            // Status
+            IsActive = true,
+            IsSynced = false,
+            SyncStatus = "PENDING",
+            
+            // Timestamps
+            CreatedAt = dto.CreatedAt,
+            UpdatedAt = dto.UpdatedAt == default ? DateTime.UtcNow : dto.UpdatedAt
+        };
+    }
+
+    public static KatanaCustomerDto MapToKatanaCustomerDto(Customer customer)
+    {
+        if (customer == null)
+            throw new ArgumentNullException(nameof(customer));
+
+        var dto = new KatanaCustomerDto
+        {
+            Name = customer.Title,
+            Company = customer.Title,
+            Email = customer.Email,
+            Phone = customer.Phone,
+            Currency = customer.Currency ?? "TRY",
+            ReferenceId = customer.ReferenceId,
+            Category = customer.GroupCode,
+            DiscountRate = customer.DefaultDiscountRate,
+            Comment = string.Empty
+        };
+        
+        // Split contact person into first/last name if possible
+        if (!string.IsNullOrWhiteSpace(customer.ContactPerson))
+        {
+            var parts = customer.ContactPerson.Split(' ', 2);
+            dto.FirstName = parts.Length > 0 ? parts[0] : null;
+            dto.LastName = parts.Length > 1 ? parts[1] : null;
+        }
+        
+        // Add shipping address if available
+        if (!string.IsNullOrWhiteSpace(customer.Address))
+        {
+            dto.Addresses = new List<KatanaCustomerAddressDto>
+            {
+                new KatanaCustomerAddressDto
+                {
+                    EntityType = "shipping",
+                    Default = true,
+                    Line1 = customer.Address,
+                    City = customer.City,
+                    State = customer.District,
+                    Country = customer.Country ?? "Turkey"
+                }
+            };
+        }
+        
+        return dto;
+    }
+
     public static Invoice MapToInvoice(KatanaInvoiceDto katanaInvoice, int customerId)
     {
         return new Invoice
@@ -70,7 +158,7 @@ public static class MappingHelper
             Amount = katanaInvoice.Amount,
             TaxAmount = katanaInvoice.TaxAmount,
             TotalAmount = katanaInvoice.TotalAmount,
-            Status = "SENT",
+            Status = InvoiceStatus.Sent,
             InvoiceDate = katanaInvoice.InvoiceDate,
             DueDate = katanaInvoice.DueDate,
             Currency = katanaInvoice.Currency,
@@ -99,14 +187,50 @@ public static class MappingHelper
     {
         return new Supplier
         {
-            Code = dto.Id,
+            Code = dto.Id.ToString(), // Store Katana ID
             Name = dto.Name,
             Email = dto.Email,
             Phone = dto.Phone,
-            TaxNo = dto.TaxNo,
+            Address = dto.Addresses?.FirstOrDefault()?.Line1,
+            City = dto.Addresses?.FirstOrDefault()?.City,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = dto.CreatedAt,
+            UpdatedAt = dto.UpdatedAt,
+            IsSynced = false,
+            SyncStatus = "PENDING"
         };
+    }
+
+    public static KatanaSupplierDto MapToKatanaSupplierDto(Supplier supplier)
+    {
+        var dto = new KatanaSupplierDto
+        {
+            Id = int.TryParse(supplier.Code, out var id) ? id : 0,
+            Name = supplier.Name,
+            Email = supplier.Email,
+            Phone = supplier.Phone,
+            Currency = "TRY",
+            CreatedAt = supplier.CreatedAt,
+            UpdatedAt = supplier.UpdatedAt
+        };
+        
+        if (!string.IsNullOrWhiteSpace(supplier.Address))
+        {
+            dto.Addresses.Add(new KatanaSupplierAddressDto
+            {
+                Line1 = supplier.Address,
+                City = supplier.City,
+                Country = "TR",
+                IsDefault = true
+            });
+        }
+        
+        return dto;
+    }
+
+    public static string GenerateSupplierLucaCode(string katanaId)
+    {
+        return $"TED-{katanaId}";
     }
 
     public static ProductVariant MapToVariant(KatanaVariantDto dto, int productId)
@@ -1304,7 +1428,7 @@ public static class MappingHelper
             Amount = dto.NetAmount,
             TaxAmount = dto.TaxAmount,
             TotalAmount = dto.GrossAmount,
-            Status = "RECEIVED",
+            Status = InvoiceStatus.Received,
             InvoiceDate = dto.DocumentDate,
             DueDate = dto.DueDate,
             Currency = dto.Currency ?? "TRY",
@@ -1443,7 +1567,7 @@ public static class MappingHelper
             Amount = netAmount,
             TaxAmount = taxAmount,
             TotalAmount = totalAmount,
-            Status = "RECEIVED",
+            Status = InvoiceStatus.Received,
             InvoiceDate = dto.BelgeTarihi,
             DueDate = dto.BelgeTarihi,
             Currency = "TRY",
@@ -1587,7 +1711,19 @@ public static class MappingHelper
         }
 
         var trimmed = sku.Trim();
-        var allowedChars = trimmed
+        
+        // ✅ Türkçe karakterleri İngilizce'ye çevir (ş→s, ğ→g, ı→i, ö→o, ü→u, ç→c)
+        // Böylece Türkçe SKU'lar da kontrol edilebilir
+        var turkishNormalized = trimmed
+            .Replace("ş", "s").Replace("Ş", "S")
+            .Replace("ğ", "g").Replace("Ğ", "G")
+            .Replace("ı", "i").Replace("İ", "I")
+            .Replace("ö", "o").Replace("Ö", "O")
+            .Replace("ü", "u").Replace("Ü", "U")
+            .Replace("ç", "c").Replace("Ç", "C");
+        
+        // Sadece alfanumerik, dash, underscore karakterleri al
+        var allowedChars = turkishNormalized
             .Where(c => char.IsLetterOrDigit(c) || c == '-' || c == '_')
             .ToArray();
 
@@ -1690,6 +1826,32 @@ public static class MappingHelper
         {
             throw new ArgumentException($"Depo kodu geçersiz: '{code}'. Normalize edilmiş değer boş.", paramName);
         }
+    }
+
+    // Core Entity -> Katana DTO mapping
+    public static KatanaProductDto MapToKatanaProductDto(Product product)
+    {
+        if (product == null)
+            throw new ArgumentNullException(nameof(product));
+
+        var dto = new KatanaProductDto
+        {
+            Name = product.Name,
+            SKU = product.SKU,
+            Description = product.Description,
+            Category = product.Category,
+            Price = product.Price,
+            SalesPrice = product.SalesPrice ?? product.Price,
+            PurchasePrice = product.PurchasePrice,
+            CostPrice = product.CostPrice,
+            Unit = "pcs", // Default unit
+            IsActive = product.IsActive,
+            Currency = "TRY", // Default currency
+            Barcode = product.Barcode,
+            ImageUrl = product.MainImageUrl
+        };
+
+        return dto;
     }
 
     // Validation methods

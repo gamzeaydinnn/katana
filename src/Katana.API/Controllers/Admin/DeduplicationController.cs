@@ -170,7 +170,7 @@ public class DeduplicationController : ControllerBase
     [HttpGet("export")]
     [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status501NotImplemented)]
-    public async Task<IActionResult> ExportResults(
+    public Task<IActionResult> ExportResults(
         [FromQuery] ExportFormat format,
         CancellationToken ct)
     {
@@ -183,22 +183,22 @@ public class DeduplicationController : ControllerBase
 
             // For now, return not implemented
             // This will be implemented in Task 5
-            return StatusCode(501, new ProblemDetails
+            return Task.FromResult<IActionResult>(StatusCode(501, new ProblemDetails
             {
                 Title = "Not Implemented",
                 Detail = "Export functionality will be available soon",
                 Status = 501
-            });
+            }));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error exporting results");
-            return StatusCode(500, new ProblemDetails
+            return Task.FromResult<IActionResult>(StatusCode(500, new ProblemDetails
             {
                 Title = "Export Failed",
                 Detail = ex.Message,
                 Status = 500
-            });
+            }));
         }
     }
 

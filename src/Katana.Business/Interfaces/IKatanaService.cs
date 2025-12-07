@@ -8,15 +8,35 @@ public interface IKatanaService
 {
     Task<List<KatanaStockDto>> GetStockChangesAsync(DateTime fromDate, DateTime toDate);
     Task<List<KatanaProductDto>> GetProductsAsync();
+    Task<List<KatanaCustomerDto>> GetCustomersAsync();
+    Task<KatanaCustomerDto?> GetCustomerByIdAsync(int customerId);
+    Task<KatanaCustomerDto?> CreateCustomerAsync(KatanaCustomerDto customer);
+    Task<KatanaCustomerDto?> UpdateCustomerAsync(int customerId, KatanaCustomerDto customer);
+    Task<bool> DeleteCustomerAsync(int customerId);
     Task<List<KatanaInvoiceDto>> GetInvoicesAsync(DateTime fromDate, DateTime toDate);
     Task<KatanaProductDto?> GetProductBySkuAsync(string sku);
+    Task<KatanaProductDto?> GetProductByIdAsync(int productId);
     Task<bool> TestConnectionAsync();
     Task<bool> UpdateProductAsync(int katanaProductId, string name, decimal? salesPrice, int? stock);
+    Task<KatanaProductDto?> CreateProductAsync(KatanaProductDto product);
+    Task<bool> DeleteProductAsync(int productId);
     Task<List<KatanaPurchaseOrderDto>> GetPurchaseOrdersAsync(string? status = null, DateTime? fromDate = null);
     Task<KatanaPurchaseOrderDto?> GetPurchaseOrderByIdAsync(string id);
     Task<string?> ReceivePurchaseOrderAsync(string id);
+    
+    // Supplier operations
     Task<List<KatanaSupplierDto>> GetSuppliersAsync();
     Task<KatanaSupplierDto?> GetSupplierByIdAsync(string id);
+    Task<KatanaSupplierDto?> CreateSupplierAsync(KatanaSupplierDto supplier);
+    Task<KatanaSupplierDto?> UpdateSupplierAsync(int supplierId, KatanaSupplierDto supplier);
+    Task<bool> DeleteSupplierAsync(int supplierId);
+    
+    // Supplier Address operations (optional for now)
+    Task<List<KatanaSupplierAddressDto>> GetSupplierAddressesAsync(int? supplierId = null);
+    Task<KatanaSupplierAddressDto?> CreateSupplierAddressAsync(KatanaSupplierAddressDto address);
+    Task<KatanaSupplierAddressDto?> UpdateSupplierAddressAsync(int addressId, KatanaSupplierAddressDto address);
+    Task<bool> DeleteSupplierAddressAsync(int addressId);
+    
     Task<List<KatanaManufacturingOrderDto>> GetManufacturingOrdersAsync(string? status = null);
     Task<KatanaManufacturingOrderDto?> GetManufacturingOrderByIdAsync(string id);
     Task<KatanaVariantDto?> GetVariantAsync(string variantId);

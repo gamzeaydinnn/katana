@@ -7,19 +7,15 @@ using Katana.Core.DTOs.Koza;
 using Katana.Core.Entities;
 using Katana.Core.Enums;
 using Katana.Core.Helpers;
+using Katana.Business.Mappers;
 using Katana.Data.Context;
 using Katana.Data.Configuration;
-using Katana.Business.Mappers;
-using Katana.Infrastructure.Mappers;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using Katana.Infrastructure.Mappers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.ComponentModel.DataAnnotations;
 
-namespace Katana.Business.UseCases.Sync;
+namespace Katana.Business.Services;
 
 
 
@@ -1222,7 +1218,7 @@ public class SyncService : ISyncService
                         {
                             InvoiceNo = dto.DocumentNo,
                             CustomerId = customer.Id,
-                            Status = "DESPATCH",
+                            Status = InvoiceStatus.Received,
                             InvoiceDate = dto.DocumentDate == default ? DateTime.UtcNow : dto.DocumentDate,
                             Currency = "TRY",
                             IsSynced = true,
@@ -1564,7 +1560,7 @@ public class SyncService : ISyncService
             {
                 try
                 {
-                    if (string.IsNullOrWhiteSpace(supplier.Id))
+                    if (supplier.Id <= 0)
                     {
                         _logger.LogWarning("Supplier {Name} has no ID, skipping", supplier.Name);
                         skipped++;
@@ -1573,9 +1569,9 @@ public class SyncService : ISyncService
 
                     var supplierDto = new KatanaSupplierToCariDto
                     {
-                        KatanaSupplierId = supplier.Id,
-                        Code = supplier.Id,
-                        Name = supplier.Name ?? supplier.Id,
+                        KatanaSupplierId = supplier.Id.ToString(),
+                        Code = supplier.Id.ToString(),
+                        Name = supplier.Name ?? supplier.Id.ToString(),
                         TaxNumber = supplier.TaxNo,
                         Phone = supplier.Phone,
                         Email = supplier.Email

@@ -6,29 +6,29 @@ import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import WarningIcon from "@mui/icons-material/Warning";
 import {
-  Alert,
-  Badge,
-  Box,
-  Card,
-  CardContent,
-  Button,
-  Chip,
-  CircularProgress,
-  IconButton,
-  InputAdornment,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Tooltip,
-  Typography,
-  useMediaQuery,
-  useTheme,
+    Alert,
+    Badge,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    IconButton,
+    InputAdornment,
+    Paper,
+    Stack,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    TextField,
+    Tooltip,
+    Typography,
+    useMediaQuery,
+    useTheme,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -209,18 +209,20 @@ const StockView: React.FC = () => {
           </Typography>
         </Box>
         <Tooltip title="Otomatik yenileme: Her 30 saniye">
-          <IconButton
-            onClick={fetchData}
-            disabled={loading}
-            color="primary"
-            size={isMobile ? "small" : "medium"}
-            sx={{
-              alignSelf: { xs: "flex-end", sm: "center" },
-              backgroundColor: "rgba(79,134,255,0.08)",
-            }}
-          >
-            <RefreshIcon fontSize={isMobile ? "small" : "medium"} />
-          </IconButton>
+          <span>
+            <IconButton
+              onClick={fetchData}
+              disabled={loading}
+              color="primary"
+              size={isMobile ? "small" : "medium"}
+              sx={{
+                alignSelf: { xs: "flex-end", sm: "center" },
+                backgroundColor: "rgba(79,134,255,0.08)",
+              }}
+            >
+              <RefreshIcon fontSize={isMobile ? "small" : "medium"} />
+            </IconButton>
+          </span>
         </Tooltip>
       </Stack>
 
