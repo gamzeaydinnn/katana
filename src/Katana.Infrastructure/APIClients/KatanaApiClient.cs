@@ -148,6 +148,33 @@ public class KatanaApiClient : IKatanaApiClient
         return dto is null ? null : MapSalesOrder(dto);
     }
 
+    public async Task<LocationDto?> CreateLocationAsync(LocationDto location)
+    {
+        if (location == null)
+            return null;
+
+        if (string.IsNullOrWhiteSpace(location.Name))
+            return null;
+
+        var createdDto = await _katanaService.CreateLocationAsync(location);
+        return createdDto;
+    }
+
+    public async Task<LocationDto?> UpdateLocationAsync(int locationId, LocationDto location)
+    {
+        if (locationId <= 0)
+            return null;
+
+        if (location == null)
+            return null;
+
+        if (string.IsNullOrWhiteSpace(location.Name))
+            return null;
+
+        var updatedDto = await _katanaService.UpdateLocationAsync(locationId, location);
+        return updatedDto;
+    }
+
     public async Task<PurchaseOrder?> GetPurchaseOrderByIdAsync(string id)
     {
         var dto = await _katanaService.GetPurchaseOrderByIdAsync(id);
