@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Katana.Business.DTOs;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Core.Enums;

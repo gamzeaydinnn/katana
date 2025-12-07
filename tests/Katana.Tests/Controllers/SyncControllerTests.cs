@@ -9,7 +9,6 @@ using Katana.Data.Context;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using Katana.Core.Entities;
-using Katana.Business.DTOs;
 
 namespace Katana.Tests.Controllers;
 

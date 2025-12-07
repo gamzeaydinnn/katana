@@ -1,5 +1,4 @@
-﻿using Katana.Business.DTOs;
-using Katana.Core.DTOs;
+﻿using Katana.Core.DTOs;
 
 namespace Katana.Business.Interfaces;
 

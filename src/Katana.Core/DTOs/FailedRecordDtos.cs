@@ -1,4 +1,4 @@
-namespace Katana.Business.DTOs;
+namespace Katana.Core.DTOs;
 
 public class ResolveFailedRecordDto
 {

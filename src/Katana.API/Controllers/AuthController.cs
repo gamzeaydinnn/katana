@@ -6,7 +6,6 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Katana.Core.DTOs;
-using Katana.Business.DTOs;
 using Katana.Business.Interfaces;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;

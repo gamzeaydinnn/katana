@@ -1,5 +1,4 @@
 ﻿using Katana.Business.Interfaces;
-using Katana.Business.DTOs;
 using System;
 using Katana.Core.DTOs;
 

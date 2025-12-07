@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Katana.Business.DTOs;
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Data.Context;
