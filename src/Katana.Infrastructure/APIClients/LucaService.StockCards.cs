@@ -156,10 +156,26 @@ public partial class LucaService
     {
         try {
             await EnsureAuthenticatedAsync();
+            await EnsureBranchSelectedAsync();
 
-            var req = new HttpRequestMessage(HttpMethod.Post, "ListeleStkKart.do")
+            // FIXED: Postman collection ile uyumlu JSON format kullan
+            // Postman'da: POST ListeleStkSkart.do + JSON body
+            var requestBody = new
             {
-                Content = new StringContent("{}", Encoding.UTF8, "application/json")
+                stkSkart = new
+                {
+                    eklemeTarihiBas = "06/04/2022",
+                    eklemeTarihiBit = "06/04/2022",
+                    eklemeTarihiOp = "between"
+                }
+            };
+            
+            var json = JsonSerializer.Serialize(requestBody, _jsonOptions);
+            var content = CreateKozaContent(json);
+
+            var req = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCards)
+            {
+                Content = content
             };
             req.Headers.TryAddWithoutValidation("No-Paging", "true");
 
@@ -183,6 +199,10 @@ public partial class LucaService
                     : cookieHeader;
                 _logger.LogDebug("🍪 [COOKIE PRESENT] Cookie header verified: {Preview}", cookiePreview);
             }
+
+            // 🔍 DEBUG: Log request format
+            _logger.LogInformation("📤 ListStockCards REQUEST: URL={Endpoint}, Method=POST, ContentType={ContentType}, Body={Body}",
+                _settings.Endpoints.StockCards, content.Headers.ContentType?.ToString(), json);
 
             var client = _cookieHttpClient ?? _httpClient;
             var res = await client.SendAsync(req, ct);
@@ -214,10 +234,10 @@ public partial class LucaService
                     
                     _logger.LogInformation("✅ Session yenilendi, ListStockCards tekrar deneniyor...");
                     
-                    // Retry
-                    var retryReq = new HttpRequestMessage(HttpMethod.Post, "ListeleStkKart.do")
+                    // Retry - FIXED: Doğru endpoint ve format kullan
+                    var retryReq = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCards)
                     {
-                        Content = new StringContent("{}", Encoding.UTF8, "application/json")
+                        Content = CreateKozaContent("{}")
                     };
                     retryReq.Headers.TryAddWithoutValidation("No-Paging", "true");
                     ApplySessionCookie(retryReq);
@@ -266,10 +286,10 @@ public partial class LucaService
                         
                         _logger.LogInformation("✅ Session ve branch hazır, ListStockCards 2. kez deneniyor...");
                         
-                        // 2. Retry
-                        var retryReq2 = new HttpRequestMessage(HttpMethod.Post, "ListeleStkKart.do")
+                        // 2. Retry - FIXED: Doğru endpoint ve format kullan
+                        var retryReq2 = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCards)
                         {
-                            Content = new StringContent("{}", Encoding.UTF8, "application/json")
+                            Content = CreateKozaContent("{}")
                         };
                         retryReq2.Headers.TryAddWithoutValidation("No-Paging", "true");
                         ApplySessionCookie(retryReq2);
@@ -306,10 +326,10 @@ public partial class LucaService
                         
                         _logger.LogInformation("✅ Branch seçildi, ListStockCards tekrar deneniyor...");
                         
-                        // Retry
-                        var retryReq = new HttpRequestMessage(HttpMethod.Post, "ListeleStkKart.do")
+                        // Retry - FIXED: Doğru endpoint ve format kullan
+                        var retryReq = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCards)
                         {
-                            Content = new StringContent("{}", Encoding.UTF8, "application/json")
+                            Content = CreateKozaContent("{}")
                         };
                         retryReq.Headers.TryAddWithoutValidation("No-Paging", "true");
                         ApplySessionCookie(retryReq);

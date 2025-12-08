@@ -765,6 +765,123 @@ public class LucaListMeasurementUnitsRequest
     public LucaMeasurementUnitFilter? GnlOlcumBirimi { get; set; }
 }
 
+public class LucaDocumentTypeDetailFilter
+{
+    [JsonPropertyName("belgeTurId")]
+    public long? BelgeTurId { get; set; }
+
+    [JsonPropertyName("belgeTurDetayId")]
+    public long? BelgeTurDetayId { get; set; }
+
+    [JsonPropertyName("tanim")]
+    public string? Tanim { get; set; }
+}
+
+public class LucaListDocumentTypeDetailsRequest
+{
+    [JsonPropertyName("gnlBelgeTurDetay")]
+    public LucaDocumentTypeDetailFilter? GnlBelgeTurDetay { get; set; }
+}
+
+public class LucaListDocumentSeriesRequest
+{
+    [JsonPropertyName("gnlBelgeTurDetay")]
+    public LucaDocumentTypeDetailFilter? GnlBelgeTurDetay { get; set; }
+}
+
+public class LucaGetDocumentSeriesMaxRequest
+{
+    [JsonPropertyName("seriNoWs")]
+    public string? SeriNoWs { get; set; }
+
+    [JsonPropertyName("belgeTurDetayIdWs")]
+    public long? BelgeTurDetayIdWs { get; set; }
+}
+
+public class LucaOrgSirketSubeFilter
+{
+    [JsonPropertyName("orgSirketSubeId")]
+    public long? OrgSirketSubeId { get; set; }
+}
+
+public class LucaListBranchCurrenciesRequest
+{
+    [JsonPropertyName("gnlOrgSirketSube")]
+    public LucaOrgSirketSubeFilter? GnlOrgSirketSube { get; set; }
+}
+
+public class LucaDynamicLovReference
+{
+    [JsonPropertyName("dynamicLovId")]
+    public long? DynamicLovId { get; set; }
+}
+
+public class LucaDynamicLovValueDto
+{
+    [JsonPropertyName("dynamicLovValueId")]
+    public long? DynamicLovValueId { get; set; }
+
+    [JsonPropertyName("ytkDynamicLov")]
+    public LucaDynamicLovReference? DynamicLov { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("value")]
+    public string? Value { get; set; }
+}
+
+public class LucaListDynamicLovValuesRequest
+{
+    [JsonPropertyName("ytkDynamicLovValue")]
+    public LucaDynamicLovValueDto? DynamicLovValue { get; set; }
+}
+
+public class LucaUpdateDynamicLovValueRequest
+{
+    [JsonPropertyName("dynamicLovValueId")]
+    public long DynamicLovValueId { get; set; }
+
+    [JsonPropertyName("ytkDynamicLov")]
+    public LucaDynamicLovReference? DynamicLov { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("value")]
+    public string? Value { get; set; }
+}
+
+public class LucaDynamicLovEntryRequest
+{
+    [JsonPropertyName("kod")]
+    public string Kod { get; set; } = string.Empty;
+
+    [JsonPropertyName("aciklama")]
+    public string? Aciklama { get; set; }
+}
+
+public class LucaCreateDynamicLovRequest
+{
+    [JsonPropertyName("degisken")]
+    public string Degisken { get; set; } = string.Empty;
+
+    [JsonPropertyName("degerListesi")]
+    public List<LucaDynamicLovEntryRequest> DegerListesi { get; set; } = new();
+}
+
+public class LucaUpdateAttributeRequest
+{
+    [JsonPropertyName("attributeId")]
+    public long AttributeId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+}
+
 
 
 public class LucaFinancialObjectFilter
@@ -773,16 +890,34 @@ public class LucaFinancialObjectFilter
     public LucaCodeRangeFilter? GnlFinansalNesne { get; set; }
 }
 
+public class LucaCityFilter
+{
+    [JsonPropertyName("ilId")]
+    public long? IlId { get; set; }
+}
+
+public class LucaCustomerPrimaryAddressFilter
+{
+    [JsonPropertyName("gnlIl")]
+    public LucaCityFilter? GnlIl { get; set; }
+}
+
 public class LucaListCustomersRequest
 {
     [JsonPropertyName("finMusteri")]
     public LucaFinancialObjectFilter? FinMusteri { get; set; }
+
+    [JsonPropertyName("birincilFaturaAdres")]
+    public LucaCustomerPrimaryAddressFilter? BirincilFaturaAdres { get; set; }
 }
 
 public class LucaListSuppliersRequest
 {
     [JsonPropertyName("finTedarikci")]
     public LucaFinancialObjectFilter? FinTedarikci { get; set; }
+
+    [JsonPropertyName("apiFilter")]
+    public bool? ApiFilter { get; set; }
 }
 
 
@@ -815,9 +950,15 @@ public class LucaStockCardCodeFilter
     [JsonPropertyName("kodBit")]
     public string? KodBit { get; set; }
 
-    
-    
-    
+    [JsonPropertyName("eklemeTarihiBas")]
+    public string? EklemeTarihiBas { get; set; }
+
+    [JsonPropertyName("eklemeTarihiBit")]
+    public string? EklemeTarihiBit { get; set; }
+
+    [JsonPropertyName("eklemeTarihiOp")]
+    public string? EklemeTarihiOp { get; set; }
+
     [JsonPropertyName("kodOp")]
     public string? KodOp { get; set; }
 }
@@ -946,6 +1087,12 @@ public class LucaListBanksRequest
     public LucaBankFilter? FinSsBanka { get; set; }
 }
 
+public class LucaListCashAccountsRequest
+{
+    [JsonPropertyName("finSsKasa")]
+    public JsonElement? FinSsKasa { get; set; }
+}
+
 
 
 public class LucaGetWarehouseStockRequest
@@ -1014,12 +1161,21 @@ public class LucaStockCardAlternativeDto
 
 public class LucaListSalesOrdersRequest
 {
-    
-    
-    
-    
+    [JsonPropertyName("stsSsSiparisBaslik")]
+    public JsonElement? StsSsSiparisBaslik { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
 
+public class LucaListPurchaseOrdersRequest
+{
+    [JsonPropertyName("stnSsSiparisBaslik")]
+    public JsonElement? StnSsSiparisBaslik { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+}
 
 
 
@@ -1642,6 +1798,69 @@ public class LucaDeleteInvoiceRequest
     public long SsFaturaBaslikId { get; set; }
 }
 
+public class LucaInvoicePdfLinkRequest
+{
+    [JsonPropertyName("ssFaturaBaslikId")]
+    public long SsFaturaBaslikId { get; set; }
+}
+
+public class LucaListCurrencyInvoicesRequest
+{
+    [JsonPropertyName("ftrSsFaturaBaslik")]
+    public JsonElement? FtrSsFaturaBaslik { get; set; }
+
+    [JsonPropertyName("gnlParaBirimRapor")]
+    public JsonElement? GnlParaBirimRapor { get; set; }
+
+    [JsonPropertyName("parUstHareketTuru")]
+    public string? ParUstHareketTuru { get; set; }
+
+    [JsonPropertyName("dovizGetir")]
+    public int? DovizGetir { get; set; }
+}
+
+public class LucaDynamicStockServiceReportRequest
+{
+    [JsonPropertyName("parSiralamaKriteri")]
+    public string? ParSiralamaKriteri { get; set; }
+
+    [JsonPropertyName("parStokKartTuru")]
+    public string? ParStokKartTuru { get; set; }
+
+    [JsonPropertyName("basStokKodAd_comp")]
+    public string? BasStokKodAdComp { get; set; }
+
+    [JsonPropertyName("basStokKodAd_comp_ack")]
+    public string? BasStokKodAdCompAck { get; set; }
+
+    [JsonPropertyName("bitStokKodAd_comp")]
+    public string? BitStokKodAdComp { get; set; }
+
+    [JsonPropertyName("bitStokKodAd_comp_ack")]
+    public string? BitStokKodAdCompAck { get; set; }
+
+    [JsonPropertyName("parBaslangicStokKodu")]
+    public string? ParBaslangicStokKodu { get; set; }
+
+    [JsonPropertyName("parBitisStokKodu")]
+    public string? ParBitisStokKodu { get; set; }
+
+    [JsonPropertyName("raporFormat")]
+    public string? RaporFormat { get; set; } = "XLS";
+
+    [JsonPropertyName("request_locale")]
+    public string? RequestLocale { get; set; } = "tr_TR";
+
+    [JsonPropertyName("menuItemIslemKod")]
+    public string? MenuItemIslemKod { get; set; }
+
+    [JsonPropertyName("dovizGetir")]
+    public int? DovizGetir { get; set; }
+
+    [JsonPropertyName("outputFileName")]
+    public string? OutputFileName { get; set; }
+}
+
 
 
 
@@ -2247,6 +2466,116 @@ public class LucaGetCustomerRiskRequest
     public LucaFinansalNesneKey GnlFinansalNesne { get; set; } = new();
 }
 
+public class LucaBelgeTurDetayRef
+{
+    [JsonPropertyName("belgeTurDetayId")]
+    public long? BelgeTurDetayId { get; set; }
+}
+
+public class LucaOrgBelgeDateFilter
+{
+    [JsonPropertyName("belgeTarihiBas")]
+    public string? BelgeTarihiBas { get; set; }
+
+    [JsonPropertyName("belgeTarihiBit")]
+    public string? BelgeTarihiBit { get; set; }
+
+    [JsonPropertyName("belgeTarihiOp")]
+    public string? BelgeTarihiOp { get; set; }
+
+    [JsonPropertyName("gnlBelgeTurDetay")]
+    public LucaBelgeTurDetayRef? GnlBelgeTurDetay { get; set; }
+}
+
+public class LucaFinCariHareketBaslikFilter
+{
+    [JsonPropertyName("parCariKartTuru")]
+    public int? ParCariKartTuru { get; set; }
+
+    [JsonPropertyName("gnlOrgSsBelge")]
+    public LucaOrgBelgeDateFilter? GnlOrgSsBelge { get; set; }
+}
+
+public class LucaListCariHareketBaslikRequest
+{
+    [JsonPropertyName("finCariHareketBaslik")]
+    public LucaFinCariHareketBaslikFilter? FinCariHareketBaslik { get; set; }
+
+    [JsonPropertyName("parCariKartKoduBas")]
+    public string? ParCariKartKoduBas { get; set; }
+
+    [JsonPropertyName("parCariKartKoduBit")]
+    public string? ParCariKartKoduBit { get; set; }
+
+    [JsonPropertyName("parCariKartKoduOp")]
+    public string? ParCariKartKoduOp { get; set; }
+}
+
+public class LucaListOzelCariHareketBaslikRequest
+{
+    [JsonPropertyName("finOzelCariHareketBaslik")]
+    public JsonElement? FinOzelCariHareketBaslik { get; set; }
+}
+
+
+
+
+public class LucaCreateCustomerContractRequest
+{
+    [JsonPropertyName("finMusteriSozlesme")]
+    public JsonElement? FinMusteriSozlesme { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+}
+
+
+
+
+
+public class LucaStockCardAutoCompleteRequest
+{
+    [JsonPropertyName("kartTuru")]
+    public int? KartTuru { get; set; }
+
+    [JsonPropertyName("q")]
+    public string? Query { get; set; }
+
+    [JsonPropertyName("pageNo")]
+    public int? PageNo { get; set; }
+
+    [JsonPropertyName("pageSize")]
+    public int? PageSize { get; set; }
+
+    [JsonPropertyName("autoComplete")]
+    public int? AutoComplete { get; set; }
+
+    [JsonPropertyName("displayTagSize")]
+    public int? DisplayTagSize { get; set; }
+}
+
+
+
+
+
+public class LucaUtsTransmitRequest
+{
+    [JsonPropertyName("ssFaturaDetayId")]
+    public long SsFaturaDetayId { get; set; }
+
+    [JsonPropertyName("iletimTarihi")]
+    public string IletimTarihi { get; set; } = string.Empty;
+}
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2518,6 +2847,18 @@ public class LucaCreateCustomerRequest
     
     [JsonPropertyName("email")]
     public string? Email { get; set; }
+
+    [JsonPropertyName("iletisimListesi")]
+    public List<LucaContactInfoDto>? IletisimListesi { get; set; }
+}
+
+public class LucaContactInfoDto
+{
+    [JsonPropertyName("iletisimTipId")]
+    public long? IletisimTipId { get; set; }
+
+    [JsonPropertyName("iletisimTanim")]
+    public string? IletisimTanim { get; set; }
 }
 
 /// <summary>
@@ -3558,9 +3899,12 @@ public class LucaCreateDshBaslikRequest
 
 public class LucaListIrsaliyeRequest
 {
+    [JsonPropertyName("stkSsIrsaliyeBaslik")]
+    public JsonElement? StkSsIrsaliyeBaslik { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
-
-
 
 
 /// <summary>
@@ -3587,8 +3931,11 @@ public class LucaDorseDto
     public string Plaka { get; set; } = string.Empty;
 }
 
-
-
+public class LucaGetEirsaliyeXmlRequest
+{
+    [JsonPropertyName("eirsaliyeId")]
+    public long EirsaliyeId { get; set; }
+}
 
 public class LucaCreateIrsaliyeDetayRequest
 {

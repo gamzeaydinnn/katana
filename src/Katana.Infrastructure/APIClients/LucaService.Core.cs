@@ -283,7 +283,8 @@ public partial class LucaService : ILucaService
 
                 _cookieHttpClient = new HttpClient(handler)
                 {
-                    BaseAddress = baseUri
+                    BaseAddress = baseUri,
+                    Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds)
                 };
 
                 _cookieHttpClient.DefaultRequestHeaders.Accept.Clear();
@@ -425,7 +426,7 @@ public partial class LucaService : ILucaService
             _cookieHttpClient = new HttpClient(_cookieHandler)
             {
                 BaseAddress = new Uri(_settings.BaseUrl.TrimEnd('/') + "/"),
-                Timeout = TimeSpan.FromMinutes(5)
+                Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds)
             };
             
             _cookieHttpClient.DefaultRequestHeaders.Accept.Clear();
@@ -441,12 +442,30 @@ public partial class LucaService : ILucaService
         
         // 4. Yeniden login yap
         _logger.LogInformation("🔑 Yeniden login yapılıyor...");
-        await EnsureSessionAsync();
+        await EnsureAuthenticatedAsync();
         
-        // 5. 🔥 Session'un tam olarak hazır olması için kısa bir bekleme
-        // Struts framework'u bazen session'ı hemen hazır etmiyor
-        _logger.LogDebug("⏳ Session stabilizasyon bekleniyor (2 saniye)...");
-        await Task.Delay(2000);
+        // 5. Branch seçimini garanti et
+        _logger.LogDebug("🏢 Branch seçimi kontrol ediliyor...");
+        await EnsureBranchSelectedAsync();
+        
+        // 6. 🔥 SESSION WARMUP: Struts framework'ünü uyandır
+        _logger.LogDebug("🔥 Session warmup başlatılıyor (ForceSessionRefresh sonrası)...");
+        try
+        {
+            var forceRefreshWarmupOk = await WarmupSessionAsync();
+            if (!forceRefreshWarmupOk)
+            {
+                _logger.LogWarning("⚠️ Session warmup başarısız oldu, ancak devam ediliyor");
+            }
+            else
+            {
+                _logger.LogDebug("✅ Session warmup başarılı");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "⚠️ Session warmup sırasında hata oluştu, ancak devam ediliyor");
+        }
         
         _logger.LogInformation("✅ ForceSessionRefreshAsync tamamlandı. Authenticated: {IsAuth}, Cookie: {HasCookie}", 
             _isCookieAuthenticated, 
@@ -504,7 +523,8 @@ public partial class LucaService : ILucaService
                             };
                             _cookieHttpClient = new HttpClient(_cookieHandler)
                             {
-                                BaseAddress = baseUri
+                                BaseAddress = baseUri,
+                                Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds)
                             };
                         }
                         _cookieHttpClient.DefaultRequestHeaders.Accept.Clear();
@@ -525,6 +545,15 @@ public partial class LucaService : ILucaService
                         }
                         _isCookieAuthenticated = true;
                         await EnsureBranchSelectedAsync();
+                        
+                        // 🔥 SESSION WARMUP: Struts framework'ünü uyandır
+                        _logger.LogDebug("🔥 Starting session warmup after headless auth...");
+                        var headlessWarmupOk = await WarmupSessionAsync();
+                        if (!headlessWarmupOk)
+                        {
+                            _logger.LogWarning("⚠️ Session warmup başarısız oldu, ancak devam ediliyor");
+                        }
+                        
                         _lastSuccessfulAuthAt = DateTime.UtcNow;
                         _logger.LogInformation("=== Koza Authentication Complete (Headless) ===");
                         return;
@@ -548,7 +577,8 @@ public partial class LucaService : ILucaService
                 };
                 _cookieHttpClient = new HttpClient(_cookieHandler)
                 {
-                    BaseAddress = baseUri
+                    BaseAddress = baseUri,
+                    Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds)
                 };
             }
 
@@ -621,6 +651,15 @@ public partial class LucaService : ILucaService
             }
 
             await EnsureBranchSelectedAsync();
+            
+            // 🔥 SESSION WARMUP: Struts framework'ünü uyandır
+            _logger.LogDebug("🔥 Starting session warmup after branch selection...");
+            var performLoginWarmupOk = await WarmupSessionAsync();
+            if (!performLoginWarmupOk)
+            {
+                _logger.LogWarning("⚠️ Session warmup başarısız oldu, ancak devam ediliyor");
+            }
+            
             _lastSuccessfulAuthAt = DateTime.UtcNow;
             _logger.LogInformation("=== Koza Authentication Complete (WS/PerformLogin) ===");
         }
@@ -941,6 +980,15 @@ public partial class LucaService : ILucaService
                     }
 
                     _logger.LogInformation("✓ Branch selection completed successfully");
+                    
+                    // 🔥 SESSION WARMUP: Struts framework'ünü uyandır
+                    _logger.LogDebug("🔥 Starting session warmup after manual cookie branch selection...");
+                    var manualCookieWarmupOk = await WarmupSessionAsync();
+                    if (!manualCookieWarmupOk)
+                    {
+                        _logger.LogWarning("⚠️ Session warmup başarısız oldu, ancak devam ediliyor");
+                    }
+                    
                     return true;
         }
         catch (Exception ex)
@@ -1068,7 +1116,8 @@ public partial class LucaService : ILucaService
             };
             _cookieHttpClient = new HttpClient(_cookieHandler)
             {
-                BaseAddress = baseUri
+                BaseAddress = baseUri,
+                Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds)
             };
         }
         try
@@ -1556,6 +1605,81 @@ retryChangeBranch:
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "ChangeBranch call failed");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Session warmup: Struts framework'ünü uyandırmak için basit bir GET isteği atar.
+    /// Login + cookie alındıktan sonra çağrılmalıdır.
+    /// "Unable to instantiate Action" hatasını önlemek için kullanılır.
+    /// </summary>
+    private async Task<bool> WarmupSessionAsync()
+    {
+        try
+        {
+            _logger.LogInformation("🔥 Session warmup başlatılıyor...");
+            
+            // FIXED: Postman collection ile uyumlu POST + JSON body kullan
+            // Postman'da: POST ListeleStkSkart.do + JSON body
+            var warmupBody = new
+            {
+                stkSkart = new
+                {
+                    eklemeTarihiBas = "06/04/2022",
+                    eklemeTarihiBit = "06/04/2022",
+                    eklemeTarihiOp = "between"
+                }
+            };
+            
+            var json = JsonSerializer.Serialize(warmupBody, _jsonOptions);
+            
+            using var request = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCards)
+            {
+                Content = CreateKozaContent(json)
+            };
+            
+            // Mevcut session cookie'lerini uygula
+            ApplySessionCookie(request);
+            ApplyManualSessionCookie(request);
+            
+            var response = await (_cookieHttpClient ?? _httpClient).SendAsync(request);
+            var responseBody = await response.Content.ReadAsStringAsync();
+            
+            _logger.LogDebug("Warmup response status: {Status}, body length: {Length}", 
+                response.StatusCode, 
+                responseBody?.Length ?? 0);
+            
+            // Response gövdesi JSON'a benziyorsa başarılı say
+            if (!string.IsNullOrWhiteSpace(responseBody))
+            {
+                var trimmed = responseBody.TrimStart();
+                if (trimmed.StartsWith("{") || trimmed.StartsWith("["))
+                {
+                    _logger.LogInformation("✅ Session warmup başarılı - JSON response alındı");
+                    return true;
+                }
+                
+                // HTML gibi görünüyorsa warning
+                if (trimmed.StartsWith("<") || trimmed.Contains("<!DOCTYPE", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning("⚠️ Session warmup: HTML response alındı (session timeout olabilir)");
+                    _logger.LogDebug("HTML preview: {Preview}", 
+                        responseBody.Substring(0, Math.Min(200, responseBody.Length)));
+                    
+                    await Task.Delay(1000);
+                    return false;
+                }
+            }
+            
+            // Belirsiz durum - başarılı kabul et
+            _logger.LogInformation("✅ Session warmup tamamlandı (response belirsiz ama hata yok)");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "⚠️ Session warmup sırasında hata oluştu");
+            await Task.Delay(2000);
             return false;
         }
     }

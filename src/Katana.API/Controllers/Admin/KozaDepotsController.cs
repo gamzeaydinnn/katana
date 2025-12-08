@@ -315,76 +315,57 @@ public sealed class KozaDepotsController : ControllerBase
             _logger.LogInformation("Creating Koza depot: {Kod} - {Tanim} - {KategoriKod}", 
                 request.StkDepo.Kod, request.StkDepo.Tanim, request.StkDepo.KategoriKod);
 
-            // Location Existence Check with Transaction Safety
-            // Transaction'ı başlat race condition'dan korunmak için
-            using var transaction = await _context.Database.BeginTransactionAsync(ct);
+            // Location Existence Check (EF Core default transaction kullanılıyor)
+            // Manuel transaction kaldırıldı - SqlServerRetryingExecutionStrategy ile uyumlu değildi
+            var existingDepot = await _context.KozaDepots
+                .AsNoTracking()
+                .FirstOrDefaultAsync(d => d.Kod == request.StkDepo.Kod, ct);
             
-            try
+            // Eğer zaten varsa
+            if (existingDepot != null)
             {
-                // Mevcut location'ı sorgula (pessimistic lock ile)
-                var existingDepot = await _context.KozaDepots
-                    .FromSqlInterpolated($"SELECT * FROM KozaDepots WHERE Kod = {request.StkDepo.Kod} FOR UPDATE")
-                    .FirstOrDefaultAsync(ct);
+                _logger.LogWarning("Location existence check - Depot found: {Kod} (ID: {ExistingId}, Name: {ExistingName})", 
+                    request.StkDepo.Kod, existingDepot.Id, existingDepot.Tanim);
                 
-                // Eğer zaten varsa
-                if (existingDepot != null)
+                // Idempotent mode: skip silently ve success döner
+                if (idempotent)
                 {
-                    _logger.LogWarning("Location existence check - Depot found: {Kod} (ID: {ExistingId}, Name: {ExistingName})", 
-                        request.StkDepo.Kod, existingDepot.Id, existingDepot.Tanim);
+                    _logger.LogInformation("Skipping depot creation (idempotent mode): {Kod} - Already exists with ID {ExistingId}", 
+                        request.StkDepo.Kod, existingDepot.Id);
                     
-                    // Idempotent mode: skip silently ve success döner
-                    if (idempotent)
+                    return Ok(new KozaResult
                     {
-                        _logger.LogInformation("Skipping depot creation (idempotent mode): {Kod} - Already exists with ID {ExistingId}", 
-                            request.StkDepo.Kod, existingDepot.Id);
-                        
-                        await transaction.CommitAsync(ct);
-                        
-                        return Ok(new KozaResult
+                        Success = true,
+                        Message = $"Depo zaten mevcut (ID: {existingDepot.Id}) - İşlem atlandı (idempotent mode)",
+                        Data = new
                         {
-                            Success = true,
-                            Message = $"Depo zaten mevcut (ID: {existingDepot.Id}) - İşlem atlandı (idempotent mode)",
-                            Data = new
-                            {
-                                skipped = true,
-                                existingId = existingDepot.Id,
-                                existingName = existingDepot.Tanim
-                            }
-                        });
-                    }
-                    // Default mode: conflict error döner
-                    else
-                    {
-                        _logger.LogWarning("Duplicate depot code detected: {Kod} (ID: {ExistingId})", 
-                            request.StkDepo.Kod, existingDepot.Id);
-                        
-                        await transaction.CommitAsync(ct);
-                        
-                        return Conflict(new
-                        {
-                            error = "Depo kodu zaten mevcut",
-                            code = "DUPLICATE_LOCATION",
-                            details = new
-                            {
-                                locationCode = request.StkDepo.Kod,
-                                existingId = existingDepot.Id,
-                                existingName = existingDepot.Tanim
-                            }
-                        });
-                    }
+                            skipped = true,
+                            existingId = existingDepot.Id,
+                            existingName = existingDepot.Tanim
+                        }
+                    });
                 }
-                
-                _logger.LogInformation("Location existence check passed - No existing depot found for code: {Kod}", request.StkDepo.Kod);
-                
-                // Transaction'ı kapat - mutex lock'u serbest bırak
-                await transaction.CommitAsync(ct);
+                // Default mode: conflict error döner
+                else
+                {
+                    _logger.LogWarning("Duplicate depot code detected: {Kod} (ID: {ExistingId})", 
+                        request.StkDepo.Kod, existingDepot.Id);
+                    
+                    return Conflict(new
+                    {
+                        error = "Depo kodu zaten mevcut",
+                        code = "DUPLICATE_LOCATION",
+                        details = new
+                        {
+                            locationCode = request.StkDepo.Kod,
+                            existingId = existingDepot.Id,
+                            existingName = existingDepot.Tanim
+                        }
+                    });
+                }
             }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync(ct);
-                _logger.LogError(ex, "Error during location existence check transaction for depot: {Kod}", request.StkDepo.Kod);
-                throw;
-            }
+            
+            _logger.LogInformation("Location existence check passed - No existing depot found for code: {Kod}", request.StkDepo.Kod);
 
             // DEBUG 3: LucaService'e gönderilmeden HEMEN ÖNCE son kontrol
             _logger.LogWarning("=== SENDING TO LUCA SERVICE ===");

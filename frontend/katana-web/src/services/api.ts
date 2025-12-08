@@ -322,26 +322,10 @@ export const stockAPI = {
   getSyncHistory: () => api.get("/Sync/history").then((res) => res.data),
 
   startSync: (options?: SyncOptions) => {
-    // Route sync request based on syncType
     const syncType = options?.syncType?.toUpperCase() || "STOCK_CARD";
     
-    const endpointMap: Record<string, string> = {
-      STOCK: "/Sync/stock",
-      INVOICE: "/Sync/invoices",
-      CUSTOMER: "/Sync/customers",
-      DESPATCH: "/Sync/from-luca/despatch",
-      ALL: "/Sync/run",
-      STOCK_CARD: "/Sync/to-luca/stock-cards",
-      PRODUCT: "/Sync/to-luca/stock-cards",
-      SUPPLIER: "/Sync/suppliers",
-      WAREHOUSE: "/Sync/warehouses",
-      CUSTOMER_LUCA: "/Sync/customers-luca",
-    };
-    
-    const endpoint = endpointMap[syncType] || "/Sync/to-luca/stock-cards";
-    
     return api
-      .post(endpoint, options || {}, { timeout: 120000 })
+      .post("/Sync/start", { syncType }, { timeout: 300000 }) // 5 dakika
       .then((res) => res.data as SyncResult);
   },
 
@@ -451,6 +435,116 @@ export const kozaAPI = {
   // Legacy endpoint - geriye dönük uyumluluk için
   getLucaStockCards: () =>
     api.get("/Luca/koza-stock-cards").then((res) => res.data),
+};
+
+/**
+ * Luca API - Tüm Luca/Koza endpoint'lerine erişim
+ * Backend LucaProxyController üzerinden güvenli erişim
+ * Detaylı kullanım için lucaService.ts dosyasına bakınız
+ */
+export const lucaAPI = {
+  // Giriş
+  login: (credentials?: any) => 
+    api.post("/luca-proxy/login", credentials || {}).then((res) => res.data),
+  getBranches: () => 
+    api.post("/luca-proxy/branches", {}).then((res) => res.data),
+  selectBranch: (branchId: number) => 
+    api.post("/luca-proxy/select-branch", { orgSirketSubeId: branchId }).then((res) => res.data),
+
+  // Genel
+  general: {
+    measurementUnits: () => api.post("/luca-proxy/measurement-units/list", {}).then((res) => res.data),
+    taxOffices: () => api.post("/luca-proxy/tax-offices/list", {}).then((res) => res.data),
+    documentTypes: () => api.post("/luca-proxy/document-type-details", {}).then((res) => res.data),
+    documentSeries: (params?: any) => api.post("/luca-proxy/document-series", params || {}).then((res) => res.data),
+    currencies: (params?: any) => api.post("/luca-proxy/branch-currencies", params || {}).then((res) => res.data),
+  },
+
+  // Cari
+  customers: {
+    list: (params?: any) => api.post("/luca-proxy/customers/list", params || {}).then((res) => res.data),
+    create: (payload: any) => api.post("/luca-proxy/customers/create", payload).then((res) => res.data),
+    addresses: (finansalNesneId: number) => 
+      api.post("/luca-proxy/customer-addresses", { finansalNesneId }).then((res) => res.data),
+    risk: (finansalNesneId: number) => 
+      api.post("/luca-proxy/customer-risk", { gnlFinansalNesne: { finansalNesneId } }).then((res) => res.data),
+  },
+
+  suppliers: {
+    list: (params?: any) => api.post("/luca-proxy/suppliers/list", params || {}).then((res) => res.data),
+    create: (payload: any) => api.post("/luca-proxy/suppliers/create", payload).then((res) => res.data),
+  },
+
+  // Stok
+  stock: {
+    list: (params?: any) => api.post("/luca-proxy/stock-cards/list", params || {}).then((res) => res.data),
+    create: (payload: any) => api.post("/luca-proxy/stock-cards/create", payload).then((res) => res.data),
+    categories: (params?: any) => api.post("/luca-proxy/stock-categories/list", params || {}).then((res) => res.data),
+    prices: {
+      purchase: (skartId: number) => 
+        api.post("/luca-proxy/stock-cards/purchase-prices", { stkSkart: { skartId } }).then((res) => res.data),
+      sales: (skartId: number) => 
+        api.post("/luca-proxy/stock-cards/sales-prices", { stkSkart: { skartId } }).then((res) => res.data),
+    },
+  },
+
+  warehouses: {
+    list: () => api.post("/luca-proxy/warehouses/list", {}).then((res) => res.data),
+    stockQuantity: (depoId: number) => 
+      api.post("/luca-proxy/warehouses/stock-quantity", { cagirilanKart: "depo", stkDepo: { depoId } }).then((res) => res.data),
+  },
+
+  deliveryNotes: {
+    list: (params?: any) => api.post("/luca-proxy/delivery-notes/list", params || {}).then((res) => res.data),
+    create: (payload: any) => api.post("/luca-proxy/delivery-notes/create", payload).then((res) => res.data),
+    delete: (ssIrsaliyeBaslikId: number) => 
+      api.post("/luca-proxy/delivery-notes/delete", { ssIrsaliyeBaslikId }).then((res) => res.data),
+  },
+
+  // Sipariş
+  orders: {
+    sales: {
+      list: (params?: any) => api.post("/luca-proxy/sales-orders/list", params || {}).then((res) => res.data),
+      create: (payload: any) => api.post("/luca-proxy/sales-orders/create", payload).then((res) => res.data),
+      delete: (ssSiparisBaslikId: number) => 
+        api.post("/luca-proxy/sales-orders/delete", { ssSiparisBaslikId }).then((res) => res.data),
+    },
+    purchase: {
+      list: (params?: any) => api.post("/luca-proxy/purchase-orders/list", params || {}).then((res) => res.data),
+      create: (payload: any) => api.post("/luca-proxy/purchase-orders/create", payload).then((res) => res.data),
+      delete: (ssSiparisBaslikId: number) => 
+        api.post("/luca-proxy/purchase-orders/delete", { ssSiparisBaslikId }).then((res) => res.data),
+    },
+  },
+
+  // Fatura
+  invoices: {
+    list: (params?: any) => api.post("/luca-proxy/invoices/list", params || {}).then((res) => res.data),
+    create: (payload: any) => api.post("/luca-proxy/invoices/create", payload).then((res) => res.data),
+    pdfLink: (ssFaturaBaslikId: number) => 
+      api.post("/luca-proxy/invoices/pdf-link", { ssFaturaBaslikId }).then((res) => res.data),
+    close: (payload: any) => api.post("/luca-proxy/invoices/close", payload).then((res) => res.data),
+    delete: (ssFaturaBaslikId: number) => 
+      api.post("/luca-proxy/invoices/delete", { ssFaturaBaslikId }).then((res) => res.data),
+  },
+
+  // Finans
+  finance: {
+    creditCard: (payload: any) => 
+      api.post("/luca-proxy/finance/credit-card-entry/create", payload).then((res) => res.data),
+    banks: () => api.post("/luca-proxy/finance/banks/list", {}).then((res) => res.data),
+    cash: () => api.post("/luca-proxy/finance/cash/list", {}).then((res) => res.data),
+    cariMovements: {
+      list: (params?: any) => api.post("/luca-proxy/finance/cari-movements/list", params || {}).then((res) => res.data),
+      create: (payload: any) => api.post("/luca-proxy/finance/cari-movements/create", payload).then((res) => res.data),
+    },
+  },
+
+  // Rapor
+  reports: {
+    stockService: (params?: any) => 
+      api.post("/luca-proxy/reports/stock-service", params || {}, { responseType: "blob" }).then((res) => res.data),
+  },
 };
 
 export default api;

@@ -63,6 +63,8 @@ public interface ILucaService
     Task<System.Text.Json.JsonElement> CreateInvoiceRawAsync(LucaCreateInvoiceHeaderRequest request);
     Task<System.Text.Json.JsonElement> CloseInvoiceAsync(LucaCloseInvoiceRequest request);
     Task<System.Text.Json.JsonElement> DeleteInvoiceAsync(LucaDeleteInvoiceRequest request);
+    Task<System.Text.Json.JsonElement> GetInvoicePdfLinkAsync(LucaInvoicePdfLinkRequest request);
+    Task<System.Text.Json.JsonElement> ListCurrencyInvoicesAsync(LucaListCurrencyInvoicesRequest request);
 
     
     Task<System.Text.Json.JsonElement> ListCustomerAddressesAsync(LucaListCustomerAddressesRequest request);
@@ -71,14 +73,29 @@ public interface ILucaService
     Task<System.Text.Json.JsonElement> GetCustomerRiskAsync(LucaGetCustomerRiskRequest request);
     Task<System.Text.Json.JsonElement> CreateCustomerTransactionAsync(LucaCreateCariHareketRequest request);
 
-    Task<System.Text.Json.JsonElement> ListDeliveryNotesAsync(bool detayliListe = false);
+    Task<System.Text.Json.JsonElement> ListDeliveryNotesAsync(LucaListIrsaliyeRequest? request = null, bool detayliListe = false);
     Task<System.Text.Json.JsonElement> CreateDeliveryNoteAsync(LucaCreateIrsaliyeBaslikRequest request);
     Task<System.Text.Json.JsonElement> DeleteDeliveryNoteAsync(LucaDeleteIrsaliyeRequest request);
     Task<List<LucaDespatchDto>> FetchDeliveryNotesAsync(DateTime? fromDate = null);
+    Task<string> GetEirsaliyeXmlAsync(LucaGetEirsaliyeXmlRequest request);
 
     Task<JsonElement> ListTaxOfficesAsync(LucaListTaxOfficesRequest? request = null);
     
     Task<JsonElement> ListMeasurementUnitsAsync(LucaListMeasurementUnitsRequest? request = null);
+    
+    Task<JsonElement> ListDocumentTypeDetailsAsync(LucaListDocumentTypeDetailsRequest? request = null);
+    
+    Task<JsonElement> ListDocumentSeriesAsync(LucaListDocumentSeriesRequest request);
+    
+    Task<JsonElement> ListBranchCurrenciesAsync(LucaListBranchCurrenciesRequest request);
+    
+    Task<JsonElement> GetDocumentSeriesMaxAsync(LucaGetDocumentSeriesMaxRequest request);
+    
+    Task<JsonElement> ListDynamicLovValuesAsync(LucaListDynamicLovValuesRequest request);
+    
+    Task<JsonElement> UpdateDynamicLovValueAsync(LucaUpdateDynamicLovValueRequest request);
+    Task<JsonElement> CreateDynamicLovValueAsync(LucaCreateDynamicLovRequest request);
+    Task<JsonElement> UpdateAttributeAsync(LucaUpdateAttributeRequest request);
     
     Task<JsonElement> ListCustomersAsync(LucaListCustomersRequest? request = null);
     
@@ -87,6 +104,16 @@ public interface ILucaService
     Task<JsonElement> ListWarehousesAsync(LucaListWarehousesRequest? request = null);
     
     Task<JsonElement> CreateCustomerAsync(LucaCreateCustomerRequest request);
+    
+    Task<JsonElement> ListCustomerTransactionsAsync(LucaListCariHareketBaslikRequest request, bool detayliListe = false);
+    
+    Task<JsonElement> ListSpecialCustomerTransactionsAsync(LucaListOzelCariHareketBaslikRequest? request = null);
+    
+    Task<JsonElement> CreateCustomerContractAsync(LucaCreateCustomerContractRequest request);
+    
+    Task<JsonElement> ListStockCardsAutoCompleteAsync(LucaStockCardAutoCompleteRequest request);
+    
+    Task<JsonElement> NotifyUtsAsync(LucaUtsTransmitRequest request);
     
     /// <summary>
     /// Luca'da cari kart arar (kartKodu/cariKodu bazlı)
@@ -138,6 +165,8 @@ public interface ILucaService
     Task<SyncResultDto> UpsertStockCardAsync(LucaCreateStokKartiRequest stockCard);
     
     Task<JsonElement> CreateOtherStockMovementAsync(LucaCreateDshBaslikRequest request);
+    Task<JsonElement> ListStockCardPurchasePricesAsync(LucaStockCardByIdRequest request);
+    Task<JsonElement> ListStockCardSalesPricesAsync(LucaStockCardByIdRequest request);
     
     Task<JsonElement> CreateSalesOrderAsync(LucaCreateSalesOrderRequest request);
     Task<JsonElement> CreateSalesOrderHeaderAsync(LucaCreateOrderHeaderRequest request);
@@ -176,12 +205,15 @@ public interface ILucaService
     Task<JsonElement> ListCustomerContactsAsync(LucaListCustomerContactsRequest request);
     
     Task<JsonElement> ListBanksAsync(LucaListBanksRequest? request = null);
+    Task<JsonElement> ListCashAccountsAsync(LucaListCashAccountsRequest? request = null);
     
     Task<JsonElement> GetWarehouseStockQuantityAsync(LucaGetWarehouseStockRequest request);
     
     Task<JsonElement> ListStockCardPurchaseTermsAsync(LucaStockCardByIdRequest request);
     
     Task<JsonElement> ListSalesOrdersAsync(LucaListSalesOrdersRequest? request = null, bool detayliListe = false);
+    Task<JsonElement> ListPurchaseOrdersAsync(LucaListPurchaseOrdersRequest? request = null, bool detayliListe = false);
+    Task<byte[]> GenerateStockServiceReportAsync(LucaDynamicStockServiceReportRequest request);
     
     // Koza Depo (Depot) işlemleri
     Task<IReadOnlyList<KozaDepoDto>> ListDepotsAsync(CancellationToken ct = default);

@@ -1,10 +1,5 @@
 import axios from "axios";
 
-
-
-
-
-
 const lucaProxyClient = axios.create({
   baseURL: process.env.REACT_APP_API_URL || "/api",
   withCredentials: true,
@@ -26,19 +21,16 @@ lucaProxyClient.interceptors.response.use(
   }
 );
 
-
-
 export const loginToLuca = async () => {
   try {
     console.log("Adım 1: Giriş yapılıyor (Backend Proxy üzerinden)...");
     
-    const response = await lucaProxyClient.post("/luca/login", {});
+    const response = await lucaProxyClient.post("/luca-proxy/login", {});
 
     const data: any = response?.data ?? null;
     console.log("Raw login response:", data);
 
     const raw = data?.raw ?? data;
-
     
     const sessionId =
       data?.sessionId ??
@@ -54,7 +46,6 @@ export const loginToLuca = async () => {
         console.warn("Could not persist lucaSessionId to localStorage:", e);
       }
     }
-
     
     const codeOk =
       data?.code === 0 ||
@@ -95,7 +86,7 @@ export const getBranchList = async () => {
     if (sessionId) headers["X-Luca-Session"] = sessionId;
 
     const response = await lucaProxyClient.post(
-      "/luca/branches",
+      "/luca-proxy/branches",
       {},
       { headers }
     );
@@ -109,7 +100,6 @@ export const getBranchList = async () => {
       console.error("Yetkili şirket/şube bulunamadı: boş cevap.");
       return null;
     }
-
     
     if (typeof payload === "object" && payload !== null && (payload.code ?? payload.Code)) {
       console.error(
@@ -120,10 +110,8 @@ export const getBranchList = async () => {
       return null;
     }
 
-    
     let branches: any = null;
 
-    
     if (Array.isArray(payload)) {
       branches = payload;
     }
@@ -251,7 +239,7 @@ export const selectBranch = async (branchOrId: any) => {
     const headers: any = {};
     if (sessionId) headers["X-Luca-Session"] = sessionId;
     const response = await lucaProxyClient.post(
-      "/luca/select-branch",
+      "/luca-proxy/select-branch",
       { orgSirketSubeId: branchId },
       { headers }
     );
