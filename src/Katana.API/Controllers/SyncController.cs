@@ -598,6 +598,26 @@ public class SyncController : ControllerBase
             return StatusCode(500, new { error = ex.Message, stackTrace = ex.StackTrace });
         }
     }
+
+    /// <summary>
+    /// ✅ Katana Location'larını Luca'ya Depo olarak senkronize et (SADECE Admin)
+    /// </summary>
+    [HttpPost("to-luca/warehouses")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<SyncResultDto>> SyncWarehousesToLuca()
+    {
+        try
+        {
+            _logger.LogInformation("🏢 API üzerinden Katana Location → Luca Depo senkronizasyonu tetiklendi");
+            var result = await _syncService.SyncWarehousesToLucaAsync();
+            return result.IsSuccess ? Ok(result) : BadRequest(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Depo senkronizasyonu hatası");
+            return StatusCode(500, new { error = "Depo senkronizasyonu sırasında hata oluştu", details = ex.Message });
+        }
+    }
 }
 
 public class StartSyncRequest

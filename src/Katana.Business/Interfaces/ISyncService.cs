@@ -27,6 +27,7 @@ public interface ISyncService
     Task<SyncResultDto> SyncSuppliersToKozaAsync(CancellationToken ct = default);
     Task<SyncResultDto> SyncWarehousesToKozaAsync(CancellationToken ct = default);
     Task<SyncResultDto> SyncCustomersToLucaAsync(CancellationToken ct = default);
+    Task<SyncResultDto> SyncWarehousesToLucaAsync(); // ✅ Katana Location → Luca Depo
     
     // Debug metodları
     Task<object> DebugProductComparisonAsync(string sku);
