@@ -244,16 +244,17 @@ public partial class LucaService
         var request = MappingHelper.MapToLucaCariHareketCreate(payment, customer, belgeTurDetayId, cariTuru, belgeSeri, avansFlag, aciklama);
         return await CreateCustomerTransactionAsync(request);
     }
-    public async Task<JsonElement> ListDeliveryNotesAsync(bool detayliListe = false)
+    public async Task<JsonElement> ListDeliveryNotesAsync(LucaListIrsaliyeRequest? request = null, bool detayliListe = false)
     {
         await EnsureAuthenticatedAsync();
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var url = _settings.Endpoints.IrsaliyeList + (detayliListe ? "?detayliListe=true" : string.Empty);
 
+        var json = JsonSerializer.Serialize(request ?? new LucaListIrsaliyeRequest(), _jsonOptions);
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
         {
-            Content = CreateKozaContent("{}")
+            Content = CreateKozaContent(json)
         };
         ApplyManualSessionCookie(httpRequest);
         ApplySessionCookie(httpRequest);
@@ -263,6 +264,27 @@ public partial class LucaService
         var responseContent = await response.Content.ReadAsStringAsync();
         response.EnsureSuccessStatusCode();
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<string> GetEirsaliyeXmlAsync(LucaGetEirsaliyeXmlRequest request)
+    {
+        if (request == null) throw new ArgumentNullException(nameof(request));
+
+        await EnsureAuthenticatedAsync();
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.EirsaliyeXml)
+        {
+            Content = CreateKozaContent(json)
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return responseContent;
     }
     public async Task<JsonElement> CreateDeliveryNoteAsync(LucaCreateIrsaliyeBaslikRequest request)
     {
@@ -277,7 +299,54 @@ public partial class LucaService
         response.EnsureSuccessStatusCode();
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
+    
+    public async Task<JsonElement> GetInvoicePdfLinkAsync(LucaInvoicePdfLinkRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = CreateKozaContent(json);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
 
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.InvoicePdfLink)
+        {
+            Content = content
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        httpRequest.Headers.TryAddWithoutValidation("No-Paging", "true");
+
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListCurrencyInvoicesAsync(LucaListCurrencyInvoicesRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+        var effectiveRequest = request ?? new LucaListCurrencyInvoicesRequest();
+        if (!effectiveRequest.DovizGetir.HasValue)
+        {
+            effectiveRequest.DovizGetir = 1;
+        }
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        var url = _settings.Endpoints.CurrencyInvoiceList;
+        var json = JsonSerializer.Serialize(effectiveRequest, _jsonOptions);
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = CreateKozaContent(json)
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        httpRequest.Headers.TryAddWithoutValidation("No-Paging", "true");
+
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+    
     public async Task<JsonElement> DeleteDeliveryNoteAsync(LucaDeleteIrsaliyeRequest request)
     {
         await EnsureAuthenticatedAsync();
@@ -1569,7 +1638,7 @@ public partial class LucaService
             await EnsureAuthenticatedAsync();
 
             _logger.LogInformation("Fetching delivery notes (irsaliye) from Luca");
-            var element = await ListDeliveryNotesAsync(true);
+            var element = await ListDeliveryNotesAsync(null, true);
 
             var results = new List<LucaDespatchDto>();
 

@@ -1050,6 +1050,346 @@ public partial class LucaService
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
 
+    public async Task<JsonElement> ListDocumentTypeDetailsAsync(LucaListDocumentTypeDetailsRequest? request = null)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request ?? new LucaListDocumentTypeDetailsRequest(), _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.DocumentTypeDetails)
+        {
+            Content = CreateKozaContent(json)
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        httpRequest.Headers.TryAddWithoutValidation("No-Paging", "true");
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListDocumentSeriesAsync(LucaListDocumentSeriesRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var effectiveRequest = request ?? new LucaListDocumentSeriesRequest();
+        var json = JsonSerializer.Serialize(effectiveRequest, _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.DocumentSeries)
+        {
+            Content = CreateKozaContent(json)
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        httpRequest.Headers.TryAddWithoutValidation("No-Paging", "true");
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListBranchCurrenciesAsync(LucaListBranchCurrenciesRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var effectiveRequest = request ?? new LucaListBranchCurrenciesRequest();
+        var json = JsonSerializer.Serialize(effectiveRequest, _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.BranchCurrencies)
+        {
+            Content = CreateKozaContent(json)
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        httpRequest.Headers.TryAddWithoutValidation("No-Paging", "true");
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+    public async Task<JsonElement> GetDocumentSeriesMaxAsync(LucaGetDocumentSeriesMaxRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var effectiveRequest = request ?? new LucaGetDocumentSeriesMaxRequest();
+        var json = JsonSerializer.Serialize(effectiveRequest, _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.DocumentSeriesMax)
+        {
+            Content = CreateKozaContent(json)
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListDynamicLovValuesAsync(LucaListDynamicLovValuesRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+        var effectiveRequest = request ?? new LucaListDynamicLovValuesRequest();
+        var json = JsonSerializer.Serialize(effectiveRequest, _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.DynamicLovValueList)
+        {
+            Content = CreateKozaContent(json)
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        httpRequest.Headers.TryAddWithoutValidation("No-Paging", "true");
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> UpdateDynamicLovValueAsync(LucaUpdateDynamicLovValueRequest request)
+    {
+        if (request == null) throw new ArgumentNullException(nameof(request));
+
+        await EnsureAuthenticatedAsync();
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.DynamicLovValueUpdate)
+        {
+            Content = CreateKozaContent(json)
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> CreateDynamicLovValueAsync(LucaCreateDynamicLovRequest request)
+    {
+        if (request == null) throw new ArgumentNullException(nameof(request));
+
+        await EnsureAuthenticatedAsync();
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.DynamicLovValueCreate)
+        {
+            Content = CreateKozaContent(json)
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> UpdateAttributeAsync(LucaUpdateAttributeRequest request)
+    {
+        if (request == null) throw new ArgumentNullException(nameof(request));
+
+        await EnsureAuthenticatedAsync();
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.AttributeUpdate)
+        {
+            Content = CreateKozaContent(json)
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListCustomerTransactionsAsync(LucaListCariHareketBaslikRequest request, bool detayliListe = false)
+    {
+        await EnsureAuthenticatedAsync();
+        var effectiveRequest = request ?? new LucaListCariHareketBaslikRequest();
+        var json = JsonSerializer.Serialize(effectiveRequest, _jsonOptions);
+        var url = _settings.Endpoints.CustomerTransactionList;
+        if (detayliListe)
+        {
+            url = url.Contains('?', StringComparison.Ordinal)
+                ? url + "&detayliListe=true"
+                : url + "?detayliListe=true";
+        }
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = CreateKozaContent(json)
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        httpRequest.Headers.TryAddWithoutValidation("No-Paging", "true");
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListSpecialCustomerTransactionsAsync(LucaListOzelCariHareketBaslikRequest? request = null)
+    {
+        await EnsureAuthenticatedAsync();
+        var effectiveRequest = request ?? new LucaListOzelCariHareketBaslikRequest();
+        var json = JsonSerializer.Serialize(effectiveRequest, _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.SpecialCustomerTransactionList)
+        {
+            Content = CreateKozaContent(json)
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        httpRequest.Headers.TryAddWithoutValidation("No-Paging", "true");
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> CreateCustomerContractAsync(LucaCreateCustomerContractRequest request)
+    {
+        if (request == null) throw new ArgumentNullException(nameof(request));
+        await EnsureAuthenticatedAsync();
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.CustomerContractCreate)
+        {
+            Content = CreateKozaContent(json)
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListStockCardsAutoCompleteAsync(LucaStockCardAutoCompleteRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+        var effectiveRequest = request ?? new LucaStockCardAutoCompleteRequest();
+        var queryParams = new List<string>();
+
+        void AppendParam(string key, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                queryParams.Add($"{key}={WebUtility.UrlEncode(value)}");
+            }
+        }
+
+        void AppendParamInt(string key, int? value)
+        {
+            if (value.HasValue)
+            {
+                queryParams.Add($"{key}={value.Value}");
+            }
+        }
+
+        AppendParamInt("kartTuru", effectiveRequest.KartTuru);
+        AppendParam("q", effectiveRequest.Query);
+        AppendParamInt("pageNo", effectiveRequest.PageNo);
+        AppendParamInt("pageSize", effectiveRequest.PageSize);
+        AppendParamInt("autoComplete", effectiveRequest.AutoComplete);
+        AppendParamInt("displayTagSize", effectiveRequest.DisplayTagSize);
+
+        var url = _settings.Endpoints.StockCardAutoComplete;
+        if (queryParams.Count > 0)
+        {
+            url += url.Contains("?", StringComparison.Ordinal) ? "&" : "?";
+            url += string.Join("&", queryParams);
+        }
+
+        var json = JsonSerializer.Serialize(effectiveRequest, _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = CreateKozaContent(json)
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> NotifyUtsAsync(LucaUtsTransmitRequest request)
+    {
+        if (request == null) throw new ArgumentNullException(nameof(request));
+
+        await EnsureAuthenticatedAsync();
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.UtsTransmit)
+        {
+            Content = CreateKozaContent(json)
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<byte[]> GenerateStockServiceReportAsync(LucaDynamicStockServiceReportRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+        var effective = request ?? new LucaDynamicStockServiceReportRequest();
+        var queryParams = new List<string>();
+
+        void Add(string key, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                queryParams.Add($"{key}={Uri.EscapeDataString(value)}");
+            }
+        }
+
+        void AddInt(string key, int? value)
+        {
+            if (value.HasValue)
+            {
+                queryParams.Add($"{key}={value.Value}");
+            }
+        }
+
+        Add("parSiralamaKriteri", effective.ParSiralamaKriteri);
+        Add("parStokKartTuru", effective.ParStokKartTuru);
+        Add("basStokKodAd_comp", effective.BasStokKodAdComp);
+        Add("basStokKodAd_comp_ack", effective.BasStokKodAdCompAck);
+        Add("bitStokKodAd_comp", effective.BitStokKodAdComp);
+        Add("bitStokKodAd_comp_ack", effective.BitStokKodAdCompAck);
+        Add("parBaslangicStokKodu", effective.ParBaslangicStokKodu);
+        Add("parBitisStokKodu", effective.ParBitisStokKodu);
+        Add("raporFormat", effective.RaporFormat);
+        Add("request_locale", effective.RequestLocale);
+        Add("menuItemIslemKod", effective.MenuItemIslemKod);
+        AddInt("dovizGetir", effective.DovizGetir);
+
+        var url = _settings.Endpoints.StockServiceReport;
+        if (queryParams.Count > 0)
+        {
+            url += url.Contains("?", StringComparison.Ordinal) ? "&" : "?";
+            url += string.Join("&", queryParams);
+        }
+
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = CreateKozaContent("{}")
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsByteArrayAsync();
+    }
+
     public async Task<JsonElement> ListCustomersAsync(LucaListCustomersRequest? request = null)
     {
         await EnsureAuthenticatedAsync();
@@ -1591,6 +1931,44 @@ public partial class LucaService
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
 
+    public async Task<JsonElement> ListStockCardPurchasePricesAsync(LucaStockCardByIdRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = CreateKozaContent(json);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCardPurchasePrices)
+        {
+            Content = content
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        httpRequest.Headers.Add("No-Paging", "true");
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListStockCardSalesPricesAsync(LucaStockCardByIdRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = CreateKozaContent(json);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCardSalesPrices)
+        {
+            Content = content
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        httpRequest.Headers.Add("No-Paging", "true");
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
     public async Task<JsonElement> ListCustomerContactsAsync(LucaListCustomerContactsRequest request)
     {
         await EnsureAuthenticatedAsync();
@@ -1631,6 +2009,25 @@ public partial class LucaService
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
 
+    public async Task<JsonElement> ListCashAccountsAsync(LucaListCashAccountsRequest? request = null)
+    {
+        await EnsureAuthenticatedAsync();
+        var json = JsonSerializer.Serialize(request ?? new LucaListCashAccountsRequest(), _jsonOptions);
+        var content = CreateKozaContent(json);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.CashList)
+        {
+            Content = content
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        httpRequest.Headers.Add("No-Paging", "true");
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
     public async Task<JsonElement> GetWarehouseStockQuantityAsync(LucaGetWarehouseStockRequest request)
     {
         await EnsureAuthenticatedAsync();
@@ -1661,6 +2058,26 @@ public partial class LucaService
             Content = content
         };
         ApplyManualSessionCookie(httpRequest);
+        httpRequest.Headers.Add("No-Paging", "true");
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> ListPurchaseOrdersAsync(LucaListPurchaseOrdersRequest? request = null, bool detayliListe = false)
+    {
+        await EnsureAuthenticatedAsync();
+        var url = _settings.Endpoints.PurchaseOrderList + (detayliListe ? "?detayliListe=true" : string.Empty);
+        var json = JsonSerializer.Serialize(request ?? new LucaListPurchaseOrdersRequest(), _jsonOptions);
+        var content = CreateKozaContent(json);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = content
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
         httpRequest.Headers.Add("No-Paging", "true");
         var response = await client.SendAsync(httpRequest);
         var responseContent = await response.Content.ReadAsStringAsync();
@@ -1756,9 +2173,105 @@ public partial class LucaService
         
         try
         {
+            // 🔥 STEP 1: Authentication ve Branch Selection
+            _logger.LogInformation("🔐 Step 1/3: Authentication ve Branch Selection...");
             await EnsureAuthenticatedAsync();
             await EnsureBranchSelectedAsync();
-            await VerifyBranchSelectionAsync();
+            
+            // 🔥 STEP 2: Session Warmup (Struts framework'ünü uyandır)
+            _logger.LogInformation("🔥 Step 2/3: Session Warmup başlatılıyor...");
+            try
+            {
+                var warmupOk = await WarmupSessionAsync();
+                if (!warmupOk)
+                {
+                    _logger.LogWarning("⚠️ Session warmup başarısız, ancak devam ediliyor");
+                }
+            }
+            catch (Exception warmupEx)
+            {
+                _logger.LogWarning(warmupEx, "⚠️ Session warmup hatası, ancak devam ediliyor");
+            }
+            
+            // 🔥 STEP 3: CACHE WARMING (Tek seferlik - tüm Luca stok kartlarını çek)
+            _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            _logger.LogInformation("📥 Step 3/3: CACHE WARMING - Tüm Luca stok kartları çekiliyor...");
+            _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            
+            var allLucaCards = await ListStockCardsSimpleAsync(CancellationToken.None);
+            
+            if (allLucaCards.Count == 0)
+            {
+                _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                _logger.LogError("❌ KRİTİK HATA: CACHE WARMING BAŞARISIZ!");
+                _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                _logger.LogError("   ⚠️ ListStockCardsSimpleAsync() 0 ürün döndü!");
+                _logger.LogError("   ⚠️ SEBEP: JSON parse hatası, session timeout, veya yetki sorunu");
+                _logger.LogError("   ⚠️ SONUÇ: Sync iptal ediliyor (veri bütünlüğü için)");
+                _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                
+                result.IsSuccess = false;
+                result.FailedRecords = uniqueCards.Count;
+                result.Errors.Add("CRITICAL: Cache warming failed - ListStockCardsSimpleAsync returned 0 products");
+                result.Message = "Sync aborted: Cannot proceed without product cache (prevents duplicates)";
+                result.Duration = DateTime.UtcNow - startTime;
+                
+                throw new InvalidOperationException(
+                    "Sync aborted: Cache warming failed. ListStockCardsSimpleAsync returned 0 products. " +
+                    "This prevents duplicate creation and data corruption.");
+            }
+            
+            _logger.LogInformation("✅ {Count} stok kartı Luca'dan çekildi", allLucaCards.Count);
+            
+            // Cache'i doldur
+            await _stockCardCacheLock.WaitAsync();
+            try
+            {
+                _stockCardCache.Clear();
+                
+                int validCount = 0;
+                int invalidCount = 0;
+                
+                foreach (var lucaCard in allLucaCards)
+                {
+                    if (!string.IsNullOrWhiteSpace(lucaCard.KartKodu) && lucaCard.StokKartId.HasValue)
+                    {
+                        _stockCardCache[lucaCard.KartKodu] = lucaCard.StokKartId.Value;
+                        validCount++;
+                    }
+                    else
+                    {
+                        invalidCount++;
+                    }
+                }
+                
+                if (validCount == 0 && allLucaCards.Count > 0)
+                {
+                    _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                    _logger.LogError("❌ KRİTİK HATA: DTO MAPPING HATASI!");
+                    _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                    _logger.LogError("   ⚠️ {TotalCards} kart çekildi AMA hiçbirinde KartKodu veya StokKartId yok!", allLucaCards.Count);
+                    _logger.LogError("   ⚠️ SEBEP: KozaStokKartiDto field isimleri Luca API'si ile uyuşmuyor");
+                    _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                    
+                    throw new InvalidOperationException(
+                        $"DTO mapping error: {allLucaCards.Count} cards fetched but none have valid KartKodu/StokKartId");
+                }
+                else if (invalidCount > 0)
+                {
+                    _logger.LogWarning("⚠️ {ValidCount} geçerli, {InvalidCount} geçersiz kart (KartKodu veya ID eksik)", 
+                        validCount, invalidCount);
+                }
+                
+                _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                _logger.LogInformation("✅ CACHE HAZIR: {Count} SKU → StokKartId mapping", _stockCardCache.Count);
+                _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            }
+            finally
+            {
+                _stockCardCacheLock.Release();
+            }
+            
             _logger.LogWarning(">>> USING SAFE PER-PRODUCT FLOW WITH UPSERT LOGIC <<<");
             _logger.LogInformation("Sending {Count} stock cards to Luca (Koza) with batch size {BatchSize}", uniqueCards.Count, batchSize);
 
@@ -1781,148 +2294,11 @@ public partial class LucaService
                 batchNumber++;
                 _logger.LogInformation("Processing batch {BatchNumber}/{TotalBatches} ({BatchCount} cards)", 
                     batchNumber, batches.Count, batch.Count);
-
-                // 🔥 PERFORMANS OPTİMİZASYONU: Her batch başında session'ı yenile VE TÜM Luca kartlarını cache'e al
-                try
+                
+                // 🔥 Batch'ler arası küçük bekleme (rate limiting)
+                if (batchNumber > 1)
                 {
-                    _logger.LogInformation("🔄 Batch {BatchNumber}/{TotalBatches} başlıyor - Session yenileniyor...", 
-                        batchNumber, batches.Count);
-                    await ForceSessionRefreshAsync();
-                    await EnsureBranchSelectedAsync(); // Branch selection da yap
-                    _logger.LogInformation("✅ Session ve branch hazır");
-                    
-                    // 🔥 SESSION WARMUP: Session'un gerçekten hazır olduğunu doğrula
-                    // Basit bir query ile Luca API'nin yanıt verdiğini kontrol et
-                    _logger.LogDebug("🎯 Session warmup ping gönderiliyor...");
-                    try
-                    {
-                        var warmupReq = new HttpRequestMessage(HttpMethod.Post, "ListeleStkKart.do")
-                        {
-                            Content = new StringContent("{\"start\":0,\"limit\":1}", Encoding.UTF8, "application/json")
-                        };
-                        warmupReq.Headers.TryAddWithoutValidation("No-Paging", "false");
-                        ApplySessionCookie(warmupReq);
-                        ApplyManualSessionCookie(warmupReq);
-                        
-                        var warmupClient = _cookieHttpClient ?? _httpClient;
-                        var warmupRes = await warmupClient.SendAsync(warmupReq, CancellationToken.None);
-                        var warmupBody = await warmupRes.Content.ReadAsStringAsync();
-                        
-                        if (warmupBody.TrimStart().StartsWith("{") || warmupBody.TrimStart().StartsWith("["))
-                        {
-                            _logger.LogInformation("✅ Session warmup başarılı - Luca API hazır");
-                        }
-                        else
-                        {
-                            _logger.LogWarning("⚠️ Session warmup beklenmeyen cevap döndü, yine de devam ediliyor: {Body}", 
-                                warmupBody.Length > 100 ? warmupBody.Substring(0, 100) : warmupBody);
-                            // Ek bekleme
-                            await Task.Delay(2000);
-                        }
-                    }
-                    catch (Exception warmupEx)
-                    {
-                        _logger.LogWarning(warmupEx, "⚠️ Session warmup ping başarısız, yine de devam ediliyor");
-                        await Task.Delay(2000);
-                    }
-                    
-                    // 🚀 CACHE WARMING: Tüm Luca stok kartlarını ön-yükle (tek seferde!)
-                    // Bu sayede her ürün için ayrı API çağrısı yapmayız (10x-100x hızlanma!)
-                    _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                    _logger.LogInformation("📥 CACHE WARMING BAŞLIYOR - Tüm Luca stok kartları çekiliyor...");
-                    _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                    
-                    var allLucaCards = await ListStockCardsSimpleAsync(CancellationToken.None);
-                    
-                    if (allLucaCards.Count == 0)
-                    {
-                        _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                        _logger.LogError("❌ KRİTİK HATA: CACHE WARMING BAŞARISIZ!");
-                        _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                        _logger.LogError("   ⚠️ ListStockCardsSimpleAsync() 0 ürün döndü!");
-                        _logger.LogError("   ⚠️ SEBEP: JSON parse hatası, session timeout, veya yetki sorunu olabilir");
-                        _logger.LogError("   ⚠️ SONUÇ: Cache boş kalacak, tüm ürünler için CANLI API sorgusu yapılacak (YAVAŞ!)");
-                        _logger.LogError("   ⚠️ FİX: ListStockCardsSimpleAsync() loglarını kontrol et, 'U' hatası varsa fix yap");
-                        _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                    }
-                    else
-                    {
-                        _logger.LogInformation("✅ {Count} stok kartı Luca'dan çekildi", allLucaCards.Count);
-                    }
-                    
-                    // Cache'i doldur
-                    await _stockCardCacheLock.WaitAsync();
-                    try
-                    {
-                        _stockCardCache.Clear(); // Eski cache'i temizle
-                        
-                        int validCount = 0;
-                        int invalidCount = 0;
-                        
-                        foreach (var lucaCard in allLucaCards)
-                        {
-                            if (!string.IsNullOrWhiteSpace(lucaCard.KartKodu) && lucaCard.StokKartId.HasValue)
-                            {
-                                _stockCardCache[lucaCard.KartKodu] = lucaCard.StokKartId.Value;
-                                validCount++;
-                            }
-                            else
-                            {
-                                invalidCount++;
-                            }
-                        }
-                        
-                        if (validCount == 0 && allLucaCards.Count > 0)
-                        {
-                            _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                            _logger.LogError("❌ KRİTİK HATA: DTO MAPPING HATASI!");
-                            _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                            _logger.LogError("   ⚠️ {TotalCards} kart çekildi AMA hiçbirinde KartKodu veya StokKartId yok!", allLucaCards.Count);
-                            _logger.LogError("   ⚠️ SEBEP: KozaStokKartiDto field isimleri Luca API'si ile uyuşmuyor olabilir");
-                            _logger.LogError("   ⚠️ FİX: KozaStokKartiDto sınıfını kontrol et, field adlarını Luca response'a göre düzelt");
-                            _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                        }
-                        else if (invalidCount > 0)
-                        {
-                            _logger.LogWarning("⚠️ {ValidCount} geçerli, {InvalidCount} geçersiz kart (KartKodu veya ID eksik)", 
-                                validCount, invalidCount);
-                        }
-                        
-                        _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                        _logger.LogInformation("✅ CACHE HAZIR: {Count} SKU → StokKartId mapping", _stockCardCache.Count);
-                        _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                    }
-                    finally
-                    {
-                        _stockCardCacheLock.Release();
-                    }
-                }
-                catch (InvalidOperationException criticalEx)
-                {
-                    // 🔴 FAIL FAST: Cache warming CRITICAL hatası - Sync'i durdur!
-                    _logger.LogError(criticalEx, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                    _logger.LogError("❌ FATAL ERROR: CACHE WARMING KRİTİK HATASI!");
-                    _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                    _logger.LogError("   ⚠️ Luca'dan stok kartları çekilemedi (JSON parse hatası veya API error)");
-                    _logger.LogError("   ⚠️ Cache boş kaldı - Senkronizasyon GÜVENLİ DEĞİL!");
-                    _logger.LogError("   ⚠️ SEBEP: {Message}", criticalEx.Message);
-                    _logger.LogError("   ⚠️ AKSIYON: Sync DURDURULDU (veri bütünlüğü için)");
-                    _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                    
-                    result.IsSuccess = false;
-                    result.FailedRecords = uniqueCards.Count;
-                    result.Errors.Add($"CRITICAL: Cache warming failed - {criticalEx.Message}");
-                    result.Message = "Sync aborted due to cache warming failure (data integrity protection)";
-                    
-                    // SYNC'İ DURDUR - Exception fırlat
-                    throw new InvalidOperationException(
-                        "Sync aborted: Cache warming failed. Cannot safely proceed without knowing existing stock cards. " +
-                        "This prevents duplicate creation and data corruption.", criticalEx);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "⚠️ Batch başında beklenmeyen hata (cache warming)");
-                    _logger.LogWarning("   → Cache boş kalabilir, performans düşük olacak ama sync devam edecek");
+                    await Task.Delay(rateLimitDelayMs);
                 }
 
             foreach (var card in batch)

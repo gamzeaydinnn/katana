@@ -77,6 +77,7 @@ public partial class LucaService
     /// <summary>
     /// Koza'da yeni depo oluştur (EkleStkWsDepo.do)
     /// Content-Type: application/json
+    /// Format: { "stkDepo": { "kod": "...", "tanim": "...", ... } }
     /// </summary>
     public async Task<KozaResult> CreateDepotAsync(KozaCreateDepotRequest req, CancellationToken ct = default)
     {
@@ -84,40 +85,14 @@ public partial class LucaService
         {
             await EnsureAuthenticatedAsync();
 
-            // Düz JSON - depoKategoriAgacId dahil
-            var payload = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-            {
-                { "kod", req.StkDepo.Kod },
-                { "tanim", req.StkDepo.Tanim },
-                { "kategoriKod", req.StkDepo.KategoriKod }
-            };
-            
-            // Depo kategori ağacı ID (Luca'daki MERKEZ DEPO için 11356)
-            if (req.StkDepo.DepoKategoriAgacId.HasValue)
-                payload["depoKategoriAgacId"] = req.StkDepo.DepoKategoriAgacId.Value;
-            if (!string.IsNullOrWhiteSpace(req.StkDepo.SisDepoKategoriAgacKodu))
-                payload["sisDepoKategoriAgacKodu"] = req.StkDepo.SisDepoKategoriAgacKodu;
-            
-            if (!string.IsNullOrWhiteSpace(req.StkDepo.Ulke))
-                payload["ulke"] = req.StkDepo.Ulke;
-            if (!string.IsNullOrWhiteSpace(req.StkDepo.Il))
-                payload["il"] = req.StkDepo.Il;
-            if (!string.IsNullOrWhiteSpace(req.StkDepo.Ilce))
-                payload["ilce"] = req.StkDepo.Ilce;
-            if (!string.IsNullOrWhiteSpace(req.StkDepo.AdresSerbest))
-                payload["adresSerbest"] = req.StkDepo.AdresSerbest;
+            // FIXED: Koza'nın beklediği format { "stkDepo": { ... } } - DTO'daki JsonPropertyName ile uyumlu
+            var json = JsonSerializer.Serialize(req, _jsonOptions);
 
-            var jsonContent = new StringContent(
-                JsonSerializer.Serialize(payload, _jsonOptions),
-                Encoding.UTF8,
-                "application/json");
-
-            _logger.LogInformation("CreateDepotAsync - JSON payload: {Json}", 
-                JsonSerializer.Serialize(payload, _jsonOptions));
+            _logger.LogInformation("CreateDepotAsync - JSON payload: {Json}", json);
 
             var httpReq = new HttpRequestMessage(HttpMethod.Post, "EkleStkWsDepo.do")
             {
-                Content = jsonContent
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
 
             ApplySessionCookie(httpReq);

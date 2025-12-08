@@ -2,16 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using Katana.Business.Enums;
-using Katana.Business.Models.DTOs;
 using Katana.Core.Constants;
 using Katana.Core.DTOs;
+using Katana.Core.Enums;
 using Katana.Core.Entities;
 using Katana.Core.Helpers;
 using Katana.Data.Configuration;
 using System.ComponentModel.DataAnnotations;
 
-namespace Katana.Infrastructure.Mappers;
+namespace Katana.Business.Mappers;
 
 public static class KatanaToLucaMapper
 {
@@ -247,7 +246,7 @@ public static class KatanaToLucaMapper
         if (invoice == null) return KozaBelgeTurleri.MalSatisFaturasi;
 
         // try to infer direction/isReturn/isProforma/isExchangeRate from invoice hints
-        var hintSources = new[] { invoice.Notes, invoice.Status, invoice.InvoiceNo };
+        var hintSources = new string?[] { invoice.Notes, invoice.Status.ToString(), invoice.InvoiceNo };
         var isProforma = false;
         var isExchangeRate = false;
         InvoiceDirection direction = InvoiceDirection.Sales;
@@ -383,7 +382,8 @@ public static class KatanaToLucaMapper
     public static LucaCreateStokKartiRequest MapKatanaProductToStockCard(
         KatanaProductDto product,
         LucaApiSettings lucaSettings,
-        IReadOnlyDictionary<string, string>? productCategoryMappings = null)
+        IReadOnlyDictionary<string, string>? productCategoryMappings = null,
+        KatanaMappingSettings? mappingSettings = null)
     {
         if (product == null) throw new ArgumentNullException(nameof(product));
         if (lucaSettings == null) throw new ArgumentNullException(nameof(lucaSettings));
