@@ -1991,5 +1991,122 @@ public class SyncService : ISyncService
         };
     }
 
+    /// <summary>
+    /// ✅ Katana Location'larını Luca'ya Depo (Warehouse) olarak senkronize eder
+    /// </summary>
+    public async Task<SyncResultDto> SyncWarehousesToLucaAsync()
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var logEntry = await StartOperationLogAsync("WAREHOUSE_LUCA");
+        
+        int total = 0, successful = 0, errors = 0;
+        var errorMessages = new List<string>();
+
+        try
+        {
+            _logger.LogInformation("🏢 Starting Katana Location → Luca Depo sync");
+
+            // Get Katana locations (warehouses)
+            var locations = await _katanaService.GetLocationsAsync();
+            total = locations?.Count ?? 0;
+            
+            if (total == 0)
+            {
+                _logger.LogWarning("⚠️ No Katana locations found to sync");
+                await FinalizeOperationAsync(logEntry, "COMPLETED", 0, 0, 0, "No locations found");
+                return new SyncResultDto
+                {
+                    IsSuccess = true,
+                    Message = "Katana'da location bulunamadı",
+                    ProcessedRecords = 0,
+                    SuccessfulRecords = 0,
+                    FailedRecords = 0,
+                    Duration = stopwatch.Elapsed
+                };
+            }
+
+            _logger.LogInformation("📥 Found {Count} Katana locations", total);
+
+            foreach (var location in locations!)
+            {
+                try
+                {
+                    // Depo kodu oluştur: Kategori koduyla (002) başlamalı - Luca hiyerarşisi
+                    // Format: 002.001.XXXX (kategori.grup.sıra)
+                    var warehouseCode = location.Id > 0 
+                        ? $"002.001.{location.Id:0000}" // Kategori 002 ile başlıyor (MERKEZ DEPO)
+                        : $"002.001.{(location.Name?.Replace(" ", "").ToUpperInvariant() ?? "DEFAULT")}";
+
+                    var address = location.Address;
+                    var request = new KozaCreateDepotRequest
+                    {
+                        StkDepo = new KozaDepoDto
+                        {
+                            Kod = warehouseCode,
+                            Tanim = location.Name ?? $"Location {location.Id}",
+                            KategoriKod = "002", // Luca UI screenshot: 002 - MERKEZ DEPO
+                            AdresSerbest = address?.Line1,
+                            Il = address?.City,
+                            Ilce = address?.City, // District bilgisi yok, City kullanıyoruz
+                            Ulke = "TR"
+                        }
+                    };
+
+                    _logger.LogInformation("📤 Sending warehouse: {Code} - {Name}", warehouseCode, request.StkDepo.Tanim);
+                    var result = await _lucaService.CreateDepotAsync(request);
+                    
+                    if (!result.Success)
+                    {
+                        throw new Exception($"Luca API error: {result.Message}");
+                    }
+                    
+                    successful++;
+                    _logger.LogInformation("✅ Warehouse {Code} synced successfully", warehouseCode);
+                }
+                catch (Exception ex)
+                {
+                    errors++;
+                    errorMessages.Add($"{location.Name}: {ex.Message}");
+                    _logger.LogError(ex, "❌ Error syncing warehouse {Name}", location.Name);
+                }
+            }
+
+            stopwatch.Stop();
+            await FinalizeOperationAsync(logEntry, "COMPLETED", total, successful, errors, errorMessages.Any() ? string.Join("; ", errorMessages) : null);
+
+            _logger.LogInformation("✅ Warehouse → Luca sync completed: {Total} total, {Success} success, {Errors} errors in {Elapsed}ms",
+                total, successful, errors, stopwatch.ElapsedMilliseconds);
+
+            return new SyncResultDto
+            {
+                IsSuccess = errors == 0,
+                Message = $"Warehouse → Luca sync: {successful}/{total} başarılı",
+                ProcessedRecords = total,
+                SuccessfulRecords = successful,
+                FailedRecords = errors,
+                Duration = stopwatch.Elapsed,
+                Errors = errorMessages
+            };
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            await FinalizeOperationAsync(logEntry, "FAILED", total, successful, errors, ex.Message);
+            
+            _logger.LogError(ex, "❌ Warehouse → Luca sync failed");
+            
+            return new SyncResultDto
+            {
+                IsSuccess = false,
+                Message = "Warehouse → Luca sync failed: " + ex.Message,
+                ProcessedRecords = total,
+                SuccessfulRecords = successful,
+                FailedRecords = errors,
+                Duration = stopwatch.Elapsed,
+                Errors = errorMessages
+            };
+        }
+    }
+
     #endregion
 }

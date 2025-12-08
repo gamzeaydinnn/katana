@@ -257,11 +257,11 @@ public sealed class KozaDepotsController : ControllerBase
                 return BadRequest(new { error = "Request body boş veya geçersiz format" });
             }
 
-            // StkDepo null kontrolü
+            // Wrapper null kontrolü
             if (request.StkDepo == null)
             {
                 _logger.LogWarning("Depot create request.StkDepo is null");
-                return BadRequest(new { error = "stkDepo alanı zorunludur. Örnek format: { \"stkDepo\": { \"kod\": \"...\", \"tanim\": \"...\", \"kategoriKod\": \"...\" } }" });
+                return BadRequest(new { error = "stkDepo alanı zorunludur" });
             }
 
             // DEBUG 1: Request ilk geldiği andaki HAM veriyi logla
@@ -282,12 +282,12 @@ public sealed class KozaDepotsController : ControllerBase
             }
 
             // DÜZELTME 3: KategoriKod kontrolü ve normalizasyon
-            // "MERKEZ" gibi kategori ADLARI değil, numerik KOD bekleniyor
+            // Luca UI'den doğrulanan varsayılan: "002" (MERKEZ DEPO)
             var originalKategoriKod = request.StkDepo.KategoriKod;
             if (string.IsNullOrWhiteSpace(request.StkDepo.KategoriKod) || 
                 request.StkDepo.KategoriKod.Equals("MERKEZ", StringComparison.OrdinalIgnoreCase))
             {
-                request.StkDepo.KategoriKod = "01"; // Varsayılan numerik kategori kodu
+                request.StkDepo.KategoriKod = "002"; // Luca screenshot'tan doğrulandı: 002 - MERKEZ DEPO
                 _logger.LogWarning("KategoriKod TRANSFORMED: '{Original}' -> '{New}'", 
                     originalKategoriKod ?? "NULL", request.StkDepo.KategoriKod);
             }
@@ -369,7 +369,7 @@ public sealed class KozaDepotsController : ControllerBase
 
             // DEBUG 3: LucaService'e gönderilmeden HEMEN ÖNCE son kontrol
             _logger.LogWarning("=== SENDING TO LUCA SERVICE ===");
-            _logger.LogWarning("FINAL REQUEST: {Json}", System.Text.Json.JsonSerializer.Serialize(request));
+            _logger.LogWarning("FINAL REQUEST (will send StkDepo only): {Json}", System.Text.Json.JsonSerializer.Serialize(request.StkDepo));
 
             var result = await _lucaService.CreateDepotAsync(request, ct);
             
