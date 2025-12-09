@@ -48,12 +48,59 @@ interface SyncHistory {
   errorMessage?: string;
 }
 
+// Sync type configuration
+interface SyncTypeConfig {
+  id: string;
+  label: string;
+  description: string;
+  backendValue: string;
+  entities: string[];
+}
+
+const SYNC_TYPES: SyncTypeConfig[] = [
+  {
+    id: 'products',
+    label: 'Ürünler & Stok Kartları',
+    description: 'Katana → Luca/Koza ürün senkronizasyonu',
+    backendValue: 'STOCK_CARD',
+    entities: ['PRODUCT', 'PRODUCT_STOCK', 'VARIANT']
+  },
+  {
+    id: 'stock-movements',
+    label: 'Stok Hareketleri',
+    description: 'Giriş/Çıkış/Transfer hareketleri',
+    backendValue: 'STOCK',
+    entities: ['STOCK_ADJUSTMENT', 'STOCK_TRANSFER']
+  },
+  {
+    id: 'invoices',
+    label: 'Faturalar & İrsaliyeler',
+    description: 'Satış/Alış faturaları ve irsaliyeler',
+    backendValue: 'INVOICE',
+    entities: ['INVOICE', 'WAYBILL', 'SALES_ORDER', 'DESPATCH']
+  },
+  {
+    id: 'contacts',
+    label: 'Müşteri & Tedarikçiler',
+    description: 'Cari/Müşteri/Tedarikçi kartları',
+    backendValue: 'CUSTOMER',
+    entities: ['CUSTOMER', 'SUPPLIER', 'CONTACT']
+  },
+  {
+    id: 'master-data',
+    label: 'Ana Veri',
+    description: 'Depo, kategori, ölçü birimleri',
+    backendValue: 'WAREHOUSE',
+    entities: ['WAREHOUSE', 'CATEGORY', 'UOM']
+  }
+];
+
 const SyncManagement: React.FC = () => {
   const [history, setHistory] = useState<SyncHistory[]>([]);
   const [loading, setLoading] = useState(false);
   
   const [openDialog, setOpenDialog] = useState(false);
-  const [syncType, setSyncType] = useState("STOCK_CARD");
+  const [syncType, setSyncType] = useState(SYNC_TYPES[0].backendValue);
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
@@ -527,18 +574,13 @@ const SyncManagement: React.FC = () => {
               label="Senkronizasyon Tipi"
               onChange={(e) => setSyncType(e.target.value)}
             >
-              {/* Katana ↔ Luca Temel Senkronizasyonlar */}
-              <MenuItem value="STOCK">Stok Hareketleri</MenuItem>
-              <MenuItem value="INVOICE">Fatura</MenuItem>
-              <MenuItem value="CUSTOMER">Müşteri (Cari)</MenuItem>
-              <MenuItem value="DESPATCH">İrsaliye</MenuItem>
-              <MenuItem value="ALL">Tümü</MenuItem>
-              
-              {/* Koza/Luca Kart Senkronizasyonları */}
-              <MenuItem value="STOCK_CARD">Stok Kartları (Luca)</MenuItem>
-              <MenuItem value="SUPPLIER">Tedarikçi Kartları (Koza)</MenuItem>
-              <MenuItem value="WAREHOUSE">Depo Kartları (Koza)</MenuItem>
-              <MenuItem value="CUSTOMER_LUCA">Müşteri Kartları (Luca Cari)</MenuItem>
+              {SYNC_TYPES.map((type) => (
+                <MenuItem key={type.id} value={type.backendValue}>
+                  <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    {type.label}
+                  </Typography>
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
         </DialogContent>
