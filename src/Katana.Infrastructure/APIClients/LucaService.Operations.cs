@@ -927,10 +927,10 @@ public partial class LucaService
         }
         return TryParseId(responseContent);
     }
-    public async Task<List<LucaDepoDto>> GetDepoListAsync()
+    public async Task<List<LucaWarehouseDto>> GetDepoListAsync()
     {
         var element = await ListWarehousesAsync();
-        return DeserializeList<LucaDepoDto>(element);
+        return DeserializeList<LucaWarehouseDto>(element);
     }
     public async Task<List<LucaVergiDairesiDto>> GetVergiDairesiListAsync()
     {
