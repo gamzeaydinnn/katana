@@ -1,9 +1,11 @@
+using System;
 using System.Text;
 using System.Text.Json;
 using Katana.Core.DTOs.Koza;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace Katana.Infrastructure.APIClients;
 
@@ -70,7 +72,11 @@ public partial class LucaService
             else
             {
                 // Filtreleme olmadan (tümü)
-                payload = new { };
+                // Luca dokümantasyonuna göre apiFilter=true gönderilmeli
+                payload = new
+                {
+                    apiFilter = true
+                };
             }
 
             var json = JsonSerializer.Serialize(payload, _jsonOptions);
@@ -95,6 +101,13 @@ public partial class LucaService
                 return new List<KozaCariDto>();
             }
 
+            // Debug için raw body'yi logla (ilk 500 karakter)
+            _logger.LogDebug("ListTedarikciCarilerAsync raw body (first 500): {Body}",
+                body.Length > 500 ? body[..500] : body);
+            _logger.LogInformation("DEBUG ListTedarikciCarilerAsync FULL BODY SAMPLE (first 1000 chars):{NewLine}{Body}",
+                Environment.NewLine,
+                body.Length > 1000 ? body[..1000] : body);
+
             var dto = JsonSerializer.Deserialize<KozaCariListResponse>(body, _jsonOptions);
             
             if (dto?.Error == true)
@@ -103,7 +116,10 @@ public partial class LucaService
                 throw new InvalidOperationException(dto.Message ?? "Luca tedarikçi listeleme hatası");
             }
 
-            var tedarikçiler = dto?.FinTedarikciListesi ?? new List<KozaCariDto>();
+            // Önce finTedarikciListesi, yoksa list'e bak
+            var tedarikçiler = dto?.FinTedarikciListesi
+                             ?? dto?.List
+                             ?? new List<KozaCariDto>();
             
             _logger.LogInformation("Luca'dan {Count} tedarikçi cari listelendi (Filtre: {KodBas}-{KodBit})", 
                 tedarikçiler.Count, kodBas ?? "Tümü", kodBit ?? "Tümü");
@@ -117,7 +133,35 @@ public partial class LucaService
     }
 
     /// <summary>
-    /// Koza Tedarikçi Kartı Ekleme (EkleFinTedarikciWS.do) - Dokümantasyona tam uyumlu
+    /// Luca tedarikçi carilerini sade liste DTO'suna map ederek döndürür
+    /// </summary>
+    public async Task<IReadOnlyList<KozaSupplierListItemDto>> ListTedarikciSupplierItemsAsync(CancellationToken ct = default)
+    {
+        return await ListTedarikciSupplierItemsAsync(null, null, "between", ct);
+    }
+
+    /// <summary>
+    /// Luca tedarikçi carilerini sade liste DTO'suna map ederek döndürür (filtrelenmiş)
+    /// </summary>
+    public async Task<IReadOnlyList<KozaSupplierListItemDto>> ListTedarikciSupplierItemsAsync(
+        string? kodBas,
+        string? kodBit,
+        string kodOp = "between",
+        CancellationToken ct = default)
+    {
+        var cariler = await ListTedarikciCarilerAsync(kodBas, kodBit, kodOp, ct);
+        if (cariler == null || cariler.Count == 0)
+        {
+            return new List<KozaSupplierListItemDto>();
+        }
+
+        return cariler
+            .Select(KozaSupplierListItemDto.FromKozaCari)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Koza Tedarikçi Kartı Ekleme (EkleFinTedarikciWS.do) - Postman ile birebir uyumlu
     /// </summary>
     public async Task<KozaResult> CreateTedarikciCariAsync(KozaTedarikciEkleRequest request, CancellationToken ct = default)
     {
@@ -125,7 +169,8 @@ public partial class LucaService
         {
             await EnsureAuthenticatedAsync();
 
-            var json = JsonSerializer.Serialize(new { finTedarikci = request }, _jsonOptions);
+            // FIXED: Postman ile birebir uyumlu - düz obje, finTedarikci sarmalayıcısı YOK
+            var json = JsonSerializer.Serialize(request, _jsonOptions);
             
             _logger.LogDebug("CreateTedarikciCariAsync request: {Json}", json);
 
@@ -146,11 +191,12 @@ public partial class LucaService
 
             if (body.TrimStart().StartsWith("<"))
             {
-                _logger.LogError("Koza NO_JSON (HTML döndü) - CreateTedarikciCariAsync");
+                _logger.LogError("Koza NO_JSON (HTML döndü) - CreateTedarikciCariAsync. Body snippet: {Snippet}",
+                    body.Length > 300 ? body[..300] : body);
                 return new KozaResult 
                 { 
                     Success = false, 
-                    Message = "Koza NO_JSON (HTML döndü). Auth/şube/cookie kırık olabilir." 
+                    Message = "Koza HTML hata sayfası döndürdü (muhtemelen JSON formatı uyuşmuyor)." 
                 };
             }
 
@@ -239,7 +285,7 @@ public partial class LucaService
             var request = new LucaCreateSupplierRequest
             {
                 Tip = 1, // Tüzel kişi
-                CariTipId = 2, // Tedarikçi
+                CariTipId = 1, // Tedarikçi (Postman'da 1)
                 KartKod = lucaCode,
                 Tanim = supplier.Name,
                 KisaAd = supplier.Name.Length > 50 ? supplier.Name.Substring(0, 50) : supplier.Name,
@@ -371,89 +417,68 @@ public partial class LucaService
                 };
             }
 
-            // Yeni tedarikçi oluştur
-            var request = new LucaCreateSupplierRequest
+            // Yeni tedarikçi oluştur - Postman örneğine uygun tüm zorunlu alanlarla
+            var kozaRequest = new KozaTedarikciEkleRequest
             {
-                Tip = 1, // Tüzel kişi
-                CariTipId = 2, // Tedarikçi
+                Tip = "1", // "1": Şirket
+                CariTipId = 1, // Tedarikçi (Postman'da 1)
+                TakipNoFlag = true, // Postman'da true
+                EfaturaTuru = 1, // 1: Temel Fatura
+                KategoriKod = "", // Postman'da boş string
                 KartKod = cariKodu,
                 Tanim = supplier.Name,
                 KisaAd = supplier.Name.Length > 50 ? supplier.Name.Substring(0, 50) : supplier.Name,
                 YasalUnvan = supplier.Name,
                 VergiNo = supplier.TaxNo,
                 ParaBirimKod = "TRY",
+                TcUyruklu = true, // Postman'da true
+                AdresTipId = 9, // 9: Fatura adresi (Postman'da 9)
                 Ulke = "TÜRKİYE",
                 Il = "İSTANBUL",
-                AdresSerbest = supplier.Address,
-                IletisimTanim = supplier.Phone ?? supplier.Email,
-                AdresTipId = 1, // Merkez
-                IletisimTipId = supplier.Phone != null ? 1L : 2L // 1=Telefon, 2=Email
+                Ilce = "Merkez", // Postman'da var
+                AdresSerbest = supplier.Address ?? "",
+                IletisimTipId = supplier.Phone != null ? 3 : 5, // 3=Cep, 5=E-Posta (Postman'da 3)
+                IletisimTanim = supplier.Phone ?? supplier.Email ?? ""
             };
 
-            var json = JsonSerializer.Serialize(request, _jsonOptions);
+            _logger.LogWarning("=== SUPPLIER CREATE - Using CreateTedarikciCariAsync ===");
+            _logger.LogWarning("CariKodu: {CariKodu}", cariKodu);
             
-            _logger.LogDebug("EnsureSupplierCariAsync creating: {Json}", json);
+            // CreateTedarikciCariAsync kullan - bu metod zaten doğru formatta gönderir
+            var result = await CreateTedarikciCariAsync(kozaRequest, ct);
 
-            var httpReq = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.SupplierCreate)
+            if (result.Success)
             {
-                Content = new StringContent(json, Encoding.UTF8, "application/json")
-            };
+                string? kozaCariKodu = cariKodu;
+                long? finansalNesneId = null;
 
-            ApplySessionCookie(httpReq);
-            ApplyManualSessionCookie(httpReq);
-
-            var client = _cookieHttpClient ?? _httpClient;
-            var res = await client.SendAsync(httpReq, ct);
-            var body = await res.Content.ReadAsStringAsync(ct);
-
-            _logger.LogDebug("EnsureSupplierCariAsync response: {Status}, {Body}", 
-                res.StatusCode, body.Length > 500 ? body.Substring(0, 500) : body);
-
-            if (body.TrimStart().StartsWith("<"))
-            {
-                _logger.LogError("Luca NO_JSON (HTML döndü) - EnsureSupplierCariAsync");
-                return new KozaResult 
-                { 
-                    Success = false, 
-                    Message = "Luca NO_JSON (HTML döndü). Auth/şube/cookie kırık olabilir." 
-                };
-            }
-
-            if (!res.IsSuccessStatusCode)
-            {
-                return new KozaResult 
-                { 
-                    Success = false, 
-                    Message = $"HTTP {res.StatusCode}: {body}" 
-                };
-            }
-
-            // Response'dan finansalNesneId almaya çalış
-            long? finansalNesneId = null;
-            try
-            {
-                var respJson = JsonSerializer.Deserialize<JsonElement>(body);
-                if (respJson.TryGetProperty("finansalNesneId", out var fnId))
+                try
                 {
-                    finansalNesneId = fnId.GetInt64();
-                }
-                else if (respJson.TryGetProperty("finTedarikci", out var ft) && 
-                         ft.TryGetProperty("finansalNesneId", out var ftId))
-                {
-                    finansalNesneId = ftId.GetInt64();
-                }
-            }
-            catch { /* Ignore parse errors */ }
+                    if (result.Data != null)
+                    {
+                        var dataJson = JsonSerializer.Serialize(result.Data, _jsonOptions);
+                        var dataElement = JsonSerializer.Deserialize<JsonElement>(dataJson, _jsonOptions);
 
-            _logger.LogInformation("Tedarikçi başarıyla oluşturuldu: {CariKodu} - {Name} (FinansalNesneId: {Id})", 
-                cariKodu, supplier.Name, finansalNesneId);
-            
-            return new KozaResult 
-            { 
-                Success = true, 
-                Message = "OK",
-                Data = new { CariKodu = cariKodu, FinansalNesneId = finansalNesneId }
-            };
+                        if (dataElement.TryGetProperty("CariKodu", out var ck))
+                            kozaCariKodu = ck.GetString() ?? kozaCariKodu;
+                        if (dataElement.TryGetProperty("FinansalNesneId", out var fn) && fn.ValueKind == JsonValueKind.Number)
+                            finansalNesneId = fn.GetInt64();
+                    }
+                }
+                catch
+                {
+                    // ignore parse errors
+                }
+
+                _logger.LogInformation(
+                    "Supplier sync ok: KatanaSupplierId={Id}, KatanaName={Name}, KozaCariKodu={Kod}, KozaFinansalNesneId={FinId}",
+                    supplier.KatanaSupplierId,
+                    supplier.Name,
+                    kozaCariKodu,
+                    finansalNesneId);
+            }
+
+            return result;
         }
         catch (Exception ex)
         {

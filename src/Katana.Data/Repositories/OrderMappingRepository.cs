@@ -17,13 +17,18 @@ public class OrderMappingRepository : IOrderMappingRepository
         _context = context;
     }
 
-    public async Task<string?> GetLucaCariKoduByCustomerIdAsync(int katanaCustomerId)
+    public async Task<string?> GetLucaCariKoduByCustomerIdAsync(string katanaCustomerId)
     {
-        var customer = await _context.Customers
-            .FirstOrDefaultAsync(c => c.Id == katanaCustomerId);
+        if (long.TryParse(katanaCustomerId, out var customerIdLong))
+        {
+            var customer = await _context.Customers
+                .FirstOrDefaultAsync(c => c.Id == customerIdLong);
+            
+            // LucaCode varsa onu kullan, yoksa TaxNo kullan
+            return customer?.LucaCode ?? customer?.TaxNo;
+        }
         
-        // LucaCode varsa onu kullan, yoksa TaxNo kullan
-        return customer?.LucaCode ?? customer?.TaxNo;
+        return null;
     }
 
     public async Task<string?> GetLucaSupplierKoduBySupplierIdAsync(int katanaSupplierId)

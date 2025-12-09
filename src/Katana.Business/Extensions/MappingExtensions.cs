@@ -41,7 +41,7 @@ public static class MappingExtensions
     /// Customer mapping'i oluştur ve hash'ini hesapla
     /// </summary>
     public static CustomerKozaCariMapping CreateCustomerMapping(
-        int katanaCustomerId,
+        string katanaCustomerId,
         string kozaCariKodu,
         long? kozaFinansalNesneId,
         string? katanaCustomerName = null,

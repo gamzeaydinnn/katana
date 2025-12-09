@@ -62,7 +62,7 @@ public static class MappingHashHelper
     /// <summary>
     /// Customer mapping'i için hash hesapla
     /// </summary>
-    public static string ComputeCustomerMappingHash(int katanaCustomerId, string kozaCariKodu, long? kozaFinansalNesneId, string? taxNo = null)
+    public static string ComputeCustomerMappingHash(string katanaCustomerId, string kozaCariKodu, long? kozaFinansalNesneId, string? taxNo = null)
     {
         var data = new { katanaCustomerId, kozaCariKodu, kozaFinansalNesneId, taxNo };
         return ComputeHash(data);

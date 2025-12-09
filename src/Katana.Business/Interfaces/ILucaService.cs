@@ -234,11 +234,17 @@ public interface ILucaService
     Task<JsonElement> ListCariYetkililerAsync(long finansalNesneId, CancellationToken ct = default);
     Task<KozaResult> CreateCariHareketAsync(KozaCariHareketRequest req, CancellationToken ct = default);
     
-    // Koza Tedarikçi Listesi
+    // Koza Müşteri Listesi
     Task<IReadOnlyList<KozaCariDto>> ListMusteriCarilerAsync(CancellationToken ct = default);
     Task<IReadOnlyList<KozaCariDto>> ListMusteriCarilerAsync(string? kodBas, string? kodBit, string kodOp = "between", CancellationToken ct = default);
+    Task<IReadOnlyList<KozaCustomerListItemDto>> ListMusteriCustomerItemsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<KozaCustomerListItemDto>> ListMusteriCustomerItemsAsync(string? kodBas, string? kodBit, string kodOp = "between", CancellationToken ct = default);
+    
+    // Koza Tedarikçi Listesi
     Task<IReadOnlyList<KozaCariDto>> ListTedarikciCarilerAsync(CancellationToken ct = default);
     Task<IReadOnlyList<KozaCariDto>> ListTedarikciCarilerAsync(string? kodBas, string? kodBit, string kodOp = "between", CancellationToken ct = default);
+    Task<IReadOnlyList<KozaSupplierListItemDto>> ListTedarikciSupplierItemsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<KozaSupplierListItemDto>> ListTedarikciSupplierItemsAsync(string? kodBas, string? kodBit, string kodOp = "between", CancellationToken ct = default);
     Task<KozaResult> CreateMusteriCariAsync(KozaMusteriEkleRequest request, CancellationToken ct = default);
     Task<KozaResult> CreateTedarikciCariAsync(KozaTedarikciEkleRequest request, CancellationToken ct = default);
     

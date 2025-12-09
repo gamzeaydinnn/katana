@@ -7,6 +7,8 @@ using Katana.Data.Context;
 using Katana.Core.Entities;
 using Katana.Core.DTOs;
 using System.Text.Json;
+using Katana.Business.Extensions;
+using System.IO;
 
 namespace Katana.API.Controllers.Admin;
 
@@ -158,14 +160,14 @@ public sealed class KozaCariController : ControllerBase
     /// GET /api/admin/koza/cari/suppliers
     /// </summary>
     [HttpGet("suppliers")]
-    [ProducesResponseType(typeof(IReadOnlyList<KozaCariDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IReadOnlyList<KozaSupplierListItemDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> ListSuppliers(CancellationToken ct)
     {
         try
         {
             _logger.LogInformation("Listing Koza supplier caris");
-            var suppliers = await _lucaService.ListTedarikciCarilerAsync(ct);
+            var suppliers = await _lucaService.ListTedarikciSupplierItemsAsync(ct);
             
             _logger.LogInformation("Retrieved {Count} suppliers from Koza", suppliers.Count);
             return Ok(suppliers);
@@ -212,6 +214,7 @@ public sealed class KozaCariController : ControllerBase
                     KatanaSupplierId = katanaSupplier.Id.ToString(),
                     SupplierName = katanaSupplier.Name
                 };
+                var statusLabel = "Unknown";
 
                 try
                 {
@@ -221,12 +224,31 @@ public sealed class KozaCariController : ControllerBase
 
                     if (existingMapping != null)
                     {
+                        var now = DateTime.UtcNow;
+                        existingMapping.KozaCariKodu ??= $"TED-{katanaSupplier.Id}";
+                        existingMapping.KozaCariTanim ??= katanaSupplier.Name;
+                        existingMapping.KatanaSupplierName = katanaSupplier.Name;
+                        existingMapping.SyncStatus = "SUCCESS";
+                        existingMapping.LastSyncAt = now;
+                        existingMapping.LastSyncError = null;
+                        existingMapping.UpdatedAt = now;
+                        existingMapping.UpdateHash();
+                        await _dbContext.SaveChangesAsync(ct);
+
                         // Zaten senkronize edilmiş
                         item.KozaCariKodu = existingMapping.KozaCariKodu;
                         item.KozaFinansalNesneId = existingMapping.KozaFinansalNesneId;
                         item.Success = true;
-                        item.Message = "Zaten senkronize edilmiş";
+                        item.Message = "Tedarikçi cari zaten Luca'da mevcut";
                         result.SkippedCount++;
+                        statusLabel = "Skipped";
+                        
+                        _logger.LogInformation(
+                            "Supplier sync skipped: KatanaSupplierId={Id}, KatanaName={Name}, KozaCariKodu={Kod}, KozaFinansalNesneId={FinId}",
+                            katanaSupplier.Id,
+                            katanaSupplier.Name,
+                            existingMapping.KozaCariKodu,
+                            existingMapping.KozaFinansalNesneId);
                     }
                     else
                     {
@@ -240,11 +262,63 @@ public sealed class KozaCariController : ControllerBase
                             TaxNo = katanaSupplier.TaxNo
                         };
 
-                        var kozaResult = await _lucaService.EnsureSupplierCariAsync(supplierDto, ct);
+                        // Retry logic: 3 deneme, her denemede exponential backoff
+                        KozaResult? kozaResult = null;
+                        var maxRetries = 3;
+                        var retryDelay = 500; // 500ms başlangıç
 
-                        if (kozaResult.Success)
+                        for (int retry = 0; retry < maxRetries; retry++)
+                        {
+                            try
+                            {
+                                kozaResult = await _lucaService.EnsureSupplierCariAsync(supplierDto, ct);
+                                
+                                // Başarılı ise döngüden çık
+                                if (kozaResult.Success)
+                                {
+                                    break;
+                                }
+                                
+                                // Başarısız ama retry yapılabilir mi kontrol et
+                                if (retry < maxRetries - 1 && 
+                                    (kozaResult.Message?.Contains("Connection reset") == true ||
+                                     kozaResult.Message?.Contains("transport connection") == true))
+                                {
+                                    _logger.LogWarning("Retry {Retry}/{Max} for supplier {Id} after {Delay}ms", 
+                                        retry + 1, maxRetries, katanaSupplier.Id, retryDelay);
+                                    await Task.Delay(retryDelay, ct);
+                                    retryDelay *= 2; // Exponential backoff
+                                }
+                                else
+                                {
+                                    break; // Retry yapılamaz hata, çık
+                                }
+                            }
+                            catch (HttpRequestException httpEx) when (
+                                httpEx.InnerException is IOException ioEx && 
+                                ioEx.Message.Contains("Connection reset"))
+                            {
+                                if (retry < maxRetries - 1)
+                                {
+                                    _logger.LogWarning("Connection reset, retry {Retry}/{Max} for supplier {Id} after {Delay}ms", 
+                                        retry + 1, maxRetries, katanaSupplier.Id, retryDelay);
+                                    await Task.Delay(retryDelay, ct);
+                                    retryDelay *= 2;
+                                }
+                                else
+                                {
+                                    kozaResult = new KozaResult { Success = false, Message = httpEx.Message };
+                                }
+                            }
+                        }
+
+                        // Throttling: Her istek arasında 200ms bekle
+                        await Task.Delay(200, ct);
+
+                        if (kozaResult?.Success == true)
                         {
                             // Mapping kaydet
+                            var now = DateTime.UtcNow;
                             string? cariKodu = null;
                             long? finansalNesneId = null;
 
@@ -267,10 +341,14 @@ public sealed class KozaCariController : ControllerBase
                                 KozaCariKodu = cariKodu,
                                 KozaFinansalNesneId = finansalNesneId,
                                 KatanaSupplierName = katanaSupplier.Name,
-                                KozaCariTanim = katanaSupplier.Name,
-                                CreatedAt = DateTime.UtcNow,
-                                UpdatedAt = DateTime.UtcNow
+                                KozaCariTanim = supplierDto.Name ?? katanaSupplier.Name,
+                                SyncStatus = "SUCCESS",
+                                LastSyncAt = now,
+                                LastSyncError = null,
+                                CreatedAt = now,
+                                UpdatedAt = now
                             };
+                            mapping.UpdateHash();
 
                             _dbContext.SupplierKozaCariMappings.Add(mapping);
                             await _dbContext.SaveChangesAsync(ct);
@@ -278,14 +356,23 @@ public sealed class KozaCariController : ControllerBase
                             item.KozaCariKodu = cariKodu;
                             item.KozaFinansalNesneId = finansalNesneId;
                             item.Success = true;
-                            item.Message = kozaResult.Message;
+                            item.Message = kozaResult.Message ?? "Tedarikçi cari başarıyla oluşturuldu";
                             result.SuccessCount++;
+                            statusLabel = "Success";
+
+                            _logger.LogInformation(
+                                "Supplier sync ok: KatanaSupplierId={Id}, KatanaName={Name}, KozaCariKodu={Kod}, KozaFinansalNesneId={FinId}",
+                                katanaSupplier.Id,
+                                katanaSupplier.Name,
+                                cariKodu,
+                                finansalNesneId);
                         }
                         else
                         {
                             item.Success = false;
-                            item.Message = kozaResult.Message;
+                            item.Message = kozaResult?.Message ?? "Tedarikçi cari oluşturulamadı";
                             result.ErrorCount++;
+                            statusLabel = "Error";
                         }
                     }
                 }
@@ -296,7 +383,13 @@ public sealed class KozaCariController : ControllerBase
                     item.Success = false;
                     item.Message = ex.Message;
                     result.ErrorCount++;
+                    statusLabel = "Error";
                 }
+
+                _logger.LogInformation("Supplier sync result: KatanaSupplierId={Id}, Status={Status}, Message={Message}",
+                    item.KatanaSupplierId,
+                    statusLabel,
+                    item.Message ?? "-");
 
                 result.Items.Add(item);
             }
@@ -334,6 +427,289 @@ public sealed class KozaCariController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get supplier mappings");
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    #endregion
+
+    #region Müşteri İşlemleri
+
+    /// <summary>
+    /// Koza'daki müşteri carilerini listele
+    /// GET /api/admin/koza/cari/customers
+    /// </summary>
+    [HttpGet("customers")]
+    [ProducesResponseType(typeof(IReadOnlyList<KozaCustomerListItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> ListCustomers(CancellationToken ct)
+    {
+        try
+        {
+            _logger.LogInformation("Listing Koza customer caris");
+            var customers = await _lucaService.ListMusteriCustomerItemsAsync(ct);
+            
+            _logger.LogInformation("Retrieved {Count} customers from Koza", customers.Count);
+            return Ok(customers);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to list Koza customers");
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Katana Customer → Koza Müşteri Cari toplu senkronizasyonu
+    /// POST /api/admin/koza/cari/customers/sync
+    /// </summary>
+    [HttpPost("customers/sync")]
+    [ProducesResponseType(typeof(CustomerSyncResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> SyncCustomers(CancellationToken ct)
+    {
+        var result = new CustomerSyncResult();
+        
+        try
+        {
+            _logger.LogInformation("Starting Katana → Koza customer sync");
+
+            // 1. Katana'dan customer'ları çek
+            var katanaCustomers = await _katanaService.GetCustomersAsync();
+            result.TotalCount = katanaCustomers.Count;
+
+            _logger.LogInformation("Found {Count} customers in Katana", katanaCustomers.Count);
+
+            if (katanaCustomers.Count == 0)
+            {
+                result.ErrorMessage = "Katana'da müşteri bulunamadı";
+                return Ok(result);
+            }
+
+            // 2. Her customer için Koza'da cari oluştur/kontrol et
+            foreach (var katanaCustomer in katanaCustomers)
+            {
+                var item = new CustomerSyncItem
+                {
+                    KatanaCustomerId = katanaCustomer.Id.ToString(),
+                    CustomerName = katanaCustomer.Name
+                };
+                var statusLabel = "Unknown";
+
+                try
+                {
+                    // Mapping tablosunda var mı kontrol et
+                    var customerIdStr = katanaCustomer.Id.ToString();
+                    var existingMapping = await _dbContext.CustomerKozaCariMappings
+                        .FirstOrDefaultAsync(m => m.KatanaCustomerId == customerIdStr, ct);
+
+                    if (existingMapping != null)
+                    {
+                        var now = DateTime.UtcNow;
+                        existingMapping.KozaCariKodu ??= $"MUS-{katanaCustomer.Id}";
+                        existingMapping.KozaCariTanim ??= katanaCustomer.Name;
+                        existingMapping.KatanaCustomerName = katanaCustomer.Name;
+                        existingMapping.SyncStatus = "SUCCESS";
+                        existingMapping.LastSyncAt = now;
+                        existingMapping.LastSyncError = null;
+                        existingMapping.UpdatedAt = now;
+                        existingMapping.UpdateHash();
+                        await _dbContext.SaveChangesAsync(ct);
+
+                        // Zaten senkronize edilmiş
+                        item.KozaCariKodu = existingMapping.KozaCariKodu;
+                        item.KozaFinansalNesneId = existingMapping.KozaFinansalNesneId;
+                        item.Success = true;
+                        item.Message = "Müşteri cari zaten Luca'da mevcut";
+                        result.SkippedCount++;
+                        statusLabel = "Skipped";
+                        
+                        _logger.LogInformation(
+                            "Customer sync skipped: KatanaCustomerId={Id}, KatanaName={Name}, KozaCariKodu={Kod}, KozaFinansalNesneId={FinId}",
+                            katanaCustomer.Id,
+                            katanaCustomer.Name,
+                            existingMapping.KozaCariKodu,
+                            existingMapping.KozaFinansalNesneId);
+                    }
+                    else
+                    {
+                        // Koza'da oluştur
+                        var customerDto = new KatanaCustomerToCariDto
+                        {
+                            KatanaCustomerId = customerIdStr,
+                            Code = $"MUS-{katanaCustomer.Id}",
+                            Name = katanaCustomer.Name,
+                            Email = katanaCustomer.Email,
+                            Phone = katanaCustomer.Phone,
+                            TaxNo = null // KatanaCustomerDto doesn't have TaxNo field
+                        };
+
+                        // Retry logic: 3 deneme, her denemede exponential backoff
+                        KozaResult? kozaResult = null;
+                        var maxRetries = 3;
+                        var retryDelay = 500; // 500ms başlangıç
+
+                        for (int retry = 0; retry < maxRetries; retry++)
+                        {
+                            try
+                            {
+                                kozaResult = await _lucaService.EnsureCustomerCariAsync(customerDto, ct);
+                                
+                                // Başarılı ise döngüden çık
+                                if (kozaResult.Success)
+                                {
+                                    break;
+                                }
+                                
+                                // Başarısız ama retry yapılabilir mi kontrol et
+                                if (retry < maxRetries - 1 && 
+                                    (kozaResult.Message?.Contains("Connection reset") == true ||
+                                     kozaResult.Message?.Contains("transport connection") == true))
+                                {
+                                    _logger.LogWarning("Retry {Retry}/{Max} for customer {Code} after {Delay}ms", 
+                                        retry + 1, maxRetries, customerDto.Code, retryDelay);
+                                    await Task.Delay(retryDelay, ct);
+                                    retryDelay *= 2; // Exponential backoff
+                                }
+                                else
+                                {
+                                    break; // Retry yapılamaz hata, çık
+                                }
+                            }
+                            catch (HttpRequestException httpEx) when (
+                                httpEx.InnerException is IOException ioEx && 
+                                ioEx.Message.Contains("Connection reset"))
+                            {
+                                if (retry < maxRetries - 1)
+                                {
+                                    _logger.LogWarning("Connection reset, retry {Retry}/{Max} for customer {Code} after {Delay}ms", 
+                                        retry + 1, maxRetries, customerDto.Code, retryDelay);
+                                    await Task.Delay(retryDelay, ct);
+                                    retryDelay *= 2;
+                                }
+                                else
+                                {
+                                    kozaResult = new KozaResult { Success = false, Message = httpEx.Message };
+                                }
+                            }
+                        }
+
+                        // Throttling: Her istek arasında 200ms bekle
+                        await Task.Delay(200, ct);
+
+                        if (kozaResult?.Success == true)
+                        {
+                            // Mapping kaydet
+                            var now = DateTime.UtcNow;
+                            string? cariKodu = null;
+                            long? finansalNesneId = null;
+
+                            if (kozaResult.Data != null)
+                            {
+                                var dataJson = JsonSerializer.Serialize(kozaResult.Data);
+                                var dataObj = JsonSerializer.Deserialize<JsonElement>(dataJson);
+                                
+                                if (dataObj.TryGetProperty("CariKodu", out var ck))
+                                    cariKodu = ck.GetString();
+                                if (dataObj.TryGetProperty("FinansalNesneId", out var fn) && fn.ValueKind == JsonValueKind.Number)
+                                    finansalNesneId = fn.GetInt64();
+                            }
+
+                            cariKodu ??= $"MUS-{katanaCustomer.Id}";
+
+                            var mapping = new CustomerKozaCariMapping
+                            {
+                                KatanaCustomerId = customerIdStr,
+                                KozaCariKodu = cariKodu,
+                                KozaFinansalNesneId = finansalNesneId,
+                                KatanaCustomerName = katanaCustomer.Name,
+                                KozaCariTanim = customerDto.Name ?? katanaCustomer.Name,
+                                KatanaCustomerTaxNo = null, // KatanaCustomerDto doesn't have TaxNo field
+                                SyncStatus = "SUCCESS",
+                                LastSyncAt = now,
+                                LastSyncError = null,
+                                CreatedAt = now,
+                                UpdatedAt = now
+                            };
+                            mapping.UpdateHash();
+
+                            _dbContext.CustomerKozaCariMappings.Add(mapping);
+                            await _dbContext.SaveChangesAsync(ct);
+
+                            item.KozaCariKodu = cariKodu;
+                            item.KozaFinansalNesneId = finansalNesneId;
+                            item.Success = true;
+                            item.Message = kozaResult.Message ?? "Müşteri cari başarıyla oluşturuldu";
+                            result.SuccessCount++;
+                            statusLabel = "Success";
+
+                            _logger.LogInformation(
+                                "Customer sync ok: KatanaCustomerId={Id}, KatanaName={Name}, KozaCariKodu={Kod}, KozaFinansalNesneId={FinId}",
+                                katanaCustomer.Id,
+                                katanaCustomer.Name,
+                                cariKodu,
+                                finansalNesneId);
+                        }
+                        else
+                        {
+                            item.Success = false;
+                            item.Message = kozaResult?.Message ?? "Müşteri cari oluşturulamadı";
+                            result.ErrorCount++;
+                            statusLabel = "Error";
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to sync customer {Id}: {Name}", 
+                        katanaCustomer.Id, katanaCustomer.Name);
+                    item.Success = false;
+                    item.Message = ex.Message;
+                    result.ErrorCount++;
+                    statusLabel = "Error";
+                }
+
+                _logger.LogInformation("Customer sync result: KatanaCustomerId={Id}, Status={Status}, Message={Message}",
+                    item.KatanaCustomerId,
+                    statusLabel,
+                    item.Message ?? "-");
+
+                result.Items.Add(item);
+            }
+
+            _logger.LogInformation(
+                "Customer sync completed: Total={Total}, Success={Success}, Skipped={Skipped}, Error={Error}",
+                result.TotalCount, result.SuccessCount, result.SkippedCount, result.ErrorCount);
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Customer sync failed");
+            result.ErrorMessage = ex.Message;
+            return StatusCode(500, result);
+        }
+    }
+
+    /// <summary>
+    /// Customer mapping'leri listele
+    /// GET /api/admin/koza/cari/customers/mappings
+    /// </summary>
+    [HttpGet("customers/mappings")]
+    [ProducesResponseType(typeof(List<CustomerKozaCariMapping>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCustomerMappings(CancellationToken ct)
+    {
+        try
+        {
+            var mappings = await _dbContext.CustomerKozaCariMappings
+                .OrderByDescending(m => m.UpdatedAt)
+                .ToListAsync(ct);
+            
+            return Ok(mappings);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get customer mappings");
             return StatusCode(500, new { error = ex.Message });
         }
     }

@@ -14,10 +14,11 @@ public class CustomerKozaCariMapping
     public int Id { get; set; }
     
     /// <summary>
-    /// Katana Customer ID (int)
+    /// Katana Customer ID (string to handle long IDs from Katana API)
     /// </summary>
     [Required]
-    public int KatanaCustomerId { get; set; }
+    [MaxLength(50)]
+    public string KatanaCustomerId { get; set; } = string.Empty;
     
     /// <summary>
     /// Koza cari kodu (CK-{KatanaCustomerId} formatında veya Koza'dan dönen kod)

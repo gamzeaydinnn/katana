@@ -11,21 +11,21 @@ namespace Katana.Business.Services;
 /// </summary>
 public interface ICustomerMappingService
 {
-    Task<string> GetCariKoduByCustomerIdAsync(int customerId);
-    Task<long?> GetFinansalNesneIdByCustomerIdAsync(int customerId);
-    Task<CustomerKozaCariMapping?> GetMappingByCustomerIdAsync(int customerId);
+    Task<string> GetCariKoduByCustomerIdAsync(string customerId);
+    Task<long?> GetFinansalNesneIdByCustomerIdAsync(string customerId);
+    Task<CustomerKozaCariMapping?> GetMappingByCustomerIdAsync(string customerId);
     Task<CustomerKozaCariMapping?> GetMappingByTaxNoAsync(string taxNo);
     Task<CustomerKozaCariMapping?> GetMappingByCariKoduAsync(string cariKodu);
     Task<CustomerKozaCariMapping> CreateOrUpdateMappingAsync(
-        int katanaCustomerId,
+        string katanaCustomerId,
         string kozaCariKodu,
         long? kozaFinansalNesneId = null,
         string? katanaCustomerName = null,
         string? kozaCariTanim = null,
         string? katanaCustomerTaxNo = null);
-    Task<bool> IsDuplicateCustomerAsync(int customerId, string taxNo);
+    Task<bool> IsDuplicateCustomerAsync(string customerId, string taxNo);
     Task<List<CustomerKozaCariMapping>> GetAllMappingsAsync();
-    Task<Dictionary<int, string>> GetCustomerToCariKoduMapAsync();
+    Task<Dictionary<string, string>> GetCustomerToCariKoduMapAsync();
 }
 
 public class CustomerMappingService : ICustomerMappingService
@@ -44,7 +44,7 @@ public class CustomerMappingService : ICustomerMappingService
     /// <summary>
     /// Customer ID'ye göre cari kodu al
     /// </summary>
-    public async Task<string> GetCariKoduByCustomerIdAsync(int customerId)
+    public async Task<string> GetCariKoduByCustomerIdAsync(string customerId)
     {
         try
         {
@@ -58,13 +58,16 @@ public class CustomerMappingService : ICustomerMappingService
             }
 
             // Mapping bulunamadı - Customer entity'den kontrol et
-            var customer = await _context.Customers.FindAsync(customerId);
-            if (customer != null && !string.IsNullOrWhiteSpace(customer.LucaCode))
+            if (long.TryParse(customerId, out var customerIdLong))
             {
-                _logger.LogInformation(
-                    "Using LucaCode from Customer entity for Customer {CustomerId}: {CariKodu}",
-                    customerId, customer.LucaCode);
-                return customer.LucaCode;
+                var customer = await _context.Customers.FindAsync(customerIdLong);
+                if (customer != null && !string.IsNullOrWhiteSpace(customer.LucaCode))
+                {
+                    _logger.LogInformation(
+                        "Using LucaCode from Customer entity for Customer {CustomerId}: {CariKodu}",
+                        customerId, customer.LucaCode);
+                    return customer.LucaCode;
+                }
             }
 
             // Hiçbir kod bulunamadı - default oluştur
@@ -85,7 +88,7 @@ public class CustomerMappingService : ICustomerMappingService
     /// <summary>
     /// Customer ID'ye göre finansal nesne ID al
     /// </summary>
-    public async Task<long?> GetFinansalNesneIdByCustomerIdAsync(int customerId)
+    public async Task<long?> GetFinansalNesneIdByCustomerIdAsync(string customerId)
     {
         try
         {
@@ -99,8 +102,13 @@ public class CustomerMappingService : ICustomerMappingService
             }
 
             // Mapping'de yoksa Customer entity'den kontrol et
-            var customer = await _context.Customers.FindAsync(customerId);
-            return customer?.LucaFinansalNesneId;
+            if (long.TryParse(customerId, out var customerIdLong))
+            {
+                var customer = await _context.Customers.FindAsync(customerIdLong);
+                return customer?.LucaFinansalNesneId;
+            }
+            
+            return null;
         }
         catch (Exception ex)
         {
@@ -112,7 +120,7 @@ public class CustomerMappingService : ICustomerMappingService
     /// <summary>
     /// Customer ID'ye göre mapping al
     /// </summary>
-    public async Task<CustomerKozaCariMapping?> GetMappingByCustomerIdAsync(int customerId)
+    public async Task<CustomerKozaCariMapping?> GetMappingByCustomerIdAsync(string customerId)
     {
         return await _context.CustomerKozaCariMappings
             .FirstOrDefaultAsync(m => m.KatanaCustomerId == customerId);
@@ -150,16 +158,16 @@ public class CustomerMappingService : ICustomerMappingService
     /// Mapping oluştur veya güncelle
     /// </summary>
     public async Task<CustomerKozaCariMapping> CreateOrUpdateMappingAsync(
-        int katanaCustomerId,
+        string katanaCustomerId,
         string kozaCariKodu,
         long? kozaFinansalNesneId = null,
         string? katanaCustomerName = null,
         string? kozaCariTanim = null,
         string? katanaCustomerTaxNo = null)
     {
-        if (katanaCustomerId <= 0)
+        if (string.IsNullOrWhiteSpace(katanaCustomerId))
         {
-            throw new ArgumentException("Katana Customer ID must be greater than 0", nameof(katanaCustomerId));
+            throw new ArgumentException("Katana Customer ID cannot be null or empty", nameof(katanaCustomerId));
         }
 
         if (string.IsNullOrWhiteSpace(kozaCariKodu))
@@ -218,7 +226,7 @@ public class CustomerMappingService : ICustomerMappingService
     /// <summary>
     /// Duplicate customer kontrolü (vergi numarasına göre)
     /// </summary>
-    public async Task<bool> IsDuplicateCustomerAsync(int customerId, string taxNo)
+    public async Task<bool> IsDuplicateCustomerAsync(string customerId, string taxNo)
     {
         if (string.IsNullOrWhiteSpace(taxNo))
         {
@@ -253,7 +261,7 @@ public class CustomerMappingService : ICustomerMappingService
     /// <summary>
     /// Customer ID → Cari Kodu dictionary'si al
     /// </summary>
-    public async Task<Dictionary<int, string>> GetCustomerToCariKoduMapAsync()
+    public async Task<Dictionary<string, string>> GetCustomerToCariKoduMapAsync()
     {
         return await _context.CustomerKozaCariMappings
             .Where(m => !string.IsNullOrWhiteSpace(m.KozaCariKodu))
