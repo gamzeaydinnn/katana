@@ -5,6 +5,7 @@
  * Endpoint'ler: ListeleStkDepo.do, EkleStkWsDepo.do
  */
 export interface KozaStkDepo {
+  id?: number; // Local DB primary key (backend list endpoint)
   depoId?: number; // Listele'den gelebilir
   kod: string; // depoKodu (örn: "001")
   tanim: string; // depoAdi (örn: "MERKEZ DEPO")
