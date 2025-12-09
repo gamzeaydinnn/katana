@@ -5,9 +5,12 @@ using Katana.Core.Enums;
 using Katana.Core.Interfaces;
 using Katana.Core.Helpers;
 using Katana.Data.Configuration;
+using Katana.Data.Context;
 using Katana.Business.Mappers;
+using Katana.API.Hubs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 
 namespace Katana.API.Controllers;
@@ -30,6 +33,8 @@ public class ProductsController : ControllerBase
     private readonly IAuditService _auditService;
     private readonly LucaApiSettings _lucaSettings;
     private readonly IOptionsSnapshot<CatalogVisibilitySettings> _catalogVisibility;
+    private readonly IntegrationDbContext _context;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
     public ProductsController(
         IKatanaService katanaService,
@@ -41,7 +46,9 @@ public class ProductsController : ControllerBase
         IOptionsSnapshot<CatalogVisibilitySettings> catalogVisibility,
         ILogger<ProductsController> logger,
         ILoggingService loggingService,
-        IAuditService auditService)
+        IAuditService auditService,
+        IntegrationDbContext context,
+        IHubContext<NotificationHub> hubContext)
     {
         _katanaService = katanaService;
         _lucaService = lucaService;
@@ -53,6 +60,8 @@ public class ProductsController : ControllerBase
         _logger = logger;
         _loggingService = loggingService;
         _auditService = auditService;
+        _context = context;
+        _hubContext = hubContext;
     }
 
     
@@ -548,6 +557,44 @@ public class ProductsController : ControllerBase
             _auditService.LogCreate("Product", product.Id.ToString(), User?.Identity?.Name ?? "system", 
                 $"SKU: {product.SKU}, Name: {product.Name}");
             _loggingService.LogInfo($"Product created: {product.SKU}", User?.Identity?.Name, null, LogCategory.UserAction);
+
+            // 🔔 Yeni ürün bildirimi oluştur
+            try
+            {
+                var notification = new Notification
+                {
+                    Type = "ProductCreated",
+                    Title = "Yeni Ürün Eklendi",
+                    Payload = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        productId = product.Id,
+                        sku = product.SKU,
+                        name = product.Name,
+                        stock = product.Stock,
+                        price = product.Price
+                    }),
+                    Link = $"/products/{product.Id}",
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Notifications.Add(notification);
+                await _context.SaveChangesAsync();
+
+                // SignalR ile bildirim gönder
+                await _hubContext.Clients.All.SendAsync("ProductCreated", new
+                {
+                    productId = product.Id,
+                    sku = product.SKU,
+                    name = product.Name,
+                    stock = product.Stock,
+                    message = $"Yeni ürün eklendi: {product.Name} ({product.SKU})"
+                });
+                _logger.LogInformation("🔔 Yeni ürün bildirimi gönderildi: {SKU}", product.SKU);
+            }
+            catch (Exception notifEx)
+            {
+                _logger.LogWarning(notifEx, "Bildirim oluşturulurken hata: {SKU}", product.SKU);
+            }
 
             _ = Task.Run(async () =>
             {

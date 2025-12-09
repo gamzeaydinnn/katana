@@ -1,5 +1,14 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
+  padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
     "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
@@ -24,11 +33,14 @@ body {
   background-attachment: fixed;
   animation: subtleShift 20s ease-in-out infinite alternate;
   overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
 
 #root {
   overflow-x: hidden;
   max-width: 100vw;
+  width: 100%;
 }
 
 @keyframes subtleShift {
@@ -212,12 +224,113 @@ code {
   font-size: 0.65rem !important;
 }
 
+/* ========================================
+   MOBILE RESPONSIVE STYLES
+   ======================================== */
+
+/* Extra small devices (phones, 320px and up) */
+@media (max-width: 480px) {
+  body {
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .MuiContainer-root {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .MuiPaper-root {
+    border-radius: 12px !important;
+    margin: 8px !important;
+  }
+
+  .MuiCard-root {
+    border-radius: 12px !important;
+  }
+
+  .MuiButton-root {
+    padding: 10px 16px !important;
+    font-size: 0.85rem !important;
+    border-radius: 10px !important;
+  }
+
+  .MuiTypography-h4 {
+    font-size: 1.25rem !important;
+  }
+
+  .MuiTypography-h5 {
+    font-size: 1.1rem !important;
+  }
+
+  .MuiTypography-h6 {
+    font-size: 1rem !important;
+  }
+
+  .MuiTab-root {
+    min-width: auto !important;
+    padding: 8px 12px !important;
+    font-size: 0.75rem !important;
+  }
+
+  .MuiTabs-root {
+    min-height: 40px !important;
+  }
+
+  .MuiChip-root {
+    height: 24px !important;
+    font-size: 0.7rem !important;
+  }
+
+  .MuiTableCell-root {
+    padding: 6px 8px !important;
+    font-size: 0.7rem !important;
+  }
+
+  .MuiIconButton-root {
+    padding: 8px !important;
+  }
+}
+
+/* Small devices (landscape phones, 481px to 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
+  body {
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  .MuiContainer-root {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  .MuiTypography-h4 {
+    font-size: 1.5rem !important;
+  }
+
+  .MuiTab-root {
+    min-width: 80px !important;
+    padding: 10px 14px !important;
+    font-size: 0.8rem !important;
+  }
+}
+
+/* Medium devices (tablets, 769px to 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .MuiContainer-root {
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+  }
+}
+
+/* General mobile styles (up to 768px) */
 @media (max-width: 768px) {
   body {
     font-size: 0.95rem;
     line-height: 1.4;
     color: #0f172a;
     text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body,
@@ -243,5 +356,112 @@ code {
   .MuiTypography-subtitle1 {
     font-size: 0.95rem !important;
     font-weight: 600 !important;
+  }
+
+  /* Mobile-friendly touch targets */
+  .MuiIconButton-root,
+  .MuiButton-root {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Better spacing for mobile */
+  .MuiGrid-container {
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  .MuiGrid-item {
+    padding: 8px !important;
+  }
+
+  /* Mobile table improvements */
+  .MuiTableContainer-root {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Mobile dialog improvements */
+  .MuiDialog-paper {
+    margin: 16px !important;
+    width: calc(100% - 32px) !important;
+    max-width: none !important;
+    border-radius: 16px !important;
+  }
+
+  /* Mobile drawer improvements */
+  .MuiDrawer-paper {
+    width: 85vw !important;
+    max-width: 320px !important;
+  }
+
+  /* Hide horizontal scrollbar on mobile */
+  .MuiTabs-scroller {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .MuiTabs-scrollButtons {
+    display: none !important;
+  }
+
+  /* Mobile-friendly cards */
+  .MuiCard-root {
+    margin-bottom: 12px !important;
+  }
+
+  /* Mobile stat cards grid */
+  .stat-cards-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .MuiButton-root:hover,
+  .MuiIconButton-root:hover,
+  .MuiCard-root:hover,
+  .MuiPaper-root:hover {
+    transform: none !important;
+  }
+
+  /* Larger touch targets */
+  .MuiIconButton-root {
+    padding: 12px !important;
+  }
+
+  /* Remove hover effects on touch devices */
+  .MuiTableRow-root:hover {
+    background-color: transparent !important;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 896px) and (orientation: landscape) {
+  .MuiContainer-root {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+
+  .MuiTypography-h4 {
+    font-size: 1.25rem !important;
+  }
+}
+
+/* Safe area insets for notched devices */
+@supports (padding: max(0px)) {
+  .MuiContainer-root {
+    padding-left: max(16px, env(safe-area-inset-left)) !important;
+    padding-right: max(16px, env(safe-area-inset-right)) !important;
+  }
+
+  .MuiAppBar-root {
+    padding-top: env(safe-area-inset-top) !important;
+  }
+
+  .MuiBottomNavigation-root {
+    padding-bottom: env(safe-area-inset-bottom) !important;
   }
 }
