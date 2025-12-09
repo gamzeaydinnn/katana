@@ -2,11 +2,16 @@
 using Katana.Core.DTOs.Koza;
 using Katana.Core.Entities;
 using System.Text.Json;
+using Katana.Core.DTOs;
 
 namespace Katana.Business.Interfaces;
 
 public interface ILucaService
 {
+    Task<bool> WarmupCacheWithRetryAsync(int maxAttempts = 3, CancellationToken cancellationToken = default);
+    Task<LucaCacheStatusDto> GetCacheStatusAsync();
+    Task<bool> UpdateStockCardAsync(long stockCardId, Product product);
+    Task<long?> CreateStockCardAsync(Product product);
     
     Task<bool> TestConnectionAsync();
     

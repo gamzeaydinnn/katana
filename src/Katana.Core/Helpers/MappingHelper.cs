@@ -1755,26 +1755,38 @@ public static class MappingHelper
     {
         if (string.IsNullOrWhiteSpace(code))
         {
-            // Boş depo kodu - default kullan
-            return "002"; // Luca MERKEZ DEPO default
+            // ✅ Boş depo kodu - Luca API formatında default döndür
+            return "002.001.0001"; // Luca MERKEZ DEPO (Postman formatı)
         }
 
         var trimmed = code.Trim();
         
-        // "0001-0001" veya "001-001" formatını "001"e çevir
+        // ✅ "0001-0001" formatını "001.001.0001" Luca API formatına çevir
         if (trimmed.Contains('-'))
         {
             var parts = trimmed.Split('-', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length >= 1 && int.TryParse(parts[0], out var num))
-                return num.ToString("000");
+            if (parts.Length >= 2 && int.TryParse(parts[0], out var first) && int.TryParse(parts[1], out var second))
+            {
+                // "0001-0001" → "001.001.0001" (Postman irsaliye formatı)
+                return $"{first:000}.{second:000}.{first:0000}";
+            }
+            else if (parts.Length >= 1 && int.TryParse(parts[0], out var num))
+            {
+                // "001-X" → "001.001.0001" (fallback)
+                return $"{num:000}.001.{num:0000}";
+            }
         }
         
-        // Tek sayı ise 3 haneye pad et
+        // ✅ Tek sayı ise Luca formatına çevir: "1" → "001.001.0001"
         if (int.TryParse(trimmed, out var single))
-            return single.ToString("000");
+            return $"{single:000}.{single:000}.{single:0000}";
 
-        // Alfanumerik kod - uppercase yap
-        return trimmed.ToUpperInvariant();
+        // ✅ Zaten noktalı format varsa aynen döndür: "002.001.0001"
+        if (trimmed.Contains('.'))
+            return trimmed;
+
+        // ✅ Alfanumerik kod - uppercase + fallback format
+        return trimmed.ToUpperInvariant() + ".001.0001";
     }
 
     /// <summary>

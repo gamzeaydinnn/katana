@@ -257,11 +257,11 @@ public sealed class KozaDepotsController : ControllerBase
                 return BadRequest(new { error = "Request body boş veya geçersiz format" });
             }
 
-            // StkDepo null kontrolü
+            // Wrapper null kontrolü
             if (request.StkDepo == null)
             {
                 _logger.LogWarning("Depot create request.StkDepo is null");
-                return BadRequest(new { error = "stkDepo alanı zorunludur. Örnek format: { \"stkDepo\": { \"kod\": \"...\", \"tanim\": \"...\", \"kategoriKod\": \"...\" } }" });
+                return BadRequest(new { error = "stkDepo alanı zorunludur" });
             }
 
             // DEBUG 1: Request ilk geldiği andaki HAM veriyi logla
@@ -282,31 +282,25 @@ public sealed class KozaDepotsController : ControllerBase
                 return BadRequest(new { error = "Depo adı (tanim) zorunludur" });
             }
 
-            // ✅ FIX 2: KategoriKod tutarsızlığını düzelt
-            // Luca'nın beklediği değer sisDepoKategoriAgacKodu'dur
-            if (request.StkDepo.KategoriKod != request.StkDepo.SisDepoKategoriAgacKodu)
+            // ✅ KategoriKod kontrolü ve normalizasyon: numeric kod sisDepoKategoriAgacKodu ile hizalanır
+            var originalKategoriKod = request.StkDepo.KategoriKod;
+            if (!string.IsNullOrWhiteSpace(request.StkDepo.SisDepoKategoriAgacKodu) &&
+                !string.Equals(request.StkDepo.KategoriKod, request.StkDepo.SisDepoKategoriAgacKodu, StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogWarning(
                     "⚠️ KategoriKod mismatch! kategoriKod={K1}, sisDepoKategoriAgacKodu={K2}. Using sisDepoKategoriAgacKodu.",
                     request.StkDepo.KategoriKod ?? "NULL",
-                    request.StkDepo.SisDepoKategoriAgacKodu ?? "NULL"
-                );
+                    request.StkDepo.SisDepoKategoriAgacKodu);
                 
-                // Luca'nın beklediği değeri kullan
-                request.StkDepo.KategoriKod = request.StkDepo.SisDepoKategoriAgacKodu ?? "002";
+                request.StkDepo.KategoriKod = request.StkDepo.SisDepoKategoriAgacKodu;
             }
             
-            // ✅ FIX 4: KategoriKod kontrolü ve normalizasyon
-            // "MERKEZ" gibi kategori ADLARI değil, numerik KOD bekleniyor
-            // sisDepoKategoriAgacKodu ile uyumlu olmalı
-            var originalKategoriKod = request.StkDepo.KategoriKod;
             if (string.IsNullOrWhiteSpace(request.StkDepo.KategoriKod) || 
                 request.StkDepo.KategoriKod.Equals("MERKEZ", StringComparison.OrdinalIgnoreCase))
             {
-                // sisDepoKategoriAgacKodu ile uyumlu olmalı
-                request.StkDepo.KategoriKod = request.StkDepo.SisDepoKategoriAgacKodu ?? "002";
-                _logger.LogWarning("KategoriKod set to match SisDepoKategoriAgacKodu: '{KategoriKod}'", 
-                    request.StkDepo.KategoriKod);
+                request.StkDepo.KategoriKod = request.StkDepo.SisDepoKategoriAgacKodu ?? "002"; // Varsayılan: 002 - MERKEZ DEPO
+                _logger.LogWarning("KategoriKod TRANSFORMED: '{Original}' -> '{New}'", 
+                    originalKategoriKod ?? "NULL", request.StkDepo.KategoriKod);
             }
 
             // DÜZELTME: Luca depo kategori ağacı varsayılan değerleri ekle
@@ -352,49 +346,28 @@ public sealed class KozaDepotsController : ControllerBase
                 _logger.LogWarning("Location existence check - Depot found: {Kod} (ID: {ExistingId}, Name: {ExistingName})", 
                     request.StkDepo.Kod, existingDepot.Id, existingDepot.Tanim);
                 
-                // Idempotent mode: skip silently ve success döner
-                if (idempotent)
+                // Zaten varsa her durumda idempotent başarı döndür
+                _logger.LogInformation("Skipping depot creation (already exists): {Kod} - ID {ExistingId}", 
+                    request.StkDepo.Kod, existingDepot.Id);
+                
+                return Ok(new KozaResult
                 {
-                    _logger.LogInformation("Skipping depot creation (idempotent mode): {Kod} - Already exists with ID {ExistingId}", 
-                        request.StkDepo.Kod, existingDepot.Id);
-                    
-                    return Ok(new KozaResult
+                    Success = true,
+                    Message = $"Depo zaten mevcut (ID: {existingDepot.Id}) - İşlem atlandı",
+                    Data = new
                     {
-                        Success = true,
-                        Message = $"Depo zaten mevcut (ID: {existingDepot.Id}) - İşlem atlandı (idempotent mode)",
-                        Data = new
-                        {
-                            skipped = true,
-                            existingId = existingDepot.Id,
-                            existingName = existingDepot.Tanim
-                        }
-                    });
-                }
-                // Default mode: conflict error döner
-                else
-                {
-                    _logger.LogWarning("Duplicate depot code detected: {Kod} (ID: {ExistingId})", 
-                        request.StkDepo.Kod, existingDepot.Id);
-                    
-                    return Conflict(new
-                    {
-                        error = "Depo kodu zaten mevcut",
-                        code = "DUPLICATE_LOCATION",
-                        details = new
-                        {
-                            locationCode = request.StkDepo.Kod,
-                            existingId = existingDepot.Id,
-                            existingName = existingDepot.Tanim
-                        }
-                    });
-                }
+                        skipped = true,
+                        existingId = existingDepot.Id,
+                        existingName = existingDepot.Tanim
+                    }
+                });
             }
             
             _logger.LogInformation("Location existence check passed - No existing depot found for code: {Kod}", request.StkDepo.Kod);
 
             // DEBUG 3: LucaService'e gönderilmeden HEMEN ÖNCE son kontrol
             _logger.LogWarning("=== SENDING TO LUCA SERVICE ===");
-            _logger.LogWarning("FINAL REQUEST: {Json}", System.Text.Json.JsonSerializer.Serialize(request));
+            _logger.LogWarning("FINAL REQUEST (will send StkDepo only): {Json}", System.Text.Json.JsonSerializer.Serialize(request.StkDepo));
 
             var result = await _lucaService.CreateDepotAsync(request, ct);
             
