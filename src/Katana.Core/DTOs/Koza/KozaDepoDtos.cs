@@ -69,7 +69,8 @@ public sealed class KozaDepoListResponse
 
 /// <summary>
 /// Depo Ekleme Request
-/// Koza'nın beklediği format: { stkDepo: { kod, tanim, kategoriKod, ... } }
+/// FIX: Frontend wrapper gönderiyor {"stkDepo":{...}}, biz karşılıyoruz
+/// Ama Luca'ya sadece içini (StkDepo) göndereceğiz - düz format
 /// </summary>
 public sealed class KozaCreateDepotRequest
 {

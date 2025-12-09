@@ -1492,6 +1492,7 @@ public partial class LucaService
 
             var json = JsonSerializer.Serialize(effectiveRequest, _jsonOptions);
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            var endpoint = _settings.Endpoints.StockCards;
             
             // 🔥 DEBUG: Session durumunu logla
             _logger.LogDebug("📋 ListStockCardsAsync başlıyor - Session durumu: Authenticated={IsAuth}, SessionCookie={HasSession}, ManualJSession={HasManual}, CookieExpiry={Expiry}",
@@ -1499,6 +1500,8 @@ public partial class LucaService
                 !string.IsNullOrWhiteSpace(_sessionCookie),
                 !string.IsNullOrWhiteSpace(_manualJSessionId),
                 _cookieExpiresAt?.ToString("HH:mm:ss") ?? "N/A");
+            _logger.LogInformation("🔍 Stok kartları endpoint'i: {Endpoint}", endpoint);
+            LogCookieState("ListStockCardsAsync");
             
             for (var attempt = 1; attempt <= 3; attempt++)
             {
@@ -1511,12 +1514,13 @@ public partial class LucaService
                     !string.IsNullOrWhiteSpace(_manualJSessionId) ? _manualJSessionId.Substring(0, Math.Min(30, _manualJSessionId.Length)) + "..." : 
                     !string.IsNullOrWhiteSpace(_sessionCookie) ? _sessionCookie.Substring(0, Math.Min(30, _sessionCookie.Length)) + "..." : "NONE");
 
-                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCards)
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
                 {
                     Content = CreateKozaContent(json)
                 };
                 ApplyManualSessionCookie(httpRequest);
                 httpRequest.Headers.Add("No-Paging", "true");
+                _logger.LogDebug("📨 Request headers: {Headers}", string.Join("; ", httpRequest.Headers.Select(h => h.Key + "=" + string.Join(',', h.Value))));
 
                 HttpResponseMessage? response = null;
                 string responseContent = "[]";
@@ -1541,6 +1545,11 @@ public partial class LucaService
                 {
                     _logger.LogDebug(ex, "Failed to append LIST_STOCK_CARDS log (attempt {Attempt})", attempt);
                 }
+
+                _logger.LogInformation("📥 ListStockCards Response: Status={Status}, Headers={Headers}", 
+                    response?.StatusCode, response != null ? string.Join("; ", response.Headers.Select(h => h.Key)) : "N/A");
+                _logger.LogInformation("📄 Response snippet (first 500 chars): {Body}", 
+                    responseContent.Length > 500 ? responseContent.Substring(0, 500) : responseContent);
 
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized && attempt < 3)
                 {
@@ -1629,119 +1638,69 @@ public partial class LucaService
             return JsonDocument.Parse("[]").RootElement.Clone();
         }
     }
+
+    private void LogCookieState(string context)
+    {
+        try
+        {
+            if (_settings == null || string.IsNullOrWhiteSpace(_settings.BaseUrl))
+            {
+                _logger.LogDebug("{Context}: BaseUrl boş, cookie durumu atlandı", context);
+                return;
+            }
+
+            var baseUri = new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
+            var cookies = _cookieContainer?.GetCookies(baseUri);
+            var count = cookies?.Count ?? 0;
+            _logger.LogInformation("{Context}: Cookie sayısı = {Count}", context, count);
+            if (cookies != null)
+            {
+                foreach (Cookie cookie in cookies)
+                {
+                    var preview = cookie.Value.Length > 20 ? cookie.Value[..20] + "..." : cookie.Value;
+                    _logger.LogInformation("{Context}: Cookie {Name}={Value}", context, cookie.Name, preview);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(_manualJSessionId))
+            {
+                var preview = _manualJSessionId.Length > 20 ? _manualJSessionId[..20] + "..." : _manualJSessionId;
+                _logger.LogInformation("{Context}: Manual JSESSIONID present (preview): {Preview}", context, preview);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "{Context}: Cookie durumunu loglarken hata oluştu", context);
+        }
+    }
     public async Task<List<LucaStockCardSummaryDto>> ListStockCardsAsync(CancellationToken cancellationToken = default)
     {
+        // Cache warmup: use the JSON endpoint with a wide date range to avoid HTML responses and paging issues.
+        var request = new LucaListStockCardsRequest
+        {
+            StkSkart = new LucaStockCardCodeFilter
+            {
+                EklemeTarihiBas = "01/01/2020",
+                EklemeTarihiBit = DateTime.Now.ToString("dd/MM/yyyy"),
+                EklemeTarihiOp = "between"
+            }
+        };
+
+        var json = await ListStockCardsAsync(request, cancellationToken);
         var result = new List<LucaStockCardSummaryDto>();
 
         try
         {
-            if (string.IsNullOrWhiteSpace(_manualJSessionId) && !_settings.UseTokenAuth)
-            {
-                _logger.LogWarning("ListStockCardsAsync: No manual session id present; results may be empty if Koza requires login cookie.");
-            }
-
-            await EnsureAuthenticatedAsync();
-            await EnsureBranchSelectedAsync();
-
-            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-            var endpoint = _settings.Endpoints.StockCards;
-
-            var sb = new StringBuilder();
-            sb.Append("stkSkart.kodOp=like");
-            sb.Append("&stkSkart.kodBas=");
-            sb.Append("&start=0");
-            sb.Append("&limit=10000");
-
-            var formDataString = sb.ToString();
-            var encoding = Encoding.GetEncoding(1254);
-            var byteContent = new ByteArrayContent(encoding.GetBytes(formDataString));
-            byteContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
-            byteContent.Headers.ContentType.CharSet = "windows-1254";
-
-            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
-            {
-                Content = byteContent
-            };
-            ApplyManualSessionCookie(httpRequest);
-
-            HttpResponseMessage response;
-            try
-            {
-                response = await client.SendAsync(httpRequest, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "ListStockCardsAsync: HTTP call failed");
-                return result;
-            }
-
-            var rawBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-            string responseContent;
-            try { responseContent = encoding.GetString(rawBytes); } catch { responseContent = Encoding.UTF8.GetString(rawBytes); }
-
-            if (responseContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogWarning("ListStockCardsAsync: Koza returned HTML (session expired?). Forcing complete session refresh...");
-                
-                // Session expired - force complete refresh
-                try
-                {
-                    await ForceSessionRefreshAsync();
-                    
-                    // Yeni content oluştur (HttpContent bir kez kullanıldıktan sonra tekrar kullanılamaz)
-                    var retryByteContent = new ByteArrayContent(encoding.GetBytes(formDataString));
-                    retryByteContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
-                    retryByteContent.Headers.ContentType.CharSet = "windows-1254";
-                    
-                    // Retry request
-                    using var retryRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
-                    {
-                        Content = retryByteContent
-                    };
-                    ApplyManualSessionCookie(retryRequest);
-                    
-                    var retryResponse = await client.SendAsync(retryRequest, cancellationToken);
-                    var retryBytes = await retryResponse.Content.ReadAsByteArrayAsync(cancellationToken);
-                    string retryContent;
-                    try { retryContent = encoding.GetString(retryBytes); } catch { retryContent = Encoding.UTF8.GetString(retryBytes); }
-                    
-                    if (retryContent.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
-                    {
-                        _logger.LogError("ListStockCardsAsync: Still HTML after retry. Body snippet: {Snippet}",
-                            retryContent.Length > 300 ? retryContent[..300] : retryContent);
-                        return result;
-                    }
-                    
-                    responseContent = retryContent;
-                }
-                catch (Exception retryEx)
-                {
-                    _logger.LogError(retryEx, "ListStockCardsAsync: Retry failed after HTML response");
-                    return result;
-                }
-            }
-
-            JsonElement element;
-            try
-            {
-                element = JsonSerializer.Deserialize<JsonElement>(responseContent);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "ListStockCardsAsync: JSON parse failed for stock card list");
-                return result;
-            }
-
             JsonElement arrayEl = default;
-            if (element.ValueKind == JsonValueKind.Array)
+            if (json.ValueKind == JsonValueKind.Array)
             {
-                arrayEl = element;
+                arrayEl = json;
             }
-            else if (element.ValueKind == JsonValueKind.Object)
+            else if (json.ValueKind == JsonValueKind.Object)
             {
                 foreach (var key in new[] { "stkSkart", "data", "list", "items" })
                 {
-                    if (element.TryGetProperty(key, out var prop) && prop.ValueKind == JsonValueKind.Array)
+                    if (json.TryGetProperty(key, out var prop) && prop.ValueKind == JsonValueKind.Array)
                     {
                         arrayEl = prop;
                         break;
@@ -1751,6 +1710,7 @@ public partial class LucaService
 
             if (arrayEl.ValueKind != JsonValueKind.Array)
             {
+                _logger.LogWarning("ListStockCardsAsync (cache warmup) unexpected JSON shape: {Kind}", json.ValueKind);
                 return result;
             }
 
@@ -1790,15 +1750,15 @@ public partial class LucaService
                     KategoriKodu = TryGetProperty(item, "kategoriAgacKod", "kategoriKodu", "category")
                 });
             }
-
-            return result;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "ListStockCardsAsync failed; returning empty list.");
-            return result;
+            _logger.LogWarning(ex, "ListStockCardsAsync (cache warmup) failed; returning empty list.");
         }
+
+        return result;
     }
+
     public async Task<JsonElement> ListStockCardPriceListsAsync(LucaListStockCardPriceListsRequest request)
     {
         await EnsureAuthenticatedAsync();
