@@ -239,6 +239,8 @@ public interface ILucaService
     Task<IReadOnlyList<KozaCariDto>> ListMusteriCarilerAsync(string? kodBas, string? kodBit, string kodOp = "between", CancellationToken ct = default);
     Task<IReadOnlyList<KozaCariDto>> ListTedarikciCarilerAsync(CancellationToken ct = default);
     Task<IReadOnlyList<KozaCariDto>> ListTedarikciCarilerAsync(string? kodBas, string? kodBit, string kodOp = "between", CancellationToken ct = default);
+    Task<IReadOnlyList<KozaSupplierListItemDto>> ListTedarikciSupplierItemsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<KozaSupplierListItemDto>> ListTedarikciSupplierItemsAsync(string? kodBas, string? kodBit, string kodOp = "between", CancellationToken ct = default);
     Task<KozaResult> CreateMusteriCariAsync(KozaMusteriEkleRequest request, CancellationToken ct = default);
     Task<KozaResult> CreateTedarikciCariAsync(KozaTedarikciEkleRequest request, CancellationToken ct = default);
     

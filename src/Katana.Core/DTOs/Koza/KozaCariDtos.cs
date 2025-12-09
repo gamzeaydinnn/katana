@@ -508,6 +508,10 @@ public sealed class KozaTedarikciEkleRequest
 /// </summary>
 public sealed class KozaCariListResponse
 {
+    // Koza bazen "list" ile dönebiliyor
+    [JsonPropertyName("list")]
+    public List<KozaCariDto>? List { get; set; }
+    
     [JsonPropertyName("finTedarikciListesi")]
     public List<KozaCariDto>? FinTedarikciListesi { get; set; }
     
@@ -558,6 +562,55 @@ public sealed class KozaCariDto
     
     [JsonPropertyName("paraBirimKod")]
     public string? ParaBirimKod { get; set; }
+}
+
+#endregion
+
+#region Koza Supplier List DTO
+
+/// <summary>
+/// Koza tedarikçi listesini UI'de göstermek için sadeleştirilmiş DTO
+/// </summary>
+public sealed class KozaSupplierListItemDto
+{
+    [JsonPropertyName("finansalNesneId")]
+    public long? FinansalNesneId { get; set; }
+
+    [JsonPropertyName("kod")]
+    public string? Kod { get; set; }
+
+    [JsonPropertyName("tanim")]
+    public string? Tanim { get; set; }
+
+    [JsonPropertyName("vergiNo")]
+    public string? VergiNo { get; set; }
+
+    [JsonPropertyName("telefon")]
+    public string? Telefon { get; set; }
+
+    [JsonPropertyName("email")]
+    public string? Email { get; set; }
+
+    /// <summary>
+    /// Koza cari DTO'sundan sade liste DTO'su oluşturur
+    /// </summary>
+    public static KozaSupplierListItemDto FromKozaCari(KozaCariDto? cari)
+    {
+        if (cari == null)
+        {
+            return new KozaSupplierListItemDto();
+        }
+
+        return new KozaSupplierListItemDto
+        {
+            FinansalNesneId = cari.FinansalNesneId,
+            Kod = cari.Kod,
+            Tanim = cari.Tanim ?? cari.YasalUnvan ?? cari.KisaAd ?? cari.Kod,
+            VergiNo = cari.VergiNo ?? cari.TcKimlikNo,
+            Telefon = cari.Telefon,
+            Email = cari.Email
+        };
+    }
 }
 
 #endregion

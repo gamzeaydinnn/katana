@@ -7,6 +7,7 @@ using Katana.Data.Context;
 using Katana.Core.Entities;
 using Katana.Core.DTOs;
 using System.Text.Json;
+using Katana.Business.Extensions;
 
 namespace Katana.API.Controllers.Admin;
 
@@ -158,14 +159,14 @@ public sealed class KozaCariController : ControllerBase
     /// GET /api/admin/koza/cari/suppliers
     /// </summary>
     [HttpGet("suppliers")]
-    [ProducesResponseType(typeof(IReadOnlyList<KozaCariDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IReadOnlyList<KozaSupplierListItemDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> ListSuppliers(CancellationToken ct)
     {
         try
         {
             _logger.LogInformation("Listing Koza supplier caris");
-            var suppliers = await _lucaService.ListTedarikciCarilerAsync(ct);
+            var suppliers = await _lucaService.ListTedarikciSupplierItemsAsync(ct);
             
             _logger.LogInformation("Retrieved {Count} suppliers from Koza", suppliers.Count);
             return Ok(suppliers);
@@ -221,12 +222,30 @@ public sealed class KozaCariController : ControllerBase
 
                     if (existingMapping != null)
                     {
+                        var now = DateTime.UtcNow;
+                        existingMapping.KozaCariKodu ??= $"TED-{katanaSupplier.Id}";
+                        existingMapping.KozaCariTanim ??= katanaSupplier.Name;
+                        existingMapping.KatanaSupplierName = katanaSupplier.Name;
+                        existingMapping.SyncStatus = "SUCCESS";
+                        existingMapping.LastSyncAt = now;
+                        existingMapping.LastSyncError = null;
+                        existingMapping.UpdatedAt = now;
+                        existingMapping.UpdateHash();
+                        await _dbContext.SaveChangesAsync(ct);
+
                         // Zaten senkronize edilmiş
                         item.KozaCariKodu = existingMapping.KozaCariKodu;
                         item.KozaFinansalNesneId = existingMapping.KozaFinansalNesneId;
                         item.Success = true;
                         item.Message = "Zaten senkronize edilmiş";
                         result.SkippedCount++;
+                        
+                        _logger.LogInformation(
+                            "Supplier sync skipped: KatanaSupplierId={Id}, KatanaName={Name}, KozaCariKodu={Kod}, KozaFinansalNesneId={FinId}",
+                            katanaSupplier.Id,
+                            katanaSupplier.Name,
+                            existingMapping.KozaCariKodu,
+                            existingMapping.KozaFinansalNesneId);
                     }
                     else
                     {
@@ -245,6 +264,7 @@ public sealed class KozaCariController : ControllerBase
                         if (kozaResult.Success)
                         {
                             // Mapping kaydet
+                            var now = DateTime.UtcNow;
                             string? cariKodu = null;
                             long? finansalNesneId = null;
 
@@ -267,10 +287,14 @@ public sealed class KozaCariController : ControllerBase
                                 KozaCariKodu = cariKodu,
                                 KozaFinansalNesneId = finansalNesneId,
                                 KatanaSupplierName = katanaSupplier.Name,
-                                KozaCariTanim = katanaSupplier.Name,
-                                CreatedAt = DateTime.UtcNow,
-                                UpdatedAt = DateTime.UtcNow
+                                KozaCariTanim = supplierDto.Name ?? katanaSupplier.Name,
+                                SyncStatus = "SUCCESS",
+                                LastSyncAt = now,
+                                LastSyncError = null,
+                                CreatedAt = now,
+                                UpdatedAt = now
                             };
+                            mapping.UpdateHash();
 
                             _dbContext.SupplierKozaCariMappings.Add(mapping);
                             await _dbContext.SaveChangesAsync(ct);
@@ -280,6 +304,13 @@ public sealed class KozaCariController : ControllerBase
                             item.Success = true;
                             item.Message = kozaResult.Message;
                             result.SuccessCount++;
+
+                            _logger.LogInformation(
+                                "Supplier sync ok: KatanaSupplierId={Id}, KatanaName={Name}, KozaCariKodu={Kod}, KozaFinansalNesneId={FinId}",
+                                katanaSupplier.Id,
+                                katanaSupplier.Name,
+                                cariKodu,
+                                finansalNesneId);
                         }
                         else
                         {
