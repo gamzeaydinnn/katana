@@ -81,6 +81,10 @@ public sealed class KozaStokKartiDto
 /// </summary>
 public sealed class KozaStokKartiListResponse
 {
+    // Koza'nın yeni formatı: { "list": [ ... ] }
+    [JsonPropertyName("list")]
+    public List<KozaStokKartiDto>? List { get; set; }
+    
     [JsonPropertyName("stokKartlari")]
     public List<KozaStokKartiDto>? StokKartlari { get; set; }
     

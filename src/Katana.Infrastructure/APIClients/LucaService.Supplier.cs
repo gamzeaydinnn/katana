@@ -117,7 +117,7 @@ public partial class LucaService
     }
 
     /// <summary>
-    /// Koza Tedarikçi Kartı Ekleme (EkleFinTedarikciWS.do) - Dokümantasyona tam uyumlu
+    /// Koza Tedarikçi Kartı Ekleme (EkleFinTedarikciWS.do) - Postman ile birebir uyumlu
     /// </summary>
     public async Task<KozaResult> CreateTedarikciCariAsync(KozaTedarikciEkleRequest request, CancellationToken ct = default)
     {
@@ -125,7 +125,8 @@ public partial class LucaService
         {
             await EnsureAuthenticatedAsync();
 
-            var json = JsonSerializer.Serialize(new { finTedarikci = request }, _jsonOptions);
+            // FIXED: Postman ile birebir uyumlu - düz obje, finTedarikci sarmalayıcısı YOK
+            var json = JsonSerializer.Serialize(request, _jsonOptions);
             
             _logger.LogDebug("CreateTedarikciCariAsync request: {Json}", json);
 
@@ -146,11 +147,12 @@ public partial class LucaService
 
             if (body.TrimStart().StartsWith("<"))
             {
-                _logger.LogError("Koza NO_JSON (HTML döndü) - CreateTedarikciCariAsync");
+                _logger.LogError("Koza NO_JSON (HTML döndü) - CreateTedarikciCariAsync. Body snippet: {Snippet}",
+                    body.Length > 300 ? body[..300] : body);
                 return new KozaResult 
                 { 
                     Success = false, 
-                    Message = "Koza NO_JSON (HTML döndü). Auth/şube/cookie kırık olabilir." 
+                    Message = "Koza HTML hata sayfası döndürdü (muhtemelen JSON formatı uyuşmuyor)." 
                 };
             }
 
@@ -371,89 +373,37 @@ public partial class LucaService
                 };
             }
 
-            // Yeni tedarikçi oluştur
-            var request = new LucaCreateSupplierRequest
+            // Yeni tedarikçi oluştur - Postman örneğine uygun tüm zorunlu alanlarla
+            var kozaRequest = new KozaTedarikciEkleRequest
             {
-                Tip = 1, // Tüzel kişi
+                Tip = "1", // "1": Şirket
                 CariTipId = 2, // Tedarikçi
+                TakipNoFlag = true, // Postman'da true
+                EfaturaTuru = 1, // 1: Temel Fatura
+                KategoriKod = "", // Postman'da boş string
                 KartKod = cariKodu,
                 Tanim = supplier.Name,
                 KisaAd = supplier.Name.Length > 50 ? supplier.Name.Substring(0, 50) : supplier.Name,
                 YasalUnvan = supplier.Name,
                 VergiNo = supplier.TaxNo,
                 ParaBirimKod = "TRY",
+                TcUyruklu = true, // Postman'da true
+                AdresTipId = 9, // 9: Fatura adresi (Postman'da 9)
                 Ulke = "TÜRKİYE",
                 Il = "İSTANBUL",
-                AdresSerbest = supplier.Address,
-                IletisimTanim = supplier.Phone ?? supplier.Email,
-                AdresTipId = 1, // Merkez
-                IletisimTipId = supplier.Phone != null ? 1L : 2L // 1=Telefon, 2=Email
+                Ilce = "Merkez", // Postman'da var
+                AdresSerbest = supplier.Address ?? "",
+                IletisimTipId = supplier.Phone != null ? 3 : 5, // 3=Cep, 5=E-Posta (Postman'da 3)
+                IletisimTanim = supplier.Phone ?? supplier.Email ?? ""
             };
 
-            var json = JsonSerializer.Serialize(request, _jsonOptions);
+            _logger.LogWarning("=== SUPPLIER CREATE - Using CreateTedarikciCariAsync ===");
+            _logger.LogWarning("CariKodu: {CariKodu}", cariKodu);
             
-            _logger.LogDebug("EnsureSupplierCariAsync creating: {Json}", json);
-
-            var httpReq = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.SupplierCreate)
-            {
-                Content = new StringContent(json, Encoding.UTF8, "application/json")
-            };
-
-            ApplySessionCookie(httpReq);
-            ApplyManualSessionCookie(httpReq);
-
-            var client = _cookieHttpClient ?? _httpClient;
-            var res = await client.SendAsync(httpReq, ct);
-            var body = await res.Content.ReadAsStringAsync(ct);
-
-            _logger.LogDebug("EnsureSupplierCariAsync response: {Status}, {Body}", 
-                res.StatusCode, body.Length > 500 ? body.Substring(0, 500) : body);
-
-            if (body.TrimStart().StartsWith("<"))
-            {
-                _logger.LogError("Luca NO_JSON (HTML döndü) - EnsureSupplierCariAsync");
-                return new KozaResult 
-                { 
-                    Success = false, 
-                    Message = "Luca NO_JSON (HTML döndü). Auth/şube/cookie kırık olabilir." 
-                };
-            }
-
-            if (!res.IsSuccessStatusCode)
-            {
-                return new KozaResult 
-                { 
-                    Success = false, 
-                    Message = $"HTTP {res.StatusCode}: {body}" 
-                };
-            }
-
-            // Response'dan finansalNesneId almaya çalış
-            long? finansalNesneId = null;
-            try
-            {
-                var respJson = JsonSerializer.Deserialize<JsonElement>(body);
-                if (respJson.TryGetProperty("finansalNesneId", out var fnId))
-                {
-                    finansalNesneId = fnId.GetInt64();
-                }
-                else if (respJson.TryGetProperty("finTedarikci", out var ft) && 
-                         ft.TryGetProperty("finansalNesneId", out var ftId))
-                {
-                    finansalNesneId = ftId.GetInt64();
-                }
-            }
-            catch { /* Ignore parse errors */ }
-
-            _logger.LogInformation("Tedarikçi başarıyla oluşturuldu: {CariKodu} - {Name} (FinansalNesneId: {Id})", 
-                cariKodu, supplier.Name, finansalNesneId);
+            // CreateTedarikciCariAsync kullan - bu metod zaten doğru formatta gönderir
+            var result = await CreateTedarikciCariAsync(kozaRequest, ct);
             
-            return new KozaResult 
-            { 
-                Success = true, 
-                Message = "OK",
-                Data = new { CariKodu = cariKodu, FinansalNesneId = finansalNesneId }
-            };
+            return result;
         }
         catch (Exception ex)
         {
