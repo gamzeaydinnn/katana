@@ -2192,8 +2192,12 @@ public partial class LucaService
                 int validCount = 0;
                 int invalidCount = 0;
                 
+                var invalidSamples = new List<string>();
+                var cardIndex = 0;
+                
                 foreach (var lucaCard in allLucaCards)
                 {
+                    cardIndex++;
                     if (!string.IsNullOrWhiteSpace(lucaCard.KartKodu) && lucaCard.StokKartId.HasValue)
                     {
                         _stockCardCache[lucaCard.KartKodu] = lucaCard.StokKartId.Value;
@@ -2202,6 +2206,12 @@ public partial class LucaService
                     else
                     {
                         invalidCount++;
+                        if (invalidSamples.Count < 5)
+                        {
+                            var code = string.IsNullOrWhiteSpace(lucaCard.KartKodu) ? "<EMPTY>" : lucaCard.KartKodu;
+                            var id = lucaCard.StokKartId?.ToString() ?? "<NULL>";
+                            invalidSamples.Add($"#{cardIndex}: KartKodu={code}, StokKartId={id}");
+                        }
                     }
                 }
                 
@@ -2213,6 +2223,10 @@ public partial class LucaService
                     _logger.LogError("   ⚠️ {TotalCards} kart çekildi AMA hiçbirinde KartKodu veya StokKartId yok!", allLucaCards.Count);
                     _logger.LogError("   ⚠️ SEBEP: KozaStokKartiDto field isimleri Luca API'si ile uyuşmuyor");
                     _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                    if (invalidSamples.Count > 0)
+                    {
+                        _logger.LogError("   ❌ İlk hatalı örnekler: {Samples}", string.Join(" | ", invalidSamples));
+                    }
                     
                     throw new InvalidOperationException(
                         $"DTO mapping error: {allLucaCards.Count} cards fetched but none have valid KartKodu/StokKartId");
@@ -2221,6 +2235,10 @@ public partial class LucaService
                 {
                     _logger.LogWarning("⚠️ {ValidCount} geçerli, {InvalidCount} geçersiz kart (KartKodu veya ID eksik)", 
                         validCount, invalidCount);
+                    if (invalidSamples.Count > 0)
+                    {
+                        _logger.LogWarning("   🔍 İlk hatalı örnekler: {Samples}", string.Join(" | ", invalidSamples));
+                    }
                 }
                 
                 _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -2265,131 +2283,26 @@ public partial class LucaService
             {
                 try
                 {
-                    // 🔥 UPSERT LOGIC STEP 1: Cache'den kontrol yap (hızlı!)
-                    _logger.LogDebug("🔍 [1/3] Cache kontrolü: {SKU}", card.KartKodu);
-                    var existingSkartId = await FindStockCardBySkuAsync(card.KartKodu); // Cache'den gelecek
+                    // 🔥 SKU DEBUG LOG - Hata ayıklama için
+                    _logger.LogWarning("SKU Check → SKU={SKU}", card.KartKodu);
+                    
+                    // 🔥 SADECE YENİ STOK KARTI AÇMA - Karşılaştırma/güncelleme YOK!
+                    // Mimari Rapor: Luca API güncelleme desteklemiyor, sadece yeni kart açılır
+                    _logger.LogDebug("🔍 Cache kontrolü: {SKU}", card.KartKodu);
+                    var existingSkartId = await FindStockCardBySkuAsync(card.KartKodu);
                     
                     if (existingSkartId.HasValue)
                     {
-                        _logger.LogInformation("📦 [CACHE HIT] Stok kartı bulundu: {SKU} (skartId: {Id})", 
+                        // ✅ Kart zaten var - ATLA (güncelleme yok!)
+                        _logger.LogInformation("⏭️ SKIP: {SKU} zaten Luca'da var (skartId: {Id}) - atlanıyor", 
                             card.KartKodu, existingSkartId.Value);
-                        
-                        // Kayıt zaten var - Luca API güncelleme desteklemiyor
-                        // Değişiklik kontrolü yap
-                        var existingCard = await GetStockCardDetailsBySkuAsync(card.KartKodu);
-                        bool hasChanges = HasStockCardChanges(card, existingCard);
-                        
-                        if (!hasChanges)
-                        {
-                            _logger.LogInformation("⏭️ SKIP: {SKU} zaten Luca'da var, değişiklik yok - atlanıyor", 
-                                card.KartKodu);
-                            skippedCount++;
-                            duplicateCount++;
-                            continue;
-                        }
-                        else
-                        {
-                            // 🔥 DEĞİŞİKLİK VAR - Luca güncelleme desteklemiyor, YENİ VERSİYONLU SKU İLE KART AÇ
-                            _logger.LogWarning("⚠️ KATANA'DA ÜRÜN GÜNCELLENDİ: {SKU}", card.KartKodu);
-                            _logger.LogWarning("🚫 Luca API güncelleme desteklemiyor - Yeni versiyonlu SKU ile stok kartı açılacak");
-                            
-                            var originalSku = card.KartKodu;
-                            
-                            // Yeni versiyonlu SKU oluştur (örn: SKU-V2, SKU-V3...)
-                            var newVersionedSku = await GenerateVersionedSkuAsync(card.KartKodu);
-                            
-                            _logger.LogWarning("📝 YENİ STOK KARTI OLUŞTURULUYOR:");
-                            _logger.LogWarning("   Orijinal SKU: {OldSKU}", originalSku);
-                            _logger.LogWarning("   Yeni SKU: {NewSKU}", newVersionedSku);
-                            _logger.LogWarning("   Sebep: Katana'da ürün bilgileri güncellendi, Luca'da yeni versiyon açılıyor");
-                            
-                            // Kartı yeni SKU ile güncelle
-                            card.KartKodu = newVersionedSku;
-                            
-                            // 🔥 KRİTİK FİX: Barkod çakışmasını önle!
-                            // Orijinal ürünün barkodu zaten kullanılıyor, yeni versiyonda boş gönder
-                            card.Barkod = string.Empty;
-                            _logger.LogInformation("🔧 Barkod temizlendi (duplicate barcode önleme): {SKU}", newVersionedSku);
-                            
-                            // Devam et ve yeni kart olarak oluştur (aşağıdaki kod bloğuna geç)
-                        }
+                        skippedCount++;
+                        duplicateCount++;
+                        continue;
                     }
-                    else
-                    {
-                        _logger.LogInformation("✨ [CACHE MISS] Yeni stok kartı: {SKU}", card.KartKodu);
-                        
-                        // 🔥 DEFENSIVE PROGRAMMING STEP 2: DOUBLE CHECK!
-                        // Cache MISS demek, GERÇEKTEN YOK demek değildir!
-                        // Cache warming patlamış olabilir (Struts "Unable to instantiate Action" hatası)
-                        // İçerik eksik ya da null dönmüş olabilir (optimistic programming hatası)
-                        // SON BİR KEZ DAHA KONTROL ET: Canlı API'den SKU'yu tekrar sorgula!
-                        _logger.LogWarning("⚠️ [2/3] Cache MISS tespit edildi - SAFETY CHECK: Canlı API'den tekrar sorgulanıyor...");
-                        
-                        long? liveCheckSkartId = null;
-                        try
-                        {
-                            // Tekrar dene: Fuzzy search ile SKU'yu bul (cache'i tekrar kullanır ama boşsa API'ye gider)
-                            // ANCAK cache zaten boşsa, bu çağrı da boş dönebilir!
-                            // Daha güvenli: Direkt ListStockCardsSimpleAsync çağır ve manuel ara!
-                            _logger.LogDebug("🔍 GetStockCardBySkuFromLiveApiAsync (Fuzzy Search) çağrılıyor: {SKU}", card.KartKodu);
-                            
-                            // Alternatif 1: FindStockCardBySkuAsync tekrar dene (cache'den gelirse bile, güvenli)
-                            liveCheckSkartId = await FindStockCardBySkuAsync(card.KartKodu);
-                            
-                            if (liveCheckSkartId.HasValue)
-                            {
-                                // 🚨 KRİTİK HATA: Cache'de YOKTU, ama canlı API'de VAR!
-                                // Cache warming çökmüş veya eksik yüklenmiş!
-                                _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                                _logger.LogError("🚨 [CACHE INTEGRITY ERROR] SKU: {SKU}", card.KartKodu);
-                                _logger.LogError("   Cache sonucu: BULUNAMADI (null)");
-                                _logger.LogError("   Live API sonucu: BULUNDU (skartId: {Id})", liveCheckSkartId.Value);
-                                _logger.LogError("   SONUÇ: Cache warming başarısız veya eksik!");
-                                _logger.LogError("   Duplicate oluşturma ÖNLENDİ - UPDATE/SKIP mantığına devam ediliyor");
-                                _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                                
-                                // 🔥 UPSERT LOGIC: Bulundu, o halde değişiklik kontrolüne geç
-                                existingSkartId = liveCheckSkartId;
-                                
-                                var existingCard = await GetStockCardDetailsBySkuAsync(card.KartKodu);
-                                bool hasChanges = HasStockCardChanges(card, existingCard);
-                                
-                                if (!hasChanges)
-                                {
-                                    _logger.LogInformation("⏭️ SKIP (live check): {SKU} zaten var, değişiklik yok - atlanıyor", card.KartKodu);
-                                    skippedCount++;
-                                    duplicateCount++;
-                                    continue; // Bir sonraki karta geç
-                                }
-                                else
-                                {
-                                    // Değişiklik var - versiyonlu yeni kart oluştur
-                                    _logger.LogWarning("⚠️ KATANA'DA ÜRÜN GÜNCELLENDİ (live check): {SKU}", card.KartKodu);
-                                    var originalSku2 = card.KartKodu;
-                                    var newVersionedSku2 = await GenerateVersionedSkuAsync(card.KartKodu);
-                                    
-                                    _logger.LogWarning("📝 YENİ VERSIYONLU STOK KARTI:");
-                                    _logger.LogWarning("   Orijinal: {Old}", originalSku2);
-                                    _logger.LogWarning("   Yeni: {New}", newVersionedSku2);
-                                    
-                                    card.KartKodu = newVersionedSku2;
-                                    card.Barkod = string.Empty; // Duplicate barcode önle
-                                    
-                                    // Yeni SKU ile devam et (aşağıdaki create bloğuna git)
-                                }
-                            }
-                            else
-                            {
-                                // ✅ Güvenli: Cache'de de yok, live API'de de yok - gerçekten yeni kart
-                                _logger.LogInformation("✅ [SAFETY CHECK PASSED] SKU gerçekten yok: {SKU} - CREATE yapılacak", card.KartKodu);
-                            }
-                        }
-                        catch (Exception liveCheckEx)
-                        {
-                            // Live check patlasa bile devam et (ama logla!)
-                            _logger.LogError(liveCheckEx, "❌ Live safety check başarısız (SKU: {SKU}), CREATE'e devam ediliyor (RİSKLİ!)", card.KartKodu);
-                        }
-                    }
+                    
+                    // Cache MISS - Yeni kart olabilir, güvenlik kontrolü yap
+                    _logger.LogInformation("✨ Yeni stok kartı: {SKU}", card.KartKodu);
                     
                     // Yeni kayıt oluştur
                     _logger.LogInformation("➕ [3/3] Yeni stok kartı POST ediliyor: {KartKodu}", card.KartKodu);
