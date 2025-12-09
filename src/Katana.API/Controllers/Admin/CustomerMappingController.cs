@@ -44,7 +44,7 @@ public class CustomerMappingController : ControllerBase
     [HttpGet("{customerId:int}")]
     [ProducesResponseType(typeof(CustomerKozaCariMapping), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetMappingByCustomerId(int customerId)
+    public async Task<IActionResult> GetMappingByCustomerId(string customerId)
     {
         try
         {
@@ -67,9 +67,9 @@ public class CustomerMappingController : ControllerBase
     /// <summary>
     /// Customer ID'ye göre cari kodu getir
     /// </summary>
-    [HttpGet("{customerId:int}/cari-kodu")]
+    [HttpGet("{customerId}/cari-kodu")]
     [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetCariKodu(int customerId)
+    public async Task<IActionResult> GetCariKodu(string customerId)
     {
         try
         {
@@ -86,9 +86,9 @@ public class CustomerMappingController : ControllerBase
     /// <summary>
     /// Customer ID'ye göre finansal nesne ID getir
     /// </summary>
-    [HttpGet("{customerId:int}/finansal-nesne-id")]
+    [HttpGet("{customerId}/finansal-nesne-id")]
     [ProducesResponseType(typeof(long?), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetFinansalNesneId(int customerId)
+    public async Task<IActionResult> GetFinansalNesneId(string customerId)
     {
         try
         {
@@ -138,9 +138,9 @@ public class CustomerMappingController : ControllerBase
     {
         try
         {
-            if (request.KatanaCustomerId <= 0)
+            if (string.IsNullOrWhiteSpace(request.KatanaCustomerId))
             {
-                return BadRequest(new { error = "KatanaCustomerId must be greater than 0" });
+                return BadRequest(new { error = "KatanaCustomerId is required" });
             }
 
             if (string.IsNullOrWhiteSpace(request.KozaCariKodu))
@@ -203,7 +203,7 @@ public class CustomerMappingController : ControllerBase
     /// Customer → Cari Kodu dictionary'si getir
     /// </summary>
     [HttpGet("dictionary")]
-    [ProducesResponseType(typeof(Dictionary<int, string>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Dictionary<string, string>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetCustomerToCariKoduMap()
     {
         try
@@ -222,7 +222,7 @@ public class CustomerMappingController : ControllerBase
 // DTOs
 public class CreateCustomerMappingRequest
 {
-    public int KatanaCustomerId { get; set; }
+    public string KatanaCustomerId { get; set; } = string.Empty;
     public string KozaCariKodu { get; set; } = string.Empty;
     public long? KozaFinansalNesneId { get; set; }
     public string? KatanaCustomerName { get; set; }
@@ -232,13 +232,13 @@ public class CreateCustomerMappingRequest
 
 public class CheckDuplicateRequest
 {
-    public int CustomerId { get; set; }
+    public string CustomerId { get; set; } = string.Empty;
     public string TaxNo { get; set; } = string.Empty;
 }
 
 public class DuplicateCheckResponse
 {
-    public int CustomerId { get; set; }
+    public string CustomerId { get; set; } = string.Empty;
     public string TaxNo { get; set; } = string.Empty;
     public bool IsDuplicate { get; set; }
     public string Message { get; set; } = string.Empty;

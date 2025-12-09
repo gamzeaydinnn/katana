@@ -12,7 +12,7 @@ public interface IOrderMappingRepository
     /// <summary>
     /// Katana Customer ID'den Luca Cari Kodu'nu getirir
     /// </summary>
-    Task<string?> GetLucaCariKoduByCustomerIdAsync(int katanaCustomerId);
+    Task<string?> GetLucaCariKoduByCustomerIdAsync(string katanaCustomerId);
     
     /// <summary>
     /// Katana Supplier ID'den Luca Tedarikçi Kodu'nu getirir

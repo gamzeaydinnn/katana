@@ -1,4 +1,5 @@
 using Katana.Data.Context;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -78,27 +79,36 @@ public class HourlyMetricsAggregator : BackgroundService
 
         try
         {
+            // Mevcut kaydı kontrol et
+            var existing = await db.DashboardMetrics
+                .FirstOrDefaultAsync(m => m.Hour == sliceStart, ct);
+
+            if (existing != null)
+            {
+                _logger.LogInformation("Metrics for {Hour} already exists, skipping", sliceStart);
+                return;
+            }
+
             var errorCount = await db.ErrorLogs.CountAsync(e => e.CreatedAt >= sliceStart && e.CreatedAt < sliceEnd, ct);
             var auditCount = await db.AuditLogs.CountAsync(a => a.Timestamp >= sliceStart && a.Timestamp < sliceEnd, ct);
 
-            var existing = await db.DashboardMetrics.SingleOrDefaultAsync(x => x.Hour == sliceStart, ct);
-            if (existing == null)
+            db.DashboardMetrics.Add(new Katana.Data.Models.DashboardMetric
             {
-                db.DashboardMetrics.Add(new Katana.Data.Models.DashboardMetric
-                {
-                    Hour = sliceStart,
-                    ErrorCount = errorCount,
-                    AuditCount = auditCount,
-                    CreatedAt = DateTime.UtcNow
-                });
-            }
-            else
+                Hour = sliceStart,
+                ErrorCount = errorCount,
+                AuditCount = auditCount,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            try
             {
-                existing.ErrorCount = errorCount;
-                existing.AuditCount = auditCount;
+                await db.SaveChangesAsync(ct);
+                _logger.LogInformation("Aggregated metrics for slice starting {SliceStart}: errors={Errors}, audits={Audits}", sliceStart, errorCount, auditCount);
             }
-            await db.SaveChangesAsync(ct);
-            _logger.LogInformation("Aggregated metrics for slice starting {SliceStart}: errors={Errors}, audits={Audits}", sliceStart, errorCount, auditCount);
+            catch (DbUpdateException ex) when (ex.InnerException is SqlException sqlEx && sqlEx.Number == 2601)
+            {
+                _logger.LogWarning("Duplicate key detected, another instance already processed this slice for {SliceStart}", sliceStart);
+            }
         }
         catch (Exception ex)
         {

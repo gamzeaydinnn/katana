@@ -158,16 +158,10 @@ public partial class LucaService
             await EnsureAuthenticatedAsync();
             await EnsureBranchSelectedAsync();
 
-            // FIXED: Postman collection ile uyumlu JSON format kullan
-            // Postman'da: POST ListeleStkSkart.do + JSON body
+            // FIXED: Tarih filtresi kaldırıldı - boş obje ile tüm stok kartlarını getir
             var requestBody = new
             {
-                stkSkart = new
-                {
-                    eklemeTarihiBas = "06/04/2022",
-                    eklemeTarihiBit = "06/04/2022",
-                    eklemeTarihiOp = "between"
-                }
+                stkSkart = new { }
             };
             
             var json = JsonSerializer.Serialize(requestBody, _jsonOptions);
@@ -383,8 +377,8 @@ public partial class LucaService
                     $"Cache warming failed - sync aborted to prevent data corruption.");
             }
 
-            // Koza response alanı değişken: stokKartlari veya stkKartListesi
-            var stoklar = dto?.StokKartlari ?? dto?.StkKartListesi ?? new List<KozaStokKartiDto>();
+            // Koza response alanı değişken: list, stokKartlari veya stkKartListesi
+            var stoklar = dto?.List ?? dto?.StokKartlari ?? dto?.StkKartListesi ?? new List<KozaStokKartiDto>();
             
             if (stoklar.Count == 0)
             {

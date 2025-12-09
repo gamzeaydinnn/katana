@@ -293,6 +293,34 @@ public partial class LucaService
     }
 
     /// <summary>
+    /// Luca müşteri carilerini sade liste DTO'suna map ederek döndürür
+    /// </summary>
+    public async Task<IReadOnlyList<KozaCustomerListItemDto>> ListMusteriCustomerItemsAsync(CancellationToken ct = default)
+    {
+        return await ListMusteriCustomerItemsAsync(null, null, "between", ct);
+    }
+
+    /// <summary>
+    /// Luca müşteri carilerini sade liste DTO'suna map ederek döndürür (filtrelenmiş)
+    /// </summary>
+    public async Task<IReadOnlyList<KozaCustomerListItemDto>> ListMusteriCustomerItemsAsync(
+        string? kodBas,
+        string? kodBit,
+        string kodOp = "between",
+        CancellationToken ct = default)
+    {
+        var cariler = await ListMusteriCarilerAsync(kodBas, kodBit, kodOp, ct);
+        if (cariler == null || cariler.Count == 0)
+        {
+            return new List<KozaCustomerListItemDto>();
+        }
+
+        return cariler
+            .Select(KozaCustomerListItemDto.FromKozaCari)
+            .ToList();
+    }
+
+    /// <summary>
     /// Koza Müşteri Kartı Ekleme (EkleFinMusteriWS.do) - Dokümantasyona tam uyumlu
     /// </summary>
     public async Task<KozaResult> CreateMusteriCariAsync(KozaMusteriEkleRequest request, CancellationToken ct = default)
