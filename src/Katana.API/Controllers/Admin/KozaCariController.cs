@@ -213,6 +213,7 @@ public sealed class KozaCariController : ControllerBase
                     KatanaSupplierId = katanaSupplier.Id.ToString(),
                     SupplierName = katanaSupplier.Name
                 };
+                var statusLabel = "Unknown";
 
                 try
                 {
@@ -237,8 +238,9 @@ public sealed class KozaCariController : ControllerBase
                         item.KozaCariKodu = existingMapping.KozaCariKodu;
                         item.KozaFinansalNesneId = existingMapping.KozaFinansalNesneId;
                         item.Success = true;
-                        item.Message = "Zaten senkronize edilmiş";
+                        item.Message = "Tedarikçi cari zaten Luca'da mevcut";
                         result.SkippedCount++;
+                        statusLabel = "Skipped";
                         
                         _logger.LogInformation(
                             "Supplier sync skipped: KatanaSupplierId={Id}, KatanaName={Name}, KozaCariKodu={Kod}, KozaFinansalNesneId={FinId}",
@@ -302,8 +304,9 @@ public sealed class KozaCariController : ControllerBase
                             item.KozaCariKodu = cariKodu;
                             item.KozaFinansalNesneId = finansalNesneId;
                             item.Success = true;
-                            item.Message = kozaResult.Message;
+                            item.Message = kozaResult.Message ?? "Tedarikçi cari başarıyla oluşturuldu";
                             result.SuccessCount++;
+                            statusLabel = "Success";
 
                             _logger.LogInformation(
                                 "Supplier sync ok: KatanaSupplierId={Id}, KatanaName={Name}, KozaCariKodu={Kod}, KozaFinansalNesneId={FinId}",
@@ -315,8 +318,9 @@ public sealed class KozaCariController : ControllerBase
                         else
                         {
                             item.Success = false;
-                            item.Message = kozaResult.Message;
+                            item.Message = kozaResult.Message ?? "Tedarikçi cari oluşturulamadı";
                             result.ErrorCount++;
+                            statusLabel = "Error";
                         }
                     }
                 }
@@ -327,7 +331,13 @@ public sealed class KozaCariController : ControllerBase
                     item.Success = false;
                     item.Message = ex.Message;
                     result.ErrorCount++;
+                    statusLabel = "Error";
                 }
+
+                _logger.LogInformation("Supplier sync result: KatanaSupplierId={Id}, Status={Status}, Message={Message}",
+                    item.KatanaSupplierId,
+                    statusLabel,
+                    item.Message ?? "-");
 
                 result.Items.Add(item);
             }

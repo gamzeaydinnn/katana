@@ -723,10 +723,20 @@ const KozaIntegration: React.FC = () => {
         <Box sx={{ px: { xs: 1, sm: 0 } }}>
           {/* İstatistikler */}
           <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
-            <Card sx={{ flex: "1 1 auto", minWidth: 80 }}>
+            <Card sx={{ flex: "1 1 160px", minWidth: 120 }}>
               <CardContent sx={{ py: 1, px: 1.5, "&:last-child": { pb: 1 } }}>
                 <Typography color="textSecondary" variant="caption">
-                  Toplam
+                  Katana Sync Toplamı
+                </Typography>
+                <Typography variant="h6" fontWeight={700}>
+                  {supplierSyncResult?.totalCount ?? suppliers.length}
+                </Typography>
+              </CardContent>
+            </Card>
+            <Card sx={{ flex: "1 1 160px", minWidth: 120 }}>
+              <CardContent sx={{ py: 1, px: 1.5, "&:last-child": { pb: 1 } }}>
+                <Typography color="textSecondary" variant="caption">
+                  Koza Tedarikçi Sayısı
                 </Typography>
                 <Typography variant="h6" fontWeight={700}>
                   {suppliers.length}
@@ -864,11 +874,23 @@ const KozaIntegration: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {suppliers.map((sup, idx) => (
-                      <TableRow
-                        key={`${sup.kod ?? "no-code"}-${sup.finansalNesneId ?? idx}`}
-                      >
-                        <TableCell>{sup.finansalNesneId ?? "-"}</TableCell>
+                    {suppliers.map((sup, idx) => {
+                      const hasValidId =
+                        typeof sup.finansalNesneId === "number" &&
+                        sup.finansalNesneId > 0;
+                      let rowKey: string;
+                      if (hasValidId) {
+                        rowKey = `fin-${sup.finansalNesneId}`;
+                      } else if (sup.kod) {
+                        rowKey = `kod-${sup.kod}`;
+                      } else {
+                        rowKey = `supplier-${idx}`;
+                      }
+                      const displayId = hasValidId ? sup.finansalNesneId : "-";
+
+                      return (
+                        <TableRow key={rowKey}>
+                          <TableCell>{displayId}</TableCell>
                         <TableCell>
                           <Chip
                             label={sup.kod ?? "-"}
@@ -889,8 +911,9 @@ const KozaIntegration: React.FC = () => {
                         >
                           {sup.telefon ?? sup.email ?? "-"}
                         </TableCell>
-                      </TableRow>
-                    ))}
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>

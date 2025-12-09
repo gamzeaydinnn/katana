@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using System.Text.Json;
 using Katana.Core.DTOs.Koza;
@@ -103,6 +104,9 @@ public partial class LucaService
             // Debug için raw body'yi logla (ilk 500 karakter)
             _logger.LogDebug("ListTedarikciCarilerAsync raw body (first 500): {Body}",
                 body.Length > 500 ? body[..500] : body);
+            _logger.LogInformation("DEBUG ListTedarikciCarilerAsync FULL BODY SAMPLE (first 1000 chars):{NewLine}{Body}",
+                Environment.NewLine,
+                body.Length > 1000 ? body[..1000] : body);
 
             var dto = JsonSerializer.Deserialize<KozaCariListResponse>(body, _jsonOptions);
             

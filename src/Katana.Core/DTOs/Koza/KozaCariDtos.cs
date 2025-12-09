@@ -535,6 +535,12 @@ public sealed class KozaCariDto
     
     [JsonPropertyName("kod")]
     public string? Kod { get; set; }
+
+    [JsonPropertyName("kartKod")]
+    public string? KartKod { get; set; }
+
+    [JsonPropertyName("hiyerarsikKod")]
+    public string? HiyerarsikKod { get; set; }
     
     [JsonPropertyName("tanim")]
     public string? Tanim { get; set; }
@@ -562,6 +568,18 @@ public sealed class KozaCariDto
     
     [JsonPropertyName("paraBirimKod")]
     public string? ParaBirimKod { get; set; }
+
+    [JsonPropertyName("gnlFinansalNesne")]
+    public KozaCariFinansalNesne? GnlFinansalNesne { get; set; }
+}
+
+public sealed class KozaCariFinansalNesne
+{
+    [JsonPropertyName("finansalNesneId")]
+    public long? FinansalNesneId { get; set; }
+
+    [JsonPropertyName("kod")]
+    public string? Kod { get; set; }
 }
 
 #endregion
@@ -601,11 +619,30 @@ public sealed class KozaSupplierListItemDto
             return new KozaSupplierListItemDto();
         }
 
+        var finalFinansalNesneId = cari.FinansalNesneId
+                                   ?? cari.GnlFinansalNesne?.FinansalNesneId;
+        var finalKod = cari.Kod
+                      ?? cari.KartKod
+                      ?? cari.GnlFinansalNesne?.Kod
+                      ?? cari.HiyerarsikKod;
+
+#if DEBUG
+        if (string.IsNullOrWhiteSpace(finalKod) || !finalFinansalNesneId.HasValue)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"KozaSupplierListItemDto.FromKozaCari fallback: Kod={finalKod ?? "NULL"}, KartKod={cari.KartKod ?? "NULL"}, NestedKod={cari.GnlFinansalNesne?.Kod ?? "NULL"}, FinansalNesneId={cari.FinansalNesneId?.ToString() ?? "NULL"}, NestedFinId={cari.GnlFinansalNesne?.FinansalNesneId?.ToString() ?? "NULL"}");
+        }
+#endif
+
         return new KozaSupplierListItemDto
         {
-            FinansalNesneId = cari.FinansalNesneId,
-            Kod = cari.Kod,
-            Tanim = cari.Tanim ?? cari.YasalUnvan ?? cari.KisaAd ?? cari.Kod,
+            FinansalNesneId = finalFinansalNesneId,
+            Kod = finalKod,
+            Tanim = cari.Tanim 
+                ?? cari.YasalUnvan 
+                ?? cari.KisaAd 
+                ?? cari.Kod 
+                ?? cari.HiyerarsikKod,
             VergiNo = cari.VergiNo ?? cari.TcKimlikNo,
             Telefon = cari.Telefon,
             Email = cari.Email
