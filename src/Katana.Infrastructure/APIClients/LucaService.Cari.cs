@@ -329,7 +329,8 @@ public partial class LucaService
         {
             await EnsureAuthenticatedAsync();
 
-            var json = JsonSerializer.Serialize(new { finMusteri = request }, _jsonOptions);
+            // Luca Koza RPC tarzı bekliyor: düz body (finMusteri sarmalamasız)
+            var json = JsonSerializer.Serialize(request, _jsonOptions);
             
             _logger.LogDebug("CreateMusteriCariAsync request: {Json}", json);
 

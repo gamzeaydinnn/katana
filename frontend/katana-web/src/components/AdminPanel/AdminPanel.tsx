@@ -64,6 +64,8 @@ interface Statistics {
   totalStock: number;
   successfulSyncs: number;
   failedSyncs: number;
+  criticalProducts?: number;
+  totalValue?: number;
 }
 
 interface AdminProduct {
@@ -737,7 +739,8 @@ const AdminPanel: React.FC = () => {
                 gridTemplateColumns: {
                   xs: "1fr",
                   sm: "repeat(2, 1fr)",
-                  md: "repeat(4, 1fr)",
+                  md: "repeat(3, 1fr)",
+                  lg: "repeat(6, 1fr)",
                 },
                 gap: 3,
                 mb: 4,
@@ -754,6 +757,21 @@ const AdminPanel: React.FC = () => {
                 value={statistics.totalStock.toLocaleString("tr-TR")}
                 icon={<TrendingUp />}
                 color="#2e7d32"
+              />
+              <StatCard
+                title="Kritik Ürünler"
+                value={statistics.criticalProducts ?? 0}
+                icon={<ReportProblem />}
+                color="#f59e0b"
+              />
+              <StatCard
+                title="Toplam Değer"
+                value={`₺${(statistics.totalValue ?? 0).toLocaleString(
+                  "tr-TR",
+                  { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                )}`}
+                icon={<Receipt />}
+                color="#8b5cf6"
               />
               <StatCard
                 title="Başarılı Sync"

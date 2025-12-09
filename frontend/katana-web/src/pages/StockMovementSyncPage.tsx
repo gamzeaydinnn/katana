@@ -319,6 +319,8 @@ const StockMovementSyncPage: React.FC = () => {
         width: "100%",
         maxWidth: "100%",
         overflowX: "hidden",
+        px: { xs: 1, sm: 0 },
+        boxSizing: "border-box",
       }}
     >
       {/* Page Header */}
@@ -327,22 +329,27 @@ const StockMovementSyncPage: React.FC = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          mb: { xs: 2, sm: 3 },
-          pb: { xs: 1.5, sm: 2 },
+          mb: { xs: 1.5, sm: 3 },
+          pb: { xs: 1, sm: 2 },
           borderBottom: "1px solid rgba(102, 126, 234, 0.15)",
+          flexWrap: "nowrap",
+          gap: 1,
         }}
       >
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: { xs: 1, sm: 1.5 },
+            gap: { xs: 0.75, sm: 1.5 },
+            minWidth: 0,
+            flex: 1,
           }}
         >
           <Box
             sx={{
-              width: { xs: 36, sm: 48 },
-              height: { xs: 36, sm: 48 },
+              width: { xs: 32, sm: 48 },
+              height: { xs: 32, sm: 48 },
+              minWidth: { xs: 32, sm: 48 },
               borderRadius: 2,
               background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
               display: "flex",
@@ -352,28 +359,32 @@ const StockMovementSyncPage: React.FC = () => {
             }}
           >
             <WarehouseIcon
-              sx={{ color: "white", fontSize: { xs: 20, sm: 28 } }}
+              sx={{ color: "white", fontSize: { xs: 18, sm: 28 } }}
             />
           </Box>
-          <Box>
+          <Box sx={{ minWidth: 0 }}>
             <Typography
               sx={{
-                fontSize: { xs: "1rem", sm: "1.5rem" },
+                fontSize: { xs: "0.9rem", sm: "1.5rem" },
                 fontWeight: 700,
                 color: "#1e293b",
                 lineHeight: 1.2,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
               }}
             >
               Stok Hareketleri
             </Typography>
             <Typography
               sx={{
-                fontSize: { xs: "0.7rem", sm: "0.85rem" },
+                fontSize: { xs: "0.65rem", sm: "0.85rem" },
                 color: "#64748b",
                 fontWeight: 500,
+                whiteSpace: "nowrap",
               }}
             >
-              Luca Aktarım Yönetimi
+              Luca Aktarım
             </Typography>
           </Box>
         </Box>
@@ -381,12 +392,14 @@ const StockMovementSyncPage: React.FC = () => {
           onClick={loadData}
           disabled={loading}
           sx={{
-            width: { xs: 36, sm: 44 },
-            height: { xs: 36, sm: 44 },
+            width: { xs: 32, sm: 44 },
+            height: { xs: 32, sm: 44 },
+            minWidth: { xs: 32, sm: 44 },
             borderRadius: 2,
             background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
             color: "white",
             boxShadow: "0 4px 12px rgba(102, 126, 234, 0.3)",
+            flexShrink: 0,
             "&:hover": {
               background: "linear-gradient(135deg, #764ba2 0%, #667eea 100%)",
               boxShadow: "0 6px 16px rgba(102, 126, 234, 0.4)",
@@ -397,7 +410,7 @@ const StockMovementSyncPage: React.FC = () => {
             },
           }}
         >
-          <RefreshIcon sx={{ fontSize: { xs: 18, sm: 24 } }} />
+          <RefreshIcon sx={{ fontSize: { xs: 16, sm: 24 } }} />
         </IconButton>
       </Box>
       {/* Dashboard Stats */}
@@ -406,9 +419,10 @@ const StockMovementSyncPage: React.FC = () => {
           sx={{
             display: "grid",
             gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" },
-            gap: { xs: 1, sm: 2 },
-            mb: 2,
+            gap: { xs: 0.75, sm: 2 },
+            mb: { xs: 1.5, sm: 2 },
             width: "100%",
+            boxSizing: "border-box",
           }}
         >
           <Box>
@@ -427,14 +441,14 @@ const StockMovementSyncPage: React.FC = () => {
             >
               <CardContent
                 sx={{
-                  p: { xs: 1.5, sm: 2 },
-                  "&:last-child": { pb: { xs: 1.5, sm: 2 } },
+                  p: { xs: 1, sm: 2 },
+                  "&:last-child": { pb: { xs: 1, sm: 2 } },
                 }}
               >
                 <Typography
                   sx={{
                     fontWeight: 700,
-                    fontSize: { xs: "1.5rem", sm: "2rem" },
+                    fontSize: { xs: "1.25rem", sm: "2rem" },
                   }}
                 >
                   {stats.totalTransfers}
@@ -443,7 +457,7 @@ const StockMovementSyncPage: React.FC = () => {
                   sx={{
                     opacity: 0.95,
                     fontWeight: 500,
-                    fontSize: { xs: "0.7rem", sm: "0.875rem" },
+                    fontSize: { xs: "0.6rem", sm: "0.875rem" },
                   }}
                 >
                   Toplam Transfer
@@ -452,8 +466,8 @@ const StockMovementSyncPage: React.FC = () => {
                   sx={{
                     display: "flex",
                     flexWrap: "wrap",
-                    gap: 0.5,
-                    mt: 0.5,
+                    gap: 0.25,
+                    mt: 0.25,
                   }}
                 >
                   <Chip
@@ -462,8 +476,9 @@ const StockMovementSyncPage: React.FC = () => {
                     sx={{
                       backgroundColor: "rgba(255,255,255,0.2)",
                       color: "white",
-                      height: { xs: 18, sm: 24 },
-                      fontSize: { xs: "0.6rem", sm: "0.75rem" },
+                      height: { xs: 16, sm: 24 },
+                      fontSize: { xs: "0.55rem", sm: "0.75rem" },
+                      "& .MuiChip-label": { px: { xs: 0.5, sm: 1 } },
                     }}
                   />
                   <Chip
@@ -472,8 +487,9 @@ const StockMovementSyncPage: React.FC = () => {
                     sx={{
                       backgroundColor: "rgba(255,255,255,0.2)",
                       color: "white",
-                      height: { xs: 18, sm: 24 },
-                      fontSize: { xs: "0.6rem", sm: "0.75rem" },
+                      height: { xs: 16, sm: 24 },
+                      fontSize: { xs: "0.55rem", sm: "0.75rem" },
+                      "& .MuiChip-label": { px: { xs: 0.5, sm: 1 } },
                     }}
                   />
                 </Box>

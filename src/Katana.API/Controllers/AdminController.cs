@@ -159,6 +159,14 @@ public class AdminController : ControllerBase
             var totalProducts = products.Count;
             var activeProducts = products.Count(p => p.IsActive);
 
+            // Kritik ürünler (stok < 10)
+            var criticalProducts = products.Count(p => p.IsActive && (p.InStock ?? 0) < 10);
+
+            // Toplam değer hesaplama
+            var totalValue = products
+                .Where(p => p.IsActive)
+                .Sum(p => (p.InStock ?? 0) * p.Price);
+
             // Son 24 saatteki sync loglarını al
             var last24Hours = DateTime.UtcNow.AddHours(-24);
             var recentSyncs = await _context.SyncOperationLogs
@@ -172,6 +180,8 @@ public class AdminController : ControllerBase
             {
                 totalProducts,
                 totalStock = activeProducts,
+                criticalProducts,
+                totalValue,
                 successfulSyncs,
                 failedSyncs
             });
