@@ -41,14 +41,13 @@ import {
 import api, { kozaAPI } from "../../services/api";
 
 // Tedarikçi Cari tipi
-interface KozaTedarikciCari {
-  finansalNesneId?: number;
-  kod?: string;
-  tanim?: string;
-  kisaAd?: string;
-  vergiNo?: string;
-  email?: string;
-  telefon?: string;
+interface KozaSupplierListItem {
+  finansalNesneId: number | null;
+  kod: string | null;
+  tanim: string | null;
+  vergiNo: string | null;
+  telefon: string | null;
+  email: string | null;
 }
 
 // Supplier Sync sonucu
@@ -88,7 +87,7 @@ const KozaIntegration: React.FC = () => {
   const [syncingStockCards, setSyncingStockCards] = useState(false);
 
   // Tedarikçi state
-  const [suppliers, setSuppliers] = useState<KozaTedarikciCari[]>([]);
+  const [suppliers, setSuppliers] = useState<KozaSupplierListItem[]>([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [syncingSuppliers, setSyncingSuppliers] = useState(false);
   const [supplierSyncResult, setSupplierSyncResult] =
@@ -288,8 +287,20 @@ const KozaIntegration: React.FC = () => {
     try {
       setLoadingSuppliers(true);
       setError(null);
-      const res = await api.get("/admin/koza/cari/suppliers");
-      setSuppliers(Array.isArray(res.data) ? res.data : []);
+      const res = await api.get<KozaSupplierListItem[]>(
+        "/admin/koza/cari/suppliers"
+      );
+      const rows = Array.isArray(res.data) ? res.data : [];
+      setSuppliers(
+        rows.map((item) => ({
+          finansalNesneId: item.finansalNesneId ?? null,
+          kod: item.kod ?? null,
+          tanim: item.tanim ?? null,
+          vergiNo: item.vergiNo ?? null,
+          telefon: item.telefon ?? null,
+          email: item.email ?? null,
+        }))
+      );
     } catch (err: any) {
       console.error("Tedarikçi yükleme hatası:", err);
       setError(err.message || "Tedarikçiler yüklenirken hata oluştu");
@@ -854,27 +865,29 @@ const KozaIntegration: React.FC = () => {
                   </TableHead>
                   <TableBody>
                     {suppliers.map((sup, idx) => (
-                      <TableRow key={sup.finansalNesneId || `sup-${idx}`}>
-                        <TableCell>{sup.finansalNesneId || "-"}</TableCell>
+                      <TableRow
+                        key={`${sup.kod ?? "no-code"}-${sup.finansalNesneId ?? idx}`}
+                      >
+                        <TableCell>{sup.finansalNesneId ?? "-"}</TableCell>
                         <TableCell>
                           <Chip
-                            label={sup.kod || "-"}
+                            label={sup.kod ?? "-"}
                             size="small"
                             color="warning"
                             variant="outlined"
                             sx={{ fontSize: "0.65rem" }}
                           />
                         </TableCell>
-                        <TableCell>{sup.tanim || sup.kisaAd || "-"}</TableCell>
+                        <TableCell>{sup.tanim ?? "-"}</TableCell>
                         <TableCell
                           sx={{ display: { xs: "none", sm: "table-cell" } }}
                         >
-                          {sup.vergiNo || "-"}
+                          {sup.vergiNo ?? "-"}
                         </TableCell>
                         <TableCell
                           sx={{ display: { xs: "none", sm: "table-cell" } }}
                         >
-                          {sup.email || sup.telefon || "-"}
+                          {sup.telefon ?? sup.email ?? "-"}
                         </TableCell>
                       </TableRow>
                     ))}

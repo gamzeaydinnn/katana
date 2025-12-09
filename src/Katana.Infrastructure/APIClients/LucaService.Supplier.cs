@@ -4,6 +4,7 @@ using Katana.Core.DTOs.Koza;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace Katana.Infrastructure.APIClients;
 
@@ -70,7 +71,11 @@ public partial class LucaService
             else
             {
                 // Filtreleme olmadan (tümü)
-                payload = new { };
+                // Luca dokümantasyonuna göre apiFilter=true gönderilmeli
+                payload = new
+                {
+                    apiFilter = true
+                };
             }
 
             var json = JsonSerializer.Serialize(payload, _jsonOptions);
@@ -95,6 +100,10 @@ public partial class LucaService
                 return new List<KozaCariDto>();
             }
 
+            // Debug için raw body'yi logla (ilk 500 karakter)
+            _logger.LogDebug("ListTedarikciCarilerAsync raw body (first 500): {Body}",
+                body.Length > 500 ? body[..500] : body);
+
             var dto = JsonSerializer.Deserialize<KozaCariListResponse>(body, _jsonOptions);
             
             if (dto?.Error == true)
@@ -103,7 +112,10 @@ public partial class LucaService
                 throw new InvalidOperationException(dto.Message ?? "Luca tedarikçi listeleme hatası");
             }
 
-            var tedarikçiler = dto?.FinTedarikciListesi ?? new List<KozaCariDto>();
+            // Önce finTedarikciListesi, yoksa list'e bak
+            var tedarikçiler = dto?.FinTedarikciListesi
+                             ?? dto?.List
+                             ?? new List<KozaCariDto>();
             
             _logger.LogInformation("Luca'dan {Count} tedarikçi cari listelendi (Filtre: {KodBas}-{KodBit})", 
                 tedarikçiler.Count, kodBas ?? "Tümü", kodBit ?? "Tümü");
@@ -114,6 +126,34 @@ public partial class LucaService
             _logger.LogError(ex, "ListTedarikciCarilerAsync failed");
             throw;
         }
+    }
+
+    /// <summary>
+    /// Luca tedarikçi carilerini sade liste DTO'suna map ederek döndürür
+    /// </summary>
+    public async Task<IReadOnlyList<KozaSupplierListItemDto>> ListTedarikciSupplierItemsAsync(CancellationToken ct = default)
+    {
+        return await ListTedarikciSupplierItemsAsync(null, null, "between", ct);
+    }
+
+    /// <summary>
+    /// Luca tedarikçi carilerini sade liste DTO'suna map ederek döndürür (filtrelenmiş)
+    /// </summary>
+    public async Task<IReadOnlyList<KozaSupplierListItemDto>> ListTedarikciSupplierItemsAsync(
+        string? kodBas,
+        string? kodBit,
+        string kodOp = "between",
+        CancellationToken ct = default)
+    {
+        var cariler = await ListTedarikciCarilerAsync(kodBas, kodBit, kodOp, ct);
+        if (cariler == null || cariler.Count == 0)
+        {
+            return new List<KozaSupplierListItemDto>();
+        }
+
+        return cariler
+            .Select(KozaSupplierListItemDto.FromKozaCari)
+            .ToList();
     }
 
     /// <summary>
@@ -241,7 +281,7 @@ public partial class LucaService
             var request = new LucaCreateSupplierRequest
             {
                 Tip = 1, // Tüzel kişi
-                CariTipId = 2, // Tedarikçi
+                CariTipId = 1, // Tedarikçi (Postman'da 1)
                 KartKod = lucaCode,
                 Tanim = supplier.Name,
                 KisaAd = supplier.Name.Length > 50 ? supplier.Name.Substring(0, 50) : supplier.Name,
@@ -377,7 +417,7 @@ public partial class LucaService
             var kozaRequest = new KozaTedarikciEkleRequest
             {
                 Tip = "1", // "1": Şirket
-                CariTipId = 2, // Tedarikçi
+                CariTipId = 1, // Tedarikçi (Postman'da 1)
                 TakipNoFlag = true, // Postman'da true
                 EfaturaTuru = 1, // 1: Temel Fatura
                 KategoriKod = "", // Postman'da boş string
@@ -402,7 +442,38 @@ public partial class LucaService
             
             // CreateTedarikciCariAsync kullan - bu metod zaten doğru formatta gönderir
             var result = await CreateTedarikciCariAsync(kozaRequest, ct);
-            
+
+            if (result.Success)
+            {
+                string? kozaCariKodu = cariKodu;
+                long? finansalNesneId = null;
+
+                try
+                {
+                    if (result.Data != null)
+                    {
+                        var dataJson = JsonSerializer.Serialize(result.Data, _jsonOptions);
+                        var dataElement = JsonSerializer.Deserialize<JsonElement>(dataJson, _jsonOptions);
+
+                        if (dataElement.TryGetProperty("CariKodu", out var ck))
+                            kozaCariKodu = ck.GetString() ?? kozaCariKodu;
+                        if (dataElement.TryGetProperty("FinansalNesneId", out var fn) && fn.ValueKind == JsonValueKind.Number)
+                            finansalNesneId = fn.GetInt64();
+                    }
+                }
+                catch
+                {
+                    // ignore parse errors
+                }
+
+                _logger.LogInformation(
+                    "Supplier sync ok: KatanaSupplierId={Id}, KatanaName={Name}, KozaCariKodu={Kod}, KozaFinansalNesneId={FinId}",
+                    supplier.KatanaSupplierId,
+                    supplier.Name,
+                    kozaCariKodu,
+                    finansalNesneId);
+            }
+
             return result;
         }
         catch (Exception ex)
