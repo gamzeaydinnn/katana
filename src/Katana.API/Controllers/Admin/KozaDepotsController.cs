@@ -403,22 +403,22 @@ public sealed class KozaDepotsController : ControllerBase
             _logger.LogWarning("Success: {Success}", result.Success);
             _logger.LogWarning("Message: {Message}", result.Message ?? "NULL");
             
+            // 1) Normal success
             if (result.Success)
             {
-                _logger.LogInformation("Depot created successfully in Koza: {Kod}", request.StkDepo.Kod);
+                _logger.LogInformation("Depot created successfully: {Kod}", request.StkDepo.Kod);
                 
-                // 🔄 Local cache'e yaz / güncelle
+                // Koza'dan başarı dönmüşse local cache'e de ekleyelim
+                var now = DateTime.UtcNow;
                 var existing = await _context.KozaDepots
                     .FirstOrDefaultAsync(d => d.Kod == request.StkDepo.Kod, ct);
                 
-                var now = DateTime.UtcNow;
-                
                 if (existing == null)
                 {
-                    var depot = new KozaDepot
+                    var newDepot = new KozaDepot
                     {
-                        DepoId       = request.StkDepo.DepoId, // şu an genelde null, sorun değil
-                        Kod          = request.StkDepo.Kod!,   // üstte zaten null check yaptık
+                        DepoId       = request.StkDepo.DepoId,
+                        Kod          = request.StkDepo.Kod!,
                         Tanim        = request.StkDepo.Tanim ?? "",
                         KategoriKod  = NormalizeKategoriKod(request.StkDepo.KategoriKod),
                         Ulke         = request.StkDepo.Ulke,
@@ -429,31 +429,59 @@ public sealed class KozaDepotsController : ControllerBase
                         UpdatedAt    = now
                     };
                     
-                    await _context.KozaDepots.AddAsync(depot, ct);
-                    _logger.LogInformation("Depot inserted into local DB: {Kod}", depot.Kod);
+                    await _context.KozaDepots.AddAsync(newDepot, ct);
+                    await _context.SaveChangesAsync(ct);
                 }
-                else
-                {
-                    existing.Tanim        = request.StkDepo.Tanim ?? existing.Tanim;
-                    existing.KategoriKod  = NormalizeKategoriKod(request.StkDepo.KategoriKod) ?? existing.KategoriKod;
-                    existing.Ulke         = request.StkDepo.Ulke ?? existing.Ulke;
-                    existing.Il           = request.StkDepo.Il ?? existing.Il;
-                    existing.Ilce         = request.StkDepo.Ilce ?? existing.Ilce;
-                    existing.AdresSerbest = request.StkDepo.AdresSerbest ?? existing.AdresSerbest;
-                    existing.UpdatedAt    = now;
-                    
-                    _logger.LogInformation("Depot updated in local DB: {Kod}", existing.Kod);
-                }
-                
-                await _context.SaveChangesAsync(ct);
                 
                 return Ok(result);
             }
-            else
+            
+            // 2) Koza: "Depo kodu kullanımda!" → zaten var, idempotent success gibi davran
+            if (!string.IsNullOrWhiteSpace(result.Message) &&
+                result.Message.Contains("Depo kodu kullanımda", StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogWarning("Depot creation failed: {Message}", result.Message);
-                return BadRequest(result);
+                _logger.LogWarning("Koza: 'Depo kodu kullanımda' döndü. {Kod} zaten mevcut, idempotent success olarak ele alınıyor.",
+                    request.StkDepo.Kod);
+                
+                var now = DateTime.UtcNow;
+                var existing = await _context.KozaDepots
+                    .FirstOrDefaultAsync(d => d.Kod == request.StkDepo.Kod, ct);
+                
+                if (existing == null)
+                {
+                    var newDepot = new KozaDepot
+                    {
+                        DepoId       = request.StkDepo.DepoId, // şu an Koza depoId bilmiyoruz, null kalabilir
+                        Kod          = request.StkDepo.Kod!,
+                        Tanim        = request.StkDepo.Tanim ?? "",
+                        KategoriKod  = NormalizeKategoriKod(request.StkDepo.KategoriKod),
+                        Ulke         = request.StkDepo.Ulke,
+                        Il           = request.StkDepo.Il,
+                        Ilce         = request.StkDepo.Ilce,
+                        AdresSerbest = request.StkDepo.AdresSerbest,
+                        CreatedAt    = now,
+                        UpdatedAt    = now
+                    };
+                    
+                    await _context.KozaDepots.AddAsync(newDepot, ct);
+                    await _context.SaveChangesAsync(ct);
+                }
+                
+                return Ok(new KozaResult
+                {
+                    Success = true,
+                    Message = "Depo Koza'da zaten mevcut (kod kullanımda).",
+                    Data = new
+                    {
+                        alreadyExists = true,
+                        code = request.StkDepo.Kod
+                    }
+                });
             }
+            
+            // 3) Diğer tüm hatalar normal şekilde 400 dönsün
+            _logger.LogWarning("Depot creation failed: {Message}", result.Message);
+            return BadRequest(result);
         }
         catch (Exception ex)
         {
