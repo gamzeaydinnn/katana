@@ -282,42 +282,25 @@ public sealed class KozaDepotsController : ControllerBase
                 return BadRequest(new { error = "Depo adı (tanim) zorunludur" });
             }
 
-<<<<<<< HEAD
-            // DÜZELTME 3: KategoriKod kontrolü ve normalizasyon
-            // Luca UI'den doğrulanan varsayılan: "002" (MERKEZ DEPO)
-=======
-            // ✅ FIX 2: KategoriKod tutarsızlığını düzelt
-            // Luca'nın beklediği değer sisDepoKategoriAgacKodu'dur
-            if (request.StkDepo.KategoriKod != request.StkDepo.SisDepoKategoriAgacKodu)
+            // ✅ KategoriKod kontrolü ve normalizasyon: numeric kod sisDepoKategoriAgacKodu ile hizalanır
+            var originalKategoriKod = request.StkDepo.KategoriKod;
+            if (!string.IsNullOrWhiteSpace(request.StkDepo.SisDepoKategoriAgacKodu) &&
+                !string.Equals(request.StkDepo.KategoriKod, request.StkDepo.SisDepoKategoriAgacKodu, StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogWarning(
                     "⚠️ KategoriKod mismatch! kategoriKod={K1}, sisDepoKategoriAgacKodu={K2}. Using sisDepoKategoriAgacKodu.",
                     request.StkDepo.KategoriKod ?? "NULL",
-                    request.StkDepo.SisDepoKategoriAgacKodu ?? "NULL"
-                );
+                    request.StkDepo.SisDepoKategoriAgacKodu);
                 
-                // Luca'nın beklediği değeri kullan
-                request.StkDepo.KategoriKod = request.StkDepo.SisDepoKategoriAgacKodu ?? "002";
+                request.StkDepo.KategoriKod = request.StkDepo.SisDepoKategoriAgacKodu;
             }
             
-            // ✅ FIX 4: KategoriKod kontrolü ve normalizasyon
-            // "MERKEZ" gibi kategori ADLARI değil, numerik KOD bekleniyor
-            // sisDepoKategoriAgacKodu ile uyumlu olmalı
->>>>>>> sare-branch
-            var originalKategoriKod = request.StkDepo.KategoriKod;
             if (string.IsNullOrWhiteSpace(request.StkDepo.KategoriKod) || 
                 request.StkDepo.KategoriKod.Equals("MERKEZ", StringComparison.OrdinalIgnoreCase))
             {
-<<<<<<< HEAD
-                request.StkDepo.KategoriKod = "002"; // Luca screenshot'tan doğrulandı: 002 - MERKEZ DEPO
+                request.StkDepo.KategoriKod = request.StkDepo.SisDepoKategoriAgacKodu ?? "002"; // Varsayılan: 002 - MERKEZ DEPO
                 _logger.LogWarning("KategoriKod TRANSFORMED: '{Original}' -> '{New}'", 
                     originalKategoriKod ?? "NULL", request.StkDepo.KategoriKod);
-=======
-                // sisDepoKategoriAgacKodu ile uyumlu olmalı
-                request.StkDepo.KategoriKod = request.StkDepo.SisDepoKategoriAgacKodu ?? "002";
-                _logger.LogWarning("KategoriKod set to match SisDepoKategoriAgacKodu: '{KategoriKod}'", 
-                    request.StkDepo.KategoriKod);
->>>>>>> sare-branch
             }
 
             // DÜZELTME: Luca depo kategori ağacı varsayılan değerleri ekle
@@ -363,42 +346,21 @@ public sealed class KozaDepotsController : ControllerBase
                 _logger.LogWarning("Location existence check - Depot found: {Kod} (ID: {ExistingId}, Name: {ExistingName})", 
                     request.StkDepo.Kod, existingDepot.Id, existingDepot.Tanim);
                 
-                // Idempotent mode: skip silently ve success döner
-                if (idempotent)
+                // Zaten varsa her durumda idempotent başarı döndür
+                _logger.LogInformation("Skipping depot creation (already exists): {Kod} - ID {ExistingId}", 
+                    request.StkDepo.Kod, existingDepot.Id);
+                
+                return Ok(new KozaResult
                 {
-                    _logger.LogInformation("Skipping depot creation (idempotent mode): {Kod} - Already exists with ID {ExistingId}", 
-                        request.StkDepo.Kod, existingDepot.Id);
-                    
-                    return Ok(new KozaResult
+                    Success = true,
+                    Message = $"Depo zaten mevcut (ID: {existingDepot.Id}) - İşlem atlandı",
+                    Data = new
                     {
-                        Success = true,
-                        Message = $"Depo zaten mevcut (ID: {existingDepot.Id}) - İşlem atlandı (idempotent mode)",
-                        Data = new
-                        {
-                            skipped = true,
-                            existingId = existingDepot.Id,
-                            existingName = existingDepot.Tanim
-                        }
-                    });
-                }
-                // Default mode: conflict error döner
-                else
-                {
-                    _logger.LogWarning("Duplicate depot code detected: {Kod} (ID: {ExistingId})", 
-                        request.StkDepo.Kod, existingDepot.Id);
-                    
-                    return Conflict(new
-                    {
-                        error = "Depo kodu zaten mevcut",
-                        code = "DUPLICATE_LOCATION",
-                        details = new
-                        {
-                            locationCode = request.StkDepo.Kod,
-                            existingId = existingDepot.Id,
-                            existingName = existingDepot.Tanim
-                        }
-                    });
-                }
+                        skipped = true,
+                        existingId = existingDepot.Id,
+                        existingName = existingDepot.Tanim
+                    }
+                });
             }
             
             _logger.LogInformation("Location existence check passed - No existing depot found for code: {Kod}", request.StkDepo.Kod);

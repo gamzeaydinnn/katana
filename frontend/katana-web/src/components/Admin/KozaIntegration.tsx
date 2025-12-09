@@ -78,6 +78,7 @@ const KozaIntegration: React.FC = () => {
 
   // Depo state
   const [depots, setDepots] = useState<KozaStkDepo[]>([]);
+  const [totalDepots, setTotalDepots] = useState<number>(0);
   const [loadingDepots, setLoadingDepots] = useState(false);
   const [syncingDepots, setSyncingDepots] = useState(false);
 
@@ -108,7 +109,16 @@ const KozaIntegration: React.FC = () => {
       setLoadingDepots(true);
       setError(null);
       const data = await kozaAPI.depots.list();
-      setDepots(Array.isArray(data) ? data : []);
+      
+      // Backend response: { data: [], pagination: { totalItems } } (camelCase)
+      const itemsData = Array.isArray((data as any)?.data) ? (data as any).data : undefined;
+      const itemsAlt = Array.isArray((data as any)?.items) ? (data as any).items : undefined;
+      const items = itemsData ?? itemsAlt ?? (Array.isArray(data) ? data : []);
+      const paginationTotal = (data as any)?.pagination?.totalItems;
+      const total = typeof paginationTotal === "number" ? paginationTotal : items.length;
+
+      setDepots(items);
+      setTotalDepots(total);
     } catch (err: any) {
       console.error("Depo yükleme hatası:", err);
       setError(err.message || "Depolar yüklenirken hata oluştu");
@@ -487,7 +497,7 @@ const KozaIntegration: React.FC = () => {
                   Toplam Depo
                 </Typography>
                 <Typography variant="h5" fontWeight={700}>
-                  {depots.length}
+                  {totalDepots}
                 </Typography>
               </CardContent>
             </Card>
@@ -561,9 +571,9 @@ const KozaIntegration: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {depots.map((depo) => (
-                      <TableRow key={`depot-${depo.depoId || depo.kod}-${depo.kod}`}>
-                        <TableCell>{depo.depoId || "-"}</TableCell>
+                {depots.map((depo) => (
+                  <TableRow key={`depot-${depo.depoId ?? depo.id ?? depo.kod}-${depo.kod}`}>
+                    <TableCell>{depo.depoId ?? depo.id ?? "-"}</TableCell>
                         <TableCell>
                           <Chip
                             label={depo.kod}

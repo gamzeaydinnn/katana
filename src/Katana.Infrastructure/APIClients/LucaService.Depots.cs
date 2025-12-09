@@ -86,12 +86,6 @@ public partial class LucaService
         {
             await EnsureAuthenticatedAsync();
 
-<<<<<<< HEAD
-            // FIX: Frontend wrapper gönderir {stkDepo:{...}}, biz sadece içini Luca'ya gönderiyoruz (düz)
-            var json = JsonSerializer.Serialize(req.StkDepo, _jsonOptions); // StkDepo içini serialize et
-
-            _logger.LogInformation("CreateDepotAsync - JSON payload (flat for Luca): {Json}", json);
-=======
             // 🔥 Koza düz DTO bekliyor: sadece içteki obje gönderiliyor
             var payload = req.StkDepo;
 
@@ -106,7 +100,6 @@ public partial class LucaService
             var json = JsonSerializer.Serialize(payload, jsonOptions);
 
             _logger.LogInformation("CreateDepotAsync - FLAT JSON payload: {Json}", json);
->>>>>>> sare-branch
 
             var httpReq = new HttpRequestMessage(HttpMethod.Post, "EkleStkWsDepo.do")
             {

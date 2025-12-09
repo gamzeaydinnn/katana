@@ -28,6 +28,7 @@ using System.Threading.Tasks;
 using System.Security.Cryptography;
 using Katana.API.Workers;
 using Katana.API.Services;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -168,6 +169,14 @@ builder.Services.AddHttpClient<ILucaService, LucaService>((sp, client) =>
     if (!string.IsNullOrEmpty(s.ApiKey) && !s.UseTokenAuth)
         client.DefaultRequestHeaders.Add("X-API-Key", s.ApiKey);
 })
+    // Cookie-based auth relies on persistent cookies; attach a CookieContainer to preserve them.
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        CookieContainer = new CookieContainer(),
+        UseCookies = true,
+        AllowAutoRedirect = false,
+        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+    })
     .AddHttpMessageHandler<RateLimitHandler>()
     .AddHttpDebugLogging();
 
