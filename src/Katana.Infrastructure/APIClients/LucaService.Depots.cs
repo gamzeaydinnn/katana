@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Katana.Core.DTOs.Koza;
 using Microsoft.Extensions.Logging;
 
@@ -85,10 +86,20 @@ public partial class LucaService
         {
             await EnsureAuthenticatedAsync();
 
-            // FIXED: Koza'nın beklediği format { "stkDepo": { ... } } - DTO'daki JsonPropertyName ile uyumlu
-            var json = JsonSerializer.Serialize(req, _jsonOptions);
+            // 🔥 Koza düz DTO bekliyor: sadece içteki obje gönderiliyor
+            var payload = req.StkDepo;
 
-            _logger.LogInformation("CreateDepotAsync - JSON payload: {Json}", json);
+            var jsonOptions = new JsonSerializerOptions
+            {
+                // Attribute isimlerini kullanacağız, extra camelCase gerekmez
+                PropertyNamingPolicy = null,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                WriteIndented = false
+            };
+
+            var json = JsonSerializer.Serialize(payload, jsonOptions);
+
+            _logger.LogInformation("CreateDepotAsync - FLAT JSON payload: {Json}", json);
 
             var httpReq = new HttpRequestMessage(HttpMethod.Post, "EkleStkWsDepo.do")
             {

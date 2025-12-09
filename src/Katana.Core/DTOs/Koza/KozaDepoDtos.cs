@@ -8,7 +8,8 @@ namespace Katana.Core.DTOs.Koza;
 /// </summary>
 public sealed class KozaDepoDto
 {
-    [JsonPropertyName("depoId")] 
+    [JsonPropertyName("depoId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]  // ✅ null ise gönderme
     public long? DepoId { get; set; }
     
     [JsonPropertyName("kod")] 
@@ -21,23 +22,29 @@ public sealed class KozaDepoDto
     public string KategoriKod { get; set; } = string.Empty;
     
     /// <summary>Luca depo kategori ağacı ID'si</summary>
-    [JsonPropertyName("depoKategoriAgacId")] 
+    [JsonPropertyName("depoKategoriAgacId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]  // ✅ null ise gönderme
     public long? DepoKategoriAgacId { get; set; }
     
     /// <summary>Luca depo kategori ağacı kodu</summary>
-    [JsonPropertyName("sisDepoKategoriAgacKodu")] 
+    [JsonPropertyName("sisDepoKategoriAgacKodu")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]  // ✅ null ise gönderme
     public string? SisDepoKategoriAgacKodu { get; set; }
     
-    [JsonPropertyName("ulke")] 
+    [JsonPropertyName("ulke")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Ulke { get; set; }
     
-    [JsonPropertyName("il")] 
+    [JsonPropertyName("il")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Il { get; set; }
     
-    [JsonPropertyName("ilce")] 
+    [JsonPropertyName("ilce")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Ilce { get; set; }
     
-    [JsonPropertyName("adresSerbest")] 
+    [JsonPropertyName("adresSerbest")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? AdresSerbest { get; set; }
 }
 

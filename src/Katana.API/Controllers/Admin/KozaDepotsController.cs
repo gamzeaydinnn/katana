@@ -269,6 +269,7 @@ public sealed class KozaDepotsController : ControllerBase
             _logger.LogWarning("RECEIVED Kod: {Kod}", request.StkDepo.Kod ?? "NULL");
             _logger.LogWarning("RECEIVED Tanim: {Tanim}", request.StkDepo.Tanim ?? "NULL");
             _logger.LogWarning("RECEIVED KategoriKod (BEFORE normalization): {KategoriKod}", request.StkDepo.KategoriKod ?? "NULL");
+            _logger.LogWarning("RECEIVED SisDepoKategoriAgacKodu: {SisKod}", request.StkDepo.SisDepoKategoriAgacKodu ?? "NULL");
             _logger.LogWarning("RECEIVED Full JSON: {Json}", System.Text.Json.JsonSerializer.Serialize(request));
 
             if (string.IsNullOrWhiteSpace(request.StkDepo.Kod))
@@ -281,15 +282,31 @@ public sealed class KozaDepotsController : ControllerBase
                 return BadRequest(new { error = "Depo adı (tanim) zorunludur" });
             }
 
-            // DÜZELTME 3: KategoriKod kontrolü ve normalizasyon
+            // ✅ FIX 2: KategoriKod tutarsızlığını düzelt
+            // Luca'nın beklediği değer sisDepoKategoriAgacKodu'dur
+            if (request.StkDepo.KategoriKod != request.StkDepo.SisDepoKategoriAgacKodu)
+            {
+                _logger.LogWarning(
+                    "⚠️ KategoriKod mismatch! kategoriKod={K1}, sisDepoKategoriAgacKodu={K2}. Using sisDepoKategoriAgacKodu.",
+                    request.StkDepo.KategoriKod ?? "NULL",
+                    request.StkDepo.SisDepoKategoriAgacKodu ?? "NULL"
+                );
+                
+                // Luca'nın beklediği değeri kullan
+                request.StkDepo.KategoriKod = request.StkDepo.SisDepoKategoriAgacKodu ?? "002";
+            }
+            
+            // ✅ FIX 4: KategoriKod kontrolü ve normalizasyon
             // "MERKEZ" gibi kategori ADLARI değil, numerik KOD bekleniyor
+            // sisDepoKategoriAgacKodu ile uyumlu olmalı
             var originalKategoriKod = request.StkDepo.KategoriKod;
             if (string.IsNullOrWhiteSpace(request.StkDepo.KategoriKod) || 
                 request.StkDepo.KategoriKod.Equals("MERKEZ", StringComparison.OrdinalIgnoreCase))
             {
-                request.StkDepo.KategoriKod = "01"; // Varsayılan numerik kategori kodu
-                _logger.LogWarning("KategoriKod TRANSFORMED: '{Original}' -> '{New}'", 
-                    originalKategoriKod ?? "NULL", request.StkDepo.KategoriKod);
+                // sisDepoKategoriAgacKodu ile uyumlu olmalı
+                request.StkDepo.KategoriKod = request.StkDepo.SisDepoKategoriAgacKodu ?? "002";
+                _logger.LogWarning("KategoriKod set to match SisDepoKategoriAgacKodu: '{KategoriKod}'", 
+                    request.StkDepo.KategoriKod);
             }
 
             // DÜZELTME: Luca depo kategori ağacı varsayılan değerleri ekle
@@ -305,11 +322,19 @@ public sealed class KozaDepotsController : ControllerBase
                 _logger.LogWarning("SisDepoKategoriAgacKodu set to default: 002");
             }
 
+            // ✅ FIX 3: Yeni depo oluşturulurken depoId null olmalı
+            if (request.StkDepo.DepoId.HasValue && request.StkDepo.DepoId.Value == 0)
+            {
+                request.StkDepo.DepoId = null; // 0 değerini null'a çevir
+                _logger.LogWarning("DepoId was 0, set to null for new depot creation");
+            }
+
             // DEBUG 2: Normalizasyon sonrası veriyi logla
             _logger.LogWarning("=== DEPOT CREATE - AFTER NORMALIZATION ===");
             _logger.LogWarning("NORMALIZED Kod: {Kod}", request.StkDepo.Kod);
             _logger.LogWarning("NORMALIZED Tanim: {Tanim}", request.StkDepo.Tanim);
             _logger.LogWarning("NORMALIZED KategoriKod: {KategoriKod}", request.StkDepo.KategoriKod);
+            _logger.LogWarning("NORMALIZED DepoId: {DepoId}", request.StkDepo.DepoId?.ToString() ?? "NULL");
             _logger.LogWarning("NORMALIZED Full JSON: {Json}", System.Text.Json.JsonSerializer.Serialize(request));
 
             _logger.LogInformation("Creating Koza depot: {Kod} - {Tanim} - {KategoriKod}", 
@@ -380,7 +405,48 @@ public sealed class KozaDepotsController : ControllerBase
             
             if (result.Success)
             {
-                _logger.LogInformation("Depot created successfully: {Kod}", request.StkDepo.Kod);
+                _logger.LogInformation("Depot created successfully in Koza: {Kod}", request.StkDepo.Kod);
+                
+                // 🔄 Local cache'e yaz / güncelle
+                var existing = await _context.KozaDepots
+                    .FirstOrDefaultAsync(d => d.Kod == request.StkDepo.Kod, ct);
+                
+                var now = DateTime.UtcNow;
+                
+                if (existing == null)
+                {
+                    var depot = new KozaDepot
+                    {
+                        DepoId       = request.StkDepo.DepoId, // şu an genelde null, sorun değil
+                        Kod          = request.StkDepo.Kod!,   // üstte zaten null check yaptık
+                        Tanim        = request.StkDepo.Tanim ?? "",
+                        KategoriKod  = NormalizeKategoriKod(request.StkDepo.KategoriKod),
+                        Ulke         = request.StkDepo.Ulke,
+                        Il           = request.StkDepo.Il,
+                        Ilce         = request.StkDepo.Ilce,
+                        AdresSerbest = request.StkDepo.AdresSerbest,
+                        CreatedAt    = now,
+                        UpdatedAt    = now
+                    };
+                    
+                    await _context.KozaDepots.AddAsync(depot, ct);
+                    _logger.LogInformation("Depot inserted into local DB: {Kod}", depot.Kod);
+                }
+                else
+                {
+                    existing.Tanim        = request.StkDepo.Tanim ?? existing.Tanim;
+                    existing.KategoriKod  = NormalizeKategoriKod(request.StkDepo.KategoriKod) ?? existing.KategoriKod;
+                    existing.Ulke         = request.StkDepo.Ulke ?? existing.Ulke;
+                    existing.Il           = request.StkDepo.Il ?? existing.Il;
+                    existing.Ilce         = request.StkDepo.Ilce ?? existing.Ilce;
+                    existing.AdresSerbest = request.StkDepo.AdresSerbest ?? existing.AdresSerbest;
+                    existing.UpdatedAt    = now;
+                    
+                    _logger.LogInformation("Depot updated in local DB: {Kod}", existing.Kod);
+                }
+                
+                await _context.SaveChangesAsync(ct);
+                
                 return Ok(result);
             }
             else

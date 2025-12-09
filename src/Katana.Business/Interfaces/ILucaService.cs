@@ -29,7 +29,7 @@ public interface ILucaService
     Task<long> CreateTedarikciAsync(LucaCreateSupplierRequest dto);
     Task<long> CreateCariHareketAsync(LucaCariHareketDto dto);
     Task<long> CreateFaturaKapamaAsync(LucaFaturaKapamaDto dto, long belgeTurDetayId);
-    Task<List<LucaDepoDto>> GetDepoListAsync();
+    Task<List<LucaWarehouseDto>> GetDepoListAsync();
     Task<List<LucaVergiDairesiDto>> GetVergiDairesiListAsync();
     Task<List<LucaOlcumBirimiDto>> GetOlcumBirimiListAsync();
     
