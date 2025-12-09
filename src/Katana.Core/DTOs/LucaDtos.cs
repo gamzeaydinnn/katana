@@ -389,10 +389,6 @@ public class LucaInvoiceItemDto
     public string? ShAttribute5Ack { get; set; }
 }
 
-
-
-
-
 public class LucaStockDto
 {
     
@@ -565,11 +561,8 @@ public class LucaCustomerDto
     public string? Country { get; set; }
 }
 
-public class LucaDepoDto
-{
-    public string Kod { get; set; } = string.Empty;
-    public string Tanim { get; set; } = string.Empty;
-}
+// ✅ RENAMED: LucaDepoDto -> LucaWarehouseDto (to avoid naming conflict)
+// Old name kept as comment for reference: public class LucaDepoDto
 
 public class LucaWarehouseDto
 {
@@ -661,9 +654,6 @@ public class LucaIrsaliyeDetayDto
     public string? DepoKodu { get; set; }
 }
 
-
-
-
 public class LucaIrsaliyeBilgisiDto
 {
     [JsonPropertyName("belgeTarihi")]
@@ -720,8 +710,6 @@ public class LucaTedarikciDto
     public string? Telefon { get; set; }
 }
 
-
-
 public class LucaCodeRangeFilter
 {
     [JsonPropertyName("kodBas")]
@@ -733,8 +721,6 @@ public class LucaCodeRangeFilter
     [JsonPropertyName("kodOp")]
     public string? KodOp { get; set; }
 }
-
-
 
 public class LucaTaxOfficeFilter
 {
@@ -750,21 +736,16 @@ public class LucaListTaxOfficesRequest
     [JsonPropertyName("gnlVergiDairesi")]
     public LucaTaxOfficeFilter? GnlVergiDairesi { get; set; }
 }
-
-
-
 public class LucaMeasurementUnitFilter
 {
     [JsonPropertyName("tanim")]
     public string? Tanim { get; set; }
 }
-
 public class LucaListMeasurementUnitsRequest
 {
     [JsonPropertyName("gnlOlcumBirimi")]
     public LucaMeasurementUnitFilter? GnlOlcumBirimi { get; set; }
 }
-
 public class LucaDocumentTypeDetailFilter
 {
     [JsonPropertyName("belgeTurId")]
@@ -776,7 +757,6 @@ public class LucaDocumentTypeDetailFilter
     [JsonPropertyName("tanim")]
     public string? Tanim { get; set; }
 }
-
 public class LucaListDocumentTypeDetailsRequest
 {
     [JsonPropertyName("gnlBelgeTurDetay")]
@@ -803,7 +783,6 @@ public class LucaOrgSirketSubeFilter
     [JsonPropertyName("orgSirketSubeId")]
     public long? OrgSirketSubeId { get; set; }
 }
-
 public class LucaListBranchCurrenciesRequest
 {
     [JsonPropertyName("gnlOrgSirketSube")]
@@ -882,8 +861,6 @@ public class LucaUpdateAttributeRequest
     public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
 
-
-
 public class LucaFinancialObjectFilter
 {
     [JsonPropertyName("gnlFinansalNesne")]
@@ -920,8 +897,6 @@ public class LucaListSuppliersRequest
     public bool? ApiFilter { get; set; }
 }
 
-
-
 public class LucaWarehouseFilter
 {
     [JsonPropertyName("kodOp")]
@@ -939,8 +914,6 @@ public class LucaListWarehousesRequest
     [JsonPropertyName("stkDepo")]
     public LucaWarehouseFilter? StkDepo { get; set; }
 }
-
-
 
 public class LucaStockCardCodeFilter
 {
@@ -962,40 +935,24 @@ public class LucaStockCardCodeFilter
     [JsonPropertyName("kodOp")]
     public string? KodOp { get; set; }
 }
-
 public class LucaStockCardKey
 {
     [JsonPropertyName("skartId")]
     public long SkartId { get; set; }
 }
-
-
-
-
 public class LucaListStockCardsRequest
 {
     [JsonPropertyName("stkSkart")]
     public LucaStockCardCodeFilter StkSkart { get; set; } = new();
 }
-
-
-
-
 public class LucaListStockCardPriceListsRequest
 {
     [JsonPropertyName("stkSkart")]
     public LucaStockCardKey StkSkart { get; set; } = new();
-
-    
-    
     
     [JsonPropertyName("tip")]
     public string Tip { get; set; } = string.Empty;
 }
-
-
-
-
 public class LucaStockCardPriceListDto
 {
     [JsonPropertyName("fiyatListesiId")]
@@ -1017,29 +974,18 @@ public class LucaStockCardPriceListDto
     public DateTime? BitisTarihi { get; set; }
 }
 
-
-
-
 public class LucaStockCardByIdRequest
 {
     [JsonPropertyName("stkSkart")]
     public LucaStockCardKey StkSkart { get; set; } = new();
 }
 
-
-
-
 public class LucaListStockCategoriesRequest
 {
-    
-    
     
     [JsonPropertyName("kartTuru")]
     public long KartTuru { get; set; }
 }
-
-
-
 
 
 public class LucaStockCategoryDto
@@ -1058,14 +1004,11 @@ public class LucaStockCategoryDto
 }
 
 
-
 public class LucaStockCardSuppliersRequest
 {
     [JsonPropertyName("stkSkart")]
     public LucaStockCardKey StkSkart { get; set; } = new();
 }
-
-
 
 public class LucaListCustomerContactsRequest
 {
@@ -1073,14 +1016,11 @@ public class LucaListCustomerContactsRequest
     public long FinansalNesneId { get; set; }
 }
 
-
-
 public class LucaBankFilter
 {
     [JsonPropertyName("gnlFinansalNesne")]
     public LucaCodeRangeFilter? GnlFinansalNesne { get; set; }
 }
-
 public class LucaListBanksRequest
 {
     [JsonPropertyName("finSsBanka")]
@@ -1092,8 +1032,6 @@ public class LucaListCashAccountsRequest
     [JsonPropertyName("finSsKasa")]
     public JsonElement? FinSsKasa { get; set; }
 }
-
-
 
 public class LucaGetWarehouseStockRequest
 {
@@ -1111,15 +1049,11 @@ public class LucaWarehouseKey
 }
 
 
-
 public class LucaListStockCardPurchaseTermsRequest
 {
     [JsonPropertyName("stkSkart")]
     public LucaStockCardKey StkSkart { get; set; } = new();
 }
-
-
-
 
 public class LucaStockCardAlternativeUnitDto
 {
@@ -1139,9 +1073,6 @@ public class LucaStockCardAlternativeUnitDto
     public double Bolen { get; set; }
 }
 
-
-
-
 public class LucaStockCardAlternativeDto
 {
     [JsonPropertyName("alternatifSkartId")]
@@ -1156,8 +1087,6 @@ public class LucaStockCardAlternativeDto
     [JsonPropertyName("oncelikSirasi")]
     public int? OncelikSirasi { get; set; }
 }
-
-
 
 public class LucaListSalesOrdersRequest
 {
@@ -1177,8 +1106,6 @@ public class LucaListPurchaseOrdersRequest
     public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
 
-
-
 public class LucaStockCardCostDto
 {
     [JsonPropertyName("maliyetTuru")]
@@ -1193,9 +1120,6 @@ public class LucaStockCardCostDto
     [JsonPropertyName("sonGuncellemeTarihi")]
     public DateTime? SonGuncellemeTarihi { get; set; }
 }
-
-
-
 
 public class LucaStockCardPurchaseTermDto
 {
@@ -1217,8 +1141,6 @@ public class LucaStockCardPurchaseTermDto
     [JsonPropertyName("paraBirimKod")]
     public string ParaBirimKod { get; set; } = "TRY";
 }
-
-
 
 public class LucaGetStockCardDetailRequest
 {
@@ -1290,8 +1212,6 @@ public class LucaStockCardDetails
     /// </summary>
     public double? Miktar { get; set; }
 }
-
-
 public class LucaUpdateStockCardRequest
 {
     [JsonPropertyName("skartId")]
@@ -1312,8 +1232,6 @@ public class LucaUpdateStockCardRequest
     [JsonPropertyName("detayAciklama")]
     public string? DetayAciklama { get; set; }
 }
-
-
 
 public class LucaInvoiceBelgeFilter
 {
@@ -1342,30 +1260,17 @@ public class LucaInvoiceOrgBelgeFilter
     public LucaInvoiceBelgeFilter? GnlOrgSsBelge { get; set; }
 }
 
-
-
-
 public class LucaListInvoicesRequest
 {
     [JsonPropertyName("ftrSsFaturaBaslik")]
     public LucaInvoiceOrgBelgeFilter? FtrSsFaturaBaslik { get; set; }
 
-    
-    
-    
     [JsonPropertyName("parUstHareketTuru")]
     public int? ParUstHareketTuru { get; set; }
-
-    
-    
-    
+   
     [JsonPropertyName("parAltHareketTuru")]
     public int? ParAltHareketTuru { get; set; }
 }
-
-
-
-
 
 public class LucaCreateInvoiceDetailRequest
 {
@@ -1375,9 +1280,6 @@ public class LucaCreateInvoiceDetailRequest
     [JsonPropertyName("kartKodu")]
     public string KartKodu { get; set; } = string.Empty;
 
-    
-    
-    
     [JsonPropertyName("hesapKod")]
     public string? HesapKod { get; set; }
 
@@ -1462,16 +1364,9 @@ public class LucaCreateInvoiceDetailRequest
     [JsonPropertyName("konaklamaVergiOran")]
     public double? KonaklamaVergiOran { get; set; }
 
-    
-    
-    
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtraFields { get; set; }
 }
-
-
-
-
 
 public class LucaCreateInvoiceHeaderRequest
 {
@@ -1522,7 +1417,6 @@ public class LucaCreateInvoiceHeaderRequest
     [JsonPropertyName("belgeAttribute5Ack")]
     public string? BelgeAttribute5Ack { get; set; }
 
-    
     [JsonPropertyName("faturaTur")]
     public int FaturaTur { get; set; } = 1;
 
@@ -1673,15 +1567,9 @@ public class LucaCreateInvoiceHeaderRequest
     [JsonPropertyName("detayList")]
     public List<LucaCreateInvoiceDetailRequest> DetayList { get; set; } = new();
 
-    
-    
-    
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtraFields { get; set; }
 }
-
-
-
 public class LucaGetInvoiceDetailRequest
 {
     [JsonPropertyName("faturaId")]
@@ -1714,9 +1602,6 @@ public class LucaInvoiceDetailDto
     [JsonPropertyName("detayList")]
     public List<LucaInvoiceItemDto> DetayList { get; set; } = new();
 }
-
-
-
 public class LucaUpdateInvoiceRequest
 {
     [JsonPropertyName("faturaId")]
@@ -1731,10 +1616,6 @@ public class LucaUpdateInvoiceRequest
     [JsonPropertyName("referansNo")]
     public string? ReferansNo { get; set; }
 }
-
-
-
-
 public class LucaLinkedDocument
 {
     [JsonPropertyName("belgeSeri")]
@@ -1746,10 +1627,6 @@ public class LucaLinkedDocument
     [JsonPropertyName("belgeTarihi")]
     public DateTime? BelgeTarihi { get; set; }
 }
-
-
-
-
 public class LucaCloseInvoiceRequest
 {
     [JsonPropertyName("belgeTurDetayId")]
@@ -1788,10 +1665,6 @@ public class LucaCloseInvoiceRequest
     [JsonPropertyName("kurBedeli")]
     public double KurBedeli { get; set; } = 1.0;
 }
-
-
-
-
 public class LucaDeleteInvoiceRequest
 {
     [JsonPropertyName("ssFaturaBaslikId")]
@@ -1818,7 +1691,6 @@ public class LucaListCurrencyInvoicesRequest
     [JsonPropertyName("dovizGetir")]
     public int? DovizGetir { get; set; }
 }
-
 public class LucaDynamicStockServiceReportRequest
 {
     [JsonPropertyName("parSiralamaKriteri")]
@@ -1860,10 +1732,6 @@ public class LucaDynamicStockServiceReportRequest
     [JsonPropertyName("outputFileName")]
     public string? OutputFileName { get; set; }
 }
-
-
-
-
 public class LucaInvoiceItemRequest
 {
     public string stokKodu { get; set; } = string.Empty;
@@ -1871,11 +1739,6 @@ public class LucaInvoiceItemRequest
     public decimal birimFiyat { get; set; }
     public decimal kdvOrani { get; set; }
 }
-
-
-
-
-
 public class LucaCreateStokKartiRequest
 {
     [JsonPropertyName("kartAdi")]
@@ -1996,8 +1859,6 @@ public class LucaCreateStokKartiRequest
 
     [JsonPropertyName("detayAciklama")]
     public string DetayAciklama { get; set; } = string.Empty;
-
-    
 
     [JsonPropertyName("otvMaliyetFlag")]
     public int OtvMaliyetFlag { get; set; }
