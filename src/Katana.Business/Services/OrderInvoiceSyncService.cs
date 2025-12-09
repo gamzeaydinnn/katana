@@ -317,7 +317,7 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
             );
         }
 
-        var cariKodu = await _mappingRepo.GetLucaCariKoduByCustomerIdAsync(order.CustomerId);
+        var cariKodu = await _mappingRepo.GetLucaCariKoduByCustomerIdAsync(order.CustomerId.ToString());
 
         var cariValidation = Validators.LucaDataValidator.ValidateCariKodu(cariKodu, "Müşteri Kodu");
         if (!cariValidation.IsValid)

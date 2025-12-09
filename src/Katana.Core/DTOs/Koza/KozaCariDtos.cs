@@ -243,6 +243,53 @@ public sealed class KatanaSupplierToCariDto
     public string? Address { get; set; }
 }
 
+#endregion
+
+#region Müşteri Sync
+
+/// <summary>
+/// Müşteri Sync Sonucu
+/// </summary>
+public sealed class CustomerSyncResult
+{
+    public int TotalCount { get; set; }
+    public int SuccessCount { get; set; }
+    public int ErrorCount { get; set; }
+    public int SkippedCount { get; set; }
+    public List<CustomerSyncItem> Items { get; set; } = new();
+    public string? ErrorMessage { get; set; }
+}
+
+public sealed class CustomerSyncItem
+{
+    public string KatanaCustomerId { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
+    public string? KozaCariKodu { get; set; }
+    public long? KozaFinansalNesneId { get; set; }
+    public bool Success { get; set; }
+    public string? Message { get; set; }
+}
+
+/// <summary>
+/// Katana Customer'dan Luca Cari'ye dönüşüm için DTO
+/// </summary>
+public sealed class KatanaCustomerToCariDto
+{
+    public string KatanaCustomerId { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public string? TaxNo { get; set; }
+    public string? TaxNumber { get; set; }
+    public string? TaxOffice { get; set; }
+    public string? Address { get; set; }
+}
+
+#endregion
+
+#region Diğer Mapping DTO'lar
+
 /// <summary>
 /// Katana Location'dan Koza Depo'ya dönüşüm için DTO
 /// </summary>
@@ -251,20 +298,6 @@ public sealed class KatanaLocationToDepoDto
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Address { get; set; }
-}
-
-/// <summary>
-/// Katana Customer'dan Luca Cari'ye dönüşüm için DTO
-/// </summary>
-public sealed class KatanaCustomerToCariDto
-{
-    public string Code { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public string? TaxNumber { get; set; }
-    public string? TaxOffice { get; set; }
-    public string? Address { get; set; }
-    public string? Phone { get; set; }
-    public string? Email { get; set; }
 }
 
 #endregion
@@ -635,6 +668,74 @@ public sealed class KozaSupplierListItemDto
 #endif
 
         return new KozaSupplierListItemDto
+        {
+            FinansalNesneId = finalFinansalNesneId,
+            Kod = finalKod,
+            Tanim = cari.Tanim 
+                ?? cari.YasalUnvan 
+                ?? cari.KisaAd 
+                ?? cari.Kod 
+                ?? cari.HiyerarsikKod,
+            VergiNo = cari.VergiNo ?? cari.TcKimlikNo,
+            Telefon = cari.Telefon,
+            Email = cari.Email
+        };
+    }
+}
+
+#endregion
+
+#region Koza Customer List DTO
+
+/// <summary>
+/// Koza müşteri listesini UI'de göstermek için sadeleştirilmiş DTO
+/// </summary>
+public sealed class KozaCustomerListItemDto
+{
+    [JsonPropertyName("finansalNesneId")]
+    public long? FinansalNesneId { get; set; }
+
+    [JsonPropertyName("kod")]
+    public string? Kod { get; set; }
+
+    [JsonPropertyName("tanim")]
+    public string? Tanim { get; set; }
+
+    [JsonPropertyName("vergiNo")]
+    public string? VergiNo { get; set; }
+
+    [JsonPropertyName("telefon")]
+    public string? Telefon { get; set; }
+
+    [JsonPropertyName("email")]
+    public string? Email { get; set; }
+
+    /// <summary>
+    /// Koza cari DTO'sundan sade liste DTO'su oluşturur
+    /// </summary>
+    public static KozaCustomerListItemDto FromKozaCari(KozaCariDto? cari)
+    {
+        if (cari == null)
+        {
+            return new KozaCustomerListItemDto();
+        }
+
+        var finalFinansalNesneId = cari.FinansalNesneId
+                                   ?? cari.GnlFinansalNesne?.FinansalNesneId;
+        var finalKod = cari.Kod
+                      ?? cari.KartKod
+                      ?? cari.GnlFinansalNesne?.Kod
+                      ?? cari.HiyerarsikKod;
+
+#if DEBUG
+        if (string.IsNullOrWhiteSpace(finalKod) || !finalFinansalNesneId.HasValue)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"KozaCustomerListItemDto.FromKozaCari fallback: Kod={finalKod ?? "NULL"}, KartKod={cari.KartKod ?? "NULL"}, NestedKod={cari.GnlFinansalNesne?.Kod ?? "NULL"}, FinansalNesneId={cari.FinansalNesneId?.ToString() ?? "NULL"}, NestedFinId={cari.GnlFinansalNesne?.FinansalNesneId?.ToString() ?? "NULL"}");
+        }
+#endif
+
+        return new KozaCustomerListItemDto
         {
             FinansalNesneId = finalFinansalNesneId,
             Kod = finalKod,
