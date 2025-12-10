@@ -32,6 +32,7 @@ public class LucaApiSettings
     public long DefaultOlcumBirimiId { get; set; } = 5;
     public long DefaultKartTipi { get; set; } = 4;
     public string DefaultKategoriKodu { get; set; } = "001";
+    public bool UsePostmanCustomerFormat { get; set; } = false;
     
     // 🔥 Kategori Mapping: Katana category_name → Luca KategoriAgacKod
     // Örnek: "1MAMUL" → "001", "3YARI MAMUL" → "220"

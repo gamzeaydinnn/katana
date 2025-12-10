@@ -32,6 +32,7 @@ import {
     Typography,
     useMediaQuery
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import React, { useEffect, useState } from "react";
 import { showGlobalToast } from "../../providers/FeedbackProvider";
 import { stockAPI, SyncResult } from "../../services/api";
@@ -104,7 +105,8 @@ const SyncManagement: React.FC = () => {
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
-  const isMobile = useMediaQuery("(max-width:900px)");
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   const loadHistory = async () => {
     try {

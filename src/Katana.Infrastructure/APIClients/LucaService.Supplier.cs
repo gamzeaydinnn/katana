@@ -116,13 +116,12 @@ public partial class LucaService
                 throw new InvalidOperationException(dto.Message ?? "Luca tedarikçi listeleme hatası");
             }
 
-            // Önce finTedarikciListesi, yoksa list'e bak
-            var tedarikçiler = dto?.FinTedarikciListesi
-                             ?? dto?.List
-                             ?? new List<KozaCariDto>();
+            // FIX: finTedarikciListesi alanını kontrol et, yoksa list alanına bak
+            var tedarikçiler = dto?.FinTedarikciListesi ?? dto?.List ?? new List<KozaCariDto>();
             
-            _logger.LogInformation("Luca'dan {Count} tedarikçi cari listelendi (Filtre: {KodBas}-{KodBit})", 
-                tedarikçiler.Count, kodBas ?? "Tümü", kodBit ?? "Tümü");
+            _logger.LogInformation("Luca'dan {Count} tedarikçi cari listelendi (Filtre: {KodBas}-{KodBit}), Kaynak: {Source}", 
+                tedarikçiler.Count, kodBas ?? "Tümü", kodBit ?? "Tümü",
+                dto?.FinTedarikciListesi != null ? "finTedarikciListesi" : (dto?.List != null ? "list" : "empty"));
             return tedarikçiler;
         }
         catch (Exception ex)

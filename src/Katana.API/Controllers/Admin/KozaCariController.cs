@@ -544,12 +544,11 @@ public sealed class KozaCariController : ControllerBase
                             TaxNo = null // KatanaCustomerDto doesn't have TaxNo field
                         };
 
-                        // Retry logic: 3 deneme, her denemede exponential backoff
+                        // Retry logic: connection reset durumları için sabit gecikmeler
                         KozaResult? kozaResult = null;
-                        var maxRetries = 3;
-                        var retryDelay = 500; // 500ms başlangıç
+                        var connectionResetDelays = new[] { 500, 1000, 2000, 4000 };
 
-                        for (int retry = 0; retry < maxRetries; retry++)
+                        for (int attempt = 0; attempt <= connectionResetDelays.Length; attempt++)
                         {
                             try
                             {
@@ -562,14 +561,14 @@ public sealed class KozaCariController : ControllerBase
                                 }
                                 
                                 // Başarısız ama retry yapılabilir mi kontrol et
-                                if (retry < maxRetries - 1 && 
+                                if (attempt < connectionResetDelays.Length && 
                                     (kozaResult.Message?.Contains("Connection reset") == true ||
                                      kozaResult.Message?.Contains("transport connection") == true))
                                 {
+                                    var delayMs = connectionResetDelays[attempt];
                                     _logger.LogWarning("Retry {Retry}/{Max} for customer {Code} after {Delay}ms", 
-                                        retry + 1, maxRetries, customerDto.Code, retryDelay);
-                                    await Task.Delay(retryDelay, ct);
-                                    retryDelay *= 2; // Exponential backoff
+                                        attempt + 1, connectionResetDelays.Length + 1, customerDto.Code, delayMs);
+                                    await Task.Delay(delayMs, ct);
                                 }
                                 else
                                 {
@@ -580,12 +579,12 @@ public sealed class KozaCariController : ControllerBase
                                 httpEx.InnerException is IOException ioEx && 
                                 ioEx.Message.Contains("Connection reset"))
                             {
-                                if (retry < maxRetries - 1)
+                                if (attempt < connectionResetDelays.Length)
                                 {
+                                    var delayMs = connectionResetDelays[attempt];
                                     _logger.LogWarning("Connection reset, retry {Retry}/{Max} for customer {Code} after {Delay}ms", 
-                                        retry + 1, maxRetries, customerDto.Code, retryDelay);
-                                    await Task.Delay(retryDelay, ct);
-                                    retryDelay *= 2;
+                                        attempt + 1, connectionResetDelays.Length + 1, customerDto.Code, delayMs);
+                                    await Task.Delay(delayMs, ct);
                                 }
                                 else
                                 {
@@ -594,8 +593,8 @@ public sealed class KozaCariController : ControllerBase
                             }
                         }
 
-                        // Throttling: Her istek arasında 200ms bekle
-                        await Task.Delay(200, ct);
+                        // Throttling: Her istek arasında 350-1000ms arası jitter'lı bekleme
+                        await Task.Delay(Random.Shared.Next(350, 1001), ct);
 
                         if (kozaResult?.Success == true)
                         {

@@ -29,15 +29,24 @@ public sealed class KozaStockCardsController : ControllerBase
     /// Koza'daki tüm stok kartlarını listele
     /// GET /api/admin/koza/stocks
     /// </summary>
+    /// <param name="eklemeBas">Optional: Filter by creation date start (dd/MM/yyyy)</param>
+    /// <param name="eklemeBit">Optional: Filter by creation date end (dd/MM/yyyy)</param>
+    /// <param name="ct">Cancellation token</param>
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<KozaStokKartiDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> List(CancellationToken ct)
+    public async Task<IActionResult> List(
+        [FromQuery] DateTime? eklemeBas = null,
+        [FromQuery] DateTime? eklemeBit = null,
+        CancellationToken ct = default)
     {
         try
         {
-            _logger.LogInformation("Listing Koza stock cards");
-            var stockCards = await _lucaService.ListStockCardsSimpleAsync(ct);
+            _logger.LogInformation("Listing Koza stock cards (eklemeBas={Start}, eklemeBit={End})", 
+                eklemeBas?.ToString("dd/MM/yyyy") ?? "null", 
+                eklemeBit?.ToString("dd/MM/yyyy") ?? "null");
+            
+            var stockCards = await _lucaService.ListStockCardsSimpleAsync(eklemeBas, eklemeBit, ct);
             
             _logger.LogInformation("Retrieved {Count} stock cards from Koza", stockCards.Count);
             return Ok(stockCards);
