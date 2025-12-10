@@ -1,45 +1,45 @@
 import {
-    CheckCircle,
-    CompareArrows as CompareArrowsIcon,
-    Error as ErrorIcon,
-    Inventory,
-    IntegrationInstructions as KozaIcon,
-    Article as LogsIcon,
-    MoreVert as MoreVertIcon,
-    Receipt,
-    Refresh,
-    ReportProblem,
-    Settings as SettingsIcon,
-    ShoppingCart,
-    SwapHoriz as SwapHorizIcon,
-    TrendingUp,
-    Group as UsersIcon,
-    Warehouse
+  CheckCircle,
+  CompareArrows as CompareArrowsIcon,
+  Error as ErrorIcon,
+  Inventory,
+  IntegrationInstructions as KozaIcon,
+  Article as LogsIcon,
+  MoreVert as MoreVertIcon,
+  Receipt,
+  Refresh,
+  ReportProblem,
+  Settings as SettingsIcon,
+  ShoppingCart,
+  SwapHoriz as SwapHorizIcon,
+  TrendingUp,
+  Group as UsersIcon,
+  Warehouse,
 } from "@mui/icons-material";
 import {
-    Alert,
-    Box,
-    Card,
-    CardContent,
-    Chip,
-    CircularProgress,
-    Container,
-    Divider,
-    IconButton,
-    Menu,
-    MenuItem,
-    Paper,
-    Tab,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TablePagination,
-    TableRow,
-    Tabs,
-    Typography,
-    useMediaQuery,
+  Alert,
+  Box,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Container,
+  Divider,
+  IconButton,
+  Menu,
+  MenuItem,
+  Paper,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TablePagination,
+  TableRow,
+  Tabs,
+  Typography,
+  useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
@@ -64,6 +64,8 @@ interface Statistics {
   totalStock: number;
   successfulSyncs: number;
   failedSyncs: number;
+  criticalProducts?: number;
+  totalValue?: number;
 }
 
 interface AdminProduct {
@@ -219,27 +221,40 @@ const AdminPanel: React.FC = () => {
   }> = ({ title, value, icon, color }) => (
     <Card
       sx={{
-        borderRadius: 2,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-        transition: "transform 0.2s ease, box-shadow 0.2s ease",
+        borderRadius: { xs: 2, md: 3 },
+        boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        background: (theme) =>
+          theme.palette.mode === "dark"
+            ? `linear-gradient(135deg, rgba(30,41,59,0.95) 0%, rgba(15,23,42,0.95) 100%)`
+            : `linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 100%)`,
+        border: (theme) =>
+          `1px solid ${
+            theme.palette.mode === "dark"
+              ? "rgba(255,255,255,0.08)"
+              : "rgba(0,0,0,0.04)"
+          }`,
         "&:hover": {
-          transform: "translateY(-4px)",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+          transform: { xs: "none", md: "translateY(-6px) scale(1.02)" },
+          boxShadow: "0 12px 40px rgba(0,0,0,0.15)",
         },
+        minHeight: { xs: 100, md: 120 },
       }}
     >
-      <CardContent sx={{ p: 3 }}>
+      <CardContent sx={{ p: { xs: 2, md: 3 } }}>
         <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               color="textSecondary"
               gutterBottom
               variant="body2"
               sx={{
-                fontWeight: 500,
-                fontSize: "0.875rem",
-                letterSpacing: "0.2px",
-                mb: 1,
+                fontWeight: 600,
+                fontSize: { xs: "0.75rem", md: "0.875rem" },
+                letterSpacing: "0.3px",
+                mb: { xs: 0.5, md: 1 },
+                textTransform: "uppercase",
+                opacity: 0.8,
               }}
             >
               {title}
@@ -247,9 +262,13 @@ const AdminPanel: React.FC = () => {
             <Typography
               variant="h4"
               sx={{
-                fontWeight: 700,
+                fontWeight: 800,
                 fontFamily: '"Poppins", "Inter", sans-serif',
                 letterSpacing: "-0.5px",
+                fontSize: { xs: "1.5rem", sm: "1.75rem", md: "2rem" },
+                background: `linear-gradient(135deg, ${color} 0%, ${color}99 100%)`,
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
               }}
             >
               {value}
@@ -257,11 +276,16 @@ const AdminPanel: React.FC = () => {
           </Box>
           <Box
             sx={{
-              color,
-              fontSize: 48,
-              opacity: 0.9,
+              background: `linear-gradient(135deg, ${color}20 0%, ${color}10 100%)`,
+              borderRadius: { xs: 2, md: 3 },
+              p: { xs: 1, md: 1.5 },
               display: "flex",
               alignItems: "center",
+              justifyContent: "center",
+              "& svg": {
+                fontSize: { xs: 28, md: 40 },
+                color: color,
+              },
             }}
           >
             {icon}
@@ -367,27 +391,21 @@ const AdminPanel: React.FC = () => {
             title="Admin verilerini yenile"
             sx={{
               ml: "auto",
-              bgcolor: (theme) =>
-                theme.palette.mode === "dark"
-                  ? "rgba(15, 23, 42, 0.9)"
-                  : "#ffffff",
-              color: (theme) =>
-                theme.palette.mode === "dark"
-                  ? theme.palette.primary.light
-                  : theme.palette.primary.main,
-              boxShadow: (theme) =>
-                theme.palette.mode === "dark"
-                  ? "0 0 0 1px rgba(148,163,184,0.5)"
-                  : "0 0 0 1px rgba(148,163,184,0.4)",
+              bgcolor: "#ffffff",
+              color: (theme) => theme.palette.primary.main,
+              boxShadow:
+                "0 2px 12px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05)",
+              borderRadius: 2,
+              p: { xs: 1, md: 1.25 },
+              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
               "&:hover": {
-                bgcolor: (theme) =>
-                  theme.palette.mode === "dark"
-                    ? "rgba(15, 23, 42, 1)"
-                    : "rgba(248, 250, 252, 1)",
-                boxShadow: (theme) =>
-                  theme.palette.mode === "dark"
-                    ? "0 0 0 1px rgba(165,180,252,0.9)"
-                    : "0 0 0 1px rgba(129,140,248,0.8)",
+                bgcolor: "#ffffff",
+                transform: "rotate(180deg)",
+                boxShadow:
+                  "0 4px 20px rgba(79,70,229,0.25), 0 0 0 2px rgba(79,70,229,0.2)",
+              },
+              "&:active": {
+                transform: "rotate(180deg) scale(0.95)",
               },
             }}
           >
@@ -689,7 +707,9 @@ const AdminPanel: React.FC = () => {
             }}
             sx={overflowMenuItemSx}
           >
-            <CompareArrowsIcon sx={{ mr: 1.5, fontSize: 20, color: "#8b5cf6" }} />
+            <CompareArrowsIcon
+              sx={{ mr: 1.5, fontSize: 20, color: "#8b5cf6" }}
+            />
             <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
               Kategori Mapping
             </Typography>
@@ -719,7 +739,8 @@ const AdminPanel: React.FC = () => {
                 gridTemplateColumns: {
                   xs: "1fr",
                   sm: "repeat(2, 1fr)",
-                  md: "repeat(4, 1fr)",
+                  md: "repeat(3, 1fr)",
+                  lg: "repeat(6, 1fr)",
                 },
                 gap: 3,
                 mb: 4,
@@ -736,6 +757,21 @@ const AdminPanel: React.FC = () => {
                 value={statistics.totalStock.toLocaleString("tr-TR")}
                 icon={<TrendingUp />}
                 color="#2e7d32"
+              />
+              <StatCard
+                title="Kritik Ürünler"
+                value={statistics.criticalProducts ?? 0}
+                icon={<ReportProblem />}
+                color="#f59e0b"
+              />
+              <StatCard
+                title="Toplam Değer"
+                value={`₺${(statistics.totalValue ?? 0).toLocaleString(
+                  "tr-TR",
+                  { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                )}`}
+                icon={<Receipt />}
+                color="#8b5cf6"
               />
               <StatCard
                 title="Başarılı Sync"

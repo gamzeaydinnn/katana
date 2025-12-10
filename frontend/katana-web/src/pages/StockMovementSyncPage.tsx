@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import {
-  Container,
   Typography,
   Table,
   TableBody,
@@ -14,8 +13,6 @@ import {
   Alert,
   Snackbar,
   CircularProgress,
-  AppBar,
-  Toolbar,
   Tabs,
   Tab,
   Box,
@@ -317,353 +314,951 @@ const StockMovementSyncPage: React.FC = () => {
   ).length;
 
   return (
-    <Box sx={{ backgroundColor: "#f4f6f8", minHeight: "100vh" }}>
-      {/* Header */}
-      <AppBar position="static" sx={{ backgroundColor: "#2c3e50" }}>
-        <Toolbar>
-          <WarehouseIcon sx={{ mr: 2 }} />
-          <Typography
-            variant="h6"
-            sx={{ flexGrow: 1, fontSize: { xs: "0.95rem", sm: "1.25rem" } }}
-          >
-            Stok Hareketleri Luca Aktarımı
-          </Typography>
-          <Button
-            color="inherit"
-            startIcon={<RefreshIcon />}
-            onClick={loadData}
-            disabled={loading}
-          >
-            Yenile
-          </Button>
-        </Toolbar>
-      </AppBar>
-
-      <Container
-        maxWidth="xl"
+    <Box
+      sx={{
+        width: "100%",
+        maxWidth: "100%",
+        overflowX: "hidden",
+        px: { xs: 1, sm: 0 },
+        boxSizing: "border-box",
+      }}
+    >
+      {/* Page Header */}
+      <Box
         sx={{
-          mt: 3,
-          px: { xs: 1.5, sm: 3 },
-          pb: 4,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: { xs: 1.5, sm: 3 },
+          pb: { xs: 1, sm: 2 },
+          borderBottom: "1px solid rgba(102, 126, 234, 0.15)",
+          flexWrap: "nowrap",
+          gap: 1,
         }}
       >
-        {/* Dashboard Stats */}
-        {stats && (
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 3 }}>
-            <Box sx={{ flex: "1 1 calc(25% - 12px)", minWidth: 200 }}>
-              <Card
-                sx={{
-                  backgroundColor: "#3498db",
-                  color: "white",
-                  height: "100%",
-                }}
-              >
-                <CardContent>
-                  <Typography variant="h4">{stats.totalTransfers}</Typography>
-                  <Typography variant="body2">Toplam Transfer</Typography>
-                  <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
-                    <Chip
-                      label={`${stats.pendingTransfers} Bekliyor`}
-                      size="small"
-                      sx={{
-                        backgroundColor: "rgba(255,255,255,0.2)",
-                        color: "white",
-                      }}
-                    />
-                    <Chip
-                      label={`${stats.syncedTransfers} Aktarıldı`}
-                      size="small"
-                      sx={{
-                        backgroundColor: "rgba(255,255,255,0.2)",
-                        color: "white",
-                      }}
-                    />
-                  </Box>
-                </CardContent>
-              </Card>
-            </Box>
-            <Box sx={{ flex: "1 1 calc(25% - 12px)", minWidth: 200 }}>
-              <Card
-                sx={{
-                  backgroundColor: "#9b59b6",
-                  color: "white",
-                  height: "100%",
-                }}
-              >
-                <CardContent>
-                  <Typography variant="h4">{stats.totalAdjustments}</Typography>
-                  <Typography variant="body2">Toplam Düzeltme</Typography>
-                  <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
-                    <Chip
-                      label={`${stats.pendingAdjustments} Bekliyor`}
-                      size="small"
-                      sx={{
-                        backgroundColor: "rgba(255,255,255,0.2)",
-                        color: "white",
-                      }}
-                    />
-                    <Chip
-                      label={`${stats.syncedAdjustments} Aktarıldı`}
-                      size="small"
-                      sx={{
-                        backgroundColor: "rgba(255,255,255,0.2)",
-                        color: "white",
-                      }}
-                    />
-                  </Box>
-                </CardContent>
-              </Card>
-            </Box>
-            <Box sx={{ flex: "1 1 calc(25% - 12px)", minWidth: 200 }}>
-              <Card
-                sx={{
-                  backgroundColor:
-                    stats.failedTransfers + stats.failedAdjustments > 0
-                      ? "#e74c3c"
-                      : "#27ae60",
-                  color: "white",
-                  height: "100%",
-                }}
-              >
-                <CardContent>
-                  <Typography variant="h4">
-                    {stats.failedTransfers + stats.failedAdjustments}
-                  </Typography>
-                  <Typography variant="body2">Hatalı İşlem</Typography>
-                  <Typography variant="caption">
-                    {stats.failedTransfers} Transfer, {stats.failedAdjustments}{" "}
-                    Düzeltme
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Box>
-            <Box sx={{ flex: "1 1 calc(25% - 12px)", minWidth: 200 }}>
-              <Card sx={{ height: "100%" }}>
-                <CardContent>
-                  <Typography variant="body2" color="textSecondary">
-                    Son Senkronizasyon
-                  </Typography>
-                  <Typography variant="h6">
-                    {stats.lastSyncDate
-                      ? new Date(stats.lastSyncDate).toLocaleString("tr-TR")
-                      : "Henüz yok"}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Box>
-          </Box>
-        )}
-
-        {/* Tabs and Filters */}
-        <Paper sx={{ mb: 2 }}>
-          <Tabs
-            value={tabValue}
-            onChange={(_, val) => setTabValue(val)}
-            variant="scrollable"
-            scrollButtons="auto"
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: { xs: 0.75, sm: 1.5 },
+            minWidth: 0,
+            flex: 1,
+          }}
+        >
+          <Box
             sx={{
-              "& .MuiTab-root": {
-                minHeight: 40,
-                fontSize: { xs: "0.75rem", sm: "0.875rem" },
-                px: { xs: 1, sm: 2 },
-              },
+              width: { xs: 32, sm: 48 },
+              height: { xs: 32, sm: 48 },
+              minWidth: { xs: 32, sm: 48 },
+              borderRadius: 2,
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 4px 12px rgba(102, 126, 234, 0.3)",
             }}
           >
-            <Tab label={`Tümü (${movements.length})`} />
-            <Tab
-              label={`Transferler (${
-                movements.filter((m) => m.movementType === "TRANSFER").length
-              })`}
-              icon={<CompareArrowsIcon />}
-              iconPosition="start"
+            <WarehouseIcon
+              sx={{ color: "white", fontSize: { xs: 18, sm: 28 } }}
             />
-            <Tab
-              label={`Düzeltmeler (${
-                movements.filter((m) => m.movementType === "ADJUSTMENT").length
-              })`}
-              icon={<BuildIcon />}
-              iconPosition="start"
-            />
-          </Tabs>
-        </Paper>
+          </Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              sx={{
+                fontSize: { xs: "0.9rem", sm: "1.5rem" },
+                fontWeight: 700,
+                color: "#1e293b",
+                lineHeight: 1.2,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              Stok Hareketleri
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: { xs: "0.65rem", sm: "0.85rem" },
+                color: "#64748b",
+                fontWeight: 500,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Luca Aktarım
+            </Typography>
+          </Box>
+        </Box>
+        <IconButton
+          onClick={loadData}
+          disabled={loading}
+          sx={{
+            width: { xs: 32, sm: 44 },
+            height: { xs: 32, sm: 44 },
+            minWidth: { xs: 32, sm: 44 },
+            borderRadius: 2,
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            color: "white",
+            boxShadow: "0 4px 12px rgba(102, 126, 234, 0.3)",
+            flexShrink: 0,
+            "&:hover": {
+              background: "linear-gradient(135deg, #764ba2 0%, #667eea 100%)",
+              boxShadow: "0 6px 16px rgba(102, 126, 234, 0.4)",
+            },
+            "&:disabled": {
+              background: "#e2e8f0",
+              color: "#94a3b8",
+            },
+          }}
+        >
+          <RefreshIcon sx={{ fontSize: { xs: 16, sm: 24 } }} />
+        </IconButton>
+      </Box>
+      {/* Dashboard Stats */}
+      {stats && (
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" },
+            gap: { xs: 0.75, sm: 2 },
+            mb: { xs: 1.5, sm: 2 },
+            width: "100%",
+            boxSizing: "border-box",
+          }}
+        >
+          <Box>
+            <Card
+              sx={{
+                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                color: "white",
+                height: "100%",
+                boxShadow: "0 4px 12px rgba(102, 126, 234, 0.3)",
+                transition: "transform 0.2s",
+                "&:hover": {
+                  transform: "translateY(-4px)",
+                  boxShadow: "0 6px 16px rgba(102, 126, 234, 0.4)",
+                },
+              }}
+            >
+              <CardContent
+                sx={{
+                  p: { xs: 1, sm: 2 },
+                  "&:last-child": { pb: { xs: 1, sm: 2 } },
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: { xs: "1.25rem", sm: "2rem" },
+                  }}
+                >
+                  {stats.totalTransfers}
+                </Typography>
+                <Typography
+                  sx={{
+                    opacity: 0.95,
+                    fontWeight: 500,
+                    fontSize: { xs: "0.6rem", sm: "0.875rem" },
+                  }}
+                >
+                  Toplam Transfer
+                </Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 0.25,
+                    mt: 0.25,
+                  }}
+                >
+                  <Chip
+                    label={`${stats.pendingTransfers} Bekliyor`}
+                    size="small"
+                    sx={{
+                      backgroundColor: "rgba(255,255,255,0.2)",
+                      color: "white",
+                      height: { xs: 16, sm: 24 },
+                      fontSize: { xs: "0.55rem", sm: "0.75rem" },
+                      "& .MuiChip-label": { px: { xs: 0.5, sm: 1 } },
+                    }}
+                  />
+                  <Chip
+                    label={`${stats.syncedTransfers} Aktarıldı`}
+                    size="small"
+                    sx={{
+                      backgroundColor: "rgba(255,255,255,0.2)",
+                      color: "white",
+                      height: { xs: 16, sm: 24 },
+                      fontSize: { xs: "0.55rem", sm: "0.75rem" },
+                      "& .MuiChip-label": { px: { xs: 0.5, sm: 1 } },
+                    }}
+                  />
+                </Box>
+              </CardContent>
+            </Card>
+          </Box>
+          <Box>
+            <Card
+              sx={{
+                background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+                color: "white",
+                height: "100%",
+                boxShadow: "0 4px 12px rgba(245, 87, 108, 0.3)",
+                transition: "transform 0.2s",
+                "&:hover": {
+                  transform: "translateY(-4px)",
+                  boxShadow: "0 6px 16px rgba(245, 87, 108, 0.4)",
+                },
+              }}
+            >
+              <CardContent
+                sx={{
+                  p: { xs: 1.5, sm: 2 },
+                  "&:last-child": { pb: { xs: 1.5, sm: 2 } },
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: { xs: "1.5rem", sm: "2rem" },
+                  }}
+                >
+                  {stats.totalAdjustments}
+                </Typography>
+                <Typography
+                  sx={{
+                    opacity: 0.95,
+                    fontWeight: 500,
+                    fontSize: { xs: "0.7rem", sm: "0.875rem" },
+                  }}
+                >
+                  Toplam Düzeltme
+                </Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 0.5,
+                    mt: 0.5,
+                  }}
+                >
+                  <Chip
+                    label={`${stats.pendingAdjustments} Bekliyor`}
+                    size="small"
+                    sx={{
+                      backgroundColor: "rgba(255,255,255,0.2)",
+                      color: "white",
+                      height: { xs: 18, sm: 24 },
+                      fontSize: { xs: "0.6rem", sm: "0.75rem" },
+                    }}
+                  />
+                  <Chip
+                    label={`${stats.syncedAdjustments} Aktarıldı`}
+                    size="small"
+                    sx={{
+                      backgroundColor: "rgba(255,255,255,0.2)",
+                      color: "white",
+                      height: { xs: 18, sm: 24 },
+                      fontSize: { xs: "0.6rem", sm: "0.75rem" },
+                    }}
+                  />
+                </Box>
+              </CardContent>
+            </Card>
+          </Box>
+          <Box>
+            <Card
+              sx={{
+                background:
+                  stats.failedTransfers + stats.failedAdjustments > 0
+                    ? "linear-gradient(135deg, #fa709a 0%, #fee140 100%)"
+                    : "linear-gradient(135deg, #30cfd0 0%, #330867 100%)",
+                color: "white",
+                height: "100%",
+                boxShadow:
+                  stats.failedTransfers + stats.failedAdjustments > 0
+                    ? "0 4px 12px rgba(250, 112, 154, 0.3)"
+                    : "0 4px 12px rgba(48, 207, 208, 0.3)",
+                transition: "transform 0.2s",
+                "&:hover": { transform: "translateY(-4px)" },
+              }}
+            >
+              <CardContent
+                sx={{
+                  p: { xs: 1.5, sm: 2 },
+                  "&:last-child": { pb: { xs: 1.5, sm: 2 } },
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: { xs: "1.5rem", sm: "2rem" },
+                  }}
+                >
+                  {stats.failedTransfers + stats.failedAdjustments}
+                </Typography>
+                <Typography
+                  sx={{
+                    opacity: 0.95,
+                    fontWeight: 500,
+                    fontSize: { xs: "0.7rem", sm: "0.875rem" },
+                  }}
+                >
+                  Hatalı İşlem
+                </Typography>
+                <Typography sx={{ fontSize: { xs: "0.6rem", sm: "0.75rem" } }}>
+                  {stats.failedTransfers} Transfer, {stats.failedAdjustments}{" "}
+                  Düzeltme
+                </Typography>
+              </CardContent>
+            </Card>
+          </Box>
+          <Box>
+            <Card
+              sx={{
+                height: "100%",
+                background: stats.lastSyncDate
+                  ? "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)"
+                  : "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
+                color: stats.lastSyncDate ? "white" : "rgba(0, 0, 0, 0.87)",
+                boxShadow: "0 4px 12px rgba(79, 172, 254, 0.3)",
+                transition: "transform 0.2s",
+                "&:hover": {
+                  transform: "translateY(-4px)",
+                  boxShadow: "0 6px 16px rgba(79, 172, 254, 0.4)",
+                },
+              }}
+            >
+              <CardContent
+                sx={{
+                  p: { xs: 1.5, sm: 2 },
+                  "&:last-child": { pb: { xs: 1.5, sm: 2 } },
+                }}
+              >
+                <Typography
+                  sx={{
+                    opacity: 0.9,
+                    fontWeight: 500,
+                    fontSize: { xs: "0.7rem", sm: "0.875rem" },
+                  }}
+                >
+                  Son Senkronizasyon
+                </Typography>
+                <Typography
+                  sx={{
+                    mt: 0.5,
+                    fontWeight: 700,
+                    fontSize: { xs: "0.8rem", sm: "1.1rem" },
+                  }}
+                >
+                  {stats.lastSyncDate
+                    ? new Date(stats.lastSyncDate).toLocaleString("tr-TR")
+                    : "Henüz yok"}
+                </Typography>
+                {!stats.lastSyncDate && (
+                  <Typography
+                    sx={{
+                      mt: 0.5,
+                      opacity: 0.8,
+                      fontSize: { xs: "0.6rem", sm: "0.75rem" },
+                    }}
+                  >
+                    İlk senkronizasyonu başlatın
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+          </Box>
+        </Box>
+      )}
 
-        {/* Filters and Actions */}
-        <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 2 }}>
+      {/* Tabs and Filters */}
+      <Paper
+        elevation={0}
+        sx={{
+          mb: 1.5,
+          borderRadius: 2,
+          boxShadow: "0 12px 30px rgba(15,23,42,0.08)",
+          overflow: "hidden",
+        }}
+      >
+        <Tabs
+          value={tabValue}
+          onChange={(_, val) => setTabValue(val)}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          sx={{
+            minHeight: { xs: 36, sm: 48 },
+            "& .MuiTabs-indicator": {
+              background: "linear-gradient(135deg,#2563eb,#06b6d4)",
+              height: 3,
+            },
+            "& .MuiTab-root": {
+              minHeight: { xs: 36, sm: 48 },
+              fontSize: { xs: "0.65rem", sm: "0.875rem" },
+              px: { xs: 1, sm: 2 },
+              py: { xs: 0.5, sm: 1 },
+              fontWeight: 600,
+              minWidth: { xs: "auto", sm: 90 },
+            },
+            "& .MuiTab-iconWrapper": {
+              fontSize: { xs: "0.9rem", sm: "1.25rem" },
+              mr: { xs: 0.25, sm: 1 },
+            },
+          }}
+        >
+          <Tab label={`Tümü (${movements.length})`} />
+          <Tab
+            label={
+              isMobile
+                ? `(${
+                    movements.filter((m) => m.movementType === "TRANSFER")
+                      .length
+                  })`
+                : `Transferler (${
+                    movements.filter((m) => m.movementType === "TRANSFER")
+                      .length
+                  })`
+            }
+            icon={<CompareArrowsIcon fontSize="small" />}
+            iconPosition="start"
+          />
+          <Tab
+            label={
+              isMobile
+                ? `(${
+                    movements.filter((m) => m.movementType === "ADJUSTMENT")
+                      .length
+                  })`
+                : `Düzeltmeler (${
+                    movements.filter((m) => m.movementType === "ADJUSTMENT")
+                      .length
+                  })`
+            }
+            icon={<BuildIcon fontSize="small" />}
+            iconPosition="start"
+          />
+        </Tabs>
+      </Paper>
+
+      {/* Filters and Actions */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 1, sm: 2 },
+          mb: 1.5,
+          borderRadius: 2,
+          boxShadow: "0 12px 30px rgba(15,23,42,0.08)",
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
+            gap: { xs: 1, sm: 2 },
+            alignItems: { xs: "stretch", sm: "center" },
+          }}
+        >
           <Box
             sx={{
               display: "flex",
-              flexWrap: "wrap",
-              gap: 2,
-              alignItems: "center",
-              justifyContent: "space-between",
+              gap: 1,
+              flex: { xs: "1 1 auto", sm: "0 0 auto" },
             }}
           >
-            <Box sx={{ flex: "1 1 200px", maxWidth: 250 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Durum</InputLabel>
-                <Select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  label="Durum"
-                >
-                  <MenuItem value="">Tümü</MenuItem>
-                  <MenuItem value="PENDING">Bekliyor</MenuItem>
-                  <MenuItem value="SYNCED">Aktarıldı</MenuItem>
-                  <MenuItem value="ERROR">Hatalı</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-            <Box sx={{ flex: "1 1 200px", maxWidth: 250 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Tip</InputLabel>
-                <Select
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                  label="Tip"
-                >
-                  <MenuItem value="">Tümü</MenuItem>
-                  <MenuItem value="TRANSFER">Transfer</MenuItem>
-                  <MenuItem value="ADJUSTMENT">Düzeltme</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-            <Box
+            <FormControl
+              size="small"
+              sx={{ minWidth: { xs: 90, sm: 120 }, flex: 1 }}
+            >
+              <InputLabel sx={{ fontSize: { xs: "0.75rem", sm: "1rem" } }}>
+                Durum
+              </InputLabel>
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                label="Durum"
+                sx={{ fontSize: { xs: "0.75rem", sm: "1rem" } }}
+              >
+                <MenuItem value="">Tümü</MenuItem>
+                <MenuItem value="PENDING">Bekliyor</MenuItem>
+                <MenuItem value="SYNCED">Aktarıldı</MenuItem>
+                <MenuItem value="ERROR">Hatalı</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1,
+              flex: 1,
+              justifyContent: { xs: "stretch", sm: "flex-end" },
+            }}
+          >
+            <Button
+              variant="outlined"
+              startIcon={!isMobile && <SyncIcon />}
+              onClick={handleBatchSync}
+              disabled={selectedIds.size === 0 || loading}
+              size="small"
               sx={{
-                flex: { xs: "1 1 100%", md: "1 1 auto" },
-                display: "flex",
-                justifyContent: { xs: "stretch", md: "flex-end" },
-                gap: 1,
+                flex: { xs: 1, sm: "initial" },
+                whiteSpace: "nowrap",
+                borderWidth: 2,
+                borderColor: "#667eea",
+                color: "#667eea",
+                fontWeight: 600,
+                fontSize: { xs: "0.65rem", sm: "0.875rem" },
+                px: { xs: 1, sm: 2 },
+                py: { xs: 0.5, sm: 1 },
+                "&:hover": {
+                  borderWidth: 2,
+                  borderColor: "#764ba2",
+                  background: "rgba(102, 126, 234, 0.08)",
+                },
               }}
             >
-              <Button
-                variant="outlined"
-                startIcon={<SyncIcon />}
-                onClick={handleBatchSync}
-                disabled={selectedIds.size === 0 || loading}
-                sx={{
-                  mr: { xs: 0, md: 1 },
-                  flex: { xs: 1, md: "initial" },
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Seçilenleri Aktar ({selectedIds.size})
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<SyncIcon />}
-                onClick={handleSyncAllPending}
-                disabled={pendingCount === 0 || loading}
-                color="primary"
-                sx={{
-                  flex: { xs: 1, md: "initial" },
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Tümünü Aktar ({pendingCount})
-              </Button>
-            </Box>
+              {isMobile
+                ? `Seçili (${selectedIds.size})`
+                : `Seçilenleri Aktar (${selectedIds.size})`}
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={!isMobile && <SyncIcon />}
+              onClick={handleSyncAllPending}
+              disabled={pendingCount === 0 || loading}
+              size="small"
+              sx={{
+                flex: { xs: 1, sm: "initial" },
+                whiteSpace: "nowrap",
+                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                fontWeight: 600,
+                fontSize: { xs: "0.65rem", sm: "0.875rem" },
+                px: { xs: 1, sm: 2 },
+                py: { xs: 0.5, sm: 1 },
+                boxShadow: "0 4px 12px rgba(102, 126, 234, 0.3)",
+                "&:hover": {
+                  background:
+                    "linear-gradient(135deg, #764ba2 0%, #667eea 100%)",
+                  boxShadow: "0 6px 16px rgba(102, 126, 234, 0.4)",
+                },
+              }}
+            >
+              {isMobile
+                ? `Tümü (${pendingCount})`
+                : `Tümünü Aktar (${pendingCount})`}
+            </Button>
           </Box>
-        </Paper>
+        </Box>
+      </Paper>
 
-        {/* Data Table / Mobile Cards */}
-        <Paper sx={{ overflow: "hidden" }}>
-          {loading ? (
-            <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-              <CircularProgress />
+      {/* Data Table / Mobile Cards */}
+      <Paper
+        elevation={0}
+        sx={{
+          overflow: "hidden",
+          borderRadius: 3,
+          boxShadow: "0 12px 30px rgba(15,23,42,0.08)",
+          border: "1px solid rgba(0,0,0,0.06)",
+        }}
+      >
+        {loading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : isMobile ? (
+          <Box
+            sx={{ p: 1, display: "flex", flexDirection: "column", gap: 1.5 }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
+              <Checkbox
+                indeterminate={
+                  selectedIds.size > 0 &&
+                  selectedIds.size <
+                    filteredMovements.filter((m) => m.syncStatus === "PENDING")
+                      .length
+                }
+                checked={
+                  selectedIds.size ===
+                    filteredMovements.filter((m) => m.syncStatus === "PENDING")
+                      .length && selectedIds.size > 0
+                }
+                onChange={handleSelectAll}
+              />
+              <Typography variant="body2" color="textSecondary">
+                Bekleyenlerin tümünü seç
+              </Typography>
             </Box>
-          ) : isMobile ? (
-            <Box sx={{ p: 1, display: "flex", flexDirection: "column", gap: 1.5 }}>
-              <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
-                <Checkbox
-                  indeterminate={
-                    selectedIds.size > 0 &&
-                    selectedIds.size <
-                      filteredMovements.filter(
-                        (m) => m.syncStatus === "PENDING"
-                      ).length
-                  }
-                  checked={
-                    selectedIds.size ===
-                      filteredMovements.filter(
-                        (m) => m.syncStatus === "PENDING"
-                      ).length && selectedIds.size > 0
-                  }
-                  onChange={handleSelectAll}
-                />
-                <Typography variant="body2" color="textSecondary">
-                  Bekleyenlerin tümünü seç
-                </Typography>
-              </Box>
 
-              {filteredMovements.map((movement) => {
-                const key = `${movement.movementType}-${movement.id}`;
-                const isSyncing = syncingIds.has(key);
-                const isSelected = selectedIds.has(key);
+            {filteredMovements.map((movement) => {
+              const key = `${movement.movementType}-${movement.id}`;
+              const isSyncing = syncingIds.has(key);
+              const isSelected = selectedIds.has(key);
 
-                return (
-                  <Card
-                    key={key}
-                    variant="outlined"
-                    sx={{
-                      borderRadius: 2,
-                      boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
-                      borderColor:
-                        movement.syncStatus === "ERROR"
-                          ? "error.light"
-                          : "divider",
-                    }}
-                  >
-                    <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+              return (
+                <Card
+                  key={key}
+                  variant="outlined"
+                  sx={{
+                    borderRadius: 2,
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+                    borderLeft: 4,
+                    borderLeftColor:
+                      movement.syncStatus === "ERROR"
+                        ? "#fa709a"
+                        : movement.syncStatus === "SYNCED"
+                        ? "#30cfd0"
+                        : "#667eea",
+                    transition: "all 0.2s ease",
+                    "&:hover": {
+                      transform: "translateX(4px)",
+                      boxShadow: "0 8px 16px rgba(102, 126, 234, 0.15)",
+                    },
+                  }}
+                >
+                  <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        mb: 1,
+                        gap: 1,
+                      }}
+                    >
                       <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          mb: 1,
-                          gap: 1,
-                        }}
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
                       >
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <Checkbox
-                            size="small"
-                            checked={isSelected}
-                            onChange={() => handleSelectOne(movement)}
-                            disabled={movement.syncStatus === "SYNCED"}
-                          />
-                          <Box>
-                            <Typography
-                              variant="subtitle2"
-                              sx={{ fontWeight: 600, wordBreak: "break-all" }}
-                            >
-                              {movement.documentNo}
-                            </Typography>
-                            <Typography variant="caption" color="textSecondary">
-                              {new Date(
-                                movement.movementDate
-                              ).toLocaleDateString("tr-TR")}
-                            </Typography>
-                          </Box>
-                        </Box>
-                        {getStatusChip(movement.syncStatus, movement.errorMessage)}
-                      </Box>
-
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          mb: 1,
-                          gap: 1,
-                        }}
-                      >
-                        <Box sx={{ display: "flex", alignItems: "center" }}>
-                          {getTypeIcon(movement.movementType)}
-                          <Typography variant="body2">
-                            {movement.movementType === "TRANSFER"
-                              ? "Transfer"
-                              : "Düzeltme"}
+                        <Checkbox
+                          size="small"
+                          checked={isSelected}
+                          onChange={() => handleSelectOne(movement)}
+                          disabled={movement.syncStatus === "SYNCED"}
+                        />
+                        <Box>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: 600, wordBreak: "break-all" }}
+                          >
+                            {movement.documentNo}
+                          </Typography>
+                          <Typography variant="caption" color="textSecondary">
+                            {new Date(movement.movementDate).toLocaleDateString(
+                              "tr-TR"
+                            )}
                           </Typography>
                         </Box>
+                      </Box>
+                      {getStatusChip(
+                        movement.syncStatus,
+                        movement.errorMessage
+                      )}
+                    </Box>
+
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        mb: 1,
+                        gap: 1,
+                      }}
+                    >
+                      <Box sx={{ display: "flex", alignItems: "center" }}>
+                        {getTypeIcon(movement.movementType)}
+                        <Typography variant="body2">
+                          {movement.movementType === "TRANSFER"
+                            ? "Transfer"
+                            : "Düzeltme"}
+                        </Typography>
+                      </Box>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "flex-end",
+                        }}
+                      >
+                        {movement.movementType === "ADJUSTMENT" &&
+                          (movement.adjustmentReason?.includes("Fire") ||
+                          movement.adjustmentReason?.includes("Sarf") ? (
+                            <TrendingDownIcon
+                              color="error"
+                              fontSize="small"
+                              sx={{ mr: 0.5 }}
+                            />
+                          ) : (
+                            <TrendingUpIcon
+                              color="success"
+                              fontSize="small"
+                              sx={{ mr: 0.5 }}
+                            />
+                          ))}
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {movement.totalQuantity.toLocaleString("tr-TR")}
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    {movement.locationInfo && (
+                      <Typography
+                        variant="caption"
+                        color="textSecondary"
+                        sx={{ display: "block", mb: 1 }}
+                      >
+                        {movement.locationInfo}
+                      </Typography>
+                    )}
+
+                    {movement.adjustmentReason && (
+                      <Typography
+                        variant="caption"
+                        color="textSecondary"
+                        sx={{ display: "block", mb: 1 }}
+                      >
+                        {movement.adjustmentReason}
+                      </Typography>
+                    )}
+
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: 1,
+                        mt: 0.5,
+                      }}
+                    >
+                      {movement.syncStatus !== "SYNCED" && (
+                        <Button
+                          variant="contained"
+                          size="small"
+                          startIcon={
+                            isSyncing ? (
+                              <CircularProgress size={16} color="inherit" />
+                            ) : (
+                              <SyncIcon />
+                            )
+                          }
+                          disabled={isSyncing}
+                          onClick={() => handleSync(movement)}
+                        >
+                          Aktar
+                        </Button>
+                      )}
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setSelectedMovement(movement);
+                          setDetailDialogOpen(true);
+                        }}
+                      >
+                        <InfoIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </CardContent>
+                </Card>
+              );
+            })}
+
+            {filteredMovements.length === 0 && (
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 8,
+                  textAlign: "center",
+                  background:
+                    "linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)",
+                  border: "3px dashed",
+                  borderImage:
+                    "linear-gradient(135deg, #667eea 0%, #764ba2 100%) 1",
+                  borderRadius: 3,
+                  position: "relative",
+                  overflow: "hidden",
+                  "&::before": {
+                    content: '""',
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background:
+                      "linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, rgba(118, 75, 162, 0.03) 100%)",
+                    zIndex: 0,
+                  },
+                }}
+              >
+                <WarehouseIcon
+                  sx={{
+                    fontSize: 80,
+                    color: "#667eea",
+                    mb: 2,
+                    opacity: 0.8,
+                    position: "relative",
+                    zIndex: 1,
+                  }}
+                />
+                <Typography
+                  variant="h6"
+                  sx={{
+                    mb: 1,
+                    color: "rgba(0, 0, 0, 0.87)",
+                    fontWeight: 600,
+                  }}
+                >
+                  Kayıt Bulunamadı
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Seçili filtrelere uygun stok hareketi bulunmuyor
+                </Typography>
+              </Paper>
+            )}
+          </Box>
+        ) : (
+          <TableContainer
+            sx={{
+              width: "100%",
+              overflowX: "auto",
+            }}
+          >
+            <Table
+              size="small"
+              sx={{
+                "& .MuiTableCell-root": {
+                  px: { xs: 0.75, sm: 2 },
+                  py: { xs: 0.75, sm: 1 },
+                  fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                },
+                minWidth: { xs: 0, sm: 650 },
+              }}
+            >
+              <TableHead>
+                <TableRow
+                  sx={{
+                    background:
+                      "linear-gradient(90deg, #1e3a8a 0%, #2563eb 60%, #38bdf8 100%)",
+                    "& .MuiTableCell-root": {
+                      color: "rgba(255,255,255,0.95)",
+                      fontWeight: 700,
+                      fontSize: "0.85rem",
+                      letterSpacing: "0.4px",
+                      borderBottom: "none",
+                      textTransform: "uppercase",
+                    },
+                  }}
+                >
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      sx={{
+                        color: "rgba(255,255,255,0.7)",
+                        "&.Mui-checked": { color: "white" },
+                      }}
+                      indeterminate={
+                        selectedIds.size > 0 &&
+                        selectedIds.size <
+                          filteredMovements.filter(
+                            (m) => m.syncStatus === "PENDING"
+                          ).length
+                      }
+                      checked={
+                        selectedIds.size ===
+                          filteredMovements.filter(
+                            (m) => m.syncStatus === "PENDING"
+                          ).length && selectedIds.size > 0
+                      }
+                      onChange={handleSelectAll}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ whiteSpace: "nowrap" }}>Belge No</TableCell>
+                  <TableCell sx={{ whiteSpace: "nowrap" }}>Tip</TableCell>
+                  <TableCell
+                    sx={{
+                      whiteSpace: "nowrap",
+                      display: { xs: "none", sm: "table-cell" },
+                    }}
+                  >
+                    Depo / Konum
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      whiteSpace: "nowrap",
+                      display: { xs: "none", sm: "table-cell" },
+                    }}
+                  >
+                    Tarih
+                  </TableCell>
+                  <TableCell align="right">Miktar</TableCell>
+                  <TableCell align="center">Durum</TableCell>
+                  <TableCell align="center">İşlem</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredMovements.map((movement) => {
+                  const key = `${movement.movementType}-${movement.id}`;
+                  const isSyncing = syncingIds.has(key);
+                  const isSelected = selectedIds.has(key);
+
+                  return (
+                    <TableRow
+                      key={key}
+                      hover
+                      selected={isSelected}
+                      sx={{
+                        backgroundColor:
+                          movement.syncStatus === "ERROR"
+                            ? "rgba(244, 67, 54, 0.08)"
+                            : movement.syncStatus === "SYNCED"
+                            ? "rgba(76, 175, 80, 0.05)"
+                            : undefined,
+                        "&:hover": {
+                          backgroundColor:
+                            movement.syncStatus === "ERROR"
+                              ? "rgba(244, 67, 54, 0.12) !important"
+                              : movement.syncStatus === "SYNCED"
+                              ? "rgba(76, 175, 80, 0.08) !important"
+                              : undefined,
+                        },
+                        transition: "background-color 0.2s",
+                      }}
+                    >
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          checked={isSelected}
+                          onChange={() => handleSelectOne(movement)}
+                          disabled={movement.syncStatus === "SYNCED"}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <strong>{movement.documentNo}</strong>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
+                          {getTypeIcon(movement.movementType)}
+                          {movement.movementType === "TRANSFER"
+                            ? "Transfer"
+                            : "Düzeltme"}
+                        </Box>
+                        {movement.adjustmentReason && (
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                            display="block"
+                          >
+                            {movement.adjustmentReason}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell
+                        sx={{ display: { xs: "none", sm: "table-cell" } }}
+                      >
+                        {movement.locationInfo}
+                      </TableCell>
+                      <TableCell
+                        sx={{ display: { xs: "none", sm: "table-cell" } }}
+                      >
+                        {new Date(movement.movementDate).toLocaleDateString(
+                          "tr-TR"
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
                         <Box
                           sx={{
                             display: "flex",
@@ -686,298 +1281,66 @@ const StockMovementSyncPage: React.FC = () => {
                                 sx={{ mr: 0.5 }}
                               />
                             ))}
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {movement.totalQuantity.toLocaleString("tr-TR")}
-                          </Typography>
+                          {movement.totalQuantity.toLocaleString("tr-TR")}
                         </Box>
-                      </Box>
-
-                      {movement.locationInfo && (
-                        <Typography
-                          variant="caption"
-                          color="textSecondary"
-                          sx={{ display: "block", mb: 1 }}
-                        >
-                          {movement.locationInfo}
-                        </Typography>
-                      )}
-
-                      {movement.adjustmentReason && (
-                        <Typography
-                          variant="caption"
-                          color="textSecondary"
-                          sx={{ display: "block", mb: 1 }}
-                        >
-                          {movement.adjustmentReason}
-                        </Typography>
-                      )}
-
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "flex-end",
-                          gap: 1,
-                          mt: 0.5,
-                        }}
-                      >
-                        {movement.syncStatus !== "SYNCED" && (
-                          <Button
-                            variant="contained"
-                            size="small"
-                            startIcon={
-                              isSyncing ? (
-                                <CircularProgress size={16} color="inherit" />
-                              ) : (
-                                <SyncIcon />
-                              )
-                            }
-                            disabled={isSyncing}
-                            onClick={() => handleSync(movement)}
-                          >
-                            Aktar
-                          </Button>
+                      </TableCell>
+                      <TableCell align="center">
+                        {getStatusChip(
+                          movement.syncStatus,
+                          movement.errorMessage
                         )}
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setSelectedMovement(movement);
-                            setDetailDialogOpen(true);
+                      </TableCell>
+                      <TableCell align="center">
+                        <Box
+                          sx={{
+                            display: "flex",
+                            gap: 1,
+                            justifyContent: "center",
                           }}
                         >
-                          <InfoIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-
-              {filteredMovements.length === 0 && (
-                <Typography
-                  variant="body2"
-                  color="textSecondary"
-                  align="center"
-                  sx={{ py: 2 }}
-                >
-                  Kayıt bulunamadı
-                </Typography>
-              )}
-            </Box>
-          ) : (
-            <TableContainer
-              sx={{
-                width: "100%",
-                overflowX: "auto",
-              }}
-            >
-              <Table
-                size="small"
-                sx={{
-                  "& .MuiTableCell-root": {
-                    px: { xs: 0.75, sm: 2 },
-                    py: { xs: 0.75, sm: 1 },
-                    fontSize: { xs: "0.75rem", sm: "0.875rem" },
-                  },
-                  minWidth: { xs: 0, sm: 650 },
-                }}
-              >
-                <TableHead>
-                  <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        indeterminate={
-                          selectedIds.size > 0 &&
-                          selectedIds.size <
-                            filteredMovements.filter(
-                              (m) => m.syncStatus === "PENDING"
-                            ).length
-                        }
-                        checked={
-                          selectedIds.size ===
-                            filteredMovements.filter(
-                              (m) => m.syncStatus === "PENDING"
-                            ).length && selectedIds.size > 0
-                        }
-                        onChange={handleSelectAll}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      <strong>Belge No</strong>
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      <strong>Tip</strong>
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        whiteSpace: "nowrap",
-                        display: { xs: "none", sm: "table-cell" },
-                      }}
-                    >
-                      <strong>Depo / Konum</strong>
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        whiteSpace: "nowrap",
-                        display: { xs: "none", sm: "table-cell" },
-                      }}
-                    >
-                      <strong>Tarih</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Miktar</strong>
-                    </TableCell>
-                    <TableCell align="center">
-                      <strong>Durum</strong>
-                    </TableCell>
-                    <TableCell align="center">
-                      <strong>İşlem</strong>
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredMovements.map((movement) => {
-                    const key = `${movement.movementType}-${movement.id}`;
-                    const isSyncing = syncingIds.has(key);
-                    const isSelected = selectedIds.has(key);
-
-                    return (
-                      <TableRow
-                        key={key}
-                        hover
-                        selected={isSelected}
-                        sx={{
-                          backgroundColor:
-                            movement.syncStatus === "ERROR"
-                              ? "rgba(231, 76, 60, 0.05)"
-                              : undefined,
-                        }}
-                      >
-                        <TableCell padding="checkbox">
-                          <Checkbox
-                            checked={isSelected}
-                            onChange={() => handleSelectOne(movement)}
-                            disabled={movement.syncStatus === "SYNCED"}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <strong>{movement.documentNo}</strong>
-                        </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center" }}>
-                            {getTypeIcon(movement.movementType)}
-                            {movement.movementType === "TRANSFER"
-                              ? "Transfer"
-                              : "Düzeltme"}
-                          </Box>
-                          {movement.adjustmentReason && (
-                            <Typography
-                              variant="caption"
-                              color="textSecondary"
-                              display="block"
-                            >
-                              {movement.adjustmentReason}
-                            </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell
-                          sx={{ display: { xs: "none", sm: "table-cell" } }}
-                        >
-                          {movement.locationInfo}
-                        </TableCell>
-                        <TableCell
-                          sx={{ display: { xs: "none", sm: "table-cell" } }}
-                        >
-                          {new Date(movement.movementDate).toLocaleDateString(
-                            "tr-TR"
-                          )}
-                        </TableCell>
-                        <TableCell align="right">
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "flex-end",
-                            }}
-                          >
-                            {movement.movementType === "ADJUSTMENT" &&
-                              (movement.adjustmentReason?.includes("Fire") ||
-                              movement.adjustmentReason?.includes("Sarf") ? (
-                                <TrendingDownIcon
-                                  color="error"
-                                  fontSize="small"
-                                  sx={{ mr: 0.5 }}
-                                />
-                              ) : (
-                                <TrendingUpIcon
-                                  color="success"
-                                  fontSize="small"
-                                  sx={{ mr: 0.5 }}
-                                />
-                              ))}
-                            {movement.totalQuantity.toLocaleString("tr-TR")}
-                          </Box>
-                        </TableCell>
-                        <TableCell align="center">
-                          {getStatusChip(
-                            movement.syncStatus,
-                            movement.errorMessage
-                          )}
-                        </TableCell>
-                        <TableCell align="center">
-                          <Box
-                            sx={{
-                              display: "flex",
-                              gap: 1,
-                              justifyContent: "center",
-                            }}
-                          >
-                            {movement.syncStatus !== "SYNCED" && (
-                              <Button
-                                variant="contained"
-                                size="small"
-                                startIcon={
-                                  isSyncing ? (
-                                    <CircularProgress
-                                      size={16}
-                                      color="inherit"
-                                    />
-                                  ) : (
-                                    <SyncIcon />
-                                  )
-                                }
-                                disabled={isSyncing}
-                                onClick={() => handleSync(movement)}
-                              >
-                                Aktar
-                              </Button>
-                            )}
-                            <IconButton
+                          {movement.syncStatus !== "SYNCED" && (
+                            <Button
+                              variant="contained"
                               size="small"
-                              onClick={() => {
-                                setSelectedMovement(movement);
-                                setDetailDialogOpen(true);
-                              }}
+                              startIcon={
+                                isSyncing ? (
+                                  <CircularProgress size={16} color="inherit" />
+                                ) : (
+                                  <SyncIcon />
+                                )
+                              }
+                              disabled={isSyncing}
+                              onClick={() => handleSync(movement)}
                             >
-                              <InfoIcon />
-                            </IconButton>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {filteredMovements.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={8} align="center">
-                        Kayıt bulunamadı
+                              Aktar
+                            </Button>
+                          )}
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setSelectedMovement(movement);
+                              setDetailDialogOpen(true);
+                            }}
+                          >
+                            <InfoIcon />
+                          </IconButton>
+                        </Box>
                       </TableCell>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </Paper>
-      </Container>
+                  );
+                })}
+                {filteredMovements.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center">
+                      Kayıt bulunamadı
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Paper>
 
       {/* Detail Dialog */}
       <Dialog

@@ -5,8 +5,10 @@ using Katana.Core.Enums;
 using Katana.Core.Helpers;
 using Katana.Core.Interfaces;
 using Katana.Data.Context;
+using Katana.API.Hubs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;
@@ -25,6 +27,7 @@ public class PurchaseOrdersController : ControllerBase
     private readonly IAuditService _auditService;
     private readonly IMemoryCache _cache;
     private readonly ILogger<PurchaseOrdersController> _logger;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
     public PurchaseOrdersController(
         IntegrationDbContext context,
@@ -32,7 +35,8 @@ public class PurchaseOrdersController : ControllerBase
         ILoggingService loggingService,
         IAuditService auditService,
         IMemoryCache cache,
-        ILogger<PurchaseOrdersController> logger)
+        ILogger<PurchaseOrdersController> logger,
+        IHubContext<NotificationHub> hubContext)
     {
         _context = context;
         _lucaService = lucaService;
@@ -40,6 +44,7 @@ public class PurchaseOrdersController : ControllerBase
         _auditService = auditService;
         _cache = cache;
         _logger = logger;
+        _hubContext = hubContext;
     }
 
     // ===== LIST & DETAIL ENDPOINTS =====
@@ -667,6 +672,7 @@ public class PurchaseOrdersController : ControllerBase
         {
             _logger.LogInformation("📦 Sipariş teslim alındı, stok artışı yapılıyor: {OrderNo}", order.OrderNo);
 
+            var stockMovements = new List<object>();
             foreach (var item in order.Items)
             {
                 if (item.Product == null)
@@ -703,8 +709,45 @@ public class PurchaseOrdersController : ControllerBase
                 };
                 _context.Stocks.Add(stockEntry);
 
+                stockMovements.Add(new { sku = item.Product.SKU, quantity = item.Quantity, warehouse = item.WarehouseCode ?? "MAIN" });
+
                 _logger.LogInformation("✅ Stok artışı: {SKU} +{Qty} ({Warehouse})", 
                     item.Product.SKU, item.Quantity, item.WarehouseCode ?? "MAIN");
+            }
+
+            // 🔔 Stok hareketi bildirimi oluştur
+            try
+            {
+                var notification = new Notification
+                {
+                    Type = "StockMovement",
+                    Title = $"Stok Girişi: {order.OrderNo}",
+                    Payload = JsonSerializer.Serialize(new
+                    {
+                        orderNo = order.OrderNo,
+                        orderId = order.Id,
+                        itemCount = stockMovements.Count,
+                        movements = stockMovements
+                    }),
+                    Link = $"/purchase-orders/{order.Id}",
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Notifications.Add(notification);
+
+                // SignalR ile bildirim gönder
+                await _hubContext.Clients.All.SendAsync("StockMovement", new
+                {
+                    orderNo = order.OrderNo,
+                    orderId = order.Id,
+                    itemCount = stockMovements.Count,
+                    message = $"Stok girişi yapıldı: {order.OrderNo} ({stockMovements.Count} kalem)"
+                });
+                _logger.LogInformation("🔔 Stok hareketi bildirimi gönderildi: {OrderNo}", order.OrderNo);
+            }
+            catch (Exception notifEx)
+            {
+                _logger.LogWarning(notifEx, "Stok hareketi bildirimi oluşturulurken hata: {OrderNo}", order.OrderNo);
             }
 
             // 🔥 Luca'ya stok kartı senkronizasyonu tetikle (arka planda)

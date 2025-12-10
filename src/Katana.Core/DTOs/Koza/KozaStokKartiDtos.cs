@@ -10,7 +10,8 @@ namespace Katana.Core.DTOs.Koza;
 public sealed class KozaStokKartiDto
 {
     // Zorunlu alanlar
-    [JsonPropertyName("kartKodu")]
+    // Luca list endpoint returns "kod" (not "kartKodu")
+    [JsonPropertyName("kod")]
     public string KartKodu { get; set; } = string.Empty;
     
     [JsonPropertyName("kartAdi")]
@@ -72,7 +73,8 @@ public sealed class KozaStokKartiDto
     public int MaliyetHesaplanacakFlag { get; set; } = 1;
     
     // Listele'den gelen ID
-    [JsonPropertyName("stokKartId")]
+    // Luca list endpoint uses "skartId" (not "stokKartId")
+    [JsonPropertyName("skartId")]
     public long? StokKartId { get; set; }
 }
 
