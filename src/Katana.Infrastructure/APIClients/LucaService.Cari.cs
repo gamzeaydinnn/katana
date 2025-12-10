@@ -1,7 +1,10 @@
 using System.Text;
 using System.Text.Json;
+using System.Linq;
 using Katana.Core.DTOs.Koza;
 using Katana.Core.DTOs;
+using Katana.Core.Entities;
+using Katana.Data.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Katana.Infrastructure.APIClients;
@@ -279,10 +282,12 @@ public partial class LucaService
                 throw new InvalidOperationException(dto.Message ?? "Koza müşteri listeleme hatası");
             }
 
-            var müsteriler = dto?.FinMusteriListesi ?? new List<KozaCariDto>();
+            // FIX: finMusteriListesi alanını kontrol et, yoksa list alanına bak
+            var müsteriler = dto?.FinMusteriListesi ?? dto?.List ?? new List<KozaCariDto>();
             
-            _logger.LogInformation("Koza'dan {Count} müşteri cari listelendi (Filtre: {KodBas}-{KodBit})", 
-                müsteriler.Count, kodBas ?? "Tümü", kodBit ?? "Tümü");
+            _logger.LogInformation("Koza'dan {Count} müşteri cari listelendi (Filtre: {KodBas}-{KodBit}), Kaynak: {Source}", 
+                müsteriler.Count, kodBas ?? "Tümü", kodBit ?? "Tümü", 
+                dto?.FinMusteriListesi != null ? "finMusteriListesi" : (dto?.List != null ? "list" : "empty"));
             return müsteriler;
         }
         catch (Exception ex)
@@ -320,6 +325,11 @@ public partial class LucaService
             .ToList();
     }
 
+    public KozaMusteriEkleRequest BuildKozaMusteriEkleRequest(Customer customer)
+    {
+        return KozaCustomerRequestFactory.Build(customer, _settings);
+    }
+
     /// <summary>
     /// Koza Müşteri Kartı Ekleme (EkleFinMusteriWS.do) - Dokümantasyona tam uyumlu
     /// </summary>
@@ -331,40 +341,42 @@ public partial class LucaService
 
             // Luca Koza RPC tarzı bekliyor: düz body (finMusteri sarmalamasız)
             var json = JsonSerializer.Serialize(request, _jsonOptions);
-            
-            _logger.LogDebug("CreateMusteriCariAsync request: {Json}", json);
+            _logger.LogInformation("SEND_CUSTOMER payload={Json}", json);
 
-            var httpReq = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.CustomerCreate)
+            var response = await SendKozaCustomerRequestAsync(() =>
             {
-                Content = new StringContent(json, Encoding.UTF8, "application/json")
-            };
+                var endpoint = ResolveCustomerCreateEndpoint();
+                var httpReq = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                {
+                    Content = new StringContent(json, Encoding.UTF8, "application/json")
+                };
 
-            ApplySessionCookie(httpReq);
-            ApplyManualSessionCookie(httpReq);
-
-            var client = _cookieHttpClient ?? _httpClient;
-            var res = await client.SendAsync(httpReq, ct);
-            var body = await res.Content.ReadAsStringAsync(ct);
+                ApplySessionCookie(httpReq);
+                ApplyManualSessionCookie(httpReq);
+                return httpReq;
+            }, ct);
+            var body = response.Body;
 
             _logger.LogDebug("CreateMusteriCariAsync response status: {Status}, body: {Body}", 
-                res.StatusCode, body.Length > 500 ? body.Substring(0, 500) : body);
+                response.StatusCode, body.Length > 500 ? body.Substring(0, 500) : body);
 
-            if (body.TrimStart().StartsWith("<"))
+            var trimmed = body.TrimStart();
+            if (trimmed.StartsWith("<") || (!trimmed.StartsWith("{") && !trimmed.StartsWith("[")))
             {
-                _logger.LogError("Koza NO_JSON (HTML döndü) - CreateMusteriCariAsync");
+                _logger.LogError("Koza NO_JSON (HTML/non-JSON döndü) - CreateMusteriCariAsync");
                 return new KozaResult 
                 { 
                     Success = false, 
-                    Message = "Koza NO_JSON (HTML döndü). Auth/şube/cookie kırık olabilir." 
+                    Message = "Koza NO_JSON (HTML veya non-JSON döndü). Auth/şube/cookie kırık olabilir." 
                 };
             }
 
-            if (!res.IsSuccessStatusCode)
+            if (!response.IsSuccessStatusCode)
             {
                 return new KozaResult 
                 { 
                     Success = false, 
-                    Message = $"HTTP {res.StatusCode}: {body}" 
+                    Message = $"HTTP {response.StatusCode}: {body}" 
                 };
             }
 
@@ -507,6 +519,24 @@ public partial class LucaService
         {
             _logger.LogInformation("EnsureCustomerCariAsync: Processing customer {Code} - {Name}", customer.Code, customer.Name);
 
+            if (_settings.UsePostmanCustomerFormat)
+            {
+                var mapped = new Customer
+                {
+                    LucaCode = customer.Code,
+                    Title = customer.Name ?? customer.Code,
+                    Address = customer.Address,
+                    Email = customer.Email,
+                    Phone = customer.Phone,
+                    GroupCode = customer.KatanaCustomerId,
+                    Type = 1
+                };
+
+                var postmanKozaRequest = BuildKozaMusteriEkleRequest(mapped);
+                var result = await CreateMusteriCariAsync(postmanKozaRequest, ct);
+                return result;
+            }
+
             // Mevcut müşteri carilerini listele ve kontrol et
             var existingCustomers = await ListMusteriCarilerAsync(ct);
             var existing = existingCustomers.FirstOrDefault(c => 
@@ -525,71 +555,29 @@ public partial class LucaService
             }
 
             // Koza'da cari kodu oluştur (TED_ prefix yerine MUS_ prefix)
-            var cariKodu = $"MUS_{customer.Code}";
+            var cariKodu = customer.Code;
 
-            // Yeni müşteri cari oluştur
-            var payload = new
+            // FIX: Postman collection'daki format kullan - düz obje, finMusteri sarmalayıcısı YOK
+            var kozaRequest = new KozaMusteriEkleRequest
             {
-                finMusteri = new
-                {
-                    kod = cariKodu,
-                    tanim = customer.Name,
-                    kisaAd = customer.Name?.Length > 30 ? customer.Name.Substring(0, 30) : customer.Name,
-                    yasalUnvan = customer.Name,
-                    vergiNo = customer.TaxNumber ?? "",
-                    vergiDairesi = customer.TaxOffice ?? "",
-                    email = customer.Email ?? "",
-                    telefon = customer.Phone ?? "",
-                    adres = customer.Address ?? "",
-                    aktif = true,
-                    paraBirimKod = "TRY"
-                }
+                Tip = 1,
+                CariTipId = 5,
+                KartKod = cariKodu,
+                Tanim = customer.Name,
+                KisaAd = customer.Name?.Length > 30 ? customer.Name.Substring(0, 30) : customer.Name,
+                YasalUnvan = customer.Name,
+                ParaBirimKod = "TRY",
+                AdresTipId = !string.IsNullOrWhiteSpace(customer.Address) ? 9 : null,
+                AdresSerbest = customer.Address,
+                Il = null,
+                Ilce = null,
+                Ulke = null,
+                IletisimTipId = !string.IsNullOrWhiteSpace(customer.Email) ? 5 : null,
+                IletisimTanim = customer.Email ?? customer.Phone
             };
 
-            var json = JsonSerializer.Serialize(payload, _jsonOptions);
-            _logger.LogDebug("EnsureCustomerCariAsync creating: {Json}", json);
-
-            var response = await _httpClient.PostAsync(
-                "/api/finMusteri/kaydet",
-                new StringContent(json, Encoding.UTF8, "application/json"),
-                ct);
-
-            var body = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogDebug("EnsureCustomerCariAsync response: {Status}, {Body}", 
-                response.StatusCode, body?.Substring(0, Math.Min(500, body?.Length ?? 0)));
-
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogWarning("Müşteri cari oluşturulamadı: {Code} - Status: {Status}, Body: {Body}", 
-                    customer.Code, response.StatusCode, body);
-                return new KozaResult { Success = false, Message = $"HTTP {response.StatusCode}: {body}" };
-            }
-
-            long? finansalNesneId = null;
-            try
-            {
-                var respJson = JsonSerializer.Deserialize<JsonElement>(body);
-                if (respJson.TryGetProperty("finansalNesneId", out var fnId))
-                {
-                    finansalNesneId = fnId.GetInt64();
-                }
-                else if (respJson.TryGetProperty("finMusteri", out var fm) && 
-                         fm.TryGetProperty("finansalNesneId", out var fmId))
-                {
-                    finansalNesneId = fmId.GetInt64();
-                }
-            }
-            catch { /* Ignore parse errors */ }
-
-            _logger.LogInformation("Müşteri cari başarıyla oluşturuldu: {CariKodu} - {Name} (FinansalNesneId: {Id})", 
-                cariKodu, customer.Name, finansalNesneId);
-            
-            return new KozaResult 
-            { 
-                Success = true, 
-                Message = "OK",
-                Data = new { CariKodu = cariKodu, FinansalNesneId = finansalNesneId }
-            };
+            _logger.LogDebug("EnsureCustomerCariAsync delegating create for {Code} via Koza RPC endpoint", cariKodu);
+            return await CreateMusteriCariAsync(kozaRequest, ct);
         }
         catch (Exception ex)
         {
@@ -597,5 +585,113 @@ public partial class LucaService
                 customer.Code, customer.Name);
             return new KozaResult { Success = false, Message = ex.Message };
         }
+    }
+
+    private string ResolveCustomerCreateEndpoint()
+    {
+        var configured = _settings.Endpoints.CustomerCreate;
+        if (!string.IsNullOrWhiteSpace(configured) &&
+            !configured.Contains("/api/finMusteri/kaydet", StringComparison.OrdinalIgnoreCase))
+        {
+            return configured;
+        }
+
+        const string kozaEndpoint = "EkleFinMusteriWS.do";
+        if (!string.Equals(configured, kozaEndpoint, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning("CustomerCreate endpoint misconfigured as {Configured}; forcing Koza RPC endpoint {Endpoint}", 
+                configured ?? "(null)", kozaEndpoint);
+        }
+
+        _settings.Endpoints.CustomerCreate = kozaEndpoint;
+        return kozaEndpoint;
+    }
+}
+
+public static class KozaCustomerRequestFactory
+{
+    public static KozaMusteriEkleRequest Build(Customer customer, LucaApiSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(customer);
+        ArgumentNullException.ThrowIfNull(settings);
+
+        var name = string.IsNullOrWhiteSpace(customer.Title)
+            ? customer.LucaCode ?? customer.GenerateLucaCode()
+            : customer.Title.Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            name = "Musteri";
+        }
+
+        var kartKod = string.IsNullOrWhiteSpace(customer.LucaCode)
+            ? customer.GenerateLucaCode()
+            : customer.LucaCode.Trim();
+
+        var adresSerbest = string.IsNullOrWhiteSpace(customer.Address) ? null : customer.Address.Trim();
+        var il = string.IsNullOrWhiteSpace(customer.City) ? null : customer.City.Trim();
+        var ilce = string.IsNullOrWhiteSpace(customer.District) ? null : customer.District.Trim();
+        var ulke = string.IsNullOrWhiteSpace(customer.Country) ? null : customer.Country.Trim();
+
+        var iletisim = !string.IsNullOrWhiteSpace(customer.Email)
+            ? customer.Email.Trim()
+            : (!string.IsNullOrWhiteSpace(customer.Phone) ? customer.Phone.Trim() : null);
+
+        var kategoriKod = ResolveCustomerKategoriKod(customer, settings);
+
+        return new KozaMusteriEkleRequest
+        {
+            Tip = customer.Type > 0 ? customer.Type : 1,
+            CariTipId = 5,
+            KartKod = kartKod,
+            Tanim = name,
+            KisaAd = SafeTruncate(name, 30),
+            YasalUnvan = name,
+            ParaBirimKod = "TRY",
+            KategoriKod = kategoriKod,
+            AdresTipId = string.IsNullOrWhiteSpace(adresSerbest) ? null : 9,
+            AdresSerbest = adresSerbest,
+            Il = il,
+            Ilce = ilce,
+            Ulke = ulke,
+            IletisimTipId = string.IsNullOrWhiteSpace(iletisim) ? null : 5,
+            IletisimTanim = iletisim
+        };
+    }
+
+    private static string? ResolveCustomerKategoriKod(Customer customer, LucaApiSettings settings)
+    {
+        if (!string.IsNullOrWhiteSpace(customer.GroupCode) && settings.CategoryMapping != null)
+        {
+            var key = customer.GroupCode.Trim();
+            if (settings.CategoryMapping.TryGetValue(key, out var mapped) && !string.IsNullOrWhiteSpace(mapped))
+            {
+                return mapped;
+            }
+
+            var altMatch = settings.CategoryMapping
+                .FirstOrDefault(kv => string.Equals(kv.Key, key, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(altMatch.Value))
+            {
+                return altMatch.Value;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.DefaultKategoriKodu))
+        {
+            return settings.DefaultKategoriKodu;
+        }
+
+        return null;
+    }
+
+    private static string? SafeTruncate(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Length <= maxLength ? value : value.Substring(0, maxLength);
     }
 }

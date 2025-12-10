@@ -176,13 +176,13 @@ public class OrderSyncQueryService : IOrderSyncQueryService
     /// <summary>
     /// Sipariş-Luca fatura mapping'ini getirir.
     /// </summary>
-    public async Task<OrderLucaMappingDto?> GetOrderLucaMappingAsync(int orderId)
+    public Task<OrderLucaMappingDto?> GetOrderLucaMappingAsync(int orderId)
     {
         try
         {
             // TODO: OrderLucaMapping tablosu henüz database'de yok
             // Mapping'i tutacak tablo eklenince bunu implement et
-            return null;
+            return Task.FromResult<OrderLucaMappingDto?>(null);
         }
         catch (Exception ex)
         {

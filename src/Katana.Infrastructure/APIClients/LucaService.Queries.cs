@@ -367,7 +367,8 @@ public partial class LucaService
         var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-        var response = await client.PostAsync(_settings.Endpoints.CustomerCreate, content);
+        var endpoint = ResolveCustomerCreateEndpoint();
+        var response = await client.PostAsync(endpoint, content);
         var responseContent = await response.Content.ReadAsStringAsync();
         response.EnsureSuccessStatusCode();
 
@@ -1243,6 +1244,10 @@ public partial class LucaService
                 if (element.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
                 {
                     arrayEl = data;
+                }
+                else if (element.TryGetProperty("finMusteriListesi", out var finMusteriListesi) && finMusteriListesi.ValueKind == JsonValueKind.Array)
+                {
+                    arrayEl = finMusteriListesi;
                 }
                 else if (element.TryGetProperty("list", out var list) && list.ValueKind == JsonValueKind.Array)
                 {
@@ -2975,6 +2980,25 @@ public partial class LucaService
             // ÖNEMLİ: Branch seçimi zorunlu (1003 hatası önleme)
             await EnsureAuthenticatedAsync();
             await EnsureBranchSelectedAsync();
+
+            if (_settings.UsePostmanCustomerFormat)
+            {
+                var kozaRequest = BuildKozaMusteriEkleRequest(customer);
+                var kozaResult = await CreateMusteriCariAsync(kozaRequest);
+
+                if (!kozaResult.Success)
+                {
+                    result.IsSuccess = false;
+                    result.FailedRecords = 1;
+                    result.Errors.Add($"{customer.Id}: {kozaResult.Message}");
+                    return result;
+                }
+
+                result.IsSuccess = true;
+                result.SuccessfulRecords = 1;
+                result.Message = $"Cari kart '{kozaRequest.KartKod}' Luca'ya gönderildi (Postman format).";
+                return result;
+            }
             
             var kartKodu = customer.LucaCode ?? customer.GenerateLucaCode();
             

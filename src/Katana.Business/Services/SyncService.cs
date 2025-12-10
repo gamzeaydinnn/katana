@@ -7,6 +7,7 @@ using Katana.Core.DTOs.Koza;
 using Katana.Core.Entities;
 using Katana.Core.Enums;
 using Katana.Core.Helpers;
+using Katana.Business.Extensions;
 using Katana.Business.Mappers;
 using Katana.Data.Context;
 using Katana.Data.Configuration;
@@ -14,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 
 namespace Katana.Business.Services;
 
@@ -1755,17 +1757,35 @@ public class SyncService : ISyncService
             total = localCustomers.Count;
             _logger.LogInformation("📥 Found {Count} customers in local database", total);
 
+            var existingMappings = await _dbContext.CustomerKozaCariMappings
+                .AsNoTracking()
+                .ToDictionaryAsync(m => m.KatanaCustomerId, m => m, ct);
+
             foreach (var customer in localCustomers)
             {
                 try
                 {
+                    var katanaCustomerId = customer.Id.ToString();
                     // Use TaxNo as code, or generate one from Id
                     var customerCode = !string.IsNullOrWhiteSpace(customer.TaxNo) 
                         ? customer.TaxNo 
                         : $"CK-{customer.Id}";
 
+                    if (existingMappings.TryGetValue(katanaCustomerId, out var mapping) &&
+                        !string.IsNullOrWhiteSpace(mapping.KozaCariKodu))
+                    {
+                        skipped++;
+                        _logger.LogInformation("⏭️ Skipping customer {CustomerCode} ({CustomerName}) - Koza mapping already exists (CariKodu={CariKodu}, FinansalNesneId={FinId})",
+                            customerCode,
+                            customer.Title ?? customerCode,
+                            mapping.KozaCariKodu,
+                            mapping.KozaFinansalNesneId);
+                        continue;
+                    }
+
                     var customerDto = new KatanaCustomerToCariDto
                     {
+                        KatanaCustomerId = katanaCustomerId,
                         Code = customerCode,
                         Name = customer.Title ?? customerCode,
                         TaxNumber = customer.TaxNo,
@@ -1781,6 +1801,16 @@ public class SyncService : ISyncService
                     {
                         successful++;
                         _logger.LogDebug("✅ Customer {Code} synced successfully", customerCode);
+
+                         var (cariKodu, finansalNesneId) = ExtractCariMappingData(lucaResult);
+                         var resolvedCariKodu = !string.IsNullOrWhiteSpace(cariKodu) ? cariKodu! : customerCode;
+                         await SaveCustomerMappingAsync(customer, katanaCustomerId, resolvedCariKodu, finansalNesneId, ct);
+                         existingMappings[katanaCustomerId] = new CustomerKozaCariMapping
+                         {
+                             KatanaCustomerId = katanaCustomerId,
+                             KozaCariKodu = resolvedCariKodu,
+                             KozaFinansalNesneId = finansalNesneId
+                         };
                     }
                     else
                     {
@@ -1834,6 +1864,150 @@ public class SyncService : ISyncService
                 Errors = { ex.ToString() }
             };
         }
+    }
+
+    private async Task SaveCustomerMappingAsync(Customer customer, string katanaCustomerId, string cariKodu, long? finansalNesneId, CancellationToken ct)
+    {
+        var mapping = await _dbContext.CustomerKozaCariMappings
+            .FirstOrDefaultAsync(m => m.KatanaCustomerId == katanaCustomerId, ct);
+        var now = DateTime.UtcNow;
+
+        if (mapping == null)
+        {
+            mapping = new CustomerKozaCariMapping
+            {
+                KatanaCustomerId = katanaCustomerId,
+                KozaCariKodu = cariKodu,
+                KozaFinansalNesneId = finansalNesneId,
+                KatanaCustomerName = customer.Title,
+                KozaCariTanim = customer.Title,
+                KatanaCustomerTaxNo = customer.TaxNo,
+                SyncStatus = "SUCCESS",
+                LastSyncAt = now,
+                LastSyncError = null,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            mapping.UpdateHash();
+            _dbContext.CustomerKozaCariMappings.Add(mapping);
+        }
+        else
+        {
+            mapping.KozaCariKodu = cariKodu;
+            mapping.KozaFinansalNesneId = finansalNesneId;
+            mapping.KatanaCustomerName = customer.Title;
+            mapping.KozaCariTanim = customer.Title;
+            mapping.KatanaCustomerTaxNo ??= customer.TaxNo;
+            mapping.SyncStatus = "SUCCESS";
+            mapping.LastSyncAt = now;
+            mapping.LastSyncError = null;
+            mapping.UpdatedAt = now;
+            mapping.UpdateHash();
+            _dbContext.CustomerKozaCariMappings.Update(mapping);
+        }
+
+        await _dbContext.SaveChangesAsync(ct);
+    }
+
+    private static (string? CariKodu, long? FinansalNesneId) ExtractCariMappingData(KozaResult result)
+    {
+        if (result?.Data == null)
+        {
+            return (null, null);
+        }
+
+        JsonElement root;
+        if (result.Data is JsonElement element)
+        {
+            root = element;
+        }
+        else
+        {
+            var json = JsonSerializer.Serialize(result.Data);
+            root = JsonSerializer.Deserialize<JsonElement>(json);
+        }
+
+        string? cariKodu = null;
+        long? finansalNesneId = null;
+
+        if (TryReadString(root, "CariKodu", out var ck) || TryReadString(root, "cariKodu", out ck) ||
+            TryReadString(root, "Kod", out ck) || TryReadString(root, "kod", out ck))
+        {
+            cariKodu = ck;
+        }
+
+        if (TryReadLong(root, "FinansalNesneId", out var fnId) || TryReadLong(root, "finansalNesneId", out fnId))
+        {
+            finansalNesneId = fnId;
+        }
+
+        if ((cariKodu == null || finansalNesneId == null) &&
+            TryGetPropertyCaseInsensitive(root, "finMusteri", out var finMusteri))
+        {
+            if (cariKodu == null && TryReadString(finMusteri, "kod", out var nestedKod))
+            {
+                cariKodu = nestedKod;
+            }
+
+            if (finansalNesneId == null && TryReadLong(finMusteri, "finansalNesneId", out var nestedFinId))
+            {
+                finansalNesneId = nestedFinId;
+            }
+        }
+
+        return (cariKodu, finansalNesneId);
+    }
+
+    private static bool TryReadString(JsonElement element, string propertyName, out string? value)
+    {
+        value = null;
+        if (TryGetPropertyCaseInsensitive(element, propertyName, out var prop) &&
+            prop.ValueKind == JsonValueKind.String)
+        {
+            value = prop.GetString();
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryReadLong(JsonElement element, string propertyName, out long? value)
+    {
+        value = null;
+        if (TryGetPropertyCaseInsensitive(element, propertyName, out var prop) &&
+            prop.ValueKind == JsonValueKind.Number &&
+            prop.TryGetInt64(out var longValue))
+        {
+            value = longValue;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetPropertyCaseInsensitive(JsonElement element, string propertyName, out JsonElement value)
+    {
+        value = default;
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        if (element.TryGetProperty(propertyName, out value))
+        {
+            return true;
+        }
+
+        foreach (var property in element.EnumerateObject())
+        {
+            if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                value = property.Value;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     #endregion

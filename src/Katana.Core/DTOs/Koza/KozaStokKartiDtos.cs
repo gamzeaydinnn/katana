@@ -10,12 +10,97 @@ namespace Katana.Core.DTOs.Koza;
 public sealed class KozaStokKartiDto
 {
     // Zorunlu alanlar
-    // Luca list endpoint returns "kod" (not "kartKodu")
-    [JsonPropertyName("kod")]
+    [JsonPropertyName("kartKodu")]
     public string KartKodu { get; set; } = string.Empty;
+
+    // Accept Koza variations (kod, stokKartKodu, code, skartKod, stokKodu)
+    [JsonPropertyName("kod")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public string? Kod
+    {
+        get => null;
+        set
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                KartKodu = value;
+            }
+        }
+    }
+
+    [JsonPropertyName("stokKartKodu")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public string? StokKartKodu
+    {
+        get => null;
+        set
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                KartKodu = value;
+            }
+        }
+    }
+
+    [JsonPropertyName("skartKod")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public string? SkartKod
+    {
+        get => null;
+        set
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                KartKodu = value;
+            }
+        }
+    }
     
     [JsonPropertyName("kartAdi")]
     public string KartAdi { get; set; } = string.Empty;
+
+    // Accept Koza variations (adi, stokKartAdi, tanim)
+    [JsonPropertyName("adi")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public string? Adi
+    {
+        get => null;
+        set
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                KartAdi = value;
+            }
+        }
+    }
+
+    [JsonPropertyName("stokKartAdi")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public string? StokKartAdi
+    {
+        get => null;
+        set
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                KartAdi = value;
+            }
+        }
+    }
+
+    [JsonPropertyName("tanim")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public string? Tanim
+    {
+        get => null;
+        set
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                KartAdi = value;
+            }
+        }
+    }
     
     [JsonPropertyName("kartTuru")]
     public long KartTuru { get; set; } = 1;  // 1: Ürün, 2: Hizmet
@@ -28,13 +113,84 @@ public sealed class KozaStokKartiDto
     
     [JsonPropertyName("kategoriAgacKod")]
     public string KategoriAgacKod { get; set; } = string.Empty;
+
+    // Accept Koza variations (kategoriKodu, hiyerarsikKod, category)
+    [JsonPropertyName("kategoriKodu")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public string? KategoriKodu
+    {
+        get => null;
+        set
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                KategoriAgacKod = value;
+            }
+        }
+    }
+
+    [JsonPropertyName("hiyerarsikKod")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public string? HiyerarsikKod
+    {
+        get => null;
+        set
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                KategoriAgacKod = value;
+            }
+        }
+    }
+
+    [JsonPropertyName("category")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public string? Category
+    {
+        get => null;
+        set
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                KategoriAgacKod = value;
+            }
+        }
+    }
     
     // KDV oranları
     [JsonPropertyName("kartAlisKdvOran")]
     public double KartAlisKdvOran { get; set; } = 0.18;
+
+    [JsonPropertyName("alisKdvOran")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double? AlisKdvOran
+    {
+        get => null;
+        set
+        {
+            if (value.HasValue)
+            {
+                KartAlisKdvOran = value.Value;
+            }
+        }
+    }
     
     [JsonPropertyName("kartSatisKdvOran")]
     public double KartSatisKdvOran { get; set; } = 0.18;
+
+    [JsonPropertyName("satisKdvOran")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double? SatisKdvOran
+    {
+        get => null;
+        set
+        {
+            if (value.HasValue)
+            {
+                KartSatisKdvOran = value.Value;
+            }
+        }
+    }
     
     // Opsiyonel alanlar
     [JsonPropertyName("uzunAdi")]
@@ -73,9 +229,50 @@ public sealed class KozaStokKartiDto
     public int MaliyetHesaplanacakFlag { get; set; } = 1;
     
     // Listele'den gelen ID
-    // Luca list endpoint uses "skartId" (not "stokKartId")
-    [JsonPropertyName("skartId")]
+    [JsonPropertyName("stokKartId")]
     public long? StokKartId { get; set; }
+
+    [JsonPropertyName("skartId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public long? SkartId
+    {
+        get => null;
+        set
+        {
+            if (value.HasValue)
+            {
+                StokKartId = value.Value;
+            }
+        }
+    }
+
+    [JsonPropertyName("skartID")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public long? SkartIdUpper
+    {
+        get => null;
+        set
+        {
+            if (value.HasValue)
+            {
+                StokKartId = value.Value;
+            }
+        }
+    }
+
+    [JsonPropertyName("id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public long? GenericId
+    {
+        get => null;
+        set
+        {
+            if (value.HasValue)
+            {
+                StokKartId = value.Value;
+            }
+        }
+    }
 }
 
 /// <summary>
@@ -92,6 +289,13 @@ public sealed class KozaStokKartiListResponse
     
     [JsonPropertyName("stkKartListesi")]
     public List<KozaStokKartiDto>? StkKartListesi { get; set; }
+
+    // Common Koza variations captured for resilience
+    [JsonPropertyName("stkSkart")]
+    public List<KozaStokKartiDto>? StkSkart { get; set; }
+
+    [JsonPropertyName("data")]
+    public List<KozaStokKartiDto>? Data { get; set; }
     
     [JsonPropertyName("error")]
     public bool? Error { get; set; }
