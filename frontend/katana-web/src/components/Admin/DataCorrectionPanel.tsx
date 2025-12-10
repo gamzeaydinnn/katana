@@ -3,32 +3,32 @@ import EditIcon from "@mui/icons-material/Edit";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SaveIcon from "@mui/icons-material/Save";
 import {
-    Alert,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Chip,
-    CircularProgress,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    IconButton,
-    Paper,
-    Stack,
-    Tab,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Tabs,
-    TextField,
-    Tooltip,
-    Typography,
-    useMediaQuery,
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Paper,
+  Stack,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tabs,
+  TextField,
+  Tooltip,
+  Typography,
+  useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
@@ -166,13 +166,15 @@ const DataCorrectionPanel: React.FC = () => {
             hasLucaIssue = true;
           }
         } else {
+          // Katana'da var ama Luca'da yok = henüz senkronize edilmemiş
           issues.push({
-            field: "Varlık",
+            field: "Senkronizasyon",
             katanaValue: "Mevcut",
             lucaValue: "Yok",
-            issue: "Ürün sadece Katana'da var",
+            issue: "Luca'ya aktarılmamış",
           });
-          hasLucaIssue = true;
+          // Bu bir Katana sorunu - ürün Luca'ya gönderilmeli
+          hasKatanaIssue = true;
         }
 
         if (issues.length > 0) {
@@ -192,25 +194,22 @@ const DataCorrectionPanel: React.FC = () => {
         }
       });
 
+      // NOT: Katana → Luca yönünde aktarım olduğu için,
+      // Luca'da olup Katana'da olmayan ürünler NORMAL bir durumdur.
+      // Bu ürünler muhtemelen Luca'da manuel oluşturulmuş veya eski verilerdir.
+      // Bu yüzden bunları "sorun" olarak göstermiyoruz.
+      // Sadece bilgi amaçlı logluyoruz.
       lucaData.forEach((lucaProduct: LucaProduct) => {
         const katanaExists = katanaData.find(
           (kp: KatanaProduct) => kp.sku === lucaProduct.productCode
         );
 
         if (!katanaExists) {
-          comparisonResults.push({
-            sku: lucaProduct.productCode,
-            lucaProduct,
-            issues: [
-              {
-                field: "Varlık",
-                katanaValue: "Yok",
-                lucaValue: "Mevcut",
-                issue: "Ürün sadece Luca'da var",
-              },
-            ],
-          });
-          lucaIssues.push(lucaProduct);
+          // Bu bir sorun DEĞİL - Luca'da manuel oluşturulmuş ürün olabilir
+          // Karşılaştırma listesine EKLEMİYORUZ
+          console.log(
+            `Bilgi: ${lucaProduct.productCode} sadece Luca'da var (manuel oluşturulmuş olabilir)`
+          );
         }
       });
 
@@ -345,7 +344,7 @@ const DataCorrectionPanel: React.FC = () => {
             <Tabs value={sourceTab} onChange={(_, v) => setSourceTab(v)}>
               <Tab label="Karşılaştırma" value="comparison" />
               <Tab label="Katana Sorunları" value="katana" />
-              <Tab label="Luca Sorunları" value="luca" />
+              <Tab label="Luca Uyuşmazlıkları" value="luca" />
             </Tabs>
           </Box>
         </CardContent>
@@ -763,7 +762,7 @@ const DataCorrectionPanel: React.FC = () => {
                     align="center"
                     sx={{ py: 2 }}
                   >
-                    Luca sorun yaşayan ürün bulunamadı
+                    Luca'da uyuşmazlık bulunamadı - Tüm veriler senkronize!
                   </Typography>
                 )}
                 {lucaIssueProducts.map((product) => (
@@ -850,7 +849,8 @@ const DataCorrectionPanel: React.FC = () => {
                       <TableRow>
                         <TableCell colSpan={5} align="center">
                           <Typography color="textSecondary">
-                            Luca sorun yaşayan ürün bulunamadı
+                            Luca'da uyuşmazlık bulunamadı - Tüm veriler
+                            senkronize!
                           </Typography>
                         </TableCell>
                       </TableRow>
