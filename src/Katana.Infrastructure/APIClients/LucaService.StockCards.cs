@@ -274,11 +274,58 @@ public partial class LucaService
                 return new List<KozaStokKartiDto>();
             }
 
-            // Parse JSON response
-            KozaStokKartiListResponse? dto = null;
+            // Parse JSON response - Koza bazen KDV oranlarını string olarak döndürür ("%20" gibi)
+            // Bu yüzden manuel parse yapıyoruz
+            var stoklar = new List<KozaStokKartiDto>();
             try
             {
-                dto = JsonSerializer.Deserialize<KozaStokKartiListResponse>(body, _jsonOptions);
+                using var doc = JsonDocument.Parse(body);
+                var root = doc.RootElement;
+                JsonElement arrayEl = default;
+
+                // Find the array in response
+                if (root.ValueKind == JsonValueKind.Array)
+                {
+                    arrayEl = root;
+                }
+                else if (root.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var key in new[] { "list", "stokKartlari", "stkKartListesi", "stkSkart", "data", "items" })
+                    {
+                        if (root.TryGetProperty(key, out var candidate) && candidate.ValueKind == JsonValueKind.Array)
+                        {
+                            arrayEl = candidate;
+                            break;
+                        }
+                    }
+                    
+                    // Check for error response
+                    if (root.TryGetProperty("error", out var errorProp) && errorProp.GetBoolean())
+                    {
+                        var errorMsg = root.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : "Unknown error";
+                        _logger.LogError("❌ Koza API returned error: {Message}", errorMsg);
+                        return new List<KozaStokKartiDto>();
+                    }
+                }
+
+                if (arrayEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in arrayEl.EnumerateArray())
+                    {
+                        try
+                        {
+                            var dto = ParseStockCardFromJson(item);
+                            if (dto != null)
+                            {
+                                stoklar.Add(dto);
+                            }
+                        }
+                        catch (Exception itemEx)
+                        {
+                            _logger.LogWarning(itemEx, "Failed to parse stock card item");
+                        }
+                    }
+                }
             }
             catch (JsonException jsonEx)
             {
@@ -291,24 +338,10 @@ public partial class LucaService
                 return new List<KozaStokKartiDto>();
             }
             
-            // Check for API error response
-            if (dto?.Error == true)
-            {
-                _logger.LogError("❌ Koza API returned error: {Message}", dto.Message);
-                return new List<KozaStokKartiDto>();
-            }
-
-            // Koza response field can vary: list, stokKartlari, stkKartListesi, stkSkart or data
-            var stoklar = dto?.List 
-                          ?? dto?.StokKartlari 
-                          ?? dto?.StkKartListesi
-                          ?? dto?.StkSkart
-                          ?? dto?.Data
-                          ?? new List<KozaStokKartiDto>();
-            
             _logger.LogInformation("✅ Retrieved {Count} stock cards from Koza", stoklar.Count);
-            
             return stoklar;
+            
+
         }
         catch (Exception ex)
         {
@@ -528,6 +561,87 @@ public partial class LucaService
             CultureInfo.InvariantCulture, 
             DateTimeStyles.None, 
             out _);
+    }
+
+    /// <summary>
+    /// JSON element'ten stok kartı parse et
+    /// Koza bazen KDV oranlarını string olarak döndürür ("%20" gibi)
+    /// </summary>
+    private KozaStokKartiDto? ParseStockCardFromJson(JsonElement item)
+    {
+        var dto = new KozaStokKartiDto();
+
+        // ID alanları
+        if (item.TryGetProperty("skartId", out var skartId))
+            dto.StokKartId = skartId.ValueKind == JsonValueKind.Number ? skartId.GetInt64() : null;
+        else if (item.TryGetProperty("stokKartId", out var stokKartId))
+            dto.StokKartId = stokKartId.ValueKind == JsonValueKind.Number ? stokKartId.GetInt64() : null;
+
+        // Kod alanları
+        if (item.TryGetProperty("kod", out var kod))
+            dto.KartKodu = kod.GetString() ?? "";
+        else if (item.TryGetProperty("kartKodu", out var kartKodu2))
+            dto.KartKodu = kartKodu2.GetString() ?? "";
+
+        // Ad alanları
+        if (item.TryGetProperty("adi", out var adi))
+            dto.KartAdi = adi.GetString() ?? "";
+        else if (item.TryGetProperty("kartAdi", out var kartAdi2))
+            dto.KartAdi = kartAdi2.GetString() ?? "";
+
+        // Barkod
+        if (item.TryGetProperty("barkod", out var barkod))
+            dto.Barkod = barkod.GetString();
+
+        // Kategori
+        if (item.TryGetProperty("kategoriKodu", out var kategoriKodu))
+            dto.KategoriAgacKod = kategoriKodu.GetString() ?? "";
+        else if (item.TryGetProperty("hiyerarsikKod", out var hiyerarsikKod))
+            dto.KategoriAgacKod = hiyerarsikKod.GetString() ?? "";
+        else if (item.TryGetProperty("kategoriAgacKod", out var kategoriAgacKod))
+            dto.KategoriAgacKod = kategoriAgacKod.GetString() ?? "";
+
+        // KDV oranları - string olarak gelebilir ("%20" gibi)
+        dto.KartSatisKdvOran = ParseKdvOran(item, "satisKdvOran", "kartSatisKdvOran");
+        dto.KartAlisKdvOran = ParseKdvOran(item, "alisKdvOran", "kartAlisKdvOran");
+
+        // Ölçüm birimi
+        if (item.TryGetProperty("temelOlcuBirimi", out var temelOlcuBirimi))
+            dto.UzunAdi = temelOlcuBirimi.GetString(); // Geçici olarak UzunAdi'ye koyuyoruz
+
+        return dto;
+    }
+
+    /// <summary>
+    /// KDV oranını parse et - string ("%20") veya number olabilir
+    /// </summary>
+    private double ParseKdvOran(JsonElement item, params string[] propertyNames)
+    {
+        foreach (var propName in propertyNames)
+        {
+            if (item.TryGetProperty(propName, out var prop))
+            {
+                if (prop.ValueKind == JsonValueKind.Number)
+                {
+                    return prop.GetDouble();
+                }
+                else if (prop.ValueKind == JsonValueKind.String)
+                {
+                    var strVal = prop.GetString();
+                    if (!string.IsNullOrEmpty(strVal))
+                    {
+                        // "%20" -> 0.20, "20" -> 0.20
+                        strVal = strVal.Replace("%", "").Trim();
+                        if (double.TryParse(strVal, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed))
+                        {
+                            // Eğer 1'den büyükse yüzde olarak gelmiş demektir
+                            return parsed > 1 ? parsed / 100.0 : parsed;
+                        }
+                    }
+                }
+            }
+        }
+        return 0.18; // Varsayılan KDV
     }
 
     /// <summary>

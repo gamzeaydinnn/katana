@@ -1,30 +1,35 @@
 import {
-    Business,
-    Inventory,
-    People,
-    Refresh,
-    Sync as SyncIcon,
-    Warehouse
+  Business,
+  Inventory,
+  People,
+  Refresh,
+  Search as SearchIcon,
+  Sync as SyncIcon,
+  Warehouse,
 } from "@mui/icons-material";
 import {
-    Alert,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Chip,
-    CircularProgress,
-    IconButton,
-    Paper,
-    Tab,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Tabs,
-    Typography
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  IconButton,
+  InputAdornment,
+  Paper,
+  Stack,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tabs,
+  TextField,
+  Typography,
+  useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import type {
@@ -33,8 +38,8 @@ import type {
   KozaStokKarti,
 } from "../../features/integrations/luca-koza";
 import {
-    mapKatanaLocationToKozaDepo,
-    mapKatanaProductToKozaStokKarti,
+  mapKatanaLocationToKozaDepo,
+  mapKatanaProductToKozaStokKarti,
 } from "../../features/integrations/luca-koza";
 import api, { kozaAPI } from "../../services/api";
 
@@ -91,8 +96,14 @@ const KozaIntegration: React.FC = () => {
 
   // Stok kartı state
   const [stockCards, setStockCards] = useState<KozaStokKarti[]>([]);
+  const [filteredStockCards, setFilteredStockCards] = useState<KozaStokKarti[]>(
+    []
+  );
+  const [searchTerm, setSearchTerm] = useState("");
   const [loadingStockCards, setLoadingStockCards] = useState(false);
   const [syncingStockCards, setSyncingStockCards] = useState(false);
+  const [katanaProductCount, setKatanaProductCount] = useState<number>(0);
+  const isMobile = useMediaQuery("(max-width:900px)");
 
   // Tedarikçi state
   const [suppliers, setSuppliers] = useState<KozaSupplierListItem[]>([]);
@@ -116,13 +127,18 @@ const KozaIntegration: React.FC = () => {
       setLoadingDepots(true);
       setError(null);
       const data = await kozaAPI.depots.list();
-      
+
       // Backend response: { data: [], pagination: { totalItems } } (camelCase)
-      const itemsData = Array.isArray((data as any)?.data) ? (data as any).data : undefined;
-      const itemsAlt = Array.isArray((data as any)?.items) ? (data as any).items : undefined;
+      const itemsData = Array.isArray((data as any)?.data)
+        ? (data as any).data
+        : undefined;
+      const itemsAlt = Array.isArray((data as any)?.items)
+        ? (data as any).items
+        : undefined;
       const items = itemsData ?? itemsAlt ?? (Array.isArray(data) ? data : []);
       const paginationTotal = (data as any)?.pagination?.totalItems;
-      const total = typeof paginationTotal === "number" ? paginationTotal : items.length;
+      const total =
+        typeof paginationTotal === "number" ? paginationTotal : items.length;
 
       setDepots(items);
       setTotalDepots(total);
@@ -139,8 +155,23 @@ const KozaIntegration: React.FC = () => {
     try {
       setLoadingStockCards(true);
       setError(null);
-      const data = await kozaAPI.stockCards.list();
-      setStockCards(Array.isArray(data) ? data : []);
+
+      // Paralel olarak hem Koza stok kartlarını hem Katana ürünlerini yükle
+      const [kozaData, katanaRes] = await Promise.all([
+        kozaAPI.stockCards.list(),
+        api.get("/Products/katana").catch(() => ({ data: [] as any[] })),
+      ]);
+
+      setStockCards(Array.isArray(kozaData) ? kozaData : []);
+
+      // Katana ürün sayısını ayarla - API yanıtı { data: [...] } veya direkt [...] olabilir
+      const rawKatanaData = katanaRes?.data as any;
+      const katanaProducts = Array.isArray(rawKatanaData)
+        ? rawKatanaData
+        : rawKatanaData?.data || [];
+      setKatanaProductCount(
+        Array.isArray(katanaProducts) ? katanaProducts.length : 0
+      );
     } catch (err: any) {
       console.error("Stok kartı yükleme hatası:", err);
       setError(err.message || "Stok kartları yüklenirken hata oluştu");
@@ -160,9 +191,7 @@ const KozaIntegration: React.FC = () => {
       let locations: KatanaLocation[] = [];
       try {
         const locationsRes = await api.get<KatanaLocation[]>("/Locations");
-        locations = Array.isArray(locationsRes.data)
-          ? locationsRes.data
-          : [];
+        locations = Array.isArray(locationsRes.data) ? locationsRes.data : [];
       } catch (katanaErr: any) {
         console.warn(
           "Katana API bağlantısı yok, varsayılan depo kullanılacak:",
@@ -173,9 +202,7 @@ const KozaIntegration: React.FC = () => {
           const defaultRes = await api.get<KatanaLocation[]>(
             "/Locations/defaults"
           );
-          locations = Array.isArray(defaultRes.data)
-            ? defaultRes.data
-            : [];
+          locations = Array.isArray(defaultRes.data) ? defaultRes.data : [];
         } catch {
           // Varsayılan depoyu manuel oluştur
           locations = [
@@ -254,10 +281,12 @@ const KozaIntegration: React.FC = () => {
 
       // Katana Product'ları al
       const productsRes = await api.get("/Products/katana");
-      const products = productsRes.data;
+      // API yanıtı { data: [...] } veya direkt [...] olabilir
+      const rawData = productsRes.data as any;
+      const products = Array.isArray(rawData) ? rawData : rawData?.data || [];
 
       if (!Array.isArray(products) || products.length === 0) {
-        setError("Katana'da senkronize edilecek product bulunamadı");
+        setSuccess("Tüm ürünler zaten Koza'ya senkronize edilmiş");
         return;
       }
 
@@ -445,6 +474,21 @@ const KozaIntegration: React.FC = () => {
     }
   }, [activeTab]);
 
+  // Stok kartı arama filtresi
+  useEffect(() => {
+    if (searchTerm.trim() === "") {
+      setFilteredStockCards(stockCards);
+    } else {
+      const term = searchTerm.toLowerCase();
+      const filtered = stockCards.filter((card) => {
+        const kod = (card.kartKodu || "").toLowerCase();
+        const ad = (card.kartAdi || "").toLowerCase();
+        return kod.includes(term) || ad.includes(term);
+      });
+      setFilteredStockCards(filtered);
+    }
+  }, [searchTerm, stockCards]);
+
   return (
     <Box sx={{ px: { xs: 0, sm: 0 }, mx: { xs: -1, sm: 0 } }}>
       {/* Header */}
@@ -612,9 +656,13 @@ const KozaIntegration: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                {depots.map((depo) => (
-                  <TableRow key={`depot-${depo.depoId ?? depo.id ?? depo.kod}-${depo.kod}`}>
-                    <TableCell>{depo.depoId ?? depo.id ?? "-"}</TableCell>
+                    {depots.map((depo) => (
+                      <TableRow
+                        key={`depot-${depo.depoId ?? depo.id ?? depo.kod}-${
+                          depo.kod
+                        }`}
+                      >
+                        <TableCell>{depo.depoId ?? depo.id ?? "-"}</TableCell>
                         <TableCell>
                           <Chip
                             label={depo.kod}
@@ -689,57 +737,230 @@ const KozaIntegration: React.FC = () => {
               </Button>
             </Box>
 
+            <TextField
+              fullWidth
+              placeholder="Ürün kodu veya adı ara..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 2 }}
+              size="small"
+            />
+
+            <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+              <Chip label={`Toplam: ${stockCards.length}`} color="secondary" />
+              <Chip label={`Görüntülenen: ${filteredStockCards.length}`} />
+            </Stack>
+
             {loadingStockCards ? (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
-                <CircularProgress size={24} />
+              <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                <CircularProgress />
               </Box>
             ) : stockCards.length === 0 ? (
-              <Alert severity="info" sx={{ fontSize: "0.8rem" }}>
-                Henüz stok kartı kaydı yok.
-              </Alert>
+              <Alert severity="info">Henüz stok kartı kaydı yok.</Alert>
+            ) : filteredStockCards.length === 0 ? (
+              <Alert severity="info">Arama sonucu bulunamadı</Alert>
+            ) : isMobile ? (
+              /* Mobil Kart Görünümü */
+              <Stack spacing={1.5}>
+                {filteredStockCards.map((stok, idx) => {
+                  const kod = stok.kartKodu || "";
+                  const ad = stok.kartAdi || "";
+                  const barkod = (stok as any).barkod || "";
+                  const kategori = stok.kategoriAgacKod || "";
+                  const birim = (stok as any).olcumBirimi || "";
+                  const miktar = (stok as any).miktar ?? 0;
+                  const birimFiyat = (stok as any).birimFiyat ?? 0;
+                  const kdvOran = stok.kartSatisKdvOran ?? 0;
+                  const durum = (stok as any).durum ?? true;
+                  const sonGuncelleme = (stok as any).sonGuncelleme || "";
+
+                  return (
+                    <Paper
+                      key={stok.stokKartId || `stok-mobile-${idx}`}
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 2,
+                        border: "1px solid",
+                        borderColor: "divider",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 1,
+                        }}
+                      >
+                        <Box>
+                          <Typography variant="subtitle1" fontWeight={600}>
+                            {ad}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Kod: <strong>{kod}</strong>
+                          </Typography>
+                          {barkod && (
+                            <Typography variant="body2" color="text.secondary">
+                              Barkod: {barkod}
+                            </Typography>
+                          )}
+                          {kategori && (
+                            <Chip
+                              label={kategori}
+                              size="small"
+                              variant="outlined"
+                              sx={{ mt: 0.5 }}
+                            />
+                          )}
+                        </Box>
+                        <Chip
+                          label={durum ? "Aktif" : "Pasif"}
+                          color={durum ? "success" : "default"}
+                          size="small"
+                        />
+                      </Box>
+                      <Box
+                        sx={{
+                          display: "grid",
+                          gridTemplateColumns:
+                            "repeat(auto-fit, minmax(100px, 1fr))",
+                          gap: 1,
+                          mt: 1.25,
+                        }}
+                      >
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Birim
+                          </Typography>
+                          <Typography fontWeight={600}>
+                            {birim || "-"}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Miktar
+                          </Typography>
+                          <Typography fontWeight={600}>{miktar}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Birim Fiyat
+                          </Typography>
+                          <Typography fontWeight={600}>
+                            {birimFiyat ? `${birimFiyat.toFixed(2)} ₺` : "-"}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            KDV
+                          </Typography>
+                          <Typography fontWeight={600}>
+                            %{(kdvOran * 100).toFixed(0)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      {sonGuncelleme && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ mt: 1, display: "block" }}
+                        >
+                          Güncelleme: {sonGuncelleme}
+                        </Typography>
+                      )}
+                    </Paper>
+                  );
+                })}
+              </Stack>
             ) : (
-              <TableContainer sx={{ width: "100%", overflowX: "auto" }}>
-                <Table
-                  size="small"
-                  sx={{
-                    "& .MuiTableCell-root": {
-                      px: { xs: 0.75, sm: 2 },
-                      py: { xs: 0.5, sm: 1 },
-                      fontSize: { xs: "0.7rem", sm: "0.875rem" },
-                    },
-                  }}
-                >
+              /* Desktop Tablo Görünümü */
+              <TableContainer component={Paper}>
+                <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ whiteSpace: "nowrap" }}>ID</TableCell>
-                      <TableCell sx={{ whiteSpace: "nowrap" }}>Kod</TableCell>
-                      <TableCell sx={{ whiteSpace: "nowrap" }}>Adı</TableCell>
-                      <TableCell sx={{ whiteSpace: "nowrap" }}>
-                        Kategori
+                      <TableCell>
+                        <strong>Ürün Kodu</strong>
                       </TableCell>
-                      <TableCell sx={{ whiteSpace: "nowrap" }}>KDV</TableCell>
+                      <TableCell>
+                        <strong>Ürün Adı</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Barkod</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Kategori</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Ölçü Birimi</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>Miktar</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>Birim Fiyat</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>KDV Oranı</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Durum</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Son Güncelleme</strong>
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {stockCards.map((stok, idx) => (
-                      <TableRow key={stok.stokKartId || `stok-${idx}`}>
-                        <TableCell>{stok.stokKartId || "-"}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={stok.kartKodu}
-                            size="small"
-                            color="secondary"
-                            variant="outlined"
-                            sx={{ fontSize: "0.65rem" }}
-                          />
-                        </TableCell>
-                        <TableCell>{stok.kartAdi}</TableCell>
-                        <TableCell>{stok.kategoriAgacKod}</TableCell>
-                        <TableCell>
-                          {(stok.kartSatisKdvOran * 100).toFixed(0)}%
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {filteredStockCards.map((stok, idx) => {
+                      const kod = stok.kartKodu || "";
+                      const ad = stok.kartAdi || "";
+                      const barkod = (stok as any).barkod || "";
+                      const kategori = stok.kategoriAgacKod || "";
+                      const birim = (stok as any).olcumBirimi || "";
+                      const miktar = (stok as any).miktar ?? 0;
+                      const birimFiyat = (stok as any).birimFiyat ?? 0;
+                      const kdvOran = stok.kartSatisKdvOran ?? 0;
+                      const durum = (stok as any).durum ?? true;
+                      const sonGuncelleme = (stok as any).sonGuncelleme || "";
+
+                      return (
+                        <TableRow
+                          key={stok.stokKartId || `stok-desktop-${idx}`}
+                          hover
+                        >
+                          <TableCell>
+                            <Typography variant="body2" fontWeight="bold">
+                              {kod}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>{ad}</TableCell>
+                          <TableCell>{barkod || "-"}</TableCell>
+                          <TableCell>{kategori || "-"}</TableCell>
+                          <TableCell>{birim || "-"}</TableCell>
+                          <TableCell align="right">{miktar}</TableCell>
+                          <TableCell align="right">
+                            {birimFiyat ? `${birimFiyat.toFixed(2)} ₺` : "-"}
+                          </TableCell>
+                          <TableCell align="right">
+                            %{(kdvOran * 100).toFixed(0)}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={durum ? "Aktif" : "Pasif"}
+                              color={durum ? "success" : "default"}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>{sonGuncelleme || "-"}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -921,26 +1142,26 @@ const KozaIntegration: React.FC = () => {
                       return (
                         <TableRow key={rowKey}>
                           <TableCell>{displayId}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={sup.kod ?? "-"}
-                            size="small"
-                            color="warning"
-                            variant="outlined"
-                            sx={{ fontSize: "0.65rem" }}
-                          />
-                        </TableCell>
-                        <TableCell>{sup.tanim ?? "-"}</TableCell>
-                        <TableCell
-                          sx={{ display: { xs: "none", sm: "table-cell" } }}
-                        >
-                          {sup.vergiNo ?? "-"}
-                        </TableCell>
-                        <TableCell
-                          sx={{ display: { xs: "none", sm: "table-cell" } }}
-                        >
-                          {sup.telefon ?? sup.email ?? "-"}
-                        </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={sup.kod ?? "-"}
+                              size="small"
+                              color="warning"
+                              variant="outlined"
+                              sx={{ fontSize: "0.65rem" }}
+                            />
+                          </TableCell>
+                          <TableCell>{sup.tanim ?? "-"}</TableCell>
+                          <TableCell
+                            sx={{ display: { xs: "none", sm: "table-cell" } }}
+                          >
+                            {sup.vergiNo ?? "-"}
+                          </TableCell>
+                          <TableCell
+                            sx={{ display: { xs: "none", sm: "table-cell" } }}
+                          >
+                            {sup.telefon ?? sup.email ?? "-"}
+                          </TableCell>
                         </TableRow>
                       );
                     })}

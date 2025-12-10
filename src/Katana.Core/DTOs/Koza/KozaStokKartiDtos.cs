@@ -161,36 +161,17 @@ public sealed class KozaStokKartiDto
     [JsonPropertyName("kartAlisKdvOran")]
     public double KartAlisKdvOran { get; set; } = 0.18;
 
-    [JsonPropertyName("alisKdvOran")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public double? AlisKdvOran
-    {
-        get => null;
-        set
-        {
-            if (value.HasValue)
-            {
-                KartAlisKdvOran = value.Value;
-            }
-        }
-    }
+    // alisKdvOran string olarak gelebilir - JsonIgnore ile skip ediyoruz
+    [JsonIgnore]
+    public string? AlisKdvOranRaw { get; set; }
     
     [JsonPropertyName("kartSatisKdvOran")]
     public double KartSatisKdvOran { get; set; } = 0.18;
 
-    [JsonPropertyName("satisKdvOran")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public double? SatisKdvOran
-    {
-        get => null;
-        set
-        {
-            if (value.HasValue)
-            {
-                KartSatisKdvOran = value.Value;
-            }
-        }
-    }
+    // satisKdvOran string olarak gelebilir ("%20" gibi) - JsonIgnore ile skip ediyoruz
+    // Ayrı bir converter ile handle edilecek
+    [JsonIgnore]
+    public string? SatisKdvOranRaw { get; set; }
     
     // Opsiyonel alanlar
     [JsonPropertyName("uzunAdi")]
@@ -246,11 +227,11 @@ public sealed class KozaStokKartiDto
         }
     }
 
-    [JsonPropertyName("skartID")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    // skartID büyük harfli versiyon - skartId ile çakışma olmaması için JsonIgnore
+    [JsonIgnore]
     public long? SkartIdUpper
     {
-        get => null;
+        get => StokKartId;
         set
         {
             if (value.HasValue)

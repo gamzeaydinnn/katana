@@ -99,11 +99,6 @@ const StockView: React.FC = () => {
       const hideZero =
         catalogData?.filters?.hideZeroStockProducts ?? hideZeroStockFlag;
 
-      let visibleProducts = productData.filter((p) => p.isActive !== false);
-      if (hideZero) {
-        visibleProducts = visibleProducts.filter((p) => p.stock > 0);
-      }
-
       setHideZeroStockFlag(hideZero);
       const hiddenFromResponse = catalogData?.hiddenCount ?? 0;
       setHiddenCount(hiddenFromResponse);
@@ -116,8 +111,8 @@ const StockView: React.FC = () => {
       } else {
         setHiddenReason(null);
       }
-      setProducts(visibleProducts);
-      setFilteredProducts(visibleProducts);
+      setProducts(productData);
+      setFilteredProducts(productData);
       setStats(statsRes.data || null);
     } catch (err: any) {
       setError(err.response?.data?.error || "Veri yüklenemedi");

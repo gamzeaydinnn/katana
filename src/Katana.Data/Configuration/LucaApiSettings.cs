@@ -89,7 +89,7 @@ public class LucaApiSettings
 
     
     public string InvoiceList { get; set; } = "ListeleFtrSsFaturaBaslik.do";
-    public string InvoiceCreate { get; set; } = "EkleFat.do";
+    public string InvoiceCreate { get; set; } = "EkleFtrWsFaturaBaslik.do";
     public string InvoiceClose { get; set; } = "EkleFtrWsFaturaKapama.do";
     public string InvoiceDelete { get; set; } = "SilFtrWsFaturaBaslik.do";
     public string InvoicePdfLink { get; set; } = "FaturaPDFLinkFtrWsFaturaBaslik.do";

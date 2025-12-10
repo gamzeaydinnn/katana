@@ -131,6 +131,240 @@ namespace Katana.API.Notifications
             }
         }
 
+        #region Yeni Ürün Bildirimleri
+
+        public async Task PublishProductCreatedAsync(ProductCreatedEvent evt)
+        {
+            var payload = new
+            {
+                id = evt.ProductId,
+                eventType = "ProductCreated",
+                productId = evt.ProductId,
+                sku = evt.Sku,
+                name = evt.Name,
+                source = evt.Source,
+                createdAt = evt.CreatedAt,
+                link = $"/stock?productId={evt.ProductId}"
+            };
+
+            var payloadJson = JsonSerializer.Serialize(payload);
+            var published = await TryPublishAsync("ProductCreated", payload, payloadJson, evt.ProductId);
+
+            if (published)
+            {
+                _logger?.LogInformation("📦 Yeni ürün bildirimi gönderildi: {Sku} ({Source})", evt.Sku, evt.Source);
+                
+                try
+                {
+                    var notif = new Katana.Core.Entities.Notification
+                    {
+                        Type = "ProductCreated",
+                        Title = $"Yeni ürün: {evt.Sku ?? evt.Name}",
+                        Payload = payloadJson,
+                        Link = $"/stock?productId={evt.ProductId}",
+                        CreatedAt = evt.CreatedAt.UtcDateTime
+                    };
+                    _db.Notifications.Add(notif);
+                    await _db.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Ürün bildirimi kaydedilemedi: {ProductId}", evt.ProductId);
+                }
+            }
+        }
+
+        public async Task PublishProductUpdatedAsync(ProductUpdatedEvent evt)
+        {
+            var payload = new
+            {
+                id = evt.ProductId,
+                eventType = "ProductUpdated",
+                productId = evt.ProductId,
+                sku = evt.Sku,
+                name = evt.Name,
+                changedFields = evt.ChangedFields,
+                updatedAt = evt.UpdatedAt,
+                link = $"/stock?productId={evt.ProductId}"
+            };
+
+            var payloadJson = JsonSerializer.Serialize(payload);
+            await TryPublishAsync("ProductUpdated", payload, payloadJson, evt.ProductId);
+        }
+
+        #endregion
+
+        #region Stok Hareketi Bildirimleri
+
+        public async Task PublishStockTransferCreatedAsync(StockTransferCreatedEvent evt)
+        {
+            var payload = new
+            {
+                id = evt.TransferId,
+                eventType = "StockTransferCreated",
+                transferId = evt.TransferId,
+                documentNo = evt.DocumentNo,
+                fromWarehouse = evt.FromWarehouse,
+                toWarehouse = evt.ToWarehouse,
+                quantity = evt.Quantity,
+                productSku = evt.ProductSku,
+                createdAt = evt.CreatedAt,
+                link = "/stock-movement-sync"
+            };
+
+            var payloadJson = JsonSerializer.Serialize(payload);
+            var published = await TryPublishAsync("StockTransferCreated", payload, payloadJson, evt.TransferId);
+
+            if (published)
+            {
+                _logger?.LogInformation("🔄 Stok transfer bildirimi gönderildi: {DocumentNo}", evt.DocumentNo);
+                
+                try
+                {
+                    var notif = new Katana.Core.Entities.Notification
+                    {
+                        Type = "StockTransferCreated",
+                        Title = $"Yeni transfer: {evt.DocumentNo}",
+                        Payload = payloadJson,
+                        Link = "/stock-movement-sync",
+                        CreatedAt = evt.CreatedAt.UtcDateTime
+                    };
+                    _db.Notifications.Add(notif);
+                    await _db.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Transfer bildirimi kaydedilemedi: {TransferId}", evt.TransferId);
+                }
+            }
+        }
+
+        public async Task PublishStockAdjustmentCreatedAsync(StockAdjustmentCreatedEvent evt)
+        {
+            var payload = new
+            {
+                id = evt.AdjustmentId,
+                eventType = "StockAdjustmentCreated",
+                adjustmentId = evt.AdjustmentId,
+                documentNo = evt.DocumentNo,
+                sku = evt.Sku,
+                quantity = evt.Quantity,
+                reason = evt.Reason,
+                createdAt = evt.CreatedAt,
+                link = "/stock-movement-sync"
+            };
+
+            var payloadJson = JsonSerializer.Serialize(payload);
+            var published = await TryPublishAsync("StockAdjustmentCreated", payload, payloadJson, evt.AdjustmentId);
+
+            if (published)
+            {
+                _logger?.LogInformation("📝 Stok düzeltme bildirimi gönderildi: {DocumentNo}", evt.DocumentNo);
+                
+                try
+                {
+                    var notif = new Katana.Core.Entities.Notification
+                    {
+                        Type = "StockAdjustmentCreated",
+                        Title = $"Yeni düzeltme: {evt.DocumentNo}",
+                        Payload = payloadJson,
+                        Link = "/stock-movement-sync",
+                        CreatedAt = evt.CreatedAt.UtcDateTime
+                    };
+                    _db.Notifications.Add(notif);
+                    await _db.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Düzeltme bildirimi kaydedilemedi: {AdjustmentId}", evt.AdjustmentId);
+                }
+            }
+        }
+
+        public async Task PublishStockMovementSyncedAsync(StockMovementSyncedEvent evt)
+        {
+            var payload = new
+            {
+                id = evt.MovementId,
+                eventType = "StockMovementSynced",
+                movementId = evt.MovementId,
+                movementType = evt.MovementType,
+                documentNo = evt.DocumentNo,
+                lucaDocumentId = evt.LucaDocumentId,
+                syncedAt = evt.SyncedAt,
+                link = "/stock-movement-sync"
+            };
+
+            var payloadJson = JsonSerializer.Serialize(payload);
+            var published = await TryPublishAsync("StockMovementSynced", payload, payloadJson, evt.MovementId);
+
+            if (published)
+            {
+                _logger?.LogInformation("✅ Stok hareketi Luca'ya aktarıldı: {DocumentNo} → Luca#{LucaId}", evt.DocumentNo, evt.LucaDocumentId);
+                
+                try
+                {
+                    var notif = new Katana.Core.Entities.Notification
+                    {
+                        Type = "StockMovementSynced",
+                        Title = $"Aktarıldı: {evt.DocumentNo}",
+                        Payload = payloadJson,
+                        Link = "/stock-movement-sync",
+                        CreatedAt = evt.SyncedAt.UtcDateTime
+                    };
+                    _db.Notifications.Add(notif);
+                    await _db.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Sync bildirimi kaydedilemedi: {MovementId}", evt.MovementId);
+                }
+            }
+        }
+
+        public async Task PublishStockMovementFailedAsync(StockMovementFailedEvent evt)
+        {
+            var payload = new
+            {
+                id = evt.MovementId,
+                eventType = "StockMovementFailed",
+                movementId = evt.MovementId,
+                movementType = evt.MovementType,
+                documentNo = evt.DocumentNo,
+                errorMessage = evt.ErrorMessage,
+                failedAt = evt.FailedAt,
+                link = "/stock-movement-sync"
+            };
+
+            var payloadJson = JsonSerializer.Serialize(payload);
+            var published = await TryPublishAsync("StockMovementFailed", payload, payloadJson, evt.MovementId);
+
+            if (published)
+            {
+                _logger?.LogWarning("❌ Stok hareketi aktarım hatası: {DocumentNo} - {Error}", evt.DocumentNo, evt.ErrorMessage);
+                
+                try
+                {
+                    var notif = new Katana.Core.Entities.Notification
+                    {
+                        Type = "StockMovementFailed",
+                        Title = $"Hata: {evt.DocumentNo}",
+                        Payload = payloadJson,
+                        Link = "/stock-movement-sync",
+                        CreatedAt = evt.FailedAt.UtcDateTime
+                    };
+                    _db.Notifications.Add(notif);
+                    await _db.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Hata bildirimi kaydedilemedi: {MovementId}", evt.MovementId);
+                }
+            }
+        }
+
+        #endregion
+
         private async Task<bool> TryPublishAsync(string eventName, object payload, string payloadJson, long pendingId)
         {
             var attempt = 0;
