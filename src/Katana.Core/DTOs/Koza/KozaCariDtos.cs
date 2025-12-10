@@ -241,6 +241,9 @@ public sealed class KatanaSupplierToCariDto
     public string? TaxNumber { get; set; }
     public string? TaxOffice { get; set; }
     public string? Address { get; set; }
+    public string? City { get; set; }
+    public string? District { get; set; }
+    public string? Country { get; set; }
 }
 
 #endregion
@@ -353,10 +356,10 @@ public sealed class KozaMusteriEkleRequest
 {
     // Genel Alanlar
     [JsonPropertyName("tip")]
-    public string Tip { get; set; } = "1"; // "1": Şirket, "2": Kişi
+    public int Tip { get; set; } = 1; // 1: Şirket, 2: Kişi
     
     [JsonPropertyName("cariTipId")]
-    public long CariTipId { get; set; } = 5; // 1: Bayi, 2: Bağımlı, 5: Diğer I (default)
+    public int CariTipId { get; set; } = 5; // 1: Bayi, 2: Bağımlı, 5: Diğer I (default)
     
     [JsonPropertyName("takipNoFlag")]
     public bool? TakipNoFlag { get; set; }
@@ -414,7 +417,7 @@ public sealed class KozaMusteriEkleRequest
     
     // Adres (Kartla birlikte eklenecek)
     [JsonPropertyName("adresTipId")]
-    public int? AdresTipId { get; set; } // 9: Fatura, 8: Sevk, 6: Yazışma, 5: İletişim
+    public int? AdresTipId { get; set; } = 9; // 9: Fatura, 8: Sevk, 6: Yazışma, 5: İletişim
     
     [JsonPropertyName("ulke")]
     public string? Ulke { get; set; }
@@ -430,7 +433,7 @@ public sealed class KozaMusteriEkleRequest
     
     // İletişim (Kartla birlikte eklenecek)
     [JsonPropertyName("iletisimTipId")]
-    public int? IletisimTipId { get; set; } // 3: Cep, 5: E-Posta, 4: Faks, 7: Telefon I, vb.
+    public int? IletisimTipId { get; set; } = 5; // 3: Cep, 5: E-Posta, 4: Faks, 7: Telefon I, vb.
     
     [JsonPropertyName("iletisimTanim")]
     public string? IletisimTanim { get; set; }

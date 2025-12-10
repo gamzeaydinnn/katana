@@ -1,10 +1,10 @@
 import {
   AccountCircle,
   CheckCircle,
-  Error,
   Logout,
   Menu as MenuIcon,
   Notifications as NotificationsIcon,
+  MoreVert,
   Settings,
   Sync,
 } from "@mui/icons-material";
@@ -13,16 +13,17 @@ import {
   Avatar,
   Badge,
   Box,
+  Button,
   Chip,
   IconButton,
   Menu,
   MenuItem,
+  Stack,
   Toolbar,
-  Tooltip,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from "@mui/material";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api, { stockAPI } from "../../services/api";
@@ -36,11 +37,8 @@ import {
 
 interface HeaderProps {
   onMenuClick: () => void;
-  sidebarOpen: boolean;
   currentBranchName?: string | null;
   onOpenBranchSelector?: () => void;
-  mode?: "light" | "dark";
-  onToggleMode?: () => void;
 }
 
 type NotificationStatus = "pending" | "approved" | "rejected";
@@ -87,36 +85,24 @@ const formatRelativeTime = (value?: string) => {
 
 const Header: React.FC<HeaderProps> = ({
   onMenuClick,
-  sidebarOpen,
   currentBranchName,
   onOpenBranchSelector,
-  mode = "light",
-  onToggleMode,
 }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [notificationAnchor, setNotificationAnchor] =
     React.useState<null | HTMLElement>(null);
-  const [backendStatus, setBackendStatus] = useState<
-    "connected" | "disconnected" | "checking"
-  >("checking");
+  const [mobileActionsAnchor, setMobileActionsAnchor] =
+    React.useState<null | HTMLElement>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [signalrStatus, setSignalrStatus] = useState<
-    "connecting" | "connected" | "error"
-  >("connecting");
-  const [signalrError, setSignalrError] = useState<string | null>(null);
 
   useEffect(() => {
     const checkBackendHealth = async () => {
       setIsChecking(true);
-      setBackendStatus("checking");
       try {
         await stockAPI.getHealthStatus();
-        setBackendStatus("connected");
       } catch (error) {
-        setBackendStatus("disconnected");
+        // Handle error silently
       } finally {
         setIsChecking(false);
       }
@@ -169,12 +155,9 @@ const Header: React.FC<HeaderProps> = ({
 
     loadInitialNotifications();
 
-    setSignalrStatus("connecting");
     startConnection()
       .then(() => {
         if (isMounted) {
-          setSignalrStatus("connected");
-          setSignalrError(null);
           console.log("[Header] ✅ SignalR connected successfully");
         }
       })
@@ -184,11 +167,6 @@ const Header: React.FC<HeaderProps> = ({
           statusCode: err?.statusCode,
           errorType: err?.constructor?.name,
         });
-        if (isMounted) {
-          setSignalrStatus("error");
-          setSignalrError(err?.message || "SignalR bağlantısı kurulamadı");
-          // Don't block UI - just show warning
-        }
       });
 
     const createdHandler = (payload: any) => {
@@ -318,6 +296,14 @@ const Header: React.FC<HeaderProps> = ({
     setNotificationAnchor(null);
   };
 
+  const handleMobileActionsOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setMobileActionsAnchor(event.currentTarget);
+  };
+
+  const handleMobileActionsClose = () => {
+    setMobileActionsAnchor(null);
+  };
+
   const handleProfileClick = () => {
     handleMenuClose();
     navigate("/profile");
@@ -339,42 +325,36 @@ const Header: React.FC<HeaderProps> = ({
     0
   );
 
-  const notificationTooltip =
-    signalrStatus === "connected"
-      ? "Bildirimler (canlı)"
-      : signalrStatus === "error"
-      ? `Bildirimler (SignalR hatası${signalrError ? `: ${signalrError}` : ""})`
-      : "Bildirimler (bağlanıyor...)";
-  const branchLabel =
-    currentBranchName && String(currentBranchName).trim() !== ""
-      ? String(currentBranchName)
-      : "Şube Seç";
-  const branchChipLabel = isMobile ? "Ş" : branchLabel;
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  return (
-    <AppBar
-      position="fixed"
-      sx={{
-        zIndex: (theme) => theme.zIndex.drawer + 1,
-        backdropFilter: "blur(20px)",
-        background: "rgba(79, 134, 255, 0.15)",
-        borderBottom: "none",
-        boxShadow: "0 4px 20px rgba(43, 110, 246, 0.08)",
-        transition: "all 0.3s ease",
-      }}
-    >
-      <Toolbar
+  const ACTION_SIZE = 44;
+  const ACTION_RADIUS = 10;
+  const ACTION_BORDER = "1.5px solid rgba(79, 134, 255, 0.3)";
+
+  const baseIconButtonSx = {
+    backgroundColor: "#fff",
+    border: ACTION_BORDER,
+    borderRadius: `${ACTION_RADIUS}px`,
+    width: ACTION_SIZE,
+    height: ACTION_SIZE,
+    color: "#4F86FF",
+    flexShrink: 0,
+    "&:hover": {
+      backgroundColor: "rgba(79, 134, 255, 0.05)",
+      borderColor: "#4F86FF",
+    },
+  } as const;
+
+  const DesktopHeaderContent = () => (
+    <>
+      <Box
         sx={{
-          minHeight: { xs: 56, sm: 64 },
-          px: { xs: 1, sm: 2, md: 3 },
-          gap: { xs: 0.5, sm: 1 },
-          flexWrap: "nowrap",
+          display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
-          width: "100%",
-          maxWidth: "100%",
-          boxSizing: "border-box",
-          overflow: "hidden",
+          gap: 1.25,
+          minWidth: 0,
+          flexShrink: 0,
         }}
       >
         <IconButton
@@ -383,150 +363,118 @@ const Header: React.FC<HeaderProps> = ({
           onClick={onMenuClick}
           edge="start"
           sx={{
-            mr: { xs: 0.5, sm: 1, md: 2 },
             color: "#1e40af",
             transition: "transform 0.2s ease",
             flexShrink: 0,
-            p: { xs: 0.5, sm: 1 },
+            p: 1,
+            width: ACTION_SIZE,
+            height: ACTION_SIZE,
             "&:hover": {
               transform: "scale(1.08)",
               backgroundColor: "rgba(79, 134, 255, 0.1)",
             },
           }}
         >
-          <MenuIcon sx={{ fontSize: { xs: 20, sm: 24, md: 26 } }} />
+          <MenuIcon sx={{ fontSize: 26 }} />
         </IconButton>
 
         <Box
+          component="img"
+          src="/logoo.png"
+          alt="BeforMet Metal Logo"
           sx={{
-            flexGrow: 0,
+            height: 44,
+            width: "auto",
+            objectFit: "contain",
+            filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.15))",
             flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            minWidth: 0,
-            mr: { xs: 0.5, sm: 1, md: 1.5 },
-            gap: { xs: 0.25, sm: 0.5, md: 0.75 },
           }}
-        >
-          <Box
-            component="img"
-            src="/logoo.png"
-            alt="BeforMet Metal Logo"
-            sx={{
-              display: { xs: "none", sm: "block" },
-              height: { sm: 36, md: 48 },
-              width: "auto",
-              objectFit: "contain",
-              filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.15))",
-            }}
-          />
-          <Typography
-            variant="h6"
-            component="div"
-            sx={{
-              fontFamily: '"Poppins", "Inter", sans-serif',
-              fontWeight: 600,
-              letterSpacing: "-0.5px",
-              color: "#1e40af",
-              textShadow: "0 1px 2px rgba(0,0,0,0.05)",
-              fontSize: { xs: "0.8rem", sm: "0.95rem", md: "1.15rem" },
-              display: "flex",
-              flexDirection: "column",
-              lineHeight: 1.05,
-              whiteSpace: "nowrap",
-            }}
-          >
-            <span>Beformet</span>
-            <span>Metal</span>
-          </Typography>
-        </Box>
-
-        <Box
+        />
+        <Typography
+          variant="h6"
+          component="div"
           sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: { xs: 0.4, sm: 0.75, md: 1.25 },
-            flexWrap: "nowrap",
-            justifyContent: "flex-end",
-            flexGrow: 1,
-            ml: "auto",
-            pr: { xs: 0.25, sm: 0 },
+            fontFamily: '"Poppins", "Inter", sans-serif',
+            fontWeight: 600,
+            letterSpacing: "-0.5px",
+            color: "#1e40af",
+            textShadow: "0 1px 2px rgba(0,0,0,0.05)",
+            fontSize: "1.15rem",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            minWidth: 0,
           }}
         >
-          <Chip
-            icon={
-              <CheckCircle
-                sx={{
-                  fontSize: { xs: 11, sm: 14, md: 16 },
-                  color: "#10b981 !important",
-                }}
-              />
-            }
-            label="Bağlı"
-            sx={{
-              backgroundColor: "rgba(16, 185, 129, 0.15)",
-              border: "1px solid #10b981",
-              borderRadius: "14px",
-              height: { xs: 26, sm: 30, md: 34 },
-              color: "#10b981",
-              fontWeight: 600,
-              fontSize: { xs: "10px", sm: "11px", md: "12px" },
-              flexShrink: 0,
-              "& .MuiChip-icon": {
-                color: "#10b981",
-                ml: { xs: 0.5, sm: 0.75 },
-                mr: { xs: -0.25, sm: 0 },
-              },
-              "& .MuiChip-label": {
-                px: { xs: 1, sm: 1.25, md: 1.5 },
-                whiteSpace: "nowrap",
-              },
-            }}
-          />
+          Beformet Metal
+        </Typography>
+      </Box>
 
-          <IconButton
-            onClick={onToggleMode}
+      <Box sx={{ flex: 1, minWidth: 0 }} />
+
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          flexShrink: 0,
+          minWidth: 0,
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1}
+          sx={{ flexShrink: 0 }}
+        >
+          <Button
+            variant="outlined"
+            startIcon={<CheckCircle />}
             sx={{
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              width: { xs: 30, sm: 36, md: 42 },
-              height: { xs: 30, sm: 36, md: 42 },
-              minWidth: { xs: 30, sm: 36, md: 42 },
-              borderRadius: "50%",
-              color: "#fff",
-              boxShadow: "0 2px 8px rgba(102, 126, 234, 0.4)",
-              p: 0,
-              flexShrink: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              borderColor: "#10B981",
+              color: "#10B981",
+              backgroundColor: "#fff",
+              borderRadius: "12px",
+              textTransform: "none",
+              fontWeight: 600,
+              px: 2.25,
+              height: ACTION_SIZE,
+              minWidth: 0,
               "&:hover": {
-                background: "linear-gradient(135deg, #764ba2 0%, #667eea 100%)",
-                transform: "scale(1.05)",
+                borderColor: "#10B981",
+                backgroundColor: "rgba(16, 185, 129, 0.05)",
               },
             }}
           >
-            {mode === "dark" ? (
-              <span style={{ fontSize: "16px", lineHeight: 1 }}>☀️</span>
-            ) : (
-              <span style={{ fontSize: "16px", lineHeight: 1 }}>🌙</span>
-            )}
-          </IconButton>
+            API Bağlı
+          </Button>
+
+          <Button
+            variant="outlined"
+            onClick={onOpenBranchSelector}
+            sx={{
+              borderColor: "#3B82F6",
+              color: "#3B82F6",
+              backgroundColor: "#fff",
+              borderRadius: "12px",
+              textTransform: "none",
+              fontWeight: 600,
+              px: 2.25,
+              height: ACTION_SIZE,
+              minWidth: 0,
+              "&:hover": {
+                borderColor: "#3B82F6",
+                backgroundColor: "rgba(59, 130, 246, 0.05)",
+              },
+            }}
+          >
+            {currentBranchName || "Şube Seç"}
+          </Button>
 
           <IconButton
             sx={{
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              width: { xs: 28, sm: 34, md: 40 },
-              height: { xs: 28, sm: 34, md: 40 },
-              minWidth: { xs: 28, sm: 34, md: 40 },
-              borderRadius: "50%",
-              color: "#fff",
-              boxShadow: "0 2px 8px rgba(102, 126, 234, 0.4)",
-              p: 0,
-              flexShrink: 0,
-              "&:hover": {
-                background: "linear-gradient(135deg, #764ba2 0%, #667eea 100%)",
-                transform: "scale(1.05)",
-              },
+              ...baseIconButtonSx,
+              color: "#10B981",
               ...(isChecking && {
                 animation: "spin 1s linear infinite",
                 "@keyframes spin": {
@@ -536,27 +484,10 @@ const Header: React.FC<HeaderProps> = ({
               }),
             }}
           >
-            <Sync sx={{ fontSize: { xs: 13, sm: 16, md: 19 } }} />
+            <Sync sx={{ fontSize: 20 }} />
           </IconButton>
 
-          <IconButton
-            onClick={handleNotificationOpen}
-            sx={{
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              width: { xs: 28, sm: 34, md: 40 },
-              height: { xs: 28, sm: 34, md: 40 },
-              minWidth: { xs: 28, sm: 34, md: 40 },
-              borderRadius: "50%",
-              color: "#fff",
-              boxShadow: "0 2px 8px rgba(102, 126, 234, 0.4)",
-              p: 0,
-              flexShrink: 0,
-              "&:hover": {
-                background: "linear-gradient(135deg, #764ba2 0%, #667eea 100%)",
-                transform: "scale(1.05)",
-              },
-            }}
-          >
+          <IconButton onClick={handleNotificationOpen} sx={baseIconButtonSx}>
             <Badge
               badgeContent={pendingCount}
               color="error"
@@ -566,77 +497,200 @@ const Header: React.FC<HeaderProps> = ({
                   backgroundColor: "#ef4444",
                   color: "#fff",
                   fontWeight: 700,
-                  fontSize: { xs: "7px", sm: "8px", md: "9px" },
-                  minWidth: { xs: 11, sm: 13, md: 15 },
-                  height: { xs: 11, sm: 13, md: 15 },
-                  borderRadius: "5px",
-                  border: "1.5px solid #764ba2",
-                  top: -1,
-                  right: -1,
+                  fontSize: "9px",
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: "8px",
+                  border: "2px solid #fff",
                 },
               }}
             >
-              <NotificationsIcon
-                sx={{ fontSize: { xs: 13, sm: 16, md: 19 } }}
-              />
+              <NotificationsIcon sx={{ fontSize: 20 }} />
             </Badge>
           </IconButton>
 
           <IconButton
             onClick={handleProfileMenuOpen}
-            sx={{
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              width: { xs: 28, sm: 34, md: 40 },
-              height: { xs: 28, sm: 34, md: 40 },
-              minWidth: { xs: 28, sm: 34, md: 40 },
-              borderRadius: "50%",
-              color: "#fff",
-              boxShadow: "0 2px 8px rgba(102, 126, 234, 0.4)",
-              p: 0,
-              flexShrink: 0,
-              "&:hover": {
-                background: "linear-gradient(135deg, #764ba2 0%, #667eea 100%)",
-                transform: "scale(1.05)",
-              },
-            }}
+            sx={{ ...baseIconButtonSx, p: 0 }}
           >
             <Avatar
               sx={{
-                width: { xs: 18, sm: 22, md: 28 },
-                height: { xs: 18, sm: 22, md: 28 },
-                backgroundColor: "rgba(255,255,255,0.25)",
+                width: 28,
+                height: 28,
+                backgroundColor: "#4F86FF",
                 color: "#fff",
                 fontWeight: 700,
-                fontSize: { xs: "8px", sm: "10px", md: "12px" },
+                fontSize: "14px",
               }}
             >
               A
             </Avatar>
           </IconButton>
-        </Box>
+        </Stack>
+      </Box>
+    </>
+  );
 
-        {}
+  const MobileHeaderContent = () => (
+    <>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          minWidth: 0,
+          flexShrink: 0,
+        }}
+      >
+        <IconButton
+          color="inherit"
+          aria-label="open drawer"
+          onClick={onMenuClick}
+          edge="start"
+          sx={{
+            color: "#1e40af",
+            transition: "transform 0.2s ease",
+            flexShrink: 0,
+            p: 0.75,
+            width: ACTION_SIZE,
+            height: ACTION_SIZE,
+            "&:hover": {
+              transform: "scale(1.08)",
+              backgroundColor: "rgba(79, 134, 255, 0.1)",
+            },
+          }}
+        >
+          <MenuIcon sx={{ fontSize: 24 }} />
+        </IconButton>
+
+        <Box
+          component="img"
+          src="/logoo.png"
+          alt="BeforMet Metal Logo"
+          sx={{
+            height: 36,
+            width: "auto",
+            objectFit: "contain",
+            filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.12))",
+            flexShrink: 0,
+          }}
+        />
+      </Box>
+
+      <Box sx={{ flex: 1, minWidth: 0 }} />
+
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={0.75}
+        sx={{ flexShrink: 0 }}
+      >
+        <IconButton
+          sx={{
+            ...baseIconButtonSx,
+            color: "#10B981",
+            ...(isChecking && {
+              animation: "spin 1s linear infinite",
+              "@keyframes spin": {
+                "0%": { transform: "rotate(0deg)" },
+                "100%": { transform: "rotate(360deg)" },
+              },
+            }),
+          }}
+        >
+          <Sync sx={{ fontSize: 20 }} />
+        </IconButton>
+
+        <IconButton onClick={handleNotificationOpen} sx={baseIconButtonSx}>
+          <Badge
+            badgeContent={pendingCount}
+            color="error"
+            max={99}
+            sx={{
+              "& .MuiBadge-badge": {
+                backgroundColor: "#ef4444",
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: "9px",
+                minWidth: 16,
+                height: 16,
+                borderRadius: "8px",
+                border: "2px solid #fff",
+              },
+            }}
+          >
+            <NotificationsIcon sx={{ fontSize: 20 }} />
+          </Badge>
+        </IconButton>
+
+        <IconButton
+          onClick={handleMobileActionsOpen}
+          sx={baseIconButtonSx}
+          aria-label="more-actions"
+        >
+          <MoreVert sx={{ fontSize: 22 }} />
+        </IconButton>
+
+        <IconButton
+          onClick={handleProfileMenuOpen}
+          sx={{ ...baseIconButtonSx, p: 0 }}
+        >
+          <Avatar
+            sx={{
+              width: 28,
+              height: 28,
+              backgroundColor: "#4F86FF",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: "14px",
+            }}
+          >
+            A
+          </Avatar>
+        </IconButton>
+      </Stack>
+    </>
+  );
+
+  return (
+    <AppBar
+      position="fixed"
+      sx={{
+        zIndex: (theme) => theme.zIndex.drawer + 1,
+        background: "linear-gradient(135deg, #E8F0FF 0%, #F0F4FF 100%)",
+        borderBottom: "none",
+        boxShadow: "0 2px 8px rgba(43, 110, 246, 0.06)",
+        transition: "all 0.3s ease",
+      }}
+    >
+      <Toolbar
+        sx={{
+          minHeight: 64,
+          px: 3,
+          gap: 1.5,
+          flexWrap: "nowrap",
+          alignItems: "center",
+          width: "100%",
+          maxWidth: "100%",
+          boxSizing: "border-box",
+          overflow: "visible",
+        }}
+      >
+        {isMobile ? <MobileHeaderContent /> : <DesktopHeaderContent />}
+
         <Menu
           anchorEl={anchorEl}
           open={Boolean(anchorEl)}
           onClose={handleMenuClose}
           onClick={handleMenuClose}
-          PaperProps={{
-            sx: {
-              backdropFilter: "blur(20px)",
-              background:
-                theme.palette.mode === "dark"
-                  ? "rgba(15,23,42,0.95)"
-                  : "rgba(255,255,255,0.95)",
-              border:
-                theme.palette.mode === "dark"
-                  ? "1px solid rgba(255,255,255,0.1)"
-                  : "1px solid rgba(0,0,0,0.05)",
-              borderRadius: 3,
-              boxShadow:
-                theme.palette.mode === "dark"
-                  ? "0 20px 40px rgba(0,0,0,0.4)"
-                  : "0 20px 40px rgba(0,0,0,0.1)",
+          slotProps={{
+            paper: {
+              sx: {
+                background: "rgba(255,255,255,0.98)",
+                border: "1px solid rgba(0,0,0,0.05)",
+                borderRadius: 3,
+                boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+              },
             },
           }}
         >
@@ -648,13 +702,12 @@ const Header: React.FC<HeaderProps> = ({
               my: 0.5,
               transition: "all 0.2s ease",
               "&:hover": {
-                backgroundColor: theme.palette.action.hover,
+                backgroundColor: "rgba(79, 134, 255, 0.08)",
                 transform: "translateX(4px)",
               },
             }}
           >
-            <AccountCircle sx={{ mr: 2, color: theme.palette.primary.main }} />{" "}
-            Profil
+            <AccountCircle sx={{ mr: 2, color: "#4F86FF" }} /> Profil
           </MenuItem>
           <MenuItem
             onClick={handleSettingsClick}
@@ -664,13 +717,12 @@ const Header: React.FC<HeaderProps> = ({
               my: 0.5,
               transition: "all 0.2s ease",
               "&:hover": {
-                backgroundColor: theme.palette.action.hover,
+                backgroundColor: "rgba(79, 134, 255, 0.08)",
                 transform: "translateX(4px)",
               },
             }}
           >
-            <Settings sx={{ mr: 2, color: theme.palette.primary.main }} />{" "}
-            Ayarlar
+            <Settings sx={{ mr: 2, color: "#4F86FF" }} /> Ayarlar
           </MenuItem>
           <MenuItem
             onClick={handleLogout}
@@ -680,39 +732,29 @@ const Header: React.FC<HeaderProps> = ({
               my: 0.5,
               transition: "all 0.2s ease",
               "&:hover": {
-                backgroundColor: theme.palette.action.hover,
+                backgroundColor: "rgba(79, 134, 255, 0.08)",
                 transform: "translateX(4px)",
               },
             }}
           >
-            <Logout sx={{ mr: 2, color: theme.palette.primary.main }} /> Çıkış
-            Yap
+            <Logout sx={{ mr: 2, color: "#4F86FF" }} /> Çıkış Yap
           </MenuItem>
         </Menu>
 
-        {}
         <Menu
           anchorEl={notificationAnchor}
           open={Boolean(notificationAnchor)}
           onClose={handleNotificationClose}
           onClick={handleNotificationClose}
-          PaperProps={{
-            sx: {
-              backdropFilter: "blur(20px)",
-              background:
-                theme.palette.mode === "dark"
-                  ? "rgba(15,23,42,0.95)"
-                  : "rgba(255,255,255,0.95)",
-              border:
-                theme.palette.mode === "dark"
-                  ? "1px solid rgba(255,255,255,0.1)"
-                  : "1px solid rgba(0,0,0,0.05)",
-              borderRadius: 3,
-              boxShadow:
-                theme.palette.mode === "dark"
-                  ? "0 20px 40px rgba(0,0,0,0.4)"
-                  : "0 20px 40px rgba(0,0,0,0.1)",
-              minWidth: 280,
+          slotProps={{
+            paper: {
+              sx: {
+                background: "rgba(255,255,255,0.98)",
+                border: "1px solid rgba(0,0,0,0.05)",
+                borderRadius: 3,
+                boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+                minWidth: 280,
+              },
             },
           }}
         >
@@ -749,10 +791,10 @@ const Header: React.FC<HeaderProps> = ({
                     transition: "all 0.2s ease",
                     backgroundColor:
                       notification.status === "pending"
-                        ? theme.palette.action.hover
+                        ? "rgba(79, 134, 255, 0.05)"
                         : "transparent",
                     "&:hover": {
-                      backgroundColor: theme.palette.action.hover,
+                      backgroundColor: "rgba(79, 134, 255, 0.08)",
                       transform: "translateX(4px)",
                     },
                   }}
@@ -796,6 +838,52 @@ const Header: React.FC<HeaderProps> = ({
               );
             })
           )}
+        </Menu>
+
+        <Menu
+          anchorEl={mobileActionsAnchor}
+          open={Boolean(mobileActionsAnchor)}
+          onClose={handleMobileActionsClose}
+          onClick={handleMobileActionsClose}
+          slotProps={{
+            paper: {
+              sx: {
+                background: "rgba(255,255,255,0.98)",
+                border: "1px solid rgba(0,0,0,0.05)",
+                borderRadius: 3,
+                boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+                minWidth: 200,
+              },
+            },
+          }}
+        >
+          <MenuItem
+            disabled
+            sx={{
+              borderRadius: 2,
+              mx: 1,
+              my: 0.5,
+              opacity: 0.9,
+              "&:hover": { backgroundColor: "transparent" },
+            }}
+          >
+            <CheckCircle sx={{ mr: 2, color: "#10B981" }} /> API Bağlı
+          </MenuItem>
+          <MenuItem
+            onClick={onOpenBranchSelector}
+            sx={{
+              borderRadius: 2,
+              mx: 1,
+              my: 0.5,
+              "&:hover": {
+                backgroundColor: "rgba(59, 130, 246, 0.08)",
+              },
+            }}
+          >
+            <Typography sx={{ fontWeight: 600, color: "#3B82F6" }}>
+              Şube Seç
+            </Typography>
+          </MenuItem>
         </Menu>
       </Toolbar>
     </AppBar>

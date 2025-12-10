@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Linq;
 using Katana.Core.DTOs.Koza;
 using Katana.Core.DTOs;
 using Microsoft.Extensions.Logging;
@@ -151,18 +152,39 @@ public partial class LucaService
     /// <summary>
     /// Koza stok kartlarını listele (basitleştirilmiş)
     /// Frontend için sadece gerekli alanları döndürür
+    /// Postman "Stok Kartı Listesi" request format'ını kullanır
     /// </summary>
-    public async Task<IReadOnlyList<KozaStokKartiDto>> ListStockCardsSimpleAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<KozaStokKartiDto>> ListStockCardsSimpleAsync(
+        DateTime? eklemeBas = null,
+        DateTime? eklemeBit = null,
+        CancellationToken ct = default)
     {
         try {
             await EnsureAuthenticatedAsync();
             await EnsureBranchSelectedAsync();
 
-            // FIXED: Tarih filtresi kaldırıldı - boş obje ile tüm stok kartlarını getir
-            var requestBody = new
+            // Build request body matching Postman "Stok Kartı Listesi" format
+            object requestBody;
+            if (eklemeBas.HasValue && eklemeBit.HasValue)
             {
-                stkSkart = new { }
-            };
+                requestBody = new
+                {
+                    stkSkart = new
+                    {
+                        eklemeTarihiBas = eklemeBas.Value.ToString("dd/MM/yyyy"),
+                        eklemeTarihiBit = eklemeBit.Value.ToString("dd/MM/yyyy"),
+                        eklemeTarihiOp = "between"
+                    }
+                };
+            }
+            else
+            {
+                // No filter - get all stock cards
+                requestBody = new
+                {
+                    stkSkart = new { }
+                };
+            }
             
             var json = JsonSerializer.Serialize(requestBody, _jsonOptions);
             var content = CreateKozaContent(json);
@@ -176,176 +198,83 @@ public partial class LucaService
             ApplySessionCookie(req);
             ApplyManualSessionCookie(req);
 
-            // 🔥 DEFENSIVE PROGRAMMING STEP 3: Cookie header verification
-            // Verify Cookie header is present before sending request (Struts timing issue prevention)
-            var cookieHeader = req.Headers.TryGetValues("Cookie", out var cookieValues) 
-                ? string.Join("; ", cookieValues) 
-                : null;
-            
-            if (string.IsNullOrWhiteSpace(cookieHeader))
-            {
-                _logger.LogWarning("⚠️ [COOKIE MISSING] ListStockCards request has NO Cookie header!");
-            }
-            else
-            {
-                var cookiePreview = cookieHeader.Length > 100 
-                    ? cookieHeader.Substring(0, 100) + "..." 
-                    : cookieHeader;
-                _logger.LogDebug("🍪 [COOKIE PRESENT] Cookie header verified: {Preview}", cookiePreview);
-            }
-
-            // 🔍 DEBUG: Log request format
-            _logger.LogInformation("📤 ListStockCards REQUEST: URL={Endpoint}, Method=POST, ContentType={ContentType}, Body={Body}",
-                _settings.Endpoints.StockCards, content.Headers.ContentType?.ToString(), json);
+            // Log request details for debugging
+            _logger.LogInformation("📤 ListStockCards REQUEST: Endpoint={Endpoint}, Method=POST, Body={Body}",
+                _settings.Endpoints.StockCards, json);
 
             var client = _cookieHttpClient ?? _httpClient;
             var res = await client.SendAsync(req, ct);
             var body = await res.Content.ReadAsStringAsync(ct);
 
-            // 🔥 KRİTİK FİX: RAW RESPONSE'U LOGLA (Debugging için)
-            var logPreview = body.Length > 1000 ? body.Substring(0, 1000) + "... (truncated)" : body;
-            _logger.LogInformation(">>> LUCA LIST STOCK CARDS RAW RESPONSE ({Length} bytes):\n{Body}", 
+            // Log response for debugging
+            var logPreview = body.Length > 500 ? body.Substring(0, 500) + "... (truncated)" : body;
+            _logger.LogInformation("📥 ListStockCards RESPONSE ({Length} bytes): {Preview}", 
                 body.Length, logPreview);
 
-            // 🔥 JSON OLMAYAN CEVAPLARI YAKALA
-            var trimmedBody = body.TrimStart();
-            
-            // HTML kontrolü
-            if (trimmedBody.StartsWith("<"))
+#if DEBUG
+            // DEBUG ONLY: capture first few raw items from Koza response to inspect field names
+            try
             {
-                _logger.LogError("❌ Luca API HTML döndü (Session expired?). Body snippet: {Snippet}", logPreview);
-                _logger.LogError("   ⚠️ SEBEP: Session timeout veya Authentication hatası olabilir.");
-                _logger.LogError("   ⚠️ ÇÖZÜM: ForceSessionRefreshAsync() çağrılıyor...");
-                
-                // Session yenile ve bir daha dene
-                try
+                using var doc = JsonDocument.Parse(body);
+                var root = doc.RootElement;
+                JsonElement arrayEl = root;
+
+                if (root.ValueKind == JsonValueKind.Object)
                 {
-                    await ForceSessionRefreshAsync();
-                    
-                    // 🔥 KRİTİK FİX: Struts framework'ün hazır olması için kısa bir delay ekle
-                    _logger.LogInformation("⏳ Struts framework'ün stabilize olması için 1 saniye bekleniyor...");
-                    await Task.Delay(1000, ct);
-                    
-                    _logger.LogInformation("✅ Session yenilendi, ListStockCards tekrar deneniyor...");
-                    
-                    // Retry - FIXED: Doğru endpoint ve format kullan
-                    var retryReq = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCards)
+                    foreach (var key in new[] { "list", "stokKartlari", "stkKartListesi", "stkSkart", "data", "items" })
                     {
-                        Content = CreateKozaContent("{}")
-                    };
-                    retryReq.Headers.TryAddWithoutValidation("No-Paging", "true");
-                    ApplySessionCookie(retryReq);
-                    ApplyManualSessionCookie(retryReq);
-                    
-                    var retryRes = await client.SendAsync(retryReq, ct);
-                    body = await retryRes.Content.ReadAsStringAsync(ct);
-                    trimmedBody = body.TrimStart();
-                    
-                    if (trimmedBody.StartsWith("<"))
-                    {
-                        _logger.LogError("❌ Session yenileme sonrası hala HTML döndü. Cache boş kalacak.");
-                        return new List<KozaStokKartiDto>();
+                        if (root.TryGetProperty(key, out var candidate) && candidate.ValueKind == JsonValueKind.Array)
+                        {
+                            arrayEl = candidate;
+                            break;
+                        }
                     }
                 }
-                catch (Exception sessionEx)
+
+                if (arrayEl.ValueKind == JsonValueKind.Array)
                 {
-                    _logger.LogError(sessionEx, "Session yenileme hatası");
-                    return new List<KozaStokKartiDto>();
+                    var samples = arrayEl.EnumerateArray()
+                        .Take(5)
+                        .Select(el => el.GetRawText())
+                        .ToList();
+
+                    if (samples.Count > 0)
+                    {
+                        var sampleJson = $"[{string.Join(",", samples)}]";
+                        _logger.LogInformation("🧪 DEBUG Koza stock sample (first {Count}): {Sample}", samples.Count, sampleJson);
+                        await AppendRawLogAsync("LIST_STOCK_SAMPLE_DEBUG", _settings.Endpoints.StockCards, json, res.StatusCode, sampleJson);
+                    }
                 }
             }
+            catch (Exception sampleEx)
+            {
+                _logger.LogDebug(sampleEx, "DEBUG sample logging for Koza stock cards failed");
+            }
+#endif
+
+            // Check for non-JSON responses (HTML or plain text errors)
+            var trimmedBody = body.TrimStart();
             
-            // 'U', 'E', 'F' gibi tek karakterle başlayan hata mesajları
-            // Örn: "Unauthorized", "Error: ...", "Failed to ...", "Unable to instantiate Action"
+            // HTML response indicates session expired
+            if (trimmedBody.StartsWith("<"))
+            {
+                _logger.LogError("❌ Luca returned HTML (session expired). Response: {Snippet}", logPreview);
+                await AppendRawLogAsync("LIST_STOCK_HTML_ERROR", _settings.Endpoints.StockCards, json, res.StatusCode, body);
+                return new List<KozaStokKartiDto>();
+            }
+            
+            // Plain text error (not JSON)
             if (trimmedBody.Length > 0 && 
                 char.IsLetter(trimmedBody[0]) && 
                 !trimmedBody.StartsWith("{") && 
                 !trimmedBody.StartsWith("["))
             {
-                _logger.LogError("❌ Luca API JSON yerine düz metin döndü: '{Text}'", trimmedBody);
-                _logger.LogError("   ⚠️ SEBEP: Muhtemelen 'Unauthorized', 'User not logged in' veya parametre hatası");
-                _logger.LogError("   ⚠️ İLK KARAKTER: '{FirstChar}' (ASCII: {Ascii})", 
-                    trimmedBody[0], (int)trimmedBody[0]);
-                
-                // 🔥 "Unable to instantiate Action" hatası - Struts timing issue
-                if (trimmedBody.Contains("Unable to instantiate Action", StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogWarning("🔄 Struts 'Unable to instantiate Action' hatası - Session yenileniyor ve 3 saniye bekleniyor...");
-                    try
-                    {
-                        await ForceSessionRefreshAsync();
-                        await EnsureBranchSelectedAsync();
-                        
-                        // Struts'un session'ı işlemesi için ek bekleme
-                        await Task.Delay(3000);
-                        
-                        _logger.LogInformation("✅ Session ve branch hazır, ListStockCards 2. kez deneniyor...");
-                        
-                        // 2. Retry - FIXED: Doğru endpoint ve format kullan
-                        var retryReq2 = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCards)
-                        {
-                            Content = CreateKozaContent("{}")
-                        };
-                        retryReq2.Headers.TryAddWithoutValidation("No-Paging", "true");
-                        ApplySessionCookie(retryReq2);
-                        ApplyManualSessionCookie(retryReq2);
-                        
-                        var retryRes2 = await client.SendAsync(retryReq2, ct);
-                        body = await retryRes2.Content.ReadAsStringAsync(ct);
-                        trimmedBody = body.TrimStart();
-                        
-                        if (trimmedBody.StartsWith("<") || (trimmedBody.Length > 0 && char.IsLetter(trimmedBody[0]) && !trimmedBody.StartsWith("{") && !trimmedBody.StartsWith("[")))
-                        {
-                            _logger.LogError("❌ 2. retry sonrası hala hata döndü. Cache boş kalacak.");
-                            return new List<KozaStokKartiDto>();
-                        }
-                    }
-                    catch (Exception strutsEx)
-                    {
-                        _logger.LogError(strutsEx, "Struts hatası düzeltme denemesi başarısız");
-                        return new List<KozaStokKartiDto>();
-                    }
-                }
-                // Branch selection kontrolü
-                else if (trimmedBody.Contains("branch", StringComparison.OrdinalIgnoreCase) ||
-                    trimmedBody.Contains("şube", StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogError("   ⚠️ Branch (Şube) seçilmemiş olabilir. EnsureBranchSelectedAsync() çağrılıyor...");
-                    try
-                    {
-                        await EnsureBranchSelectedAsync();
-                        
-                        // 🔥 KRİTİK FİX: Branch seçiminden sonra Struts stabilize olsun
-                        _logger.LogInformation("⏳ Struts framework'ün stabilize olması için 1 saniye bekleniyor...");
-                        await Task.Delay(1000, ct);
-                        
-                        _logger.LogInformation("✅ Branch seçildi, ListStockCards tekrar deneniyor...");
-                        
-                        // Retry - FIXED: Doğru endpoint ve format kullan
-                        var retryReq = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.StockCards)
-                        {
-                            Content = CreateKozaContent("{}")
-                        };
-                        retryReq.Headers.TryAddWithoutValidation("No-Paging", "true");
-                        ApplySessionCookie(retryReq);
-                        ApplyManualSessionCookie(retryReq);
-                        
-                        var retryRes = await client.SendAsync(retryReq, ct);
-                        body = await retryRes.Content.ReadAsStringAsync(ct);
-                        trimmedBody = body.TrimStart();
-                    }
-                    catch (Exception branchEx)
-                    {
-                        _logger.LogError(branchEx, "Branch selection hatası");
-                        return new List<KozaStokKartiDto>();
-                    }
-                }
-                else
-                {
-                    return new List<KozaStokKartiDto>();
-                }
+                _logger.LogError("❌ Luca returned plain text error: '{Text}'", trimmedBody);
+                await AppendRawLogAsync("LIST_STOCK_TEXT_ERROR", _settings.Endpoints.StockCards, json, res.StatusCode, body);
+                return new List<KozaStokKartiDto>();
             }
 
-            // JSON parse
+            // Parse JSON response
             KozaStokKartiListResponse? dto = null;
             try
             {
@@ -353,63 +282,38 @@ public partial class LucaService
             }
             catch (JsonException jsonEx)
             {
-                _logger.LogError(jsonEx, "❌ JSON PARSE HATASI! Raw data ilk 500 karakter:\n{Data}", 
+                _logger.LogError(jsonEx, "❌ JSON parse error. Path: {Path}, Line: {Line}, Position: {Pos}", 
+                    jsonEx.Path, jsonEx.LineNumber, jsonEx.BytePositionInLine);
+                _logger.LogError("Raw response preview: {Preview}", 
                     body.Length > 500 ? body.Substring(0, 500) : body);
-                _logger.LogError("   ⚠️ JsonException.Path: {Path}", jsonEx.Path);
-                _logger.LogError("   ⚠️ JsonException.LineNumber: {Line}", jsonEx.LineNumber);
-                _logger.LogError("   ⚠️ JsonException.BytePositionInLine: {Pos}", jsonEx.BytePositionInLine);
                 
-                // 🔴 FAIL FAST: JSON parse hatası FATAL! Boş liste dönerek sistemin kendini kandırmasını önle
-                throw new InvalidOperationException(
-                    $"CRITICAL: Luca Cache Warming FAILED! JSON parse error. " +
-                    $"Cannot proceed with sync - data integrity would be compromised. " +
-                    $"Response preview: {(body.Length > 200 ? body.Substring(0, 200) : body)}", 
-                    jsonEx);
+                await AppendRawLogAsync("LIST_STOCK_JSON_ERROR", _settings.Endpoints.StockCards, json, res.StatusCode, body);
+                return new List<KozaStokKartiDto>();
             }
             
+            // Check for API error response
             if (dto?.Error == true)
             {
-                _logger.LogError("❌ Koza stok kartı listeleme API hatası: {Message}", dto.Message);
-                
-                // 🔴 FAIL FAST: API error response FATAL!
-                throw new InvalidOperationException(
-                    $"CRITICAL: Luca API returned error response: {dto.Message}. " +
-                    $"Cache warming failed - sync aborted to prevent data corruption.");
+                _logger.LogError("❌ Koza API returned error: {Message}", dto.Message);
+                return new List<KozaStokKartiDto>();
             }
 
-            // Koza response alanı değişken: list, stokKartlari veya stkKartListesi
-            var stoklar = dto?.List ?? dto?.StokKartlari ?? dto?.StkKartListesi ?? new List<KozaStokKartiDto>();
+            // Koza response field can vary: list, stokKartlari, stkKartListesi, stkSkart or data
+            var stoklar = dto?.List 
+                          ?? dto?.StokKartlari 
+                          ?? dto?.StkKartListesi
+                          ?? dto?.StkSkart
+                          ?? dto?.Data
+                          ?? new List<KozaStokKartiDto>();
             
-            if (stoklar.Count == 0)
-            {
-                _logger.LogWarning("⚠️ Luca'dan 0 stok kartı döndü. Response fields: {Fields}", 
-                    dto != null ? string.Join(", ", typeof(KozaStokKartiListResponse).GetProperties().Select(p => p.Name)) : "null");
-                
-                // 🔴 FAIL FAST: 0 kart dönmesi normaldir SADECE gerçekten boşsa!
-                // Eğer şirketin 0 ürünü yoksa OK, ama genelde binlerce ürün olmalı
-                // Bu yüzden UYARI ver ama exception fırlatma (bu durumda sistem devam edebilir)
-                _logger.LogWarning("⚠️ DİKKAT: Luca'dan boş liste döndü. Bu normalse (yeni şirket) OK, değilse problem var!");
-            }
-            else
-            {
-                _logger.LogInformation("✅ Koza'dan {Count} stok kartı listelendi", stoklar.Count);
-            }
+            _logger.LogInformation("✅ Retrieved {Count} stock cards from Koza", stoklar.Count);
             
             return stoklar;
         }
-        catch (InvalidOperationException)
-        {
-            // 🔴 FAIL FAST: InvalidOperationException'ı yukarı fırlat (critical error)
-            throw;
-        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ ListStockCardsSimpleAsync FATAL ERROR - Stack trace:\n{StackTrace}", ex.StackTrace);
-            
-            // 🔴 FAIL FAST: Beklenmeyen hata da FATAL!
-            throw new InvalidOperationException(
-                "CRITICAL: ListStockCardsSimpleAsync encountered unexpected error. " +
-                "Cache warming failed - sync aborted for safety.", ex);
+            _logger.LogError(ex, "❌ ListStockCardsSimpleAsync failed");
+            throw;
         }
     }
 

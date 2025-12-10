@@ -18,6 +18,7 @@ using Katana.Business.Mappers;
 using Katana.Core.Entities;
 using Katana.Core.Helpers;
 using System.Security.Authentication;
+using System.Net.Sockets;
 
 namespace Katana.Infrastructure.APIClients;
 
@@ -71,6 +72,16 @@ public partial class LucaService : ILucaService
             
             { 127, (5, "Kredi kartı girişi için sadece Kasa Kartı kullanılabilir (cariTur=5)") }
         };
+    private readonly SemaphoreSlim _kozaCustomerRequestLock = new(1, 1);
+    private static readonly TimeSpan[] KozaConnectionResetRetryDelays =
+    {
+        TimeSpan.FromMilliseconds(500),
+        TimeSpan.FromSeconds(1),
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(4)
+    };
+    private const int KozaThrottleMinDelayMs = 350;
+    private const int KozaThrottleMaxDelayMs = 1000;
     public LucaService(HttpClient httpClient, IOptions<LucaApiSettings> settings, ILogger<LucaService> logger, Katana.Core.Interfaces.ILucaCookieJarStore? cookieJarStore = null)
     {
         _httpClient = httpClient;
@@ -1684,5 +1695,108 @@ retryChangeBranch:
                 "User-Agent",
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
         }
+    }
+
+    private async Task<KozaHttpResponse> SendKozaCustomerRequestAsync(Func<HttpRequestMessage> requestFactory, CancellationToken ct)
+    {
+        await _kozaCustomerRequestLock.WaitAsync(ct);
+        try
+        {
+            var jitter = Random.Shared.Next(KozaThrottleMinDelayMs, KozaThrottleMaxDelayMs + 1);
+            if (jitter > 0)
+            {
+                await Task.Delay(jitter, ct);
+            }
+
+            var totalAttempts = KozaConnectionResetRetryDelays.Length + 1;
+            for (var attempt = 0; attempt <= KozaConnectionResetRetryDelays.Length; attempt++)
+            {
+                using var request = requestFactory();
+                ForceHttp11(request);
+
+                try
+                {
+                    var client = _cookieHttpClient ?? _httpClient;
+                    using var response = await client.SendAsync(request, ct);
+
+                    string body;
+                    var statusCode = response.StatusCode;
+                    var isSuccess = response.IsSuccessStatusCode;
+
+                    try
+                    {
+                        body = await response.Content.ReadAsStringAsync(ct);
+                    }
+                    catch (Exception ex) when (IsConnectionResetException(ex) && attempt < KozaConnectionResetRetryDelays.Length)
+                    {
+                        var delay = KozaConnectionResetRetryDelays[attempt];
+                        _logger.LogWarning(ex, "Koza customer response read failed (attempt {Attempt}/{Total}). Retrying in {Delay} ms",
+                            attempt + 1, totalAttempts, delay.TotalMilliseconds);
+                        await Task.Delay(delay, ct);
+                        continue;
+                    }
+
+                    return new KozaHttpResponse
+                    {
+                        StatusCode = statusCode,
+                        IsSuccessStatusCode = isSuccess,
+                        Body = body
+                    };
+                }
+                catch (Exception ex) when (IsConnectionResetException(ex) && attempt < KozaConnectionResetRetryDelays.Length)
+                {
+                    var delay = KozaConnectionResetRetryDelays[attempt];
+                    _logger.LogWarning(ex, "Koza customer request failed due to connection reset (attempt {Attempt}/{Total}). Retrying in {Delay} ms",
+                        attempt + 1, totalAttempts, delay.TotalMilliseconds);
+                    await Task.Delay(delay, ct);
+                }
+            }
+
+            throw new HttpRequestException("Koza customer request failed after retry attempts.");
+        }
+        finally
+        {
+            _kozaCustomerRequestLock.Release();
+        }
+    }
+
+    private static void ForceHttp11(HttpRequestMessage request)
+    {
+        request.Version = HttpVersion.Version11;
+        request.VersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+    }
+
+    private static bool IsConnectionResetException(Exception ex)
+    {
+        Exception? current = ex;
+        while (current != null)
+        {
+            if (current is SocketException socketEx && socketEx.SocketErrorCode == SocketError.ConnectionReset)
+            {
+                return true;
+            }
+
+            if (current is IOException && current.Message.Contains("reset", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (current.Message.Contains("Connection reset", StringComparison.OrdinalIgnoreCase) ||
+                current.Message.Contains("reset by peer", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            current = current.InnerException;
+        }
+
+        return false;
+    }
+
+    private sealed class KozaHttpResponse
+    {
+        public HttpStatusCode StatusCode { get; init; }
+        public bool IsSuccessStatusCode { get; init; }
+        public string Body { get; init; } = string.Empty;
     }
 }
