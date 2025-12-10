@@ -1,5 +1,6 @@
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
+using Katana.Core.Events;
 using Katana.Core.Interfaces;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,8 @@ namespace Katana.Business.Services;
 public class ProductService : IProductService
 {
     private readonly IntegrationDbContext _context;
+    private readonly IPendingNotificationPublisher? _notificationPublisher;
+    
     private static readonly Expression<Func<Product, ProductDto>> ProductProjection = p => new ProductDto
     {
         Id = p.Id,
@@ -25,9 +28,10 @@ public class ProductService : IProductService
         UpdatedAt = p.UpdatedAt
     };
 
-    public ProductService(IntegrationDbContext context)
+    public ProductService(IntegrationDbContext context, IPendingNotificationPublisher? notificationPublisher = null)
     {
         _context = context;
+        _notificationPublisher = notificationPublisher;
     }
 
     public async Task<IEnumerable<ProductDto>> GetAllProductsAsync()
@@ -151,6 +155,22 @@ public class ProductService : IProductService
 
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
+
+        // Bildirim gönder
+        if (_notificationPublisher != null)
+        {
+            try
+            {
+                await _notificationPublisher.PublishProductCreatedAsync(new ProductCreatedEvent(
+                    product.Id,
+                    product.SKU,
+                    product.Name,
+                    "Manual",
+                    DateTimeOffset.UtcNow
+                ));
+            }
+            catch { /* Bildirim hatası ürün oluşturmayı engellemez */ }
+        }
 
         return MapToDto(product);
     }
@@ -368,6 +388,22 @@ public class ProductService : IProductService
                     };
                     _context.Products.Add(newProduct);
                     createdCount++;
+                    
+                    // Katana'dan gelen yeni ürün bildirimi
+                    if (_notificationPublisher != null)
+                    {
+                        try
+                        {
+                            _ = _notificationPublisher.PublishProductCreatedAsync(new ProductCreatedEvent(
+                                newProduct.Id,
+                                newProduct.SKU,
+                                newProduct.Name,
+                                "Katana",
+                                DateTimeOffset.UtcNow
+                            ));
+                        }
+                        catch { /* Bildirim hatası sync'i engellemez */ }
+                    }
                 }
             }
             catch (Exception ex)

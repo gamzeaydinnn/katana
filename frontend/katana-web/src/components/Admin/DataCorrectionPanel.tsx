@@ -188,6 +188,8 @@ const DataCorrectionPanel: React.FC = () => {
           if (hasKatanaIssue) {
             katanaIssues.push(katanaProduct);
           }
+          // ✅ DÜZELTME: Luca sorunları SADECE gerçek uyuşmazlıklar olmalı
+          // "Luca'da yok" durumu Luca sorunu DEĞİL, Katana sorunudur
           if (hasLucaIssue && lucaProduct) {
             lucaIssues.push(lucaProduct);
           }
@@ -205,8 +207,9 @@ const DataCorrectionPanel: React.FC = () => {
         );
 
         if (!katanaExists) {
-          // Bu bir sorun DEĞİL - Luca'da manuel oluşturulmuş ürün olabilir
-          // Karşılaştırma listesine EKLEMİYORUZ
+          // ✅ Bu bir sorun DEĞİL - Luca'da manuel oluşturulmuş ürün olabilir
+          // ✅ Karşılaştırma listesine EKLEMİYORUZ
+          // ✅ Luca Sorunları sekmesine de EKLEMİYORUZ
           console.log(
             `Bilgi: ${lucaProduct.productCode} sadece Luca'da var (manuel oluşturulmuş olabilir)`
           );
@@ -343,8 +346,16 @@ const DataCorrectionPanel: React.FC = () => {
           <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
             <Tabs value={sourceTab} onChange={(_, v) => setSourceTab(v)}>
               <Tab label="Karşılaştırma" value="comparison" />
-              <Tab label="Katana Sorunları" value="katana" />
-              <Tab label="Luca Uyuşmazlıkları" value="luca" />
+              <Tab
+                label="Katana Sorunları"
+                value="katana"
+                title="Katana'da var ama Luca'ya aktarılmamış veya uyuşmazlık olan ürünler"
+              />
+              <Tab
+                label="Luca Uyuşmazlıkları"
+                value="luca"
+                title="Luca'da fiyat/stok uyuşmazlığı olan ürünler (sadece gerçek hatalar)"
+              />
             </Tabs>
           </Box>
         </CardContent>

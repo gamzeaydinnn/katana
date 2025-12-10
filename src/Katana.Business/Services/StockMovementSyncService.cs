@@ -2,6 +2,7 @@ using Katana.Business.Interfaces;
 using Katana.Core.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
+using Katana.Core.Events;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -18,17 +19,20 @@ public class StockMovementSyncService : IStockMovementSyncService
     private readonly ILucaService _lucaService;
     private readonly IStockMovementMappingRepository _mappingRepo;
     private readonly ILogger<StockMovementSyncService> _logger;
+    private readonly IPendingNotificationPublisher? _notificationPublisher;
 
     public StockMovementSyncService(
         IntegrationDbContext dbContext,
         ILucaService lucaService,
         IStockMovementMappingRepository mappingRepo,
-        ILogger<StockMovementSyncService> logger)
+        ILogger<StockMovementSyncService> logger,
+        IPendingNotificationPublisher? notificationPublisher = null)
     {
         _dbContext = dbContext;
         _lucaService = lucaService;
         _mappingRepo = mappingRepo;
         _logger = logger;
+        _notificationPublisher = notificationPublisher;
     }
 
     #region Query Methods
@@ -241,6 +245,18 @@ public class StockMovementSyncService : IStockMovementSyncService
                 
                 _logger.LogInformation("✅ Transfer {TransferId} Luca'ya aktarıldı: {LucaId}", transferId, lucaId);
                 
+                // Bildirim gönder
+                if (_notificationPublisher != null)
+                {
+                    await _notificationPublisher.PublishStockMovementSyncedAsync(new StockMovementSyncedEvent(
+                        transferId,
+                        "TRANSFER",
+                        $"TRF-{transferId:D6}",
+                        (int)lucaId,
+                        DateTimeOffset.UtcNow
+                    ));
+                }
+                
                 return new MovementSyncResultDto
                 {
                     Success = true,
@@ -264,6 +280,18 @@ public class StockMovementSyncService : IStockMovementSyncService
             {
                 transfer.Status = "Error";
                 await _dbContext.SaveChangesAsync();
+            }
+            
+            // Hata bildirimi gönder
+            if (_notificationPublisher != null)
+            {
+                await _notificationPublisher.PublishStockMovementFailedAsync(new StockMovementFailedEvent(
+                    transferId,
+                    "TRANSFER",
+                    $"TRF-{transferId:D6}",
+                    ex.Message,
+                    DateTimeOffset.UtcNow
+                ));
             }
             
             return new MovementSyncResultDto
@@ -336,6 +364,18 @@ public class StockMovementSyncService : IStockMovementSyncService
                 
                 _logger.LogInformation("✅ Adjustment {AdjustmentId} Luca'ya aktarıldı: {LucaId}", adjustmentId, lucaId);
                 
+                // Bildirim gönder
+                if (_notificationPublisher != null)
+                {
+                    await _notificationPublisher.PublishStockMovementSyncedAsync(new StockMovementSyncedEvent(
+                        adjustmentId,
+                        "ADJUSTMENT",
+                        $"ADJ-{adjustmentId:D6}",
+                        (int)lucaId,
+                        DateTimeOffset.UtcNow
+                    ));
+                }
+                
                 return new MovementSyncResultDto
                 {
                     Success = true,
@@ -359,6 +399,18 @@ public class StockMovementSyncService : IStockMovementSyncService
             {
                 adjustment.Status = "Error";
                 await _dbContext.SaveChangesAsync();
+            }
+            
+            // Hata bildirimi gönder
+            if (_notificationPublisher != null)
+            {
+                await _notificationPublisher.PublishStockMovementFailedAsync(new StockMovementFailedEvent(
+                    adjustmentId,
+                    "ADJUSTMENT",
+                    $"ADJ-{adjustmentId:D6}",
+                    ex.Message,
+                    DateTimeOffset.UtcNow
+                ));
             }
             
             return new MovementSyncResultDto

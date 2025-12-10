@@ -57,6 +57,20 @@ import {
   getDashboardStats,
 } from "../services/stockMovementSyncApi";
 
+import {
+  onStockTransferCreated,
+  offStockTransferCreated,
+  onStockAdjustmentCreated,
+  offStockAdjustmentCreated,
+  onStockMovementSynced,
+  offStockMovementSynced,
+  onStockMovementFailed,
+  offStockMovementFailed,
+  startConnection,
+  type StockMovementNotification,
+  type SyncNotification,
+} from "../services/signalr";
+
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
@@ -104,6 +118,67 @@ const StockMovementSyncPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [tabValue, statusFilter, typeFilter]);
+
+  // SignalR real-time güncellemeler
+  useEffect(() => {
+    startConnection().catch(console.warn);
+
+    const handleTransferCreated = (payload: StockMovementNotification) => {
+      console.log("[StockMovementSync] 🔔 Yeni transfer bildirimi:", payload);
+      showNotification(`Yeni transfer: ${payload.documentNo}`, "info");
+      loadData(); // Listeyi yenile
+    };
+
+    const handleAdjustmentCreated = (payload: StockMovementNotification) => {
+      console.log("[StockMovementSync] 🔔 Yeni düzeltme bildirimi:", payload);
+      showNotification(`Yeni düzeltme: ${payload.documentNo}`, "info");
+      loadData();
+    };
+
+    const handleSynced = (payload: SyncNotification) => {
+      console.log("[StockMovementSync] ✅ Sync başarılı bildirimi:", payload);
+      showNotification(`${payload.documentNo} Luca'ya aktarıldı`, "success");
+      // Listedeki ilgili kaydı güncelle
+      setMovements((prev) =>
+        prev.map((m) =>
+          m.id === payload.movementId && m.movementType === payload.movementType
+            ? {
+                ...m,
+                syncStatus: "SYNCED",
+                lucaDocumentId: payload.lucaDocumentId,
+              }
+            : m
+        )
+      );
+    };
+
+    const handleFailed = (payload: SyncNotification) => {
+      console.log("[StockMovementSync] ❌ Sync hata bildirimi:", payload);
+      showNotification(
+        `${payload.documentNo} aktarım hatası: ${payload.errorMessage}`,
+        "error"
+      );
+      setMovements((prev) =>
+        prev.map((m) =>
+          m.id === payload.movementId && m.movementType === payload.movementType
+            ? { ...m, syncStatus: "ERROR", errorMessage: payload.errorMessage }
+            : m
+        )
+      );
+    };
+
+    onStockTransferCreated(handleTransferCreated);
+    onStockAdjustmentCreated(handleAdjustmentCreated);
+    onStockMovementSynced(handleSynced);
+    onStockMovementFailed(handleFailed);
+
+    return () => {
+      offStockTransferCreated(handleTransferCreated);
+      offStockAdjustmentCreated(handleAdjustmentCreated);
+      offStockMovementSynced(handleSynced);
+      offStockMovementFailed(handleFailed);
+    };
+  }, []);
 
   const loadData = async () => {
     setLoading(true);

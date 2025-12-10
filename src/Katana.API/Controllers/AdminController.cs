@@ -155,17 +155,32 @@ public class AdminController : ControllerBase
         try
         {
             _loggingService.LogInfo("Admin statistics requested", User?.Identity?.Name, "GetStatistics", LogCategory.UserAction);
-            var products = await _katanaService.GetProductsAsync();
-            var totalProducts = products.Count;
-            var activeProducts = products.Count(p => p.IsActive);
+            
+            // Local veritabanından ürün sayısını al (Dashboard ile tutarlı olması için)
+            var totalProducts = await _context.Products.CountAsync();
+            var activeProducts = await _context.Products.CountAsync(p => p.IsActive);
 
-            // Kritik ürünler (stok < 10)
-            var criticalProducts = products.Count(p => p.IsActive && (p.InStock ?? 0) < 10);
+            // Stok hareketlerinden toplam stok hesapla
+            var activeProductIds = await _context.Products.Where(p => p.IsActive).Select(p => p.Id).ToListAsync();
+            var totalStock = 0;
+            if (activeProductIds.Any())
+            {
+                totalStock = await _context.StockMovements
+                    .Where(sm => activeProductIds.Contains(sm.ProductId))
+                    .SumAsync(sm => (int?)sm.ChangeQuantity) ?? 0;
+            }
+
+            // Kritik ürünler (stok <= 5)
+            var productBalances = await _context.StockMovements
+                .GroupBy(sm => sm.ProductId)
+                .Select(g => new { ProductId = g.Key, Balance = g.Sum(x => x.ChangeQuantity) })
+                .ToListAsync();
+            var balancesById = productBalances.ToDictionary(x => x.ProductId, x => x.Balance);
+            var activeProductsList = await _context.Products.Where(p => p.IsActive).ToListAsync();
+            var criticalProducts = activeProductsList.Count(p => (balancesById.TryGetValue(p.Id, out var b) ? b : p.StockSnapshot) <= 5);
 
             // Toplam değer hesaplama
-            var totalValue = products
-                .Where(p => p.IsActive)
-                .Sum(p => (p.InStock ?? 0) * p.Price);
+            var totalValue = activeProductsList.Sum(p => (balancesById.TryGetValue(p.Id, out var b) ? b : p.StockSnapshot) * p.Price);
 
             // Son 24 saatteki sync loglarını al
             var last24Hours = DateTime.UtcNow.AddHours(-24);
@@ -179,7 +194,7 @@ public class AdminController : ControllerBase
             return Ok(new
             {
                 totalProducts,
-                totalStock = activeProducts,
+                totalStock,
                 criticalProducts,
                 totalValue,
                 successfulSyncs,

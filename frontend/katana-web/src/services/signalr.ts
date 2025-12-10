@@ -1,7 +1,7 @@
 import {
-    HubConnection,
-    HubConnectionBuilder,
-    LogLevel,
+  HubConnection,
+  HubConnectionBuilder,
+  LogLevel,
 } from "@microsoft/signalr";
 
 let connection: HubConnection | null = null;
@@ -29,7 +29,9 @@ const getHubUrl = () => {
   }
 
   // Default: use relative path so CRA dev proxy can forward it.
-  console.log("[SignalR Service] 🔗 Using relative hub path: /hubs/notifications");
+  console.log(
+    "[SignalR Service] 🔗 Using relative hub path: /hubs/notifications"
+  );
   return "/hubs/notifications";
 };
 
@@ -95,10 +97,12 @@ export function startConnection() {
         message: err?.message,
         statusCode: err?.statusCode,
         errorType: err?.constructor?.name,
-        fullError: err
+        fullError: err,
       });
       // Don't throw - allow app to continue without SignalR
-      console.warn("[SignalR Service] ⚠️ Continuing without SignalR notifications");
+      console.warn(
+        "[SignalR Service] ⚠️ Continuing without SignalR notifications"
+      );
     });
 }
 
@@ -138,4 +142,120 @@ export function isConnected() {
     connection !== null &&
     (connection!.state as unknown as string) === "Connected"
   );
+}
+
+// ============ Yeni Bildirim Tipleri ============
+
+export interface ProductNotification {
+  id: number;
+  eventType: "ProductCreated" | "ProductUpdated";
+  productId: number;
+  sku: string;
+  name: string;
+  source: "Katana" | "Manual";
+  createdAt: string;
+  link?: string;
+}
+
+export interface StockMovementNotification {
+  id: number;
+  eventType: "StockTransferCreated" | "StockAdjustmentCreated";
+  movementId?: number;
+  transferId?: number;
+  adjustmentId?: number;
+  documentNo: string;
+  quantity: number;
+  createdAt: string;
+  link?: string;
+}
+
+export interface SyncNotification {
+  id: number;
+  eventType: "StockMovementSynced" | "StockMovementFailed";
+  movementId: number;
+  movementType: "TRANSFER" | "ADJUSTMENT";
+  documentNo: string;
+  lucaDocumentId?: number;
+  errorMessage?: string;
+  syncedAt?: string;
+  failedAt?: string;
+  link?: string;
+}
+
+// ============ Ürün Bildirimleri ============
+
+export function onProductCreated(
+  handler: (payload: ProductNotification) => void
+) {
+  connection?.on("ProductCreated", handler);
+}
+
+export function offProductCreated(
+  handler: (payload: ProductNotification) => void
+) {
+  connection?.off("ProductCreated", handler);
+}
+
+export function onProductUpdated(
+  handler: (payload: ProductNotification) => void
+) {
+  connection?.on("ProductUpdated", handler);
+}
+
+export function offProductUpdated(
+  handler: (payload: ProductNotification) => void
+) {
+  connection?.off("ProductUpdated", handler);
+}
+
+// ============ Stok Hareketi Bildirimleri ============
+
+export function onStockTransferCreated(
+  handler: (payload: StockMovementNotification) => void
+) {
+  connection?.on("StockTransferCreated", handler);
+}
+
+export function offStockTransferCreated(
+  handler: (payload: StockMovementNotification) => void
+) {
+  connection?.off("StockTransferCreated", handler);
+}
+
+export function onStockAdjustmentCreated(
+  handler: (payload: StockMovementNotification) => void
+) {
+  connection?.on("StockAdjustmentCreated", handler);
+}
+
+export function offStockAdjustmentCreated(
+  handler: (payload: StockMovementNotification) => void
+) {
+  connection?.off("StockAdjustmentCreated", handler);
+}
+
+// ============ Sync Bildirimleri ============
+
+export function onStockMovementSynced(
+  handler: (payload: SyncNotification) => void
+) {
+  connection?.on("StockMovementSynced", handler);
+}
+
+export function offStockMovementSynced(
+  handler: (payload: SyncNotification) => void
+) {
+  connection?.off("StockMovementSynced", handler);
+}
+
+export function onStockMovementFailed(
+  handler: (payload: SyncNotification) => void
+) {
+  connection?.on("StockMovementFailed", handler);
+}
+
+export function offStockMovementFailed(
+  handler: (payload: SyncNotification) => void
+) {
+  connection?.off("StockMovementFailed", handler);
 }

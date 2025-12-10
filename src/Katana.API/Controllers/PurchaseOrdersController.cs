@@ -312,7 +312,7 @@ public class PurchaseOrdersController : ControllerBase
     // ===== SYNC ENDPOINTS =====
 
     /// <summary>
-    /// Tek siparişi Luca'ya senkronize et
+    /// Tek siparişi Luca'ya fatura olarak senkronize et
     /// </summary>
     [HttpPost("{id}/sync")]
     public async Task<ActionResult<PurchaseOrderSyncResultDto>> SyncToLuca(int id)
@@ -335,35 +335,17 @@ public class PurchaseOrdersController : ControllerBase
 
         try
         {
-            // Map to Luca request
-            var lucaRequest = MappingHelper.MapToLucaPurchaseOrderFromEntity(order, order.Supplier);
+            // Map to Luca INVOICE request (not purchase order)
+            var lucaInvoiceRequest = MappingHelper.MapToLucaInvoiceFromPurchaseOrder(order, order.Supplier);
 
-            _loggingService.LogInfo($"Luca'ya satınalma siparişi gönderiliyor: {order.OrderNo}", "PurchaseOrderSync");
+            _loggingService.LogInfo($"Luca'ya satınalma faturası gönderiliyor: {order.OrderNo}", "PurchaseOrderInvoiceSync");
 
-            // Call Luca API
-            var response = await _lucaService.CreatePurchaseOrderAsync(lucaRequest);
+            // Call Luca API to create invoice
+            var syncResult = await _lucaService.SendInvoiceAsync(lucaInvoiceRequest);
 
-            // Parse response
-            long? lucaPurchaseOrderId = null;
-            string? lucaDocumentNo = null;
-
-            if (response.TryGetProperty("success", out var successProp) && successProp.GetBoolean())
+            if (syncResult.IsSuccess)
             {
-                if (response.TryGetProperty("data", out var dataProp))
-                {
-                    if (dataProp.TryGetProperty("ssSatinalmaSiparisBaslikId", out var baslikIdProp))
-                    {
-                        lucaPurchaseOrderId = baslikIdProp.GetInt64();
-                    }
-                    if (dataProp.TryGetProperty("belgeNo", out var belgeNoProp))
-                    {
-                        lucaDocumentNo = belgeNoProp.GetString();
-                    }
-                }
-
                 // Update order
-                order.LucaPurchaseOrderId = lucaPurchaseOrderId;
-                order.LucaDocumentNo = lucaDocumentNo;
                 order.IsSyncedToLuca = true;
                 order.LastSyncAt = DateTime.UtcNow;
                 order.LastSyncError = null;
@@ -373,23 +355,21 @@ public class PurchaseOrdersController : ControllerBase
                 await _context.SaveChangesAsync();
 
                 _auditService.LogSync(
-                    "PurchaseOrderSync",
+                    "PurchaseOrderInvoiceSync",
                     User.Identity?.Name ?? "System",
-                    $"Luca'ya başarıyla senkronize edildi. LucaId: {lucaPurchaseOrderId}");
+                    $"Luca'ya fatura olarak başarıyla senkronize edildi: {order.OrderNo}");
 
                 return Ok(new PurchaseOrderSyncResultDto
                 {
                     Success = true,
-                    LucaPurchaseOrderId = lucaPurchaseOrderId,
-                    LucaDocumentNo = lucaDocumentNo,
-                    Message = "Senkronizasyon başarılı"
+                    LucaPurchaseOrderId = null,
+                    LucaDocumentNo = order.OrderNo,
+                    Message = "Fatura başarıyla Luca'ya aktarıldı"
                 });
             }
             else
             {
-                var errorMessage = response.TryGetProperty("message", out var msgProp) 
-                    ? msgProp.GetString() 
-                    : "Bilinmeyen hata";
+                var errorMessage = syncResult.Message ?? "Bilinmeyen hata";
 
                 order.LastSyncError = errorMessage;
                 order.SyncRetryCount++;
@@ -405,7 +385,7 @@ public class PurchaseOrdersController : ControllerBase
         }
         catch (Exception ex)
         {
-            _loggingService.LogError($"Luca sync hatası: {ex.Message}", ex, "PurchaseOrderSync");
+            _loggingService.LogError($"Luca fatura sync hatası: {ex.Message}", ex, "PurchaseOrderInvoiceSync");
 
             order.LastSyncError = ex.Message;
             order.SyncRetryCount++;

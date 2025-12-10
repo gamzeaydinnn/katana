@@ -46,10 +46,24 @@ public sealed class KozaStockCardsController : ControllerBase
                 eklemeBas?.ToString("dd/MM/yyyy") ?? "null", 
                 eklemeBit?.ToString("dd/MM/yyyy") ?? "null");
             
-            var stockCards = await _lucaService.ListStockCardsSimpleAsync(eklemeBas, eklemeBit, ct);
+            // 5 dakikalık timeout ile çalış - büyük veri setleri için
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+            
+            var stockCards = await _lucaService.ListStockCardsSimpleAsync(eklemeBas, eklemeBit, linkedCts.Token);
             
             _logger.LogInformation("Retrieved {Count} stock cards from Koza", stockCards.Count);
             return Ok(stockCards);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            _logger.LogWarning("Koza stock cards request timed out after 5 minutes");
+            return StatusCode(504, new { error = "İstek zaman aşımına uğradı. Koza API yanıt vermedi. Lütfen daha sonra tekrar deneyin." });
+        }
+        catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+        {
+            _logger.LogWarning("Koza stock cards request was cancelled (timeout)");
+            return StatusCode(504, new { error = "İstek zaman aşımına uğradı. Koza API yanıt vermedi. Lütfen daha sonra tekrar deneyin." });
         }
         catch (Exception ex)
         {

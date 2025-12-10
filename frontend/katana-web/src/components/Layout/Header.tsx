@@ -32,7 +32,18 @@ import {
   offPendingCreated,
   onPendingApproved,
   onPendingCreated,
+  onProductCreated,
+  offProductCreated,
+  onStockTransferCreated,
+  offStockTransferCreated,
+  onStockAdjustmentCreated,
+  offStockAdjustmentCreated,
+  onStockMovementSynced,
+  offStockMovementSynced,
   startConnection,
+  type ProductNotification,
+  type StockMovementNotification,
+  type SyncNotification,
 } from "../../services/signalr";
 
 interface HeaderProps {
@@ -41,7 +52,15 @@ interface HeaderProps {
   onOpenBranchSelector?: () => void;
 }
 
-type NotificationStatus = "pending" | "approved" | "rejected";
+type NotificationStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "product"
+  | "transfer"
+  | "adjustment"
+  | "synced"
+  | "failed";
 
 interface NotificationItem {
   id: string;
@@ -50,17 +69,26 @@ interface NotificationItem {
   status: NotificationStatus;
   createdAt: string;
   referenceId?: number;
+  notificationType?: string;
 }
 
 const MAX_NOTIFICATIONS = 20;
 
 const notificationStatusMeta: Record<
   NotificationStatus,
-  { label: string; color: "warning" | "success" | "error" }
+  {
+    label: string;
+    color: "warning" | "success" | "error" | "info" | "primary" | "secondary";
+  }
 > = {
   pending: { label: "Bekliyor", color: "warning" },
   approved: { label: "Onaylandı", color: "success" },
   rejected: { label: "Reddedildi", color: "error" },
+  product: { label: "Yeni Ürün", color: "info" },
+  transfer: { label: "Transfer", color: "primary" },
+  adjustment: { label: "Düzeltme", color: "secondary" },
+  synced: { label: "Aktarıldı", color: "success" },
+  failed: { label: "Hata", color: "error" },
 };
 
 const formatRelativeTime = (value?: string) => {
@@ -271,10 +299,98 @@ const Header: React.FC<HeaderProps> = ({
     onPendingCreated(createdHandler);
     onPendingApproved(approvedHandler);
 
+    // Yeni ürün bildirimi handler'ı
+    const productCreatedHandler = (payload: ProductNotification) => {
+      if (!payload?.productId) return;
+
+      const title = payload.sku
+        ? `Yeni ürün: ${payload.sku}`
+        : `Yeni ürün: ${payload.name || "#" + payload.productId}`;
+
+      setNotifications((prev) => {
+        const next: NotificationItem = {
+          id: `product-${payload.productId}-${Date.now()}`,
+          referenceId: payload.productId,
+          title,
+          description:
+            payload.source === "Katana"
+              ? "Katana'dan senkronize edildi"
+              : "Manuel oluşturuldu",
+          status: "product" as const,
+          createdAt: payload.createdAt || new Date().toISOString(),
+          notificationType: "ProductCreated",
+        };
+        return [next, ...prev].slice(0, MAX_NOTIFICATIONS);
+      });
+    };
+
+    // Stok transfer bildirimi handler'ı
+    const transferCreatedHandler = (payload: StockMovementNotification) => {
+      if (!payload?.documentNo) return;
+
+      setNotifications((prev) => {
+        const next: NotificationItem = {
+          id: `transfer-${payload.transferId || payload.id}-${Date.now()}`,
+          referenceId: payload.transferId || payload.id,
+          title: `Yeni transfer: ${payload.documentNo}`,
+          description: `Miktar: ${payload.quantity}`,
+          status: "transfer" as const,
+          createdAt: payload.createdAt || new Date().toISOString(),
+          notificationType: "StockTransferCreated",
+        };
+        return [next, ...prev].slice(0, MAX_NOTIFICATIONS);
+      });
+    };
+
+    // Stok düzeltme bildirimi handler'ı
+    const adjustmentCreatedHandler = (payload: StockMovementNotification) => {
+      if (!payload?.documentNo) return;
+
+      setNotifications((prev) => {
+        const next: NotificationItem = {
+          id: `adjustment-${payload.adjustmentId || payload.id}-${Date.now()}`,
+          referenceId: payload.adjustmentId || payload.id,
+          title: `Yeni düzeltme: ${payload.documentNo}`,
+          description: `Miktar: ${payload.quantity}`,
+          status: "adjustment" as const,
+          createdAt: payload.createdAt || new Date().toISOString(),
+          notificationType: "StockAdjustmentCreated",
+        };
+        return [next, ...prev].slice(0, MAX_NOTIFICATIONS);
+      });
+    };
+
+    // Sync başarılı bildirimi handler'ı
+    const syncedHandler = (payload: SyncNotification) => {
+      if (!payload?.documentNo) return;
+
+      setNotifications((prev) => {
+        const next: NotificationItem = {
+          id: `synced-${payload.movementId}-${Date.now()}`,
+          referenceId: payload.movementId,
+          title: `Aktarıldı: ${payload.documentNo}`,
+          description: `Luca #${payload.lucaDocumentId}`,
+          status: "synced" as const,
+          createdAt: payload.syncedAt || new Date().toISOString(),
+          notificationType: "StockMovementSynced",
+        };
+        return [next, ...prev].slice(0, MAX_NOTIFICATIONS);
+      });
+    };
+
+    onProductCreated(productCreatedHandler);
+    onStockTransferCreated(transferCreatedHandler);
+    onStockAdjustmentCreated(adjustmentCreatedHandler);
+    onStockMovementSynced(syncedHandler);
+
     return () => {
       isMounted = false;
       offPendingCreated(createdHandler);
       offPendingApproved(approvedHandler);
+      offProductCreated(productCreatedHandler);
+      offStockTransferCreated(transferCreatedHandler);
+      offStockAdjustmentCreated(adjustmentCreatedHandler);
+      offStockMovementSynced(syncedHandler);
     };
   }, []);
 
@@ -320,10 +436,17 @@ const Header: React.FC<HeaderProps> = ({
     window.location.href = "/login";
   };
 
-  const pendingCount = notifications.reduce(
-    (count, item) => (item.status === "pending" ? count + 1 : count),
-    0
-  );
+  // Okunmamış bildirimleri say (pending, product, transfer, adjustment)
+  const pendingCount = notifications.reduce((count, item) => {
+    const unreadStatuses = [
+      "pending",
+      "product",
+      "transfer",
+      "adjustment",
+      "failed",
+    ];
+    return unreadStatuses.includes(item.status) ? count + 1 : count;
+  }, 0);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
