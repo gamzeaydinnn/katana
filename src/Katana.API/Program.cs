@@ -482,7 +482,7 @@ _ = Task.Run(async () =>
         await Task.Delay(5000); // API tamamen hazır olana kadar bekle
         
         logger.LogInformation("Luca stok kartları cache'i ısıtılıyor...");
-        var cards = await lucaService.ListStockCardsSimpleAsync(CancellationToken.None);
+        var cards = await lucaService.ListStockCardsSimpleAsync(null, null, CancellationToken.None);
         logger.LogInformation("Luca cache hazır: {Count} stok kartı yüklendi", cards?.Count ?? 0);
     }
     catch (Exception ex)

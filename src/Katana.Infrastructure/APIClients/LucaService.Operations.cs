@@ -488,7 +488,7 @@ public partial class LucaService
     {
         _logger.LogInformation("Sending {Count} customers to Luca (Koza)", customers.Count);
         var client = (_cookieHttpClient ?? _httpClient);
-        var endpoint = _settings.Endpoints.CustomerCreate;
+        var endpoint = ResolveCustomerCreateEndpoint();
         var success = 0;
         var failed = 0;
         foreach (var customer in customers)
@@ -876,6 +876,10 @@ public partial class LucaService
             if (jsonElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
             {
                 result = JsonSerializer.Deserialize<List<LucaTedarikciDto>>(data.GetRawText(), _jsonOptions) ?? new List<LucaTedarikciDto>();
+            }
+            else if (jsonElement.TryGetProperty("finTedarikciListesi", out var finTedarikciListesi) && finTedarikciListesi.ValueKind == JsonValueKind.Array)
+            {
+                result = JsonSerializer.Deserialize<List<LucaTedarikciDto>>(finTedarikciListesi.GetRawText(), _jsonOptions) ?? new List<LucaTedarikciDto>();
             }
             else if (jsonElement.TryGetProperty("list", out var list) && list.ValueKind == JsonValueKind.Array)
             {
@@ -1551,6 +1555,13 @@ public partial class LucaService
                 _logger.LogInformation("📄 Response snippet (first 500 chars): {Body}", 
                     responseContent.Length > 500 ? responseContent.Substring(0, 500) : responseContent);
 
+                if (response == null)
+                {
+                    _logger.LogWarning("ListStockCardsAsync received null response (attempt {Attempt}); retrying.", attempt);
+                    await Task.Delay(200 * attempt, ct);
+                    continue;
+                }
+
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized && attempt < 3)
                 {
                     _logger.LogWarning("Stock card list returned 401; re-authenticating (attempt {Attempt})", attempt);
@@ -2158,7 +2169,7 @@ public partial class LucaService
             _logger.LogInformation("📥 Step 3/3: CACHE WARMING - Tüm Luca stok kartları çekiliyor...");
             _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             
-            var allLucaCards = await ListStockCardsSimpleAsync(CancellationToken.None);
+            var allLucaCards = await ListStockCardsSimpleAsync(null, null, CancellationToken.None);
             
             if (allLucaCards.Count == 0)
             {

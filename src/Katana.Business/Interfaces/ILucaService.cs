@@ -2,7 +2,6 @@
 using Katana.Core.DTOs.Koza;
 using Katana.Core.Entities;
 using System.Text.Json;
-using Katana.Core.DTOs;
 
 namespace Katana.Business.Interfaces;
 
@@ -225,7 +224,7 @@ public interface ILucaService
     Task<KozaResult> CreateDepotAsync(KozaCreateDepotRequest req, CancellationToken ct = default);
     
     // Koza Stok Kartı işlemleri
-    Task<IReadOnlyList<KozaStokKartiDto>> ListStockCardsSimpleAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<KozaStokKartiDto>> ListStockCardsSimpleAsync(DateTime? eklemeBas = null, DateTime? eklemeBit = null, CancellationToken ct = default);
     Task<KozaResult> CreateStockCardSimpleAsync(KozaCreateStokKartiRequest req, CancellationToken ct = default);
     
     // Koza Cari (Müşteri/Tedarikçi) işlemleri
