@@ -237,7 +237,7 @@ public class ProductsController : ControllerBase
                 });
             }
             
-            
+            // Tüm Katana ürünlerini göster (local'de olsun olmasın)
             var localProducts = await _productService.GetAllProductsAsync();
             var localProductsMap = localProducts.ToDictionary(p => p.SKU, p => p);
             
@@ -246,41 +246,39 @@ public class ProductsController : ControllerBase
             {
                 var localProduct = localProductsMap.GetValueOrDefault(katanaProduct.SKU);
                 
-                
-                if (localProduct != null)
+                // Local'de varsa local verileri kullan, yoksa Katana verilerini göster
+                result.Add(new
                 {
-                    result.Add(new
-                    {
-                        id = localProduct.Id.ToString(),
-                        katanaId = katanaProduct.Id,
-                        sku = localProduct.SKU,
-                        name = localProduct.Name,
-                        category = katanaProduct.Category,
-                        unit = katanaProduct.Unit,
-                        inStock = katanaProduct.InStock,
-                        committed = katanaProduct.Committed,
-                        available = katanaProduct.Available,
-                        onHand = localProduct.Stock,
-                        salesPrice = localProduct.Price,
-                        costPrice = katanaProduct.CostPrice,
-                        isActive = localProduct.IsActive
-                    });
-                }
+                    id = localProduct?.Id.ToString() ?? katanaProduct.Id,
+                    katanaId = katanaProduct.Id,
+                    sku = localProduct?.SKU ?? katanaProduct.SKU,
+                    name = localProduct?.Name ?? katanaProduct.Name,
+                    category = katanaProduct.Category,
+                    unit = katanaProduct.Unit,
+                    inStock = katanaProduct.InStock,
+                    committed = katanaProduct.Committed,
+                    available = katanaProduct.Available,
+                    onHand = localProduct?.Stock ?? katanaProduct.OnHand,
+                    salesPrice = localProduct?.Price ?? katanaProduct.SalesPrice,
+                    costPrice = katanaProduct.CostPrice,
+                    isActive = localProduct?.IsActive ?? katanaProduct.IsActive,
+                    syncedToLocal = localProduct != null
+                });
             }
             
-            var totalLocal = result.Count;
-            var pagedLocal = result
+            var totalCount = result.Count;
+            var pagedResult = result
                 .Skip((pageNumber - 1) * pageSizeValue)
                 .Take(pageSizeValue)
                 .ToList();
             
             return Ok(new 
             { 
-                data = pagedLocal, 
-                count = totalLocal,
+                data = pagedResult, 
+                count = totalCount,
                 page = pageNumber,
                 pageSize = pageSizeValue,
-                totalPages = (int)Math.Ceiling(totalLocal / (double)pageSizeValue)
+                totalPages = (int)Math.Ceiling(totalCount / (double)pageSizeValue)
             });
         }
         catch (Exception ex)

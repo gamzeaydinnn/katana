@@ -44,7 +44,6 @@ import {
 import { useTheme } from "@mui/material/styles";
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
-import CategoryMappingPanel from "../Admin/CategoryMapping";
 import DataCorrectionPanel from "../Admin/DataCorrectionPanel";
 import FailedRecords from "../Admin/FailedRecords";
 import KatanaProducts from "../Admin/KatanaProducts";
@@ -703,20 +702,6 @@ const AdminPanel: React.FC = () => {
               Tedarikçi Yönetimi
             </Typography>
           </MenuItem>
-          <MenuItem
-            onClick={() => {
-              setActiveTab(14);
-              setMoreMenuAnchor(null);
-            }}
-            sx={overflowMenuItemSx}
-          >
-            <CompareArrowsIcon
-              sx={{ mr: 1.5, fontSize: 20, color: "#8b5cf6" }}
-            />
-            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
-              Kategori Mapping
-            </Typography>
-          </MenuItem>
         </Menu>
       </Paper>
 
@@ -1092,9 +1077,6 @@ const AdminPanel: React.FC = () => {
 
       {/* Tedarikçi Yönetimi */}
       {activeTab === 13 && <Suppliers />}
-
-      {/* Kategori Mapping */}
-      {activeTab === 14 && <CategoryMappingPanel />}
     </Container>
   );
 };
