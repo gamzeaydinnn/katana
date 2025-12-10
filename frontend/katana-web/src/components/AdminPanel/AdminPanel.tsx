@@ -41,6 +41,7 @@ import {
   Typography,
   useMediaQuery,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
 import CategoryMappingPanel from "../Admin/CategoryMapping";
@@ -58,6 +59,7 @@ import Suppliers from "../Admin/Suppliers";
 import Settings from "../Settings/Settings";
 import LogsViewer from "./LogsViewer";
 import UsersManagement from "./UsersManagement";
+import StatsCards from "./StatsCards";
 
 interface Statistics {
   totalProducts: number;
@@ -98,7 +100,8 @@ const AdminPanel: React.FC = () => {
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(
     null
   );
-  const isMobile = useMediaQuery("(max-width:900px)");
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const moreTabIndex = isMobile ? 2 : 5;
   const visibleTabThreshold = moreTabIndex - 1;
   const overflowTabActive = activeTab > visibleTabThreshold;
@@ -731,59 +734,56 @@ const AdminPanel: React.FC = () => {
             <PendingAdjustments />
           </Box>
 
-          {}
           {statistics && (
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: {
-                  xs: "1fr",
-                  sm: "repeat(2, 1fr)",
-                  md: "repeat(3, 1fr)",
-                  lg: "repeat(6, 1fr)",
-                },
-                gap: 3,
-                mb: 4,
-              }}
-            >
-              <StatCard
-                title="Toplam Ürün"
-                value={statistics.totalProducts}
-                icon={<Inventory />}
-                color="#1976d2"
-              />
-              <StatCard
-                title="Toplam Stok"
-                value={statistics.totalStock.toLocaleString("tr-TR")}
-                icon={<TrendingUp />}
-                color="#2e7d32"
-              />
-              <StatCard
-                title="Kritik Ürünler"
-                value={statistics.criticalProducts ?? 0}
-                icon={<ReportProblem />}
-                color="#f59e0b"
-              />
-              <StatCard
-                title="Toplam Değer"
-                value={`₺${(statistics.totalValue ?? 0).toLocaleString(
-                  "tr-TR",
-                  { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                )}`}
-                icon={<Receipt />}
-                color="#8b5cf6"
-              />
-              <StatCard
-                title="Başarılı Sync"
-                value={statistics.successfulSyncs}
-                icon={<CheckCircle />}
-                color="#388e3c"
-              />
-              <StatCard
-                title="Başarısız Sync"
-                value={statistics.failedSyncs}
-                icon={<ErrorIcon />}
-                color="#d32f2f"
+            <Box sx={{ mb: 4 }}>
+              <StatsCards
+                items={[
+                  {
+                    id: "total-products",
+                    label: "Toplam Ürün",
+                    value: statistics.totalProducts,
+                    icon: <Inventory />,
+                    tone: "primary",
+                  },
+                  {
+                    id: "total-stock",
+                    label: "Toplam Stok",
+                    value: statistics.totalStock.toLocaleString("tr-TR"),
+                    icon: <TrendingUp />,
+                    tone: "success",
+                  },
+                  {
+                    id: "critical-products",
+                    label: "Kritik Ürünler",
+                    value: statistics.criticalProducts ?? 0,
+                    icon: <ReportProblem />,
+                    tone: "warning",
+                  },
+                  {
+                    id: "total-value",
+                    label: "Toplam Değer",
+                    value: `₺${(statistics.totalValue ?? 0).toLocaleString(
+                      "tr-TR",
+                      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                    )}`,
+                    icon: <Receipt />,
+                    tone: "info",
+                  },
+                  {
+                    id: "successful-syncs",
+                    label: "Başarılı Sync",
+                    value: statistics.successfulSyncs,
+                    icon: <CheckCircle />,
+                    tone: "success",
+                  },
+                  {
+                    id: "failed-syncs",
+                    label: "Başarısız Sync",
+                    value: statistics.failedSyncs,
+                    icon: <ErrorIcon />,
+                    tone: "error",
+                  },
+                ]}
               />
             </Box>
           )}
