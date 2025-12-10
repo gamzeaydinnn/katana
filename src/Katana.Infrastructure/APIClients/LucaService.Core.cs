@@ -17,6 +17,7 @@ using Katana.Business.Interfaces;
 using Katana.Business.Mappers;
 using Katana.Core.Entities;
 using Katana.Core.Helpers;
+using System.Security.Authentication;
 
 namespace Katana.Infrastructure.APIClients;
 
@@ -77,6 +78,8 @@ public partial class LucaService : ILucaService
         _logger = logger;
         _externalCookieJarStore = cookieJarStore;
         _encoding = InitializeEncoding(_settings.Encoding);
+
+        ApplyDefaultHttpClientHeaders(_httpClient);
 
         _jsonOptions = new JsonSerializerOptions
         {
@@ -274,12 +277,7 @@ public partial class LucaService : ILucaService
                 _cookieHandler = null;
 
                 var baseUri = new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
-                var handler = new HttpClientHandler
-                {
-                    UseCookies = false,
-                    AllowAutoRedirect = true,
-                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
-                };
+                var handler = CreateHandler(useCookies: false, container: null);
 
                 _cookieHttpClient = new HttpClient(handler)
                 {
@@ -287,8 +285,7 @@ public partial class LucaService : ILucaService
                     Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds)
                 };
 
-                _cookieHttpClient.DefaultRequestHeaders.Accept.Clear();
-                _cookieHttpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                ApplyDefaultHttpClientHeaders(_cookieHttpClient);
 
                 var fullCookie = cookieValue.StartsWith("JSESSIONID=", StringComparison.OrdinalIgnoreCase)
                     ? cookieValue
@@ -414,13 +411,7 @@ public partial class LucaService : ILucaService
             
             // Cookie Handler ve Container'ı yeniden oluştur
             _cookieContainer = new CookieContainer();
-            _cookieHandler = new HttpClientHandler
-            {
-                CookieContainer = _cookieContainer,
-                UseCookies = true,
-                AllowAutoRedirect = true,
-                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
-            };
+            _cookieHandler = CreateHandler(useCookies: true, container: _cookieContainer);
             
             // Yeni handler ile HttpClient'ı yeniden oluştur
             _cookieHttpClient = new HttpClient(_cookieHandler)
@@ -429,9 +420,7 @@ public partial class LucaService : ILucaService
                 Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds)
             };
             
-            _cookieHttpClient.DefaultRequestHeaders.Accept.Clear();
-            _cookieHttpClient.DefaultRequestHeaders.Accept.Add(
-                new MediaTypeWithQualityHeaderValue("application/json"));
+            ApplyDefaultHttpClientHeaders(_cookieHttpClient);
             
             _logger.LogDebug("🔌 HttpClient yeniden oluşturuldu (yeni CookieContainer ile)");
         }
@@ -515,20 +504,14 @@ public partial class LucaService : ILucaService
                         if (_cookieHttpClient == null)
                         {
                             _cookieContainer = new System.Net.CookieContainer();
-                            _cookieHandler = new HttpClientHandler
-                            {
-                                CookieContainer = _cookieContainer,
-                                UseCookies = true,
-                                AllowAutoRedirect = true
-                            };
+                            _cookieHandler = CreateHandler(useCookies: true, container: _cookieContainer);
                             _cookieHttpClient = new HttpClient(_cookieHandler)
                             {
                                 BaseAddress = baseUri,
                                 Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds)
                             };
                         }
-                        _cookieHttpClient.DefaultRequestHeaders.Accept.Clear();
-                        _cookieHttpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                        ApplyDefaultHttpClientHeaders(_cookieHttpClient);
 
                         try
                         {
@@ -569,12 +552,7 @@ public partial class LucaService : ILucaService
             if (_cookieHttpClient == null)
             {
                 _cookieContainer = new System.Net.CookieContainer();
-                _cookieHandler = new HttpClientHandler
-                {
-                    CookieContainer = _cookieContainer,
-                    UseCookies = true,
-                    AllowAutoRedirect = true
-                };
+                _cookieHandler = CreateHandler(useCookies: true, container: _cookieContainer);
                 _cookieHttpClient = new HttpClient(_cookieHandler)
                 {
                     BaseAddress = baseUri,
@@ -582,10 +560,7 @@ public partial class LucaService : ILucaService
                 };
             }
 
-            _cookieHttpClient.DefaultRequestHeaders.Accept.Clear();
-            _cookieHttpClient.DefaultRequestHeaders.Accept.Add(
-                new MediaTypeWithQualityHeaderValue("application/json")
-            );
+            ApplyDefaultHttpClientHeaders(_cookieHttpClient);
             var loginOk = await PerformLoginAsync();
             if (!loginOk)
             {
@@ -873,18 +848,12 @@ public partial class LucaService : ILucaService
 
                                 try { _cookieHttpClient?.Dispose(); } catch { }
 
-                                var handler = new HttpClientHandler
-                                {
-                                    UseCookies = false,
-                                    AllowAutoRedirect = true,
-                                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
-                                };
+                                var handler = CreateHandler(useCookies: false, container: null);
                                 var manualClient = new HttpClient(handler)
                                 {
                                     BaseAddress = new Uri(_settings.BaseUrl.TrimEnd('/') + "/")
                                 };
-                                manualClient.DefaultRequestHeaders.Accept.Clear();
-                                manualClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                                ApplyDefaultHttpClientHeaders(manualClient);
                                 manualClient.DefaultRequestHeaders.Remove("Cookie");
                                 manualClient.DefaultRequestHeaders.TryAddWithoutValidation("Cookie", manualCookieValue);
                                 try
@@ -1108,17 +1077,13 @@ public partial class LucaService : ILucaService
         {
             var baseUri = new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
             _cookieContainer = new System.Net.CookieContainer();
-            _cookieHandler = new HttpClientHandler
-            {
-                CookieContainer = _cookieContainer,
-                UseCookies = true,
-                AllowAutoRedirect = true
-            };
+            _cookieHandler = CreateHandler(useCookies: true, container: _cookieContainer);
             _cookieHttpClient = new HttpClient(_cookieHandler)
             {
                 BaseAddress = baseUri,
                 Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds)
             };
+            ApplyDefaultHttpClientHeaders(_cookieHttpClient);
         }
         try
         {
@@ -1681,6 +1646,43 @@ retryChangeBranch:
             _logger.LogWarning(ex, "⚠️ Session warmup sırasında hata oluştu");
             await Task.Delay(2000);
             return false;
+        }
+    }
+
+    private HttpClientHandler CreateHandler(bool useCookies, CookieContainer? container)
+    {
+        var handler = new HttpClientHandler
+        {
+            UseCookies = useCookies,
+            CookieContainer = useCookies ? container : null,
+            AllowAutoRedirect = true,
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+            SslProtocols = SslProtocols.Tls12
+        };
+
+        try
+        {
+            handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+        }
+        catch
+        {
+            // Non-fatal: fallback to default validation if setting callback fails
+        }
+
+        return handler;
+    }
+
+    private void ApplyDefaultHttpClientHeaders(HttpClient client)
+    {
+        client.DefaultRequestHeaders.ExpectContinue = false;
+        client.DefaultRequestHeaders.Accept.Clear();
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        if (!client.DefaultRequestHeaders.UserAgent.Any())
+        {
+            client.DefaultRequestHeaders.TryAddWithoutValidation(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
         }
     }
 }

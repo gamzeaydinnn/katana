@@ -685,6 +685,95 @@ public sealed class KozaSupplierListItemDto
 
 #endregion
 
+#region Koza Müşteri Listeleme DTO (ListeleFinMusteri.do)
+
+/// <summary>
+/// Koza müşteri listeleme DTO (ListeleFinMusteri.do)
+/// Gerçek Koza JSON alan adlarıyla birebir uyumlu
+/// </summary>
+public sealed class KozaMusteriDto
+{
+    [JsonPropertyName("finansalNesneId")]
+    public long FinansalNesneId { get; set; }
+
+    [JsonPropertyName("cariTipId")]
+    public int CariTipId { get; set; }
+
+    [JsonPropertyName("tip")]
+    public int Tip { get; set; }
+
+    [JsonPropertyName("kartKod")]
+    public string KartKod { get; set; } = string.Empty;
+
+    [JsonPropertyName("tanim")]
+    public string Tanim { get; set; } = string.Empty;
+
+    [JsonPropertyName("kisaAd")]
+    public string KisaAd { get; set; } = string.Empty;
+
+    [JsonPropertyName("yasalUnvan")]
+    public string YasalUnvan { get; set; } = string.Empty;
+
+    [JsonPropertyName("paraBirimKod")]
+    public string ParaBirimKod { get; set; } = string.Empty;
+
+    [JsonPropertyName("kategoriKod")]
+    public string KategoriKod { get; set; } = string.Empty;
+
+    [JsonPropertyName("vergiDairesi")]
+    public string? VergiDairesi { get; set; }
+
+    [JsonPropertyName("vergiNo")]
+    public string? VergiNo { get; set; }
+
+    [JsonPropertyName("tcKimlikNo")]
+    public string? TcKimlikNo { get; set; }
+
+    [JsonPropertyName("aktifFlag")]
+    public bool AktifFlag { get; set; }
+
+    [JsonPropertyName("birincilFaturaAdres")]
+    public KozaMusteriAdresDto? BirincilFaturaAdres { get; set; }
+
+    [JsonPropertyName("iletisimBilgileri")]
+    public List<KozaIletisimDto> IletisimBilgileri { get; set; } = new();
+}
+
+/// <summary>
+/// Koza müşteri fatura adres DTO
+/// </summary>
+public sealed class KozaMusteriAdresDto
+{
+    [JsonPropertyName("adresTipId")]
+    public int AdresTipId { get; set; }
+
+    [JsonPropertyName("adresSerbest")]
+    public string AdresSerbest { get; set; } = string.Empty;
+
+    [JsonPropertyName("il")]
+    public string Il { get; set; } = string.Empty;
+
+    [JsonPropertyName("ilce")]
+    public string Ilce { get; set; } = string.Empty;
+
+    [JsonPropertyName("ulke")]
+    public string Ulke { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Koza müşteri iletişim DTO
+/// </summary>
+public sealed class KozaIletisimDto
+{
+    [JsonPropertyName("iletisimTipId")]
+    public int IletisimTipId { get; set; }
+
+    [JsonPropertyName("iletisimTanim")]
+    public string IletisimTanim { get; set; } = string.Empty;
+}
+
+#endregion
+
 #region Koza Customer List DTO
 
 /// <summary>

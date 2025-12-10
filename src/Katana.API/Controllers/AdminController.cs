@@ -159,12 +159,31 @@ public class AdminController : ControllerBase
             var totalProducts = products.Count;
             var activeProducts = products.Count(p => p.IsActive);
 
+            // Kritik ürünler (stok < 10)
+            var criticalProducts = products.Count(p => p.IsActive && (p.InStock ?? 0) < 10);
+
+            // Toplam değer hesaplama
+            var totalValue = products
+                .Where(p => p.IsActive)
+                .Sum(p => (p.InStock ?? 0) * p.Price);
+
+            // Son 24 saatteki sync loglarını al
+            var last24Hours = DateTime.UtcNow.AddHours(-24);
+            var recentSyncs = await _context.SyncOperationLogs
+                .Where(l => l.StartTime >= last24Hours)
+                .ToListAsync();
+
+            var successfulSyncs = recentSyncs.Count(s => s.Status == "SUCCESS" || s.Status == "COMPLETED");
+            var failedSyncs = recentSyncs.Count(s => s.Status != "SUCCESS" && s.Status != "COMPLETED" && !string.IsNullOrEmpty(s.Status));
+
             return Ok(new
             {
                 totalProducts,
                 totalStock = activeProducts,
-                successfulSyncs = 0,
-                failedSyncs = 0
+                criticalProducts,
+                totalValue,
+                successfulSyncs,
+                failedSyncs
             });
         }
         catch (Exception ex)

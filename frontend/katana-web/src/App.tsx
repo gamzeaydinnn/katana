@@ -1,18 +1,18 @@
 import {
-    Box,
-    CssBaseline,
-    ThemeProvider,
-    Toolbar,
-    useMediaQuery,
+  Box,
+  CssBaseline,
+  ThemeProvider,
+  Toolbar,
+  useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import BranchSelector, { Branch } from "./components/Luca/BranchSelector";
 import {
-    getBranchList,
-    loginToLuca,
-    selectBranch,
+  getBranchList,
+  loginToLuca,
+  selectBranch,
 } from "./services/authService";
 
 import AdminPanel from "./components/AdminPanel/AdminPanel";
@@ -192,16 +192,27 @@ const App: React.FC = () => {
                         sx={{
                           flexGrow: 1,
                           bgcolor: "transparent",
-                          p: { xs: 2, sm: 3, md: 4 },
+                          p: { xs: 1, sm: 2, md: 3, lg: 4 },
                           transition: "all 0.3s ease",
                           minHeight: "100vh",
                           display: "flex",
                           flexDirection: "column",
                           alignItems: "flex-start",
+                          width: "100%",
+                          maxWidth: "100%",
+                          overflowX: "hidden",
+                          boxSizing: "border-box",
                         }}
                       >
                         <Toolbar />
-                        <Box sx={{ width: "100%", maxWidth: "1440px", mx: 0 }}>
+                        <Box
+                          sx={{
+                            width: "100%",
+                            maxWidth: "1440px",
+                            mx: 0,
+                            boxSizing: "border-box",
+                          }}
+                        >
                           <Routes>
                             <Route path="/" element={<Dashboard />} />
                             <Route
