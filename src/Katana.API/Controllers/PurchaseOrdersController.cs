@@ -28,6 +28,7 @@ public class PurchaseOrdersController : ControllerBase
     private readonly IMemoryCache _cache;
     private readonly ILogger<PurchaseOrdersController> _logger;
     private readonly IHubContext<NotificationHub> _hubContext;
+    private readonly IKatanaService _katanaService;
 
     public PurchaseOrdersController(
         IntegrationDbContext context,
@@ -36,7 +37,8 @@ public class PurchaseOrdersController : ControllerBase
         IAuditService auditService,
         IMemoryCache cache,
         ILogger<PurchaseOrdersController> logger,
-        IHubContext<NotificationHub> hubContext)
+        IHubContext<NotificationHub> hubContext,
+        IKatanaService katanaService)
     {
         _context = context;
         _lucaService = lucaService;
@@ -45,6 +47,7 @@ public class PurchaseOrdersController : ControllerBase
         _cache = cache;
         _logger = logger;
         _hubContext = hubContext;
+        _katanaService = katanaService;
     }
 
     // ===== LIST & DETAIL ENDPOINTS =====
@@ -339,6 +342,12 @@ public class PurchaseOrdersController : ControllerBase
             var lucaInvoiceRequest = MappingHelper.MapToLucaInvoiceFromPurchaseOrder(order, order.Supplier);
 
             _loggingService.LogInfo($"Luca'ya satınalma faturası gönderiliyor: {order.OrderNo}", "PurchaseOrderInvoiceSync");
+
+            // ❌ KALDIRILDI: ForceSessionRefreshAsync() çok uzun sürüyor
+            // SendInvoiceAsync içinde zaten HTML response kontrolü ve retry var
+            // Session gerekirse otomatik yenilenecek
+            
+            _logger.LogInformation("📤 Fatura gönderiliyor: {OrderNo}", order.OrderNo);
 
             // Call Luca API to create invoice
             var syncResult = await _lucaService.SendInvoiceAsync(lucaInvoiceRequest);
@@ -646,6 +655,103 @@ public class PurchaseOrdersController : ControllerBase
         var oldStatus = order.Status;
         order.Status = request.NewStatus;
         order.UpdatedAt = DateTime.UtcNow;
+
+        // 🔥 KRİTİK: "Approved" durumuna geçildiğinde KATANA'YA ÜRÜN EKLE/GÜNCELLE
+        if (request.NewStatus == PurchaseOrderStatus.Approved && oldStatus != PurchaseOrderStatus.Approved)
+        {
+            _logger.LogInformation("✅ Sipariş onaylandı, Katana'ya ürünler ekleniyor/güncelleniyor: {OrderNo}", order.OrderNo);
+
+            // Arka planda Katana'ya ürün ekle/güncelle
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(1000); // 1 saniye bekle (DB commit olsun)
+                    
+                    foreach (var item in order.Items)
+                    {
+                        if (item.Product == null)
+                        {
+                            _logger.LogWarning("⚠️ Ürün bulunamadı: ProductId={ProductId}, atlanıyor", item.ProductId);
+                            continue;
+                        }
+
+                        try
+                        {
+                            // Önce Katana'da ürün var mı kontrol et
+                            var existingProduct = await _katanaService.GetProductBySkuAsync(item.Product.SKU);
+                            
+                            if (existingProduct != null)
+                            {
+                                // Ürün varsa güncelle (stok artışı)
+                                _logger.LogInformation("🔄 Katana'da ürün bulundu, güncelleniyor: {SKU}", item.Product.SKU);
+                                
+                                if (!int.TryParse(existingProduct.Id, out var katanaProductId))
+                                {
+                                    _logger.LogWarning("⚠️ Katana ürün ID sayısal değil: {Id}, SKU={SKU}", existingProduct.Id, item.Product.SKU);
+                                    continue;
+                                }
+
+                                var newStock = (existingProduct.InStock ?? 0) + item.Quantity;
+                                var updated = await _katanaService.UpdateProductAsync(
+                                    katanaProductId,
+                                    existingProduct.Name,
+                                    existingProduct.SalesPrice,
+                                    (int)newStock
+                                );
+                                
+                                if (updated)
+                                {
+                                    _logger.LogInformation("✅ Katana ürün güncellendi: {SKU}, Yeni Stok: {Stock}", 
+                                        item.Product.SKU, newStock);
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("⚠️ Katana ürün güncellenemedi: {SKU}", item.Product.SKU);
+                                }
+                            }
+                            else
+                            {
+                                // Ürün yoksa oluştur
+                                _logger.LogInformation("➕ Katana'da ürün yok, oluşturuluyor: {SKU}", item.Product.SKU);
+                                
+                                var newProduct = new KatanaProductDto
+                                {
+                                    Name = item.Product.Name,
+                                    SKU = item.Product.SKU,
+                                    SalesPrice = item.UnitPrice,
+                                    InStock = item.Quantity,
+                                    Description = item.Product.Description,
+                                    IsActive = true
+                                };
+                                
+                                var created = await _katanaService.CreateProductAsync(newProduct);
+                                
+                                if (created != null)
+                                {
+                                    _logger.LogInformation("✅ Katana ürün oluşturuldu: {SKU}, Stok: {Stock}", 
+                                        item.Product.SKU, item.Quantity);
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("⚠️ Katana ürün oluşturulamadı: {SKU}", item.Product.SKU);
+                                }
+                            }
+                        }
+                        catch (Exception itemEx)
+                        {
+                            _logger.LogError(itemEx, "❌ Katana ürün sync hatası: {SKU}", item.Product.SKU);
+                        }
+                    }
+                    
+                    _logger.LogInformation("✅ Katana ürün sync tamamlandı: {OrderNo}", order.OrderNo);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "❌ Katana ürün sync genel hatası: {OrderNo}", order.OrderNo);
+                }
+            });
+        }
 
         // 🔥 KRİTİK: "Received" durumuna geçildiğinde STOK ARTIŞI yap
         if (request.NewStatus == PurchaseOrderStatus.Received && oldStatus != PurchaseOrderStatus.Received)

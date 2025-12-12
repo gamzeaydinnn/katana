@@ -1,5 +1,6 @@
 import {
   Add as AddIcon,
+  CloudDownload as CloudDownloadIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
   Visibility as ViewIcon,
@@ -165,6 +166,28 @@ const Suppliers: React.FC = () => {
     }
   }, [page, rowsPerPage]);
 
+  const importSuppliersFromKatana = async () => {
+    try {
+      setLoading(true);
+      await api.post("/suppliers/import-from-katana");
+      await fetchSuppliers();
+      setSnackbar({
+        open: true,
+        message: "Katana tedarikçileri içe aktarıldı",
+        severity: "success",
+      });
+    } catch (err) {
+      console.error("Failed to import suppliers from Katana:", err);
+      setSnackbar({
+        open: true,
+        message: "Katana tedarikçileri içe aktarılamadı",
+        severity: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreateSupplier = async () => {
     if (!validateForm()) {
       setSnackbar({
@@ -323,14 +346,25 @@ const Suppliers: React.FC = () => {
             Tedarikçileri görüntüleyin, oluşturun ve yönetin
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={handleOpenDialog}
-        >
-          Yeni Tedarikçi
-        </Button>
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<CloudDownloadIcon />}
+            onClick={importSuppliersFromKatana}
+            disabled={loading}
+          >
+            Katana'dan Çek
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={handleOpenDialog}
+          >
+            Yeni Tedarikçi
+          </Button>
+        </Box>
       </Box>
 
       {/* Suppliers Table */}

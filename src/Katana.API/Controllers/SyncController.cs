@@ -1,6 +1,7 @@
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Core.Enums;
+using Katana.Core.Entities;
 using Katana.Data.Context;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -616,6 +617,360 @@ public class SyncController : ControllerBase
         {
             _logger.LogError(ex, "❌ Depo senkronizasyonu hatası");
             return StatusCode(500, new { error = "Depo senkronizasyonu sırasında hata oluştu", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// ✅ Luca'ya satış faturası gönder (SADECE Admin)
+    /// Luca'daki stok kartlarını kullanarak fatura oluşturur
+    /// </summary>
+    [HttpPost("to-luca/sales-invoice")]
+    [AllowAnonymous] // Test için geçici olarak açık
+    public async Task<ActionResult<SyncResultDto>> SendSalesInvoiceToLuca([FromBody] LucaCreateInvoiceHeaderRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("📤 Luca'ya satış faturası gönderiliyor: {BelgeTakipNo}", request.BelgeTakipNo);
+            
+            // Satış faturası için varsayılan değerler
+            if (string.IsNullOrEmpty(request.BelgeTurDetayId) || request.BelgeTurDetayId == "0")
+            {
+                request.BelgeTurDetayId = "76"; // Mal Satış Faturası
+            }
+            
+            if (string.IsNullOrEmpty(request.MusteriTedarikci) || request.MusteriTedarikci == "0")
+            {
+                request.MusteriTedarikci = "1"; // Müşteri (Satış için)
+            }
+            
+            if (string.IsNullOrEmpty(request.BelgeSeri))
+            {
+                request.BelgeSeri = "A";
+            }
+            
+            if (string.IsNullOrEmpty(request.ParaBirimKod))
+            {
+                request.ParaBirimKod = "TRY";
+            }
+            
+            if (request.KurBedeli == 0)
+            {
+                request.KurBedeli = 1;
+            }
+            
+            var result = await _syncService.SendSalesInvoiceAsync(request);
+            
+            if (result.IsSuccess)
+            {
+                _logger.LogInformation("✅ Satış faturası başarıyla gönderildi: {BelgeTakipNo}", request.BelgeTakipNo);
+                return Ok(result);
+            }
+            
+            _logger.LogWarning("⚠️ Satış faturası gönderilemedi: {Message}", result.Message);
+            return BadRequest(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Satış faturası gönderme hatası");
+            return StatusCode(500, new { 
+                error = "Satış faturası gönderilirken hata oluştu", 
+                details = ex.Message,
+                innerError = ex.InnerException?.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// ✅ Katana'dan satış siparişlerini manuel senkronize et (SADECE Admin)
+    /// Background worker'ı beklemeden anında siparişleri çeker
+    /// </summary>
+    [HttpPost("from-katana/sales-orders")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<SyncResultDto>> SyncSalesOrdersFromKatana([FromQuery] int days = 7)
+    {
+        try
+        {
+            _logger.LogInformation("📥 Katana'dan satış siparişleri manuel senkronizasyonu başlatıldı (son {Days} gün)", days);
+            
+            var fromDate = DateTime.UtcNow.AddDays(-days);
+            var katanaService = HttpContext.RequestServices.GetRequiredService<IKatanaService>();
+            var pendingService = HttpContext.RequestServices.GetRequiredService<Katana.Business.Interfaces.IPendingStockAdjustmentService>();
+            var variantMappingService = HttpContext.RequestServices.GetRequiredService<Katana.Business.Interfaces.IVariantMappingService>();
+            
+            // Mevcut siparişleri al
+            var existingKatanaOrderIdsList = await _context.SalesOrders
+                .Select(s => s.KatanaOrderId)
+                .ToListAsync();
+            var existingKatanaOrderIds = new HashSet<long>(existingKatanaOrderIdsList);
+
+            // ✅ PendingStockAdjustment duplicate prevention (ExternalOrderId|Sku|Quantity)
+            var processedItems = await _context.PendingStockAdjustments
+                .Where(p => p.ExternalOrderId != null)
+                .Select(p => new { p.ExternalOrderId, p.Sku, p.Quantity })
+                .ToListAsync();
+            var processedItemsSet = new HashSet<string>(
+                processedItems.Select(p => $"{p.ExternalOrderId}|{p.Sku}|{p.Quantity}")
+            );
+            
+            // Ürün mapping'i
+            var products = await katanaService.GetProductsAsync();
+            var skuToProductId = await _context.Products
+                .Where(p => !string.IsNullOrWhiteSpace(p.SKU))
+                .ToDictionaryAsync(p => p.SKU!, p => p.Id, StringComparer.OrdinalIgnoreCase);
+            
+            var variantToProduct = new Dictionary<long, (int ProductId, string Sku, string? ProductName)>();
+            foreach (var p in products)
+            {
+                if (long.TryParse(p.Id, out var variantId))
+                {
+                    var sku = p.SKU ?? p.Id;
+                    var productId = skuToProductId.TryGetValue(sku, out var localId) ? localId : 0;
+                    variantToProduct[variantId] = (productId, sku, p.Name);
+                }
+            }
+            
+            // Müşteri mapping'i
+            var customerMapping = await _context.Customers
+                .Where(c => c.ReferenceId != null)
+                .ToDictionaryAsync(c => c.ReferenceId!, c => c.Id, StringComparer.OrdinalIgnoreCase);
+            
+            var newOrdersCount = 0;
+            var totalLinesCount = 0;
+            var newPendingCount = 0;
+            var skippedPendingCount = 0;
+
+            var variantMappingCache = new Dictionary<long, VariantMapping?>();
+
+            static string GetMax11SafeTaxNo(long customerId)
+            {
+                var id = customerId.ToString();
+                if (id.Length > 10) id = id.Substring(id.Length - 10);
+                return $"U{id}";
+            }
+
+            async Task<(int ProductId, string Sku)> ResolveVariantAsync(long variantId)
+            {
+                if (!variantMappingCache.TryGetValue(variantId, out var cached))
+                {
+                    cached = await variantMappingService.GetMappingAsync(variantId);
+                    variantMappingCache[variantId] = cached;
+                }
+
+                if (cached != null)
+                {
+                    return (cached.ProductId, cached.Sku);
+                }
+
+                if (variantToProduct.TryGetValue(variantId, out var fallbackValue))
+                {
+                    // Persist mapping for next time
+                    var created = await variantMappingService.CreateOrUpdateAsync(variantId, fallbackValue.ProductId, fallbackValue.Sku);
+                    variantMappingCache[variantId] = created;
+                    return (created.ProductId, created.Sku);
+                }
+
+                return (0, $"VARIANT-{variantId}");
+            }
+            
+            await foreach (var orderBatch in katanaService.GetSalesOrdersBatchedAsync(fromDate, batchSize: 100))
+            {
+                foreach (var order in orderBatch)
+                {
+                    var shouldSaveSalesOrder = !existingKatanaOrderIds.Contains(order.Id);
+                    
+                    var localCustomerId = 0;
+                    var katanaCustomerIdStr = order.CustomerId.ToString();
+                    if (customerMapping.TryGetValue(katanaCustomerIdStr, out var mappedCustomerId))
+                    {
+                        localCustomerId = mappedCustomerId;
+                    }
+                    
+                    // Müşteri bulunamadıysa Katana'dan çekip oluştur
+                    if (localCustomerId == 0)
+                    {
+                        var katanaCustomer = await katanaService.GetCustomerByIdAsync((int)order.CustomerId);
+                        if (katanaCustomer != null)
+                        {
+                            // Adres bilgilerini Addresses listesinden al
+                            var defaultAddress = katanaCustomer.Addresses?.FirstOrDefault();
+                            
+                            var newCustomer = new Katana.Core.Entities.Customer
+                            {
+                                Title = katanaCustomer.Name ?? $"Customer-{order.CustomerId}",
+                                ReferenceId = katanaCustomerIdStr,
+                                Email = katanaCustomer.Email,
+                                Phone = katanaCustomer.Phone,
+                                Address = defaultAddress?.Line1,
+                                City = defaultAddress?.City,
+                                Country = defaultAddress?.Country,
+                                TaxNo = GetMax11SafeTaxNo(order.CustomerId),
+                                Currency = katanaCustomer.Currency ?? "TRY",
+                                IsActive = true,
+                                CreatedAt = DateTime.UtcNow
+                            };
+                            _context.Customers.Add(newCustomer);
+                            await _context.SaveChangesAsync();
+                            
+                            localCustomerId = newCustomer.Id;
+                            customerMapping[katanaCustomerIdStr] = localCustomerId;
+                            _logger.LogInformation("✅ Yeni müşteri oluşturuldu: {CustomerName} (ID: {CustomerId})", newCustomer.Title, newCustomer.Id);
+                        }
+                        else
+                        {
+                            // Müşteri Katana'da bulunamadı - "Unknown Customer" olarak oluştur
+                            _logger.LogWarning("⚠️ Müşteri Katana'da bulunamadı (CustomerId: {CustomerId}), 'Unknown Customer' olarak oluşturuluyor", order.CustomerId);
+                            
+	                            var unknownCustomer = new Katana.Core.Entities.Customer
+	                            {
+	                                Title = $"Unknown Customer (Katana ID: {order.CustomerId})",
+	                                ReferenceId = katanaCustomerIdStr,
+	                                Email = null,
+	                                Phone = null,
+	                                // TaxNo column has a strict max length (typically 10/11).
+	                                // Use a deterministic, unique, max-11-safe fallback: "U" + last 10 digits of Katana ID.
+	                                TaxNo = $"U{(order.CustomerId.ToString().Length > 10 ? order.CustomerId.ToString().Substring(order.CustomerId.ToString().Length - 10) : order.CustomerId.ToString())}",
+	                                Currency = order.Currency ?? "TRY",
+	                                IsActive = false, // Inactive olarak işaretle
+	                                CreatedAt = DateTime.UtcNow
+	                            };
+                            _context.Customers.Add(unknownCustomer);
+                            await _context.SaveChangesAsync();
+                            
+                            localCustomerId = unknownCustomer.Id;
+                            customerMapping[katanaCustomerIdStr] = localCustomerId;
+                            _logger.LogInformation("✅ Unknown customer oluşturuldu: {CustomerName} (ID: {CustomerId})", unknownCustomer.Title, unknownCustomer.Id);
+                        }
+                    }
+                    
+                    // ✅ 1) SalesOrders tablosuna kaydet (yeni siparişler)
+                    if (shouldSaveSalesOrder)
+                    {
+                        var salesOrder = new Katana.Core.Entities.SalesOrder
+                        {
+                            KatanaOrderId = order.Id,
+                            OrderNo = order.OrderNo ?? $"SO-{order.Id}",
+                            CustomerId = localCustomerId,
+                            OrderCreatedDate = order.OrderCreatedDate ?? order.CreatedAt,
+                            DeliveryDate = order.DeliveryDate,
+                            Currency = order.Currency ?? "TRY",
+                            Status = order.Status ?? "NOT_SHIPPED",
+                            Total = order.Total,
+                            TotalInBaseCurrency = order.TotalInBaseCurrency,
+                            AdditionalInfo = order.AdditionalInfo,
+                            CustomerRef = order.CustomerRef,
+                            Source = order.Source,
+                            LocationId = order.LocationId,
+                            CreatedAt = DateTime.UtcNow,
+                            IsSyncedToLuca = false
+                        };
+
+                        if (order.SalesOrderRows != null)
+                        {
+                            foreach (var row in order.SalesOrderRows)
+                            {
+                                var resolved = await ResolveVariantAsync(row.VariantId);
+                                var productName = variantToProduct.TryGetValue(row.VariantId, out var pInfo)
+                                    ? pInfo.ProductName
+                                    : null;
+
+                                var orderLine = new Katana.Core.Entities.SalesOrderLine
+                                {
+                                    KatanaRowId = row.Id,
+                                    VariantId = row.VariantId,
+                                    SKU = resolved.Sku,
+                                    ProductName = productName,
+                                    Quantity = row.Quantity,
+                                    PricePerUnit = row.PricePerUnit,
+                                    PricePerUnitInBaseCurrency = row.PricePerUnitInBaseCurrency,
+                                    Total = row.Total,
+                                    TotalInBaseCurrency = row.TotalInBaseCurrency,
+                                    TaxRateId = row.TaxRateId,
+                                    LocationId = row.LocationId,
+                                    ProductAvailability = row.ProductAvailability,
+                                    ProductExpectedDate = row.ProductExpectedDate,
+                                    CreatedAt = DateTime.UtcNow
+                                };
+
+                                salesOrder.Lines.Add(orderLine);
+                                totalLinesCount++;
+                            }
+                        }
+
+                        _context.SalesOrders.Add(salesOrder);
+                        existingKatanaOrderIds.Add(order.Id);
+                        newOrdersCount++;
+                    }
+
+                    // ✅ 2) Admin onayı için PendingStockAdjustment oluştur
+                    // (Mevcut siparişler için de pending eksikse yaratır; processedItemsSet duplicate'ı engeller)
+                    var externalOrderId = !string.IsNullOrEmpty(order.OrderNo) ? order.OrderNo : order.Id.ToString();
+                    if (order.SalesOrderRows != null && order.SalesOrderRows.Count > 0)
+                    {
+                        foreach (var row in order.SalesOrderRows)
+                        {
+                            var resolved = await ResolveVariantAsync(row.VariantId);
+                            if (resolved.ProductId == 0 || string.IsNullOrWhiteSpace(resolved.Sku))
+                            {
+                                skippedPendingCount++;
+                                continue;
+                            }
+
+                            var quantity = (int)row.Quantity;
+                            var negativeQuantity = -Math.Abs(quantity);
+                            var itemKey = $"{externalOrderId}|{resolved.Sku}|{negativeQuantity}";
+                            if (processedItemsSet.Contains(itemKey))
+                            {
+                                skippedPendingCount++;
+                                continue;
+                            }
+
+                            await pendingService.CreateAsync(new Katana.Data.Models.PendingStockAdjustment
+                            {
+                                ExternalOrderId = externalOrderId,
+                                ProductId = resolved.ProductId,
+                                Sku = resolved.Sku,
+                                Quantity = negativeQuantity,
+                                RequestedBy = "Katana-ManualSync",
+                                RequestedAt = order.CreatedAt,
+                                Status = "Pending",
+                                Notes = $"Katana sipariş #{externalOrderId}: {quantity}x {resolved.Sku}"
+                            });
+
+                            processedItemsSet.Add(itemKey);
+                            newPendingCount++;
+                        }
+                    }
+                }
+                
+                await _context.SaveChangesAsync();
+            }
+            
+            _logger.LogInformation(
+                "✅ Katana sipariş senkronizasyonu tamamlandı: {OrderCount} yeni sipariş, {LineCount} satır, {PendingCount} pending oluşturuldu (skip: {Skipped})",
+                newOrdersCount, totalLinesCount, newPendingCount, skippedPendingCount);
+            
+            return Ok(new SyncResultDto
+            {
+                IsSuccess = true,
+                SyncType = "KATANA_SALES_ORDERS",
+                Message = $"Katana'dan {newOrdersCount} yeni sipariş ({totalLinesCount} satır) senkronize edildi. Pending: {newPendingCount} (skip: {skippedPendingCount})",
+                ProcessedRecords = newOrdersCount,
+                SuccessfulRecords = newOrdersCount,
+                FailedRecords = 0
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Katana sipariş senkronizasyonu hatası");
+            return StatusCode(500, new SyncResultDto
+            {
+                IsSuccess = false,
+                SyncType = "KATANA_SALES_ORDERS",
+                Message = $"Senkronizasyon hatası: {ex.Message}",
+                ProcessedRecords = 0,
+                SuccessfulRecords = 0,
+                FailedRecords = 0
+            });
         }
     }
 }

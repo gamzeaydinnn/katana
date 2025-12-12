@@ -82,6 +82,18 @@ public partial class LucaService : ILucaService
     };
     private const int KozaThrottleMinDelayMs = 350;
     private const int KozaThrottleMaxDelayMs = 1000;
+    private string CookieJarKey =>
+        string.IsNullOrWhiteSpace(_settings.BaseUrl) ? "LucaCookieJar:default" : $"LucaCookieJar:{_settings.BaseUrl.Trim()}";
+
+    private System.Net.CookieContainer GetOrCreateSharedCookieContainer()
+    {
+        if (_externalCookieJarStore != null)
+        {
+            return _externalCookieJarStore.GetOrCreate(CookieJarKey);
+        }
+
+        return _cookieContainer ??= new System.Net.CookieContainer();
+    }
     public LucaService(HttpClient httpClient, IOptions<LucaApiSettings> settings, ILogger<LucaService> logger, Katana.Core.Interfaces.ILucaCookieJarStore? cookieJarStore = null)
     {
         _httpClient = httpClient;
@@ -91,6 +103,8 @@ public partial class LucaService : ILucaService
         _encoding = InitializeEncoding(_settings.Encoding);
 
         ApplyDefaultHttpClientHeaders(_httpClient);
+        // Share session cookies across transient LucaService instances to avoid re-login storms.
+        _cookieContainer = _externalCookieJarStore?.GetOrCreate(CookieJarKey);
 
         _jsonOptions = new JsonSerializerOptions
         {
@@ -100,38 +114,13 @@ public partial class LucaService : ILucaService
         };
         try
         {
-            _cookieRefreshCts = new CancellationTokenSource();
-            var cts = _cookieRefreshCts;
-            Task.Run(async () =>
-            {
-                var token = cts.Token;
-                while (!token.IsCancellationRequested)
-                {
-                    try
-                    {
-                        _logger.LogDebug("Cookie refresh: ensuring authentication and branch selection");
-                        await EnsureAuthenticatedAsync();
-                        await EnsureBranchSelectedAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Cookie refresh encountered an error");
-                    }
-
-                    try
-                    {
-                        await Task.Delay(TimeSpan.FromMinutes(25), token);
-                    }
-                    catch (TaskCanceledException)
-                    {
-                        break;
-                    }
-                }
-            }, cts.Token);
+            // LucaService is created via HttpClientFactory (transient).
+            // Starting a per-instance background auth refresh loop causes authentication storms.
+            // Authentication is handled on-demand by EnsureAuthenticatedAsync and by explicit workers/controllers when needed.
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to start cookie refresh loop");
+            _logger.LogDebug(ex, "Cookie refresh loop not started");
         }
     }
     private string UrlEncodeCp1254(string value)
@@ -378,16 +367,16 @@ public partial class LucaService : ILucaService
     /// Session'ı tamamen yeniler - tüm cookie state'i temizler ve yeniden login yapar.
     /// HTML response alındığında veya session timeout durumunda kullanılır.
     /// </summary>
-    private async Task ForceSessionRefreshAsync()
+    public async Task ForceSessionRefreshAsync()
     {
-        _logger.LogWarning("🔄 ForceSessionRefreshAsync: Tüm session state temizleniyor...");
+        _logger.LogWarning("🔄 ForceSessionRefreshAsync: Session yenileniyor (HIZLI MOD)...");
         
-        // 1. Tüm session state'i temizle
+        // 1. Session state'i tamamen temizle (cooldown dahil!)
         _isCookieAuthenticated = false;
         _sessionCookie = null;
         _manualJSessionId = null;
         _cookieExpiresAt = null;
-        _lastSuccessfulAuthAt = null;
+        _lastSuccessfulAuthAt = null; // Cooldown'ı bypass et
         
         // 2. Cookie container'ı temizle
         if (_cookieContainer != null)
@@ -400,76 +389,18 @@ public partial class LucaService : ILucaService
                 {
                     cookie.Expired = true;
                 }
-                _logger.LogDebug("🍪 Cookie container temizlendi");
             }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Cookie container temizleme hatası");
-            }
+            catch { }
         }
         
-        // 3. HttpClient'ı YENİDEN OLUŞTUR (DISPOSE ETME - DI tarafından yönetiliyor!)
-        // ❌ ESKI KOD: _cookieHttpClient?.Dispose() → ObjectDisposedException'a sebep oluyor!
-        // ✅ YENİ KOD: Sadece referansları temizle, client'ı öldürme
-        try
-        {
-            // HttpClient'ın kendisine DOKUNMA, sadece DefaultHeaders'ları temizle
-            if (_cookieHttpClient != null)
-            {
-                _cookieHttpClient.DefaultRequestHeaders.Clear();
-                _logger.LogDebug("🧹 HttpClient headers temizlendi (Client dispose EDİLMEDİ!)");
-            }
-            
-            // Cookie Handler ve Container'ı yeniden oluştur
-            _cookieContainer = new CookieContainer();
-            _cookieHandler = CreateHandler(useCookies: true, container: _cookieContainer);
-            
-            // Yeni handler ile HttpClient'ı yeniden oluştur
-            _cookieHttpClient = new HttpClient(_cookieHandler)
-            {
-                BaseAddress = new Uri(_settings.BaseUrl.TrimEnd('/') + "/"),
-                Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds)
-            };
-            
-            ApplyDefaultHttpClientHeaders(_cookieHttpClient);
-            
-            _logger.LogDebug("🔌 HttpClient yeniden oluşturuldu (yeni CookieContainer ile)");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "HttpClient yenileme hatası");
-        }
-        
-        // 4. Yeniden login yap
+        // 3. Yeniden login yap
         _logger.LogInformation("🔑 Yeniden login yapılıyor...");
         await EnsureAuthenticatedAsync();
         
-        // 5. Branch seçimini garanti et
-        _logger.LogDebug("🏢 Branch seçimi kontrol ediliyor...");
+        // 4. Branch seçimi
         await EnsureBranchSelectedAsync();
         
-        // 6. 🔥 SESSION WARMUP: Struts framework'ünü uyandır
-        _logger.LogDebug("🔥 Session warmup başlatılıyor (ForceSessionRefresh sonrası)...");
-        try
-        {
-            var forceRefreshWarmupOk = await WarmupSessionAsync();
-            if (!forceRefreshWarmupOk)
-            {
-                _logger.LogWarning("⚠️ Session warmup başarısız oldu, ancak devam ediliyor");
-            }
-            else
-            {
-                _logger.LogDebug("✅ Session warmup başarılı");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "⚠️ Session warmup sırasında hata oluştu, ancak devam ediliyor");
-        }
-        
-        _logger.LogInformation("✅ ForceSessionRefreshAsync tamamlandı. Authenticated: {IsAuth}, Cookie: {HasCookie}", 
-            _isCookieAuthenticated, 
-            !string.IsNullOrWhiteSpace(_sessionCookie) || !string.IsNullOrWhiteSpace(_manualJSessionId));
+        _logger.LogInformation("✅ ForceSessionRefreshAsync tamamlandı (HIZLI)");
     }
 
     private async Task LoginWithServiceAsync()
@@ -479,6 +410,42 @@ public partial class LucaService : ILucaService
         {
             _logger.LogDebug("Existing Koza session is valid, skipping login (fast-path)");
             return;
+        }
+
+        // Another fast-path for transient instances: reuse any existing CookieContainer session.
+        // This prevents each instance from running a full login flow even though a session is already present in memory.
+        try
+        {
+            _cookieContainer ??= _externalCookieJarStore?.GetOrCreate(CookieJarKey);
+            var js = TryGetJSessionFromContainer();
+            if (!string.IsNullOrWhiteSpace(js))
+            {
+                _sessionCookie = js.StartsWith("JSESSIONID=", StringComparison.OrdinalIgnoreCase) ? js : "JSESSIONID=" + js;
+                _cookieExpiresAt ??= DateTime.UtcNow.AddMinutes(20);
+                _isCookieAuthenticated = true;
+                _lastSuccessfulAuthAt ??= DateTime.UtcNow;
+
+                // Ensure we have a cookie-aware HttpClient bound to the shared CookieContainer.
+                // Otherwise calls that fall back to `_httpClient` may miss the session cookies and return "Login olunmalı".
+                if (_cookieHttpClient == null)
+                {
+                    var baseUri = new Uri($"{_settings.BaseUrl.TrimEnd('/')}/");
+                    _cookieContainer = GetOrCreateSharedCookieContainer();
+                    _cookieHandler = CreateHandler(useCookies: true, container: _cookieContainer);
+                    _cookieHttpClient = new HttpClient(_cookieHandler)
+                    {
+                        BaseAddress = baseUri,
+                        Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds)
+                    };
+                    ApplyDefaultHttpClientHeaders(_cookieHttpClient);
+                }
+                _logger.LogDebug("Reusing existing JSESSIONID from shared CookieContainer; skipping login flow");
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to reuse JSESSIONID from shared CookieContainer");
         }
 
         // Short cooldown to prevent rapid repeated auth attempts from multiple concurrent callers
@@ -512,13 +479,13 @@ public partial class LucaService : ILucaService
                         _cookieExpiresAt = DateTime.UtcNow.AddMinutes(20);
 
                         
-                        if (_cookieHttpClient == null)
-                        {
-                            _cookieContainer = new System.Net.CookieContainer();
-                            _cookieHandler = CreateHandler(useCookies: true, container: _cookieContainer);
-                            _cookieHttpClient = new HttpClient(_cookieHandler)
-                            {
-                                BaseAddress = baseUri,
+	                        if (_cookieHttpClient == null)
+	                        {
+	                            _cookieContainer = GetOrCreateSharedCookieContainer();
+	                            _cookieHandler = CreateHandler(useCookies: true, container: _cookieContainer);
+	                            _cookieHttpClient = new HttpClient(_cookieHandler)
+	                            {
+	                                BaseAddress = baseUri,
                                 Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds)
                             };
                         }
@@ -560,13 +527,13 @@ public partial class LucaService : ILucaService
             }
             _logger.LogInformation("Falling back to login flow via PerformLoginAsync (script-compatible)");
 
-            if (_cookieHttpClient == null)
-            {
-                _cookieContainer = new System.Net.CookieContainer();
-                _cookieHandler = CreateHandler(useCookies: true, container: _cookieContainer);
-                _cookieHttpClient = new HttpClient(_cookieHandler)
-                {
-                    BaseAddress = baseUri,
+	            if (_cookieHttpClient == null)
+	            {
+	                _cookieContainer = GetOrCreateSharedCookieContainer();
+	                _cookieHandler = CreateHandler(useCookies: true, container: _cookieContainer);
+	                _cookieHttpClient = new HttpClient(_cookieHandler)
+	                {
+	                    BaseAddress = baseUri,
                     Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds)
                 };
             }
@@ -1082,16 +1049,16 @@ public partial class LucaService : ILucaService
             _logger.LogWarning(ex, "Failed to save branches debug info");
         }
     }
-    private async Task<bool> PerformLoginAsync()
-    {
-        if (_cookieHttpClient == null)
-        {
-            var baseUri = new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
-            _cookieContainer = new System.Net.CookieContainer();
-            _cookieHandler = CreateHandler(useCookies: true, container: _cookieContainer);
-            _cookieHttpClient = new HttpClient(_cookieHandler)
-            {
-                BaseAddress = baseUri,
+	    private async Task<bool> PerformLoginAsync()
+	    {
+	        if (_cookieHttpClient == null)
+	        {
+	            var baseUri = new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
+	            _cookieContainer = GetOrCreateSharedCookieContainer();
+	            _cookieHandler = CreateHandler(useCookies: true, container: _cookieContainer);
+	            _cookieHttpClient = new HttpClient(_cookieHandler)
+	            {
+	                BaseAddress = baseUri,
                 Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds)
             };
             ApplyDefaultHttpClientHeaders(_cookieHttpClient);

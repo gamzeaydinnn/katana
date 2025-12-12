@@ -282,18 +282,19 @@ builder.Services.AddAuthorization();
 builder.Services.AddHealthChecks().AddDbContextCheck<IntegrationDbContext>();
 
 var enableBackground = string.Equals(Environment.GetEnvironmentVariable("ENABLE_BACKGROUND_SERVICES"), "true", StringComparison.OrdinalIgnoreCase);
-if (enableBackground)
-{
-    builder.Services.AddQuartz(q =>
-    {
-        var stockJobKey = new JobKey("StockSyncJob");
-        q.AddJob<SyncJob>(o => o.WithIdentity(stockJobKey).UsingJobData("SyncType", "STOCK"));
-        q.AddTrigger(o => o.ForJob(stockJobKey).WithIdentity("StockSyncTrigger").WithCronSchedule("0 0 */6 * * ?"));
-    });
-    builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
-    builder.Services.AddSingleton<Katana.Core.Services.PendingDbWriteQueue>();
-    builder.Services.AddHostedService<Katana.Infrastructure.Workers.RetryPendingDbWritesService>();
-}
+	if (enableBackground)
+	{
+	    builder.Services.AddQuartz(q =>
+	    {
+	        var stockJobKey = new JobKey("StockSyncJob");
+	        q.AddJob<SyncJob>(o => o.WithIdentity(stockJobKey).UsingJobData("SyncType", "STOCK"));
+	        q.AddTrigger(o => o.ForJob(stockJobKey).WithIdentity("StockSyncTrigger").WithCronSchedule("0 0 */6 * * ?"));
+	    });
+	    builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
+	    builder.Services.AddSingleton<Katana.Core.Services.PendingDbWriteQueue>();
+	    builder.Services.AddHostedService<Katana.Infrastructure.Workers.RetryPendingDbWritesService>();
+	    builder.Services.AddHostedService<Katana.API.Workers.KatanaSalesOrderSyncWorker>();
+	}
 
 builder.Services.AddHostedService<HourlyMetricsAggregator>();
 builder.Services.AddHostedService<LogRetentionService>();

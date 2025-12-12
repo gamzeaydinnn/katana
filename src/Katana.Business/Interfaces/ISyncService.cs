@@ -1,4 +1,5 @@
 ﻿using Katana.Core.DTOs;
+using Katana.Core.DTOs.Koza;
 
 namespace Katana.Business.Interfaces;
 
@@ -32,5 +33,8 @@ public interface ISyncService
     // Debug metodları
     Task<object> DebugProductComparisonAsync(string sku);
     Task<object> ForceSyncSingleProductAsync(string sku);
+    
+    // Satış Faturası
+    Task<SyncResultDto> SendSalesInvoiceAsync(LucaCreateInvoiceHeaderRequest request);
 }
 

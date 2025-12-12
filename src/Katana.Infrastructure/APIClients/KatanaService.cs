@@ -11,6 +11,7 @@ using System.Linq;
 using System.Globalization;
 using Microsoft.Extensions.Caching.Memory;
 using System.Net;
+using Katana.Core.Converters;
 
 namespace Katana.Infrastructure.APIClients;
 
@@ -34,7 +35,8 @@ public class KatanaService : IKatanaService
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = false
+            WriteIndented = false,
+            Converters = { new StringToDecimalConverter() }
         };
     }
 
@@ -2543,18 +2545,28 @@ public class KatanaService : IKatanaService
                 resp.EnsureSuccessStatusCode();
             }
 
+            _logger.LogDebug("Raw response length for {Name}: {Length} chars", logName, content?.Length ?? 0);
+
             try
             {
                 using var doc = JsonDocument.Parse(content);
                 var root = doc.RootElement;
                 if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
                 {
-                    return JsonSerializer.Deserialize<List<T>>(dataEl.GetRawText(), _jsonOptions) ?? new List<T>();
+                    var rawText = dataEl.GetRawText();
+                    _logger.LogDebug("Unwrapped data array for {Name}, length: {Length}", logName, rawText.Length);
+                    var result = JsonSerializer.Deserialize<List<T>>(rawText, _jsonOptions) ?? new List<T>();
+                    _logger.LogDebug("Successfully deserialized {Count} items for {Name}", result.Count, logName);
+                    return result;
+                }
+                else
+                {
+                    _logger.LogWarning("No 'data' array found in response for {Name}", logName);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Failed to unwrap data property for {Name}, falling back to direct deserialization.", logName);
+                _logger.LogWarning(ex, "Failed to unwrap data property for {Name}, falling back to direct deserialization.", logName);
             }
 
             return JsonSerializer.Deserialize<List<T>>(content, _jsonOptions) ?? new List<T>();

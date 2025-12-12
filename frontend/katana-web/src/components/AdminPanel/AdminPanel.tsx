@@ -50,8 +50,8 @@ import KatanaProducts from "../Admin/KatanaProducts";
 import KozaIntegration from "../Admin/KozaIntegration";
 import LucaProducts from "../Admin/LucaProducts";
 import OrderIntegrationPage from "../Admin/OrderIntegrationPage";
-import Orders from "../Admin/Orders";
 import PendingAdjustments from "../Admin/PendingAdjustments";
+import SalesOrders from "../Admin/SalesOrders";
 import StockManagement from "../Admin/StockManagement";
 import StockMovements from "../Admin/StockMovements";
 import Suppliers from "../Admin/Suppliers";
@@ -1040,7 +1040,7 @@ const AdminPanel: React.FC = () => {
       )}
 
       {}
-      {activeTab === 1 && <Orders />}
+      {activeTab === 1 && <SalesOrders />}
 
       {}
       {activeTab === 2 && <KatanaProducts />}

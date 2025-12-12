@@ -198,17 +198,15 @@ public partial class LucaService
             ApplySessionCookie(req);
             ApplyManualSessionCookie(req);
 
-            // Log request details for debugging
-            _logger.LogInformation("📤 ListStockCards REQUEST: Endpoint={Endpoint}, Method=POST, Body={Body}",
+            _logger.LogDebug("📤 ListStockCards REQUEST: Endpoint={Endpoint}, Method=POST, Body={Body}",
                 _settings.Endpoints.StockCards, json);
 
             var client = _cookieHttpClient ?? _httpClient;
             var res = await client.SendAsync(req, ct);
             var body = await res.Content.ReadAsStringAsync(ct);
 
-            // Log response for debugging
             var logPreview = body.Length > 500 ? body.Substring(0, 500) + "... (truncated)" : body;
-            _logger.LogInformation("📥 ListStockCards RESPONSE ({Length} bytes): {Preview}", 
+            _logger.LogDebug("📥 ListStockCards RESPONSE ({Length} bytes): {Preview}",
                 body.Length, logPreview);
 
 #if DEBUG
@@ -241,7 +239,7 @@ public partial class LucaService
                     if (samples.Count > 0)
                     {
                         var sampleJson = $"[{string.Join(",", samples)}]";
-                        _logger.LogInformation("🧪 DEBUG Koza stock sample (first {Count}): {Sample}", samples.Count, sampleJson);
+                        _logger.LogDebug("🧪 DEBUG Koza stock sample (first {Count}): {Sample}", samples.Count, sampleJson);
                         await AppendRawLogAsync("LIST_STOCK_SAMPLE_DEBUG", _settings.Endpoints.StockCards, json, res.StatusCode, sampleJson);
                     }
                 }

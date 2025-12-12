@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Katana.Core.DTOs;
 using Katana.Core.DTOs.Koza;
 using Microsoft.Extensions.Logging;
 
@@ -12,6 +13,15 @@ namespace Katana.Infrastructure.APIClients;
 /// </summary>
 public partial class LucaService
 {
+    /// <summary>
+    /// Luca depolarını listele (eski API uyumluluğu için)
+    /// </summary>
+    public async Task<List<LucaWarehouseDto>> GetDepoListAsync()
+    {
+        var element = await ListWarehousesAsync();
+        return DeserializeList<LucaWarehouseDto>(element);
+    }
+
     /// <summary>
     /// Koza depolarını listele (ListeleStkDepo.do)
     /// Boş body {} ile tüm depoları getirir

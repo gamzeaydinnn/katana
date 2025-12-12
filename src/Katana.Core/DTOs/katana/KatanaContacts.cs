@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.Json.Serialization;
 
 namespace Katana.Core.DTOs;
@@ -55,6 +56,39 @@ public class KatanaCustomerDto
 
     [JsonPropertyName("addresses")]
     public List<KatanaCustomerAddressDto> Addresses { get; set; } = new();
+
+    [JsonIgnore]
+    public string? DefaultCurrency => Currency;
+
+    [JsonIgnore]
+    public string? AddressLine1 => GetPreferredAddress()?.Line1;
+
+    [JsonIgnore]
+    public string? City => GetPreferredAddress()?.City;
+
+    [JsonIgnore]
+    public string? Country => GetPreferredAddress()?.Country;
+
+    private KatanaCustomerAddressDto? GetPreferredAddress()
+    {
+        if (Addresses == null || Addresses.Count == 0)
+            return null;
+
+        if (DefaultShippingId.HasValue)
+        {
+            var shipping = Addresses.FirstOrDefault(a => a.Id == DefaultShippingId.Value);
+            if (shipping != null) return shipping;
+        }
+
+        if (DefaultBillingId.HasValue)
+        {
+            var billing = Addresses.FirstOrDefault(a => a.Id == DefaultBillingId.Value);
+            if (billing != null) return billing;
+        }
+
+        var @default = Addresses.FirstOrDefault(a => a.Default);
+        return @default ?? Addresses[0];
+    }
 }
 
 

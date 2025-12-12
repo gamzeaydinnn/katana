@@ -423,7 +423,7 @@ public static class MappingHelper
             {
                 KartTuru = 1,
                 KartKodu = NormalizeSku(l.SKU),
-                KartAdi = l.ProductName,
+                KartAdi = NormalizeTurkishText(l.ProductName),
                 BirimFiyat = (double)(l.PricePerUnit ?? 0),
                 Miktar = (double)l.Quantity,
                 KdvOran = (double)(l.TaxRate ?? 20),
@@ -558,7 +558,7 @@ public static class MappingHelper
                 KartKodu = !string.IsNullOrWhiteSpace(item.LucaStockCode) 
                     ? item.LucaStockCode 
                     : NormalizeSku(item.Product?.SKU ?? string.Empty),
-                KartAdi = item.Product?.Name,
+                KartAdi = NormalizeTurkishText(item.Product?.Name),
                 DepoKodu = item.WarehouseCode ?? "01",
                 BirimKodu = item.UnitCode ?? "AD",
                 BirimFiyat = (double)item.UnitPrice,
@@ -571,7 +571,7 @@ public static class MappingHelper
     }
 
     /// <summary>
-    /// Maps PurchaseOrder entity to Luca INVOICE request (Alım Faturası - BelgeTurDetayId: 16)
+    /// Maps PurchaseOrder entity to Luca INVOICE request (Alım Faturası - BelgeTurDetayId: 69)
     /// </summary>
     public static LucaCreateInvoiceHeaderRequest MapToLucaInvoiceFromPurchaseOrder(PurchaseOrder po, Supplier supplier)
     {
@@ -581,18 +581,21 @@ public static class MappingHelper
         
         var belgeTakipNo = string.IsNullOrWhiteSpace(po.OrderNo) ? po.Id.ToString() : po.OrderNo;
         
+        var belgeTarihi = po.OrderDate == default ? DateTime.UtcNow : po.OrderDate;
+        var vadeTarihi = po.ExpectedDate ?? DateTime.UtcNow.AddDays(30);
+
         return new LucaCreateInvoiceHeaderRequest
         {
             BelgeSeri = po.DocumentSeries ?? "A",
             BelgeNo = int.TryParse(po.LucaDocumentNo ?? belgeTakipNo, out var belgeNoInt) ? belgeNoInt : null,
             BelgeTakipNo = belgeTakipNo,
-            BelgeTarihi = po.OrderDate == default ? DateTime.UtcNow : po.OrderDate,
-            VadeTarihi = po.ExpectedDate ?? DateTime.UtcNow.AddDays(30),
-            BelgeTurDetayId = 16, // Alım Faturası
-            FaturaTur = 1, // Normal fatura
+            BelgeTarihi = belgeTarihi.ToString("dd/MM/yyyy"),
+            VadeTarihi = vadeTarihi.ToString("dd/MM/yyyy"),
+            BelgeTurDetayId = "69", // Alım Faturası (appsettings.json'daki değer)
+            FaturaTur = "1", // Normal fatura
             ParaBirimKod = "TRY",
             KurBedeli = 1.0,
-            MusteriTedarikci = 2, // Tedarikçi
+            MusteriTedarikci = "2", // Tedarikçi
             CariKodu = cariKod,
             CariTanim = supplier.Name,
             CariTip = 2, // Tedarikçi
@@ -608,7 +611,7 @@ public static class MappingHelper
                 KartKodu = !string.IsNullOrWhiteSpace(item.LucaStockCode) 
                     ? item.LucaStockCode 
                     : NormalizeSku(item.Product?.SKU ?? string.Empty),
-                KartAdi = item.Product?.Name,
+                KartAdi = NormalizeTurkishText(item.Product?.Name),
                 DepoKodu = item.WarehouseCode ?? "01",
                 BirimFiyat = (double)item.UnitPrice,
                 Miktar = item.Quantity,
@@ -848,7 +851,9 @@ public static class MappingHelper
             normalizedSku = $"KAT-{(product.Id > 0 ? product.Id : Guid.NewGuid().ToString("N")[..8])}";
         }
         var baseName = string.IsNullOrWhiteSpace(product.Name) ? normalizedSku : product.Name;
-        var kartAdi = TrimAndTruncate(baseName, 255) ?? normalizedSku;
+        // Türkçe karakterleri normalize et (İ→I, Ş→S vb.)
+        var normalizedName = NormalizeTurkishText(baseName);
+        var kartAdi = TrimAndTruncate(normalizedName, 255) ?? normalizedSku;
         // ✅ RAPOR UYUMLU: SADECE LUCA DOKÜMANTASYONUNDA OLAN ALANLAR!
         var barkod = normalizedSku;
         var startDate = (product.CreatedAt == default ? DateTime.UtcNow : product.CreatedAt).Date;
@@ -900,6 +905,8 @@ public static class MappingHelper
             sku = $"KAT-{(string.IsNullOrWhiteSpace(product.Id) ? Guid.NewGuid().ToString("N")[..8] : product.Id)}";
         }
         var name = !string.IsNullOrWhiteSpace(product.Name) ? product.Name : sku;
+        // Türkçe karakterleri normalize et (İ→I, Ş→S vb.)
+        var normalizedName = NormalizeTurkishText(name);
         var desc = TrimAndTruncate(product.Description, 1000) ?? string.Empty;
         var vatRate = product.VatRate.HasValue ? product.VatRate.Value / 100d : (defaultVat ?? 0.20);
         var startDate = DateTime.UtcNow.Date;
@@ -927,7 +934,7 @@ public static class MappingHelper
         return new LucaCreateStokKartiRequest
         {
             // Zorunlu alanlar
-            KartAdi = TrimAndTruncate(name, 255) ?? sku,
+            KartAdi = TrimAndTruncate(normalizedName, 255) ?? sku,
             KartKodu = sku,
             BaslangicTarihi = startDate.ToString("dd/MM/yyyy"),
             
@@ -1756,6 +1763,38 @@ public static class MappingHelper
     private static string NormalizeSkuPreserve(string sku)
     {
         return string.IsNullOrWhiteSpace(sku) ? string.Empty : sku.Trim();
+    }
+
+    /// <summary>
+    /// Türkçe metinleri normalize eder - Türkçe karakterleri İngilizce karşılıklarına çevirir.
+    /// Luca/Koza sisteminde Türkçe karakter encoding sorunlarını önlemek için kullanılır.
+    /// </summary>
+    private static string NormalizeTurkishText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = text.Trim();
+        
+        // Türkçe karakterleri İngilizce'ye çevir
+        // Hem küçük hem büyük harfler için mapping
+        var normalized = trimmed
+            .Replace("İ", "I")  // Türkçe büyük İ → İngilizce I
+            .Replace("ı", "i")  // Türkçe küçük ı → İngilizce i
+            .Replace("Ş", "S")
+            .Replace("ş", "s")
+            .Replace("Ğ", "G")
+            .Replace("ğ", "g")
+            .Replace("Ö", "O")
+            .Replace("ö", "o")
+            .Replace("Ü", "U")
+            .Replace("ü", "u")
+            .Replace("Ç", "C")
+            .Replace("ç", "c");
+        
+        return normalized;
     }
 
     private static double ResolveOrderItemKdvOran(OrderItem item)
