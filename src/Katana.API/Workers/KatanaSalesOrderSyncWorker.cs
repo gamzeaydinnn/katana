@@ -89,6 +89,14 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
             // Son 7 gündeki siparişleri çek
             var fromDate = DateTime.UtcNow.AddDays(-7);
             
+            // ✅ Mevcut SalesOrders tablosundaki Katana Order ID'lerini al (duplicate prevention)
+            var existingKatanaOrderIdsList = await context.SalesOrders
+                .Select(s => s.KatanaOrderId)
+                .ToListAsync(cancellationToken);
+            var existingKatanaOrderIds = new HashSet<long>(existingKatanaOrderIdsList);
+            
+            _logger.LogInformation("Found {Count} existing sales orders in database", existingKatanaOrderIds.Count);
+            
             // ✅ Composite key kontrolü - Sipariş güncellemelerini yakala
             // ExternalOrderId + ProductId + Quantity ile duplicate prevention
             var processedItems = await context.PendingStockAdjustments
@@ -114,22 +122,28 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                 .Where(p => !string.IsNullOrWhiteSpace(p.SKU))
                 .ToDictionaryAsync(p => p.SKU!, p => p.Id, StringComparer.OrdinalIgnoreCase);
 
-            var variantToProduct = new Dictionary<long, (int ProductId, string Sku)>();
+            var variantToProduct = new Dictionary<long, (int ProductId, string Sku, string? ProductName)>();
             foreach (var p in products)
             {
                 if (long.TryParse(p.Id, out var variantId))
                 {
                     var sku = p.SKU ?? p.Id;
                     var productId = skuToProductId.TryGetValue(sku, out var localId) ? localId : 0;
-                    variantToProduct[variantId] = (productId, sku);
+                    variantToProduct[variantId] = (productId, sku, p.Name);
                 }
             }
 
             var variantMappingCache = new Dictionary<long, VariantMapping?>();
+            
+            // ✅ Müşteri mapping'i için Katana customer ID -> local Customer ID
+            var customerMapping = await context.Customers
+                .Where(c => c.ReferenceId != null)
+                .ToDictionaryAsync(c => c.ReferenceId!, c => c.Id, StringComparer.OrdinalIgnoreCase, cancellationToken);
 
             var newOrdersCount = 0;
             var newItemsCount = 0;
             var skippedItemsCount = 0;
+            var savedSalesOrdersCount = 0;
 
             // ✅ Memory-efficient batched processing (1000+ orders)
             // Her batch ayrı işlensin, GC çalışabilsin
@@ -142,9 +156,87 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                     // Sipariş numarası veya ID'si
                     var orderId = !string.IsNullOrEmpty(order.OrderNo) ? order.OrderNo : order.Id.ToString();
 
-                    // Sadece tamamlanmamış siparişleri işle
+                    // Sadece tamamlanmamış siparişleri işle (PendingStockAdjustment için)
                     var status = order.Status?.ToLower() ?? "";
-                    if (status == "cancelled" || status == "done" || status == "shipped")
+                    var skipPendingAdjustment = status == "cancelled" || status == "done" || status == "shipped";
+
+                    // ✅ SalesOrders tablosuna kaydet (tüm siparişler için - duplicate check ile)
+                    if (!existingKatanaOrderIds.Contains(order.Id))
+                    {
+                        var localCustomerId = 0;
+                        var katanaCustomerIdStr = order.CustomerId.ToString();
+                        if (customerMapping.TryGetValue(katanaCustomerIdStr, out var mappedCustomerId))
+                        {
+                            localCustomerId = mappedCustomerId;
+                        }
+                        
+                        var salesOrder = new SalesOrder
+                        {
+                            KatanaOrderId = order.Id,
+                            OrderNo = order.OrderNo ?? $"SO-{order.Id}",
+                            CustomerId = localCustomerId,
+                            OrderCreatedDate = order.OrderCreatedDate ?? order.CreatedAt,
+                            DeliveryDate = order.DeliveryDate,
+                            Currency = order.Currency ?? "TRY",
+                            Status = order.Status ?? "NOT_SHIPPED",
+                            Total = order.Total,
+                            TotalInBaseCurrency = order.TotalInBaseCurrency,
+                            AdditionalInfo = order.AdditionalInfo,
+                            CustomerRef = order.CustomerRef,
+                            Source = order.Source,
+                            LocationId = order.LocationId,
+                            CreatedAt = DateTime.UtcNow,
+                            IsSyncedToLuca = false
+                        };
+                        
+                        // Sipariş satırlarını ekle
+                        if (order.SalesOrderRows != null && order.SalesOrderRows.Count > 0)
+                        {
+                            foreach (var row in order.SalesOrderRows)
+                            {
+                                var (resolvedProductId, resolvedSku) = await ResolveVariantMappingAsync(
+                                    row.VariantId,
+                                    variantToProduct.ToDictionary(x => x.Key, x => (x.Value.ProductId, x.Value.Sku)),
+                                    variantMappingCache,
+                                    variantMappingService);
+                                
+                                var productName = variantToProduct.TryGetValue(row.VariantId, out var pInfo) 
+                                    ? pInfo.ProductName 
+                                    : null;
+                                
+                                var orderLine = new SalesOrderLine
+                                {
+                                    KatanaRowId = row.Id,
+                                    VariantId = row.VariantId,
+                                    SKU = resolvedSku,
+                                    ProductName = productName,
+                                    Quantity = row.Quantity,
+                                    PricePerUnit = row.PricePerUnit,
+                                    PricePerUnitInBaseCurrency = row.PricePerUnitInBaseCurrency,
+                                    Total = row.Total,
+                                    TotalInBaseCurrency = row.TotalInBaseCurrency,
+                                    TaxRate = null, // TaxRateId'den hesaplanabilir
+                                    TaxRateId = row.TaxRateId,
+                                    LocationId = row.LocationId,
+                                    ProductAvailability = row.ProductAvailability,
+                                    ProductExpectedDate = row.ProductExpectedDate,
+                                    CreatedAt = DateTime.UtcNow
+                                };
+                                
+                                salesOrder.Lines.Add(orderLine);
+                            }
+                        }
+                        
+                        context.SalesOrders.Add(salesOrder);
+                        existingKatanaOrderIds.Add(order.Id); // Duplicate prevention için ekle
+                        savedSalesOrdersCount++;
+                        
+                        _logger.LogDebug("Saved sales order to database: {OrderNo} (KatanaId: {KatanaId})", 
+                            salesOrder.OrderNo, order.Id);
+                    }
+
+                    // PendingStockAdjustment için - sadece aktif siparişler
+                    if (skipPendingAdjustment)
                     {
                         continue;
                     }
@@ -158,7 +250,7 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                         {
                             var (resolvedProductId, resolvedSku) = await ResolveVariantMappingAsync(
                                 row.VariantId,
-                                variantToProduct,
+                                variantToProduct.ToDictionary(x => x.Key, x => (x.Value.ProductId, x.Value.Sku)),
                                 variantMappingCache,
                                 variantMappingService);
 
@@ -211,6 +303,11 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                 
                 // GC'yi tetikle (memory leak önleme)
                 GC.Collect(0, GCCollectionMode.Optimized);
+            }
+            
+            if (savedSalesOrdersCount > 0)
+            {
+                _logger.LogInformation("✅ Saved {Count} new sales orders to database", savedSalesOrdersCount);
             }
 
             if (newOrdersCount > 0)

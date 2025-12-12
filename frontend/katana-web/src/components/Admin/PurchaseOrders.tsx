@@ -1,49 +1,58 @@
 import {
-    Add as AddIcon,
-    ArrowBack as BackIcon,
-    CheckCircle as CheckCircleIcon,
-    CloudUpload as CloudUploadIcon,
-    Delete as DeleteIcon,
-    Error as ErrorIcon,
-    HourglassEmpty as PendingIcon,
-    Refresh as RefreshIcon,
-    Save as SaveIcon,
-    Visibility as ViewIcon,
-    Warning as WarningIcon,
+  Add as AddIcon,
+  ArrowBack as BackIcon,
+  CheckCircle as CheckCircleIcon,
+  CloudDownload as CloudDownloadIcon,
+  CloudUpload as CloudUploadIcon,
+  Delete as DeleteIcon,
+  Error as ErrorIcon,
+  HourglassEmpty as PendingIcon,
+  Refresh as RefreshIcon,
+  Save as SaveIcon,
+  Visibility as ViewIcon,
+  Warning as WarningIcon,
 } from "@mui/icons-material";
 import {
-    Alert,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    CardHeader,
-    Checkbox,
-    Chip,
-    CircularProgress,
-    Divider,
-    FormControl,
-    FormControlLabel,
-    FormHelperText,
-    Grid,
-    IconButton,
-    InputLabel,
-    MenuItem,
-    Paper,
-    Select,
-    Snackbar,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TextField,
-    Tooltip,
-    Typography,
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Checkbox,
+  Chip,
+  CircularProgress,
+  Divider,
+  FormControl,
+  FormControlLabel,
+  FormHelperText,
+  Grid,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Tooltip,
+  Typography,
 } from "@mui/material";
 import React, { useCallback, useEffect, useState } from "react";
 import api from "../../services/api";
+import KatanaSyncStatus, {
+  KatanaSyncResult,
+} from "./PurchaseOrders/KatanaSyncStatus";
+import StatusActions from "./PurchaseOrders/StatusActions";
+import StatusBadge, { OrderStatus } from "./PurchaseOrders/StatusBadge";
+import StatusFilter, {
+  OrderStats as StatusFilterStats,
+} from "./PurchaseOrders/StatusFilter";
 
 // ===== TYPES =====
 
@@ -89,6 +98,7 @@ interface PurchaseOrderDetail {
   lastSyncAt?: string;
   lastSyncError?: string;
   syncRetryCount: number;
+  katanaSyncResults?: KatanaSyncResult[];
   items: PurchaseOrderItemDetail[];
 }
 
@@ -286,9 +296,13 @@ const PurchaseOrders: React.FC = () => {
   // Sync state
   const [syncing, setSyncing] = useState(false);
 
+  // Status update state
+  const [statusUpdating, setStatusUpdating] = useState(false);
+
   // Filter state
   const [filterSyncStatus, setFilterSyncStatus] = useState<string>("all");
   const [filterSupplierId, setFilterSupplierId] = useState<number>(0);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
 
   // Delete state
   const [deleting, setDeleting] = useState<number | null>(null);
@@ -316,6 +330,9 @@ const PurchaseOrders: React.FC = () => {
       if (filterSupplierId > 0) {
         params.supplierId = filterSupplierId.toString();
       }
+      if (filterStatus !== "all") {
+        params.status = filterStatus;
+      }
 
       const response = await api.get<{
         data: PurchaseOrderListItem[];
@@ -332,7 +349,7 @@ const PurchaseOrders: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [filterSyncStatus, filterSupplierId]);
+  }, [filterSyncStatus, filterSupplierId, filterStatus]);
 
   const fetchStats = async () => {
     try {
@@ -362,12 +379,62 @@ const PurchaseOrders: React.FC = () => {
     }
   };
 
+  const updateOrderStatus = async (newStatus: string) => {
+    if (!orderDetail) return;
+
+    try {
+      setStatusUpdating(true);
+      const response = await api.patch(
+        `/purchase-orders/${orderDetail.id}/status`,
+        { newStatus }
+      );
+
+      setSnackbar({
+        open: true,
+        message: response.data.message || "Sipariş durumu güncellendi",
+        severity: "success",
+      });
+
+      // Refresh order detail
+      await fetchOrderDetail(orderDetail.id);
+
+      // Refresh list and stats
+      await fetchOrders();
+      await fetchStats();
+    } catch (err: any) {
+      console.error("Failed to update order status:", err);
+      const errorMessage =
+        err.response?.data?.message || "Durum güncellenemedi";
+      setSnackbar({
+        open: true,
+        message: errorMessage,
+        severity: "error",
+      });
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
+
   const fetchSuppliers = async () => {
     try {
       const response = await api.get<Supplier[]>("/suppliers");
       setSuppliers(response.data);
     } catch (err) {
       console.error("Failed to fetch suppliers:", err);
+    }
+  };
+
+  const importSuppliersFromKatana = async () => {
+    try {
+      await api.post("/suppliers/import-from-katana");
+      await fetchSuppliers();
+    } catch (err) {
+      console.error("Failed to import suppliers from Katana:", err);
+      setSnackbar({
+        open: true,
+        message: "Katana'dan tedarikçi çekilemedi",
+        severity: "error",
+      });
     }
   };
 
@@ -734,6 +801,15 @@ const PurchaseOrders: React.FC = () => {
           >
             <RefreshIcon fontSize="small" />
           </IconButton>
+          <IconButton
+            size="small"
+            color="primary"
+            onClick={importSuppliersFromKatana}
+            disabled={loading}
+            title="Katana'dan tedarikçileri çek"
+          >
+            <CloudDownloadIcon fontSize="small" />
+          </IconButton>
           <Button
             size="small"
             variant="contained"
@@ -763,6 +839,13 @@ const PurchaseOrders: React.FC = () => {
           flexWrap: "wrap",
         }}
       >
+        {stats && (
+          <StatusFilter
+            value={filterStatus}
+            onChange={setFilterStatus}
+            stats={stats}
+          />
+        )}
         <FormControl
           size="small"
           sx={{ minWidth: 120, flex: { xs: 1, sm: "none" } }}
@@ -845,6 +928,7 @@ const PurchaseOrders: React.FC = () => {
               <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
                 Toplam
               </TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap" }}>Durum</TableCell>
               <TableCell sx={{ whiteSpace: "nowrap" }}>Luca Durumu</TableCell>
               <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
                 İşlemler
@@ -854,13 +938,13 @@ const PurchaseOrders: React.FC = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={8} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             ) : orders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={8} align="center">
                   <Typography color="textSecondary">
                     Sipariş bulunamadı
                   </Typography>
@@ -894,6 +978,9 @@ const PurchaseOrders: React.FC = () => {
                   </TableCell>
                   <TableCell align="right">
                     {formatCurrency(order.totalAmount)}
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={order.status as OrderStatus} />
                   </TableCell>
                   <TableCell>
                     <LucaStatusBadge
@@ -934,7 +1021,9 @@ const PurchaseOrders: React.FC = () => {
                           size="small"
                           color="error"
                           onClick={() => handleDelete(order.id)}
-                          disabled={deleting === order.id || order.isSyncedToLuca}
+                          disabled={
+                            deleting === order.id || order.isSyncedToLuca
+                          }
                         >
                           {deleting === order.id ? (
                             <CircularProgress size={16} />
@@ -1276,6 +1365,26 @@ const PurchaseOrders: React.FC = () => {
           </Grid>
         </Grid>
 
+        {/* Katana Sync Status */}
+        {(orderDetail.status === "Approved" ||
+          orderDetail.status === "Received") &&
+          orderDetail.katanaSyncResults &&
+          orderDetail.katanaSyncResults.length > 0 && (
+            <Box sx={{ mt: 3 }}>
+              <KatanaSyncStatus results={orderDetail.katanaSyncResults} />
+            </Box>
+          )}
+
+        {/* Status Actions */}
+        <Box sx={{ mt: 3 }}>
+          <StatusActions
+            currentStatus={orderDetail.status as OrderStatus}
+            orderNo={orderDetail.orderNo}
+            onStatusChange={updateOrderStatus}
+            loading={statusUpdating}
+          />
+        </Box>
+
         {/* Actions */}
         <Box sx={{ mt: 3, display: "flex", gap: 1 }}>
           <Button
@@ -1526,12 +1635,14 @@ const PurchaseOrders: React.FC = () => {
                   {formErrors.items}
                 </Alert>
               )}
-              <TableContainer sx={{ overflowX: 'auto' }}>
+              <TableContainer sx={{ overflowX: "auto" }}>
                 <Table size="small" sx={{ minWidth: 900 }}>
                   <TableHead>
                     <TableRow>
                       <TableCell sx={{ minWidth: 180 }}>Ürün *</TableCell>
-                      <TableCell sx={{ minWidth: 100 }}>Luca Stok Kodu</TableCell>
+                      <TableCell sx={{ minWidth: 100 }}>
+                        Luca Stok Kodu
+                      </TableCell>
                       <TableCell sx={{ minWidth: 70 }}>Depo</TableCell>
                       <TableCell sx={{ minWidth: 70 }}>Miktar *</TableCell>
                       <TableCell sx={{ minWidth: 90 }}>Birim Fiyat *</TableCell>
@@ -1647,7 +1758,10 @@ const PurchaseOrders: React.FC = () => {
                                 )
                               }
                               fullWidth
-                              inputProps={{ min: 1, style: { textAlign: 'center' } }}
+                              inputProps={{
+                                min: 1,
+                                style: { textAlign: "center" },
+                              }}
                               error={!!formErrors[`item_${index}_quantity`]}
                             />
                           </TableCell>
@@ -1664,7 +1778,11 @@ const PurchaseOrders: React.FC = () => {
                                 )
                               }
                               fullWidth
-                              inputProps={{ min: 0, step: 0.01, style: { textAlign: 'right' } }}
+                              inputProps={{
+                                min: 0,
+                                step: 0.01,
+                                style: { textAlign: "right" },
+                              }}
                               error={!!formErrors[`item_${index}_price`]}
                             />
                           </TableCell>
@@ -1721,7 +1839,11 @@ const PurchaseOrders: React.FC = () => {
                                 )
                               }
                               fullWidth
-                              inputProps={{ min: 0, step: 0.01, style: { textAlign: 'right' } }}
+                              inputProps={{
+                                min: 0,
+                                step: 0.01,
+                                style: { textAlign: "right" },
+                              }}
                             />
                           </TableCell>
                           <TableCell align="right">
@@ -1767,8 +1889,8 @@ const PurchaseOrders: React.FC = () => {
                 <Box
                   sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}
                 >
-                  <Button 
-                    variant="outlined" 
+                  <Button
+                    variant="outlined"
                     onClick={() => setView("list")}
                     size="large"
                   >

@@ -14,6 +14,11 @@ public interface ILucaService
     
     Task<bool> TestConnectionAsync();
     
+    /// <summary>
+    /// Force session refresh - HTML response sorununu önler
+    /// </summary>
+    Task ForceSessionRefreshAsync();
+    
     Task<SyncResultDto> SendInvoicesAsync(List<LucaCreateInvoiceHeaderRequest> invoices);
     Task<SyncResultDto> SendStockMovementsAsync(List<LucaStockDto> stockMovements);
     Task<SyncResultDto> SendCustomersAsync(List<LucaCreateCustomerRequest> customers);
@@ -69,6 +74,7 @@ public interface ILucaService
     Task<System.Text.Json.JsonElement> DeleteInvoiceAsync(LucaDeleteInvoiceRequest request);
     Task<System.Text.Json.JsonElement> GetInvoicePdfLinkAsync(LucaInvoicePdfLinkRequest request);
     Task<System.Text.Json.JsonElement> ListCurrencyInvoicesAsync(LucaListCurrencyInvoicesRequest request);
+    Task<System.Text.Json.JsonElement> SendInvoiceAsync(LucaSendInvoiceRequest request);
 
     
     Task<System.Text.Json.JsonElement> ListCustomerAddressesAsync(LucaListCustomerAddressesRequest request);

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Katana.Core.Converters;
 
 namespace Katana.Core.DTOs;
 
@@ -45,9 +46,11 @@ public class SalesOrderDto
     public string? InvoicingStatus { get; set; }
 
     [JsonPropertyName("total")]
+    [JsonConverter(typeof(StringToDecimalConverter))]
     public decimal? Total { get; set; }
 
     [JsonPropertyName("total_in_base_currency")]
+    [JsonConverter(typeof(StringToDecimalConverter))]
     public decimal? TotalInBaseCurrency { get; set; }
 
     [JsonPropertyName("additional_info")]
@@ -132,15 +135,19 @@ public class SalesOrderRowDto
     public DateTime? ProductExpectedDate { get; set; }
 
     [JsonPropertyName("price_per_unit")]
+    [JsonConverter(typeof(StringToDecimalConverter))]
     public decimal? PricePerUnit { get; set; }
 
     [JsonPropertyName("price_per_unit_in_base_currency")]
+    [JsonConverter(typeof(StringToDecimalConverter))]
     public decimal? PricePerUnitInBaseCurrency { get; set; }
 
     [JsonPropertyName("total")]
+    [JsonConverter(typeof(StringToDecimalConverter))]
     public decimal? Total { get; set; }
 
     [JsonPropertyName("total_in_base_currency")]
+    [JsonConverter(typeof(StringToDecimalConverter))]
     public decimal? TotalInBaseCurrency { get; set; }
 
     [JsonPropertyName("cogs_value")]
@@ -1270,21 +1277,25 @@ public class PurchaseOrderRowDto
     public long? GroupId { get; set; }
 
     [JsonPropertyName("price_per_unit")]
+    [JsonConverter(typeof(StringToDecimalNonNullableConverter))]
     public decimal PricePerUnit { get; set; }
 
     [JsonPropertyName("purchase_uom")]
     public string? PurchaseUom { get; set; }
 
     [JsonPropertyName("purchase_uom_conversion_rate")]
+    [JsonConverter(typeof(StringToDecimalConverter))]
     public decimal? PurchaseUomConversionRate { get; set; }
 
     [JsonPropertyName("batch_transactions")]
     public List<ManufacturingOrderBatchTransactionDto>? BatchTransactions { get; set; }
 
     [JsonPropertyName("total")]
+    [JsonConverter(typeof(StringToDecimalConverter))]
     public decimal? Total { get; set; }
 
     [JsonPropertyName("total_in_base_currency")]
+    [JsonConverter(typeof(StringToDecimalConverter))]
     public decimal? TotalInBaseCurrency { get; set; }
 
     [JsonPropertyName("conversion_rate")]

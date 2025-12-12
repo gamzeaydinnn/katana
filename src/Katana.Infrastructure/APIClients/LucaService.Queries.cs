@@ -94,11 +94,23 @@ public partial class LucaService
         await EnsureAuthenticatedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
+        _logger.LogInformation("📄 CreateInvoice - Sending JSON: {Json}", json);
+        
         var content = CreateKozaContent(json);
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         var response = await client.PostAsync(_settings.Endpoints.Invoices, content);
         var responseContent = await response.Content.ReadAsStringAsync();
+        
+        _logger.LogInformation("📄 CreateInvoice - Response Status: {Status}, Body: {Body}", 
+            response.StatusCode, responseContent);
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("❌ CreateInvoice FAILED - Status: {Status}, Body: {Body}", response.StatusCode, responseContent);
+            throw new HttpRequestException($"Luca API Error ({response.StatusCode}): {responseContent}");
+        }
+        
         response.EnsureSuccessStatusCode();
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
@@ -403,15 +415,55 @@ public partial class LucaService
     public async Task<JsonElement> CreateSalesOrderHeaderAsync(LucaCreateOrderHeaderRequest request)
     {
         await EnsureAuthenticatedAsync();
+        await EnsureBranchSelectedAsync();
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
-        var content = CreateKozaContent(json);
-        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-        var response = await client.PostAsync(_settings.Endpoints.SalesOrder, content);
-        var responseContent = await response.Content.ReadAsStringAsync();
-        response.EnsureSuccessStatusCode();
 
-        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+        static bool LooksLikeLoginRequired(string? body)
+        {
+            if (string.IsNullOrWhiteSpace(body)) return false;
+            return body.Contains("Login olunmalı", StringComparison.OrdinalIgnoreCase)
+                   || body.Contains("login olunmali", StringComparison.OrdinalIgnoreCase)
+                   || body.Contains("\"code\":1001", StringComparison.OrdinalIgnoreCase)
+                   || body.Contains("\"code\":1002", StringComparison.OrdinalIgnoreCase)
+                   || body.Contains("Giris.do", StringComparison.OrdinalIgnoreCase)
+                   || body.TrimStart().StartsWith("<", StringComparison.Ordinal); // HTML login page
+        }
+
+        async Task<(HttpStatusCode Status, string Body)> SendOnceAsync()
+        {
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.SalesOrder)
+            {
+                Content = CreateKozaContent(json)
+            };
+
+            ApplySessionCookie(httpRequest);
+            ApplyManualSessionCookie(httpRequest);
+
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            var res = await client.SendAsync(httpRequest);
+            var body = await res.Content.ReadAsStringAsync();
+            return (res.StatusCode, body);
+        }
+
+        var first = await SendOnceAsync();
+        if (LooksLikeLoginRequired(first.Body))
+        {
+            _logger.LogWarning("CreateSalesOrderHeaderAsync: response indicates not-authenticated; forcing session refresh and retrying once. Preview={Preview}",
+                first.Body.Length > 300 ? first.Body.Substring(0, 300) : first.Body);
+
+            await ForceSessionRefreshAsync();
+            await EnsureBranchSelectedAsync();
+
+            first = await SendOnceAsync();
+        }
+
+        if ((int)first.Status >= 400)
+        {
+            throw new HttpRequestException($"Luca SalesOrder API failed with status {(int)first.Status}");
+        }
+
+        return JsonSerializer.Deserialize<JsonElement>(first.Body);
     }
     public async Task<JsonElement> CreateSalesOrderHeaderAsync(
         Order order,
@@ -3370,6 +3422,37 @@ public partial class LucaService
         }
 
         return d[n, m];
+    }
+
+    #endregion
+
+    #region Fatura Gönderme (E-Fatura/E-Arşiv)
+
+    /// <summary>
+    /// E-Fatura veya E-Arşiv olarak fatura gönderir.
+    /// Not: Koleksiyonda endpoint tam belirtilmemiş, muhtemelen entegrasyon tetikleyicisidir.
+    /// </summary>
+    public async Task<JsonElement> SendInvoiceAsync(LucaSendInvoiceRequest request)
+    {
+        const string endpoint = "GonderFtrWsFaturaBaslik.do"; // Varsayılan endpoint ismi
+        
+        await EnsureAuthenticatedAsync();
+
+        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        var content = CreateKozaContent(json);
+        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+        
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = content
+        };
+        ApplyManualSessionCookie(httpRequest);
+        ApplySessionCookie(httpRequest);
+        
+        var response = await client.SendAsync(httpRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }
 
     #endregion

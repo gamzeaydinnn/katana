@@ -211,21 +211,24 @@ public static class KatanaToLucaMapper
         var accountMappings = skuAccountMappings ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         var baseDto = MappingHelper.MapToLucaInvoice(invoice, customer, invoiceItems, accountMappings.ToDictionary(k => k.Key, v => v.Value, StringComparer.OrdinalIgnoreCase));
+        var belgeTarihi = invoice.InvoiceDate == default ? DateTime.UtcNow : invoice.InvoiceDate;
+        var vadeTarihi = invoice.DueDate ?? belgeTarihi;
+
         var belge = new LucaCreateInvoiceHeaderRequest
         {
             BelgeSeri = string.IsNullOrWhiteSpace(belgeSeri) ? "A" : belgeSeri.Trim(),
             BelgeNo = ParseDocumentNo(baseDto.DocumentNo),
-            BelgeTarihi = invoice.InvoiceDate == default ? DateTime.UtcNow : invoice.InvoiceDate,
-            VadeTarihi = invoice.DueDate,
+            BelgeTarihi = belgeTarihi.ToString("dd/MM/yyyy"),
+            VadeTarihi = vadeTarihi.ToString("dd/MM/yyyy"),
             BelgeTakipNo = baseDto.DocumentNo,
             BelgeAciklama = Truncate(invoice.Notes, 250),
-            BelgeTurDetayId = belgeTurDetayId,
-            FaturaTur = 1,
+            BelgeTurDetayId = belgeTurDetayId.ToString(),
+            FaturaTur = "1",
             ParaBirimKod = string.IsNullOrWhiteSpace(invoice.Currency) ? "TRY" : invoice.Currency,
             KurBedeli = 1,
             BabsFlag = false,
             KdvFlag = true,
-            MusteriTedarikci = 1,
+            MusteriTedarikci = "1",
             CariKodu = string.IsNullOrWhiteSpace(baseDto.CustomerCode) ? GenerateCustomerCode(customer.TaxNo, customer.Id) : baseDto.CustomerCode,
             CariTanim = string.IsNullOrWhiteSpace(baseDto.CustomerTitle) ? customer.Title : baseDto.CustomerTitle,
             CariTip = ResolveCariTip(customer),
@@ -383,7 +386,8 @@ public static class KatanaToLucaMapper
         KatanaProductDto product,
         LucaApiSettings lucaSettings,
         IReadOnlyDictionary<string, string>? productCategoryMappings = null,
-        KatanaMappingSettings? mappingSettings = null)
+        KatanaMappingSettings? mappingSettings = null,
+        long? olcumBirimiIdOverride = null)
     {
         if (product == null) throw new ArgumentNullException(nameof(product));
         if (lucaSettings == null) throw new ArgumentNullException(nameof(lucaSettings));
@@ -513,7 +517,7 @@ public static class KatanaToLucaMapper
             KartAdi = name,
             KartTuru = 1, // 1=Stok, 2=Hizmet
             BaslangicTarihi = DateTime.UtcNow.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
-            OlcumBirimiId = lucaSettings.DefaultOlcumBirimiId,
+            OlcumBirimiId = olcumBirimiIdOverride ?? lucaSettings.DefaultOlcumBirimiId,
             KartKodu = sku,
             MaliyetHesaplanacakFlag = true,  // ✅ BOOLEAN - Luca dokümantasyonuna göre!
             KartTipi = lucaSettings.DefaultKartTipi,

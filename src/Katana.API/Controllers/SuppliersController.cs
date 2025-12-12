@@ -32,6 +32,10 @@ public class SuppliersController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> GetAll() => Ok(await _supplierService.GetAllAsync());
 
+    [HttpPost("import-from-katana")]
+    public async Task<IActionResult> ImportFromKatana(CancellationToken ct)
+        => Ok(await _supplierService.ImportFromKatanaAsync(ct));
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {

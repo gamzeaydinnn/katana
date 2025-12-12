@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using Katana.Core.DTOs;
+using Katana.Core.DTOs.Koza;
 using Katana.Data.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -200,6 +201,9 @@ public partial class LucaService
                     await AppendRawLogAsync("SEND_INVOICE_RETRY", endpoint, payload, response.StatusCode, responseBody);
                 }
 
+                // 🔥 HTML response kontrolü (session timeout) - SendWithAuthRetryAsync içinde zaten var
+                // Burada tekrar kontrol etmeye gerek yok, SendWithAuthRetryAsync zaten HTML'i yakalıyor
+
                 if (!response.IsSuccessStatusCode)
                 {
                     failed++;
@@ -226,8 +230,8 @@ public partial class LucaService
                 result.Errors.Add($"{label}: {ex.Message}");
                 _logger.LogError(ex, "Error sending invoice {InvoiceLabel}", label);
             }
-            // Minimal delay to avoid rate limiting
-            await Task.Delay(50);
+            // 🚀 Minimal delay - hızlandırıldı
+            await Task.Delay(15);
         }
         result.SuccessfulRecords = success;
         result.FailedRecords = failed;
@@ -242,48 +246,70 @@ public partial class LucaService
     {
         var list = new List<LucaInvoiceDto>();
         foreach (var invoice in invoices)
-        {
-            var dto = new LucaInvoiceDto
             {
-                GnlOrgSsBelge = new LucaBelgeDto
+                var dto = new LucaInvoiceDto
                 {
-                    BelgeSeri = invoice.BelgeSeri ?? _settings.DefaultBelgeSeri ?? "A",
-                    BelgeNo = invoice.BelgeNo,
-                    BelgeTarihi = invoice.BelgeTarihi == default ? DateTime.UtcNow : invoice.BelgeTarihi,
-                    VadeTarihi = invoice.VadeTarihi,
-                    BelgeTurDetayId = invoice.BelgeTurDetayId
-                },
-                FaturaTur = invoice.FaturaTur,
-                ParaBirimKod = invoice.ParaBirimKod ?? "TRY",
-                KurBedeli = invoice.KurBedeli,
-                MusteriTedarikci = invoice.MusteriTedarikci,
-                CariKodu = invoice.CariKodu,
-                CariTanim = invoice.CariTanim,
-                CariTip = invoice.CariTip,
-                CariKisaAd = invoice.CariKisaAd,
-                CariYasalUnvan = invoice.CariYasalUnvan,
-                VergiNo = invoice.VergiNo,
-                AdresSerbest = invoice.AdresSerbest,
-                KdvFlag = invoice.KdvFlag,
-                ReferansNo = invoice.ReferansNo
-            };
+                    GnlOrgSsBelge = new LucaBelgeDto
+                    {
+                        BelgeSeri = invoice.BelgeSeri ?? _settings.DefaultBelgeSeri ?? "A",
+                        BelgeNo = invoice.BelgeNo,
+                        BelgeTarihi = ParseDateOrDefault(invoice.BelgeTarihi),
+                        VadeTarihi = ParseDateOrDefault(invoice.VadeTarihi),
+                        BelgeTurDetayId = ParseLong(invoice.BelgeTurDetayId)
+                    },
+                    FaturaTur = ParseInt(invoice.FaturaTur),
+                    ParaBirimKod = invoice.ParaBirimKod ?? "TRY",
+                    KurBedeli = invoice.KurBedeli,
+                    MusteriTedarikci = ParseInt(invoice.MusteriTedarikci),
+                    CariKodu = invoice.CariKodu,
+                    CariTanim = invoice.CariTanim,
+                    CariTip = invoice.CariTip,
+                    CariKisaAd = invoice.CariKisaAd,
+                    CariYasalUnvan = invoice.CariYasalUnvan,
+                    VergiNo = invoice.VergiNo,
+                    AdresSerbest = invoice.AdresSerbest,
+                    KdvFlag = invoice.KdvFlag,
+                    ReferansNo = invoice.ReferansNo
+                };
 
-            dto.DocumentNo = invoice.BelgeTakipNo ?? invoice.BelgeNo?.ToString() ?? string.Empty;
-            var belgeDate = dto.GnlOrgSsBelge?.BelgeTarihi ?? invoice.BelgeTarihi;
-            dto.DocumentDate = belgeDate == default ? DateTime.UtcNow : belgeDate;
-            dto.DueDate = invoice.VadeTarihi ?? DateTime.UtcNow;
-            dto.CustomerTitle = invoice.CariTanim ?? string.Empty;
-            dto.CustomerCode = invoice.CariKodu ?? string.Empty;
-            dto.CustomerTaxNo = invoice.VergiNo ?? string.Empty;
-            dto.Lines = invoice.DetayList?.Select(ConvertToLegacyInvoiceLine).ToList() ?? new List<LucaInvoiceItemDto>();
-            dto.NetAmount = dto.Lines.Sum(l => l.NetAmount);
-            dto.TaxAmount = dto.Lines.Sum(l => l.TaxAmount);
-            dto.GrossAmount = dto.Lines.Sum(l => l.GrossAmount);
+                dto.DocumentNo = invoice.BelgeTakipNo ?? invoice.BelgeNo?.ToString() ?? string.Empty;
+                var belgeDate = dto.GnlOrgSsBelge?.BelgeTarihi ?? ParseDateOrDefault(invoice.BelgeTarihi);
+                dto.DocumentDate = belgeDate == default ? DateTime.UtcNow : belgeDate;
+                var dueDate = ParseDateOrDefault(invoice.VadeTarihi);
+                dto.DueDate = dueDate == default ? DateTime.UtcNow : dueDate;
+                dto.CustomerTitle = invoice.CariTanim ?? string.Empty;
+                dto.CustomerCode = invoice.CariKodu ?? string.Empty;
+                dto.CustomerTaxNo = invoice.VergiNo ?? string.Empty;
+                dto.Lines = invoice.DetayList?.Select(ConvertToLegacyInvoiceLine).ToList() ?? new List<LucaInvoiceItemDto>();
+                dto.NetAmount = dto.Lines.Sum(l => l.NetAmount);
+                dto.TaxAmount = dto.Lines.Sum(l => l.TaxAmount);
+                dto.GrossAmount = dto.Lines.Sum(l => l.GrossAmount);
 
             list.Add(dto);
         }
 
         return list;
+    }
+
+    private DateTime ParseDateOrDefault(string? value)
+    {
+        if (DateTime.TryParse(value, out var dt)) return dt;
+        return DateTime.UtcNow;
+    }
+
+    private DateTime? ParseDateOrDefault(DateTime? value)
+    {
+        return value == default ? DateTime.UtcNow : value;
+    }
+
+    private long ParseLong(string? value)
+    {
+        return long.TryParse(value, out var num) ? num : 0;
+    }
+
+    private int ParseInt(string? value)
+    {
+        return int.TryParse(value, out var num) ? num : 0;
     }
     private LucaInvoiceItemDto ConvertToLegacyInvoiceLine(LucaCreateInvoiceDetailRequest detail)
     {
@@ -410,6 +436,33 @@ public partial class LucaService
             var bodyLower = (body ?? string.Empty).ToLowerInvariant();
             var bodyIndicatesLogin = false;
             var actionInstantiateError = false;
+            if (IsHtmlResponse(body))
+            {
+                _logger.LogWarning("⚠️ {Tag}: HTML response alındı (session timeout). Attempt {Attempt}/{MaxAttempts}", logTag, attempt, maxAttempts);
+
+                if (attempt >= maxAttempts)
+                {
+                    _logger.LogError("❌ {Tag}: {MaxAttempts} denemeden sonra hala HTML response alınıyor!", logTag, maxAttempts);
+                    throw new InvalidOperationException($"{logTag}: HTML response received after {attempt} attempts (session/login failure). Luca session süresi dolmuş olabilir.");
+                }
+
+                _logger.LogInformation("🔄 Session yenileniyor (attempt {Attempt})...", attempt);
+                
+                try
+                {
+                    // ForceSessionRefreshAsync tüm state'i temizler ve yeniden login yapar
+                    await ForceSessionRefreshAsync();
+                    _logger.LogInformation("✅ Session yenilendi");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "⚠️ Session refresh hatası, tekrar denenecek");
+                }
+
+                await Task.Delay(500 * attempt); // Kısa bekleme
+                request = await CloneHttpRequestMessageAsync(request);
+                continue;
+            }
             try
             {
                 if (!string.IsNullOrWhiteSpace(bodyLower) && !_settings.UseTokenAuth)
@@ -527,8 +580,8 @@ public partial class LucaService
                 result.Errors.Add($"{label}: {ex.Message}");
                 _logger.LogError(ex, "Error sending customer {Label}", label);
             }
-            // Minimal delay to avoid rate limiting
-            await Task.Delay(25);
+            // 🚀 Minimal delay - hızlandırıldı
+            await Task.Delay(10);
         }
         result.SuccessfulRecords = success;
         result.FailedRecords = failed;
@@ -931,11 +984,7 @@ public partial class LucaService
         }
         return TryParseId(responseContent);
     }
-    public async Task<List<LucaWarehouseDto>> GetDepoListAsync()
-    {
-        var element = await ListWarehousesAsync();
-        return DeserializeList<LucaWarehouseDto>(element);
-    }
+    // GetDepoListAsync metodu LucaService.Depots.cs dosyasına taşındı
     public async Task<List<LucaVergiDairesiDto>> GetVergiDairesiListAsync()
     {
         var element = await ListTaxOfficesAsync();
@@ -2138,9 +2187,9 @@ public partial class LucaService
         var skippedCount = 0;
         var sentCount = 0;
         
-        // Batch işleme için ayarlar
-        const int batchSize = 20; // 🔥 Küçültüldü: Session timeout önleme
-        const int rateLimitDelayMs = 300; // Rate limit için bekleme süresi (ms)
+        // 🚀 PERFORMANS OPTİMİZASYONU - Batch işleme ayarları
+        const int batchSize = 50; // 🔥 Artırıldı: Daha hızlı işleme (20 → 50)
+        const int rateLimitDelayMs = 25; // 🔥 Azaltıldı: Minimum delay (300ms → 25ms)
         
         try
         {
@@ -2164,37 +2213,47 @@ public partial class LucaService
                 _logger.LogWarning(warmupEx, "⚠️ Session warmup hatası, ancak devam ediliyor");
             }
             
-            // 🔥 STEP 3: CACHE WARMING (Tek seferlik - tüm Luca stok kartlarını çek)
-            _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            _logger.LogInformation("📥 Step 3/3: CACHE WARMING - Tüm Luca stok kartları çekiliyor...");
-            _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            // 🚀 STEP 3: CACHE WARMING - Sadece cache boşsa çek (PERFORMANS OPTİMİZASYONU)
+            await _stockCardCacheLock.WaitAsync();
+            var cacheAlreadyLoaded = _stockCardCache.Count > 0;
+            _stockCardCacheLock.Release();
             
-            var allLucaCards = await ListStockCardsSimpleAsync(null, null, CancellationToken.None);
-            
-            if (allLucaCards.Count == 0)
+            IReadOnlyList<KozaStokKartiDto> allLucaCards;
+            if (cacheAlreadyLoaded)
             {
-                _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                _logger.LogError("❌ KRİTİK HATA: CACHE WARMING BAŞARISIZ!");
-                _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                _logger.LogError("   ⚠️ ListStockCardsSimpleAsync() 0 ürün döndü!");
-                _logger.LogError("   ⚠️ SEBEP: JSON parse hatası, session timeout, veya yetki sorunu");
-                _logger.LogError("   ⚠️ SONUÇ: Sync iptal ediliyor (veri bütünlüğü için)");
-                _logger.LogError("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                
-                result.IsSuccess = false;
-                result.FailedRecords = uniqueCards.Count;
-                result.Errors.Add("CRITICAL: Cache warming failed - ListStockCardsSimpleAsync returned 0 products");
-                result.Message = "Sync aborted: Cannot proceed without product cache (prevents duplicates)";
-                result.Duration = DateTime.UtcNow - startTime;
-                
-                throw new InvalidOperationException(
-                    "Sync aborted: Cache warming failed. ListStockCardsSimpleAsync returned 0 products. " +
-                    "This prevents duplicate creation and data corruption.");
+                _logger.LogInformation("🚀 Cache zaten dolu ({Count} kart) - Luca'dan tekrar çekilmiyor!", _stockCardCache.Count);
+                allLucaCards = new List<KozaStokKartiDto>(); // Boş liste, cache kullanılacak
+            }
+            else
+            {
+                _logger.LogInformation("📥 Step 3/3: CACHE WARMING - Tüm Luca stok kartları çekiliyor...");
+                allLucaCards = await ListStockCardsSimpleAsync(null, null, CancellationToken.None);
             }
             
-            _logger.LogInformation("✅ {Count} stok kartı Luca'dan çekildi", allLucaCards.Count);
+            // 🚀 Cache zaten doluysa bu bloğu atla
+            if (!cacheAlreadyLoaded)
+            {
+                if (allLucaCards.Count == 0)
+                {
+                    _logger.LogError("❌ KRİTİK HATA: CACHE WARMING BAŞARISIZ! ListStockCardsSimpleAsync() 0 ürün döndü!");
+                    
+                    result.IsSuccess = false;
+                    result.FailedRecords = uniqueCards.Count;
+                    result.Errors.Add("CRITICAL: Cache warming failed - ListStockCardsSimpleAsync returned 0 products");
+                    result.Message = "Sync aborted: Cannot proceed without product cache (prevents duplicates)";
+                    result.Duration = DateTime.UtcNow - startTime;
+                    
+                    throw new InvalidOperationException(
+                        "Sync aborted: Cache warming failed. ListStockCardsSimpleAsync returned 0 products. " +
+                        "This prevents duplicate creation and data corruption.");
+                }
+                
+                _logger.LogInformation("✅ {Count} stok kartı Luca'dan çekildi", allLucaCards.Count);
+            }
             
-            // Cache'i doldur
+            // Cache'i doldur (sadece yeni veriler varsa)
+            if (allLucaCards.Count > 0)
+            {
             await _stockCardCacheLock.WaitAsync();
             try
             {
@@ -2252,16 +2311,15 @@ public partial class LucaService
                     }
                 }
                 
-                _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
                 _logger.LogInformation("✅ CACHE HAZIR: {Count} SKU → StokKartId mapping", _stockCardCache.Count);
-                _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             }
             finally
             {
                 _stockCardCacheLock.Release();
             }
+            } // Cache doldurma bloğu sonu
             
-            _logger.LogWarning(">>> USING SAFE PER-PRODUCT FLOW WITH UPSERT LOGIC <<<");
+            _logger.LogInformation("🚀 Sync başlıyor - Cache: {CacheCount} kart", _stockCardCache.Count);
             _logger.LogInformation("Sending {Count} stock cards to Luca (Koza) with batch size {BatchSize}", uniqueCards.Count, batchSize);
 
             // NOT: client'ı her seferinde güncel al, ForceSessionRefresh _cookieHttpClient'ı yenileyebilir
@@ -2284,10 +2342,10 @@ public partial class LucaService
                 _logger.LogInformation("Processing batch {BatchNumber}/{TotalBatches} ({BatchCount} cards)", 
                     batchNumber, batches.Count, batch.Count);
                 
-                // 🔥 Batch'ler arası küçük bekleme (rate limiting)
+                // 🚀 Batch'ler arası minimal bekleme
                 if (batchNumber > 1)
                 {
-                    await Task.Delay(rateLimitDelayMs);
+                    await Task.Delay(100); // 100ms yeterli
                 }
 
             foreach (var card in batch)
@@ -2847,20 +2905,16 @@ public partial class LucaService
                         _logger.LogError(ex, "❌ Error sending stock card {Card}", card.KartKodu);
                     }
                 }
-                // Rate limiting - her kayıt arasında kısa bekleme
-                await Task.Delay(rateLimitDelayMs);
+                // 🚀 Rate limiting - minimal delay
+                if (rateLimitDelayMs > 0) await Task.Delay(rateLimitDelayMs);
             }
             
-            // Batch arası bekleme - API'yi yormamak ve session timeout önlemek için
+            // 🚀 Batch arası bekleme - Hızlandırıldı
             if (batchNumber < batches.Count)
             {
-                _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                _logger.LogInformation("✅ Batch {BatchNumber}/{TotalBatches} tamamlandı", batchNumber, batches.Count);
-                _logger.LogInformation("   Başarılı: {Success}, Başarısız: {Failed}, Duplicate: {Duplicate}", 
-                    successCount, failedCount, duplicateCount);
-                _logger.LogInformation("⏳ Sonraki batch için 2 saniye bekleniyor...");
-                _logger.LogInformation("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                await Task.Delay(2000); // 🔥 2 saniyeye çıkarıldı
+                _logger.LogInformation("✅ Batch {BatchNumber}/{TotalBatches} tamamlandı - Başarılı: {Success}, Başarısız: {Failed}, Duplicate: {Duplicate}", 
+                    batchNumber, batches.Count, successCount, failedCount, duplicateCount);
+                await Task.Delay(300); // 🔥 300ms'ye düşürüldü
             }
             }
         }

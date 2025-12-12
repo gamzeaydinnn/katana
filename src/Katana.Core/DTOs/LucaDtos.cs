@@ -1377,14 +1377,20 @@ public class LucaCreateInvoiceHeaderRequest
     [JsonPropertyName("belgeNo")]
     public int? BelgeNo { get; set; }
 
+    /// <summary>
+    /// Luca API STRING tarih formatı bekliyor: "dd/MM/yyyy" (örn: "07/10/2025")
+    /// </summary>
     [JsonPropertyName("belgeTarihi")]
-    public DateTime BelgeTarihi { get; set; }
+    public string BelgeTarihi { get; set; } = DateTime.Now.ToString("dd/MM/yyyy");
 
     [JsonPropertyName("duzenlemeSaati")]
     public string? DuzenlemeSaati { get; set; }
 
+    /// <summary>
+    /// Luca API STRING tarih formatı bekliyor: "dd/MM/yyyy" (örn: "07/10/2025")
+    /// </summary>
     [JsonPropertyName("vadeTarihi")]
-    public DateTime? VadeTarihi { get; set; }
+    public string? VadeTarihi { get; set; }
 
     [JsonPropertyName("belgeTakipNo")]
     public string? BelgeTakipNo { get; set; }
@@ -1392,8 +1398,11 @@ public class LucaCreateInvoiceHeaderRequest
     [JsonPropertyName("belgeAciklama")]
     public string? BelgeAciklama { get; set; }
 
+    /// <summary>
+    /// Luca API STRING bekliyor: "76" (Satış Faturası)
+    /// </summary>
     [JsonPropertyName("belgeTurDetayId")]
-    public long BelgeTurDetayId { get; set; }
+    public string BelgeTurDetayId { get; set; } = "76";
 
     // Belge değişkenleri
     [JsonPropertyName("belgeAttribute1Deger")]
@@ -1417,8 +1426,11 @@ public class LucaCreateInvoiceHeaderRequest
     [JsonPropertyName("belgeAttribute5Ack")]
     public string? BelgeAttribute5Ack { get; set; }
 
+    /// <summary>
+    /// Luca API STRING bekliyor: "1" (Normal Fatura)
+    /// </summary>
     [JsonPropertyName("faturaTur")]
-    public int FaturaTur { get; set; } = 1;
+    public string FaturaTur { get; set; } = "1";
 
     [JsonPropertyName("paraBirimKod")]
     public string ParaBirimKod { get; set; } = "TRY";
@@ -1435,8 +1447,11 @@ public class LucaCreateInvoiceHeaderRequest
     [JsonPropertyName("referansNo")]
     public string? ReferansNo { get; set; }
 
+    /// <summary>
+    /// Luca API STRING bekliyor: "1" (Müşteri)
+    /// </summary>
     [JsonPropertyName("musteriTedarikci")]
-    public int MusteriTedarikci { get; set; } = 1; 
+    public string MusteriTedarikci { get; set; } = "1"; 
 
     [JsonPropertyName("cariKodu")]
     public string CariKodu { get; set; } = string.Empty;
@@ -1563,9 +1578,22 @@ public class LucaCreateInvoiceHeaderRequest
     [JsonPropertyName("fhAttribute5Ack")]
     public string? FhAttribute5Ack { get; set; }
 
+    /// <summary>
+    /// E-Fatura türü: 1=TICARIFATURA, 2=TEMELFATURA, 3=YOLCUBERABERFATURA, 4=IHRACAT, 5=OZELMATRAH
+    /// </summary>
+    [JsonPropertyName("efaturaTuru")]
+    public int? EfaturaTuru { get; set; }
+
     
     [JsonPropertyName("detayList")]
     public List<LucaCreateInvoiceDetailRequest> DetayList { get; set; } = new();
+
+    [JsonIgnore]
+    public List<LucaCreateInvoiceDetailRequest> DetailList
+    {
+        get => DetayList;
+        set => DetayList = value ?? new();
+    }
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtraFields { get; set; }
@@ -1680,10 +1708,17 @@ public class LucaInvoicePdfLinkRequest
 public class LucaListCurrencyInvoicesRequest
 {
     [JsonPropertyName("ftrSsFaturaBaslik")]
-    public JsonElement? FtrSsFaturaBaslik { get; set; }
+    public LucaInvoiceOrgBelgeFilter? FtrSsFaturaBaslik { get; set; }
 
     [JsonPropertyName("gnlParaBirimRapor")]
-    public JsonElement? GnlParaBirimRapor { get; set; }
+    public LucaCurrencyReport? GnlParaBirimRapor { get; set; }
+
+    [JsonIgnore]
+    public int? ParaBirimId
+    {
+        get => GnlParaBirimRapor?.ParaBirimId;
+        set => GnlParaBirimRapor = value.HasValue ? new LucaCurrencyReport { ParaBirimId = value.Value } : null;
+    }
 
     [JsonPropertyName("parUstHareketTuru")]
     public string? ParUstHareketTuru { get; set; }
@@ -4728,6 +4763,103 @@ public class LucaCreateStockCardResponse
 
     [JsonPropertyName("message")]
     public string? Message { get; set; }
+}
+
+#endregion
+
+#region Fatura Additional Response DTOs
+
+/// <summary>
+/// Fatura Oluşturma Yanıtı
+/// </summary>
+public class LucaCreateInvoiceResponse
+{
+    [JsonPropertyName("ssFaturaBaslikId")]
+    public long? SsFaturaBaslikId { get; set; }
+
+    [JsonPropertyName("belgeNo")]
+    public long? BelgeNo { get; set; }
+
+    [JsonPropertyName("error")]
+    public bool Error { get; set; }
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+}
+
+/// <summary>
+/// Fatura PDF Link Yanıtı
+/// </summary>
+public class LucaInvoicePdfLinkResponse
+{
+    [JsonPropertyName("pdfLink")]
+    public string? PdfLink { get; set; }
+
+    [JsonPropertyName("error")]
+    public bool Error { get; set; }
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+}
+
+/// <summary>
+/// Fatura Kapama Yanıtı
+/// </summary>
+public class LucaCloseInvoiceResponse
+{
+    [JsonPropertyName("kapamaId")]
+    public long? KapamaId { get; set; }
+
+    [JsonPropertyName("error")]
+    public bool Error { get; set; }
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+}
+
+/// <summary>
+/// Fatura Silme Yanıtı
+/// </summary>
+public class LucaDeleteInvoiceResponse
+{
+    [JsonPropertyName("error")]
+    public bool Error { get; set; }
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+}
+
+/// <summary>
+/// Fatura Gönder İsteği (E-Fatura/E-Arşiv için)
+/// </summary>
+public class LucaSendInvoiceRequest
+{
+    [JsonPropertyName("ssFaturaBaslikId")]
+    public long SsFaturaBaslikId { get; set; }
+
+    [JsonPropertyName("gonderimTipi")]
+    public string GonderimTipi { get; set; } = "ELEKTRONIK"; // ELEKTRONIK, KAGIT
+}
+
+/// <summary>
+/// Fatura Gönder Yanıtı
+/// </summary>
+public class LucaSendInvoiceResponse
+{
+    [JsonPropertyName("error")]
+    public bool Error { get; set; }
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+}
+
+/// <summary>
+/// Döviz Raporu için kullanılan yardımcı DTO
+/// </summary>
+public class LucaCurrencyReport
+{
+    [JsonPropertyName("paraBirimId")]
+    public int ParaBirimId { get; set; } = 4; // 4: USD, 2: EUR, 1: TRY
 }
 
 #endregion

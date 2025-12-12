@@ -1,40 +1,47 @@
 import {
-    ArrowBack as ArrowBackIcon,
-    CheckCircle as CheckCircleIcon,
-    CloudUpload as CloudUploadIcon,
-    Error as ErrorIcon,
-    HourglassEmpty as PendingIcon,
-    Refresh as RefreshIcon,
-    Sync as SyncIcon,
-    Visibility as ViewIcon,
+  ArrowBack as ArrowBackIcon,
+  CheckCircle as CheckCircleIcon,
+  CloudUpload as CloudUploadIcon,
+  Error as ErrorIcon,
+  HourglassEmpty as PendingIcon,
+  Refresh as RefreshIcon,
+  Sync as SyncIcon,
+  Visibility as ViewIcon,
+  ThumbUp as ApproveIcon,
+  Inventory as StockIcon,
 } from "@mui/icons-material";
 import {
-    Alert,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    CardHeader,
-    Chip,
-    CircularProgress,
-    Divider,
-    FormControl,
-    IconButton,
-    InputLabel,
-    MenuItem,
-    Paper,
-    Select,
-    Snackbar,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TablePagination,
-    TableRow,
-    TextField,
-    Tooltip,
-    Typography,
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Divider,
+  FormControl,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TablePagination,
+  TableRow,
+  TextField,
+  Tooltip,
+  Typography,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
@@ -203,6 +210,16 @@ const SalesOrders: React.FC = () => {
 
   // Sync state
   const [syncing, setSyncing] = useState<number | null>(null);
+  const [syncingFromKatana, setSyncingFromKatana] = useState(false);
+
+  // Admin approval state
+  const [approving, setApproving] = useState<number | null>(null);
+  const [approvalDialog, setApprovalDialog] = useState<{
+    open: boolean;
+    orderId: number | null;
+    orderNo: string;
+  }>({ open: false, orderId: null, orderNo: "" });
+
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -212,6 +229,40 @@ const SalesOrders: React.FC = () => {
     message: "",
     severity: "success",
   });
+
+  // Sync orders from Katana
+  const syncFromKatana = async () => {
+    try {
+      setSyncingFromKatana(true);
+      const response = await api.post<{
+        isSuccess: boolean;
+        message?: string;
+        processedRecords?: number;
+      }>("/sync/from-katana/sales-orders?days=7");
+      const result = response.data;
+
+      setSnackbar({
+        open: true,
+        message:
+          result.message ||
+          `${result.processedRecords || 0} sipariş senkronize edildi`,
+        severity: result.isSuccess ? "success" : "error",
+      });
+
+      // Listeyi yenile
+      await fetchOrders();
+    } catch (err: any) {
+      console.error("Failed to sync from Katana:", err);
+      setSnackbar({
+        open: true,
+        message:
+          err.response?.data?.message || "Katana senkronizasyonu başarısız",
+        severity: "error",
+      });
+    } finally {
+      setSyncingFromKatana(false);
+    }
+  };
 
   // Fetch orders
   const fetchOrders = async () => {
@@ -343,6 +394,58 @@ const SalesOrders: React.FC = () => {
     }
   };
 
+  // Admin Approval - Siparişi onayla ve Katana'ya stok olarak ekle
+  const handleApproveOrder = async (orderId: number) => {
+    try {
+      setApproving(orderId);
+      setApprovalDialog({ open: false, orderId: null, orderNo: "" });
+
+      // Backend'e onay isteği gönder - bu Katana'ya stok ekleyecek
+      const response = await api.post<{ success: boolean; message?: string }>(
+        `/sales-orders/${orderId}/approve`
+      );
+
+      if (response.data.success) {
+        setSnackbar({
+          open: true,
+          message: `✅ Sipariş onaylandı ve Katana'ya stok olarak eklendi!`,
+          severity: "success",
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: response.data.message || "Onaylama başarısız",
+          severity: "error",
+        });
+      }
+
+      // Refresh data
+      if (showDetail && selectedOrder?.id === orderId) {
+        await fetchOrderDetail(orderId);
+      }
+      await fetchOrders();
+    } catch (err: any) {
+      console.error("Approval failed:", err);
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.message || "Onaylama hatası",
+        severity: "error",
+      });
+    } finally {
+      setApproving(null);
+    }
+  };
+
+  // Open approval dialog
+  const openApprovalDialog = (orderId: number, orderNo: string) => {
+    setApprovalDialog({ open: true, orderId, orderNo });
+  };
+
+  // Close approval dialog
+  const closeApprovalDialog = () => {
+    setApprovalDialog({ open: false, orderId: null, orderNo: "" });
+  };
+
   // Back to list
   const handleBackToList = () => {
     setShowDetail(false);
@@ -378,9 +481,25 @@ const SalesOrders: React.FC = () => {
           display: "flex",
           justifyContent: "flex-end",
           alignItems: "center",
+          gap: 2,
           mb: 3,
         }}
       >
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={
+            syncingFromKatana ? (
+              <CircularProgress size={16} color="inherit" />
+            ) : (
+              <SyncIcon />
+            )
+          }
+          onClick={syncFromKatana}
+          disabled={syncingFromKatana || loading}
+        >
+          {syncingFromKatana ? "Senkronize ediliyor..." : "Katana'dan Çek"}
+        </Button>
         <Button
           variant="outlined"
           startIcon={<RefreshIcon />}
@@ -494,6 +613,26 @@ const SalesOrders: React.FC = () => {
                         <ViewIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
+                    {/* Admin Onay Butonu - PENDING durumundaki siparişler için */}
+                    {(order.status === "PENDING" ||
+                      order.status === "NOT_SHIPPED") && (
+                      <Tooltip title="Onayla ve Katana'ya Stok Ekle">
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            openApprovalDialog(order.id, order.orderNo)
+                          }
+                          disabled={approving === order.id}
+                          color="success"
+                        >
+                          {approving === order.id ? (
+                            <CircularProgress size={16} />
+                          ) : (
+                            <ApproveIcon fontSize="small" />
+                          )}
+                        </IconButton>
+                      </Tooltip>
+                    )}
                     <Tooltip title="Koza'ya Senkronize Et">
                       <IconButton
                         size="small"
@@ -541,7 +680,9 @@ const SalesOrders: React.FC = () => {
           <IconButton onClick={handleBackToList}>
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h5">Satış Siparişi: {selectedOrder.orderNo}</Typography>
+          <Typography variant="h5">
+            Satış Siparişi: {selectedOrder.orderNo}
+          </Typography>
           <LucaStatusBadge
             status={selectedOrder.lucaSyncStatus}
             error={selectedOrder.lastSyncError}
@@ -892,6 +1033,63 @@ const SalesOrders: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Admin Onay Dialog */}
+      <Dialog
+        open={approvalDialog.open}
+        onClose={closeApprovalDialog}
+        aria-labelledby="approval-dialog-title"
+      >
+        <DialogTitle id="approval-dialog-title">
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <ApproveIcon color="success" />
+            Siparişi Onayla
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            <strong>{approvalDialog.orderNo}</strong> numaralı siparişi
+            onaylamak istediğinize emin misiniz?
+            <br />
+            <br />
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: "success.light",
+                borderRadius: 1,
+                color: "success.contrastText",
+              }}
+            >
+              <StockIcon sx={{ mr: 1, verticalAlign: "middle" }} />
+              Bu işlem siparişi onaylayacak ve ürünleri{" "}
+              <strong>Katana sistemine stok olarak ekleyecektir</strong>.
+            </Box>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeApprovalDialog} disabled={approving !== null}>
+            İptal
+          </Button>
+          <Button
+            onClick={() =>
+              approvalDialog.orderId &&
+              handleApproveOrder(approvalDialog.orderId)
+            }
+            variant="contained"
+            color="success"
+            disabled={approving !== null}
+            startIcon={
+              approving !== null ? (
+                <CircularProgress size={16} />
+              ) : (
+                <ApproveIcon />
+              )
+            }
+          >
+            Onayla ve Stoğa Ekle
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

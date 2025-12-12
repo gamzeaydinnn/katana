@@ -9,6 +9,7 @@ using Katana.Core.Enums;
 using Katana.Core.Helpers;
 using Katana.Business.Extensions;
 using Katana.Business.Mappers;
+using Katana.Core.Interfaces;
 using Katana.Data.Context;
 using Katana.Data.Configuration;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +34,7 @@ public class SyncService : ISyncService
     private readonly ILogger<SyncService> _logger;
     private readonly LucaApiSettings _lucaSettings;
     private readonly KatanaMappingSettings _katanaMappingSettings;
+    private readonly IUoMMappingService _uomMappingService;
 
     public SyncService(
         IKatanaService katanaService,
@@ -40,6 +42,7 @@ public class SyncService : ISyncService
         ITransformerService transformerService,
         ILoaderService loaderService,
         ILucaService lucaService,
+        IUoMMappingService uomMappingService,
         IntegrationDbContext dbContext,
         ILogger<SyncService> logger,
         IOptions<LucaApiSettings> lucaOptions,
@@ -50,6 +53,7 @@ public class SyncService : ISyncService
         _transformerService = transformerService;
         _loaderService = loaderService;
         _lucaService = lucaService;
+        _uomMappingService = uomMappingService;
         _dbContext = dbContext;
         _logger = logger;
         _lucaSettings = lucaOptions.Value;
@@ -192,7 +196,13 @@ public class SyncService : ISyncService
                 _logger.LogDebug("SyncService => SKU={Sku} rawCategory='{RawCategory}' lookupKey='{LookupKey}' mappingExists={MappingExists}",
                     product.SKU, rawCategory ?? "(null)", lookupKey, mappingExists);
 
-                var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(product, _lucaSettings, productCategoryMappings, _katanaMappingSettings);
+                var olcumBirimiId = await _uomMappingService.GetOlcumBirimiIdByUoMStringAsync(product.Unit, _lucaSettings.DefaultOlcumBirimiId);
+                var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(
+                    product,
+                    _lucaSettings,
+                    productCategoryMappings,
+                    _katanaMappingSettings,
+                    olcumBirimiIdOverride: olcumBirimiId);
 
                 // If mapping was not found and we fell back to default, log that too
                 if (!mappingExists)
@@ -2125,7 +2135,13 @@ public class SyncService : ISyncService
         var categoryMappings = await GetMappingDictionaryAsync("PRODUCT_CATEGORY", CancellationToken.None);
 
         // 3. Luca stok kartı oluştur
-        var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(katanaProduct, _lucaSettings, categoryMappings, _katanaMappingSettings);
+        var olcumBirimiId = await _uomMappingService.GetOlcumBirimiIdByUoMStringAsync(katanaProduct.Unit, _lucaSettings.DefaultOlcumBirimiId);
+        var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(
+            katanaProduct,
+            _lucaSettings,
+            categoryMappings,
+            _katanaMappingSettings,
+            olcumBirimiIdOverride: olcumBirimiId);
 
         _logger.LogWarning("🔥 FORCE SYNC: Ürün bilgileri:");
         _logger.LogWarning("   SKU: {SKU}", dto.KartKodu);
@@ -2278,6 +2294,83 @@ public class SyncService : ISyncService
                 FailedRecords = errors,
                 Duration = stopwatch.Elapsed,
                 Errors = errorMessages
+            };
+        }
+    }
+
+    #endregion
+
+    #region Sales Invoice
+
+    /// <summary>
+    /// ✅ Luca'ya satış faturası gönderir
+    /// Luca'daki stok kartlarını kullanarak fatura oluşturur
+    /// </summary>
+    public async Task<SyncResultDto> SendSalesInvoiceAsync(LucaCreateInvoiceHeaderRequest request)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        
+        try
+        {
+            _logger.LogInformation("📤 Satış faturası Luca'ya gönderiliyor: {BelgeTakipNo}", request.BelgeTakipNo);
+            
+            // Fatura detaylarını logla
+            _logger.LogInformation("📋 Fatura Detayları:");
+            _logger.LogInformation("   Belge Seri: {BelgeSeri}", request.BelgeSeri);
+            _logger.LogInformation("   Belge Tarihi: {BelgeTarihi}", request.BelgeTarihi);
+            _logger.LogInformation("   Müşteri: {CariTanim} ({CariKodu})", request.CariTanim, request.CariKodu);
+            _logger.LogInformation("   Vergi No: {VergiNo}", request.VergiNo);
+            _logger.LogInformation("   Belge Tür Detay ID: {BelgeTurDetayId}", request.BelgeTurDetayId);
+            _logger.LogInformation("   Kalem Sayısı: {Count}", request.DetayList?.Count ?? 0);
+            
+            if (request.DetayList != null)
+            {
+                foreach (var item in request.DetayList)
+                {
+                    _logger.LogInformation("   📦 {KartKodu}: {KartAdi} x {Miktar} @ {BirimFiyat} TL", 
+                        item.KartKodu, item.KartAdi, item.Miktar, item.BirimFiyat);
+                }
+            }
+            
+            // Luca'ya gönder
+            var result = await _lucaService.SendInvoiceAsync(request);
+            
+            stopwatch.Stop();
+            
+            if (result.IsSuccess)
+            {
+                _logger.LogInformation("✅ Satış faturası başarıyla gönderildi: {BelgeTakipNo} ({Duration}ms)", 
+                    request.BelgeTakipNo, stopwatch.ElapsedMilliseconds);
+            }
+            else
+            {
+                _logger.LogWarning("⚠️ Satış faturası gönderilemedi: {Message}", result.Message);
+                if (result.Errors?.Any() == true)
+                {
+                    foreach (var error in result.Errors)
+                    {
+                        _logger.LogWarning("   ❌ {Error}", error);
+                    }
+                }
+            }
+            
+            result.Duration = stopwatch.Elapsed;
+            return result;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            _logger.LogError(ex, "❌ Satış faturası gönderme hatası: {BelgeTakipNo}", request.BelgeTakipNo);
+            
+            return new SyncResultDto
+            {
+                IsSuccess = false,
+                Message = $"Satış faturası gönderilemedi: {ex.Message}",
+                ProcessedRecords = 1,
+                SuccessfulRecords = 0,
+                FailedRecords = 1,
+                Duration = stopwatch.Elapsed,
+                Errors = new List<string> { ex.Message }
             };
         }
     }

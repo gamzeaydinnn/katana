@@ -1,5 +1,7 @@
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
+using Katana.Core.Helpers;
+using Katana.Business.Interfaces;
 using Katana.Core.Interfaces;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
@@ -9,10 +11,12 @@ namespace Katana.Business.Services;
 public class SupplierService : ISupplierService
 {
     private readonly IntegrationDbContext _context;
+    private readonly IKatanaService _katanaService;
 
-    public SupplierService(IntegrationDbContext context)
+    public SupplierService(IntegrationDbContext context, IKatanaService katanaService)
     {
         _context = context;
+        _katanaService = katanaService;
     }
 
     public async Task<IEnumerable<SupplierDto>> GetAllAsync()
@@ -109,6 +113,71 @@ public class SupplierService : ISupplierService
             await _context.SaveChangesAsync();
         }
         return true;
+    }
+
+    public async Task<SupplierImportResultDto> ImportFromKatanaAsync(CancellationToken ct = default)
+    {
+        var result = new SupplierImportResultDto();
+
+        var katanaSuppliers = await _katanaService.GetSuppliersAsync();
+        result.TotalFromKatana = katanaSuppliers.Count;
+
+        if (katanaSuppliers.Count == 0)
+        {
+            return result;
+        }
+
+        var existingSuppliers = await _context.Suppliers.ToListAsync(ct);
+
+        foreach (var ks in katanaSuppliers)
+        {
+            if (ct.IsCancellationRequested) break;
+
+            try
+            {
+                var katanaCode = ks.Id > 0 ? ks.Id.ToString() : null;
+                if (string.IsNullOrWhiteSpace(katanaCode))
+                {
+                    result.Skipped++;
+                    continue;
+                }
+
+                var existing = existingSuppliers.FirstOrDefault(s =>
+                    string.Equals(s.Code, katanaCode, StringComparison.OrdinalIgnoreCase) ||
+                    (!string.IsNullOrWhiteSpace(ks.TaxNo) && !string.IsNullOrWhiteSpace(s.TaxNo) && s.TaxNo == ks.TaxNo));
+
+                if (existing == null)
+                {
+                    var entity = MappingHelper.MapToSupplier(ks);
+                    entity.CreatedAt = DateTime.UtcNow;
+                    entity.UpdatedAt = DateTime.UtcNow;
+                    _context.Suppliers.Add(entity);
+                    existingSuppliers.Add(entity);
+                    result.Created++;
+                }
+                else
+                {
+                    existing.Code = katanaCode;
+                    existing.Name = ks.Name ?? existing.Name;
+                    existing.Email = ks.Email;
+                    existing.Phone = ks.Phone;
+                    existing.TaxNo = ks.TaxNo;
+                    existing.Address = ks.Addresses?.FirstOrDefault()?.Line1;
+                    existing.City = ks.Addresses?.FirstOrDefault()?.City;
+                    existing.IsActive = true;
+                    existing.UpdatedAt = DateTime.UtcNow;
+                    result.Updated++;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add($"{ks.Id}: {ex.Message}");
+                result.Skipped++;
+            }
+        }
+
+        await _context.SaveChangesAsync(ct);
+        return result;
     }
 
     private SupplierDto MapToDto(Supplier s)
