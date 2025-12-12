@@ -11,4 +11,8 @@ public interface ISupplierService
     Task<bool> DeleteAsync(int id);
     Task<bool> ActivateAsync(int id);
     Task<bool> DeactivateAsync(int id);
+    
+    // Katana sync operations
+    Task<int> SyncFromKatanaAsync();
+    Task<SupplierDto?> GetOrCreateFromKatanaIdAsync(string katanaId);
 }

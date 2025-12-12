@@ -2,17 +2,26 @@ using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Core.Interfaces;
 using Katana.Data.Context;
+using Katana.Business.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Katana.Business.Services;
 
 public class SupplierService : ISupplierService
 {
     private readonly IntegrationDbContext _context;
+    private readonly IKatanaService _katanaService;
+    private readonly ILogger<SupplierService> _logger;
 
-    public SupplierService(IntegrationDbContext context)
+    public SupplierService(
+        IntegrationDbContext context,
+        IKatanaService katanaService,
+        ILogger<SupplierService> logger)
     {
         _context = context;
+        _katanaService = katanaService;
+        _logger = logger;
     }
 
     public async Task<IEnumerable<SupplierDto>> GetAllAsync()
@@ -109,6 +118,150 @@ public class SupplierService : ISupplierService
             await _context.SaveChangesAsync();
         }
         return true;
+    }
+
+    // ===== KATANA SYNC OPERATIONS =====
+    
+    /// <summary>
+    /// Katana'dan tüm supplier'ları import et
+    /// </summary>
+    public async Task<int> SyncFromKatanaAsync()
+    {
+        try
+        {
+            _logger.LogInformation("🔄 Katana'dan supplier senkronizasyonu başlatılıyor...");
+            
+            var katanaSuppliers = await _katanaService.GetSuppliersAsync();
+            int importedCount = 0;
+            int updatedCount = 0;
+            
+            foreach (var katanaSupplier in katanaSuppliers)
+            {
+                var katanaIdStr = katanaSupplier.Id.ToString();
+                
+                // KatanaId ile mevcut supplier'ı bul
+                var existing = await _context.Suppliers
+                    .FirstOrDefaultAsync(s => s.KatanaId == katanaIdStr);
+                
+                if (existing == null)
+                {
+                    // İlk adres varsa al
+                    var firstAddress = katanaSupplier.Addresses?.FirstOrDefault();
+                    var addressStr = firstAddress != null 
+                        ? $"{firstAddress.Line1}, {firstAddress.City}, {firstAddress.State} {firstAddress.Zip}".Trim()
+                        : null;
+                    
+                    // Yeni supplier oluştur
+                    var newSupplier = new Supplier
+                    {
+                        KatanaId = katanaIdStr,
+                        Name = katanaSupplier.Name ?? "Unknown Supplier",
+                        TaxNo = katanaSupplier.TaxNo,
+                        Email = katanaSupplier.Email,
+                        Phone = katanaSupplier.Phone,
+                        Address = addressStr,
+                        City = firstAddress?.City,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.Suppliers.Add(newSupplier);
+                    importedCount++;
+                }
+                else
+                {
+                    // Mevcut supplier'ı güncelle
+                    existing.Name = katanaSupplier.Name ?? existing.Name;
+                    existing.TaxNo = katanaSupplier.TaxNo ?? existing.TaxNo;
+                    existing.Email = katanaSupplier.Email ?? existing.Email;
+                    existing.Phone = katanaSupplier.Phone ?? existing.Phone;
+                    
+                    var firstAddress = katanaSupplier.Addresses?.FirstOrDefault();
+                    if (firstAddress != null)
+                    {
+                        existing.Address = $"{firstAddress.Line1}, {firstAddress.City}, {firstAddress.State} {firstAddress.Zip}".Trim();
+                        existing.City = firstAddress.City;
+                    }
+                    
+                    existing.UpdatedAt = DateTime.UtcNow;
+                    updatedCount++;
+                }
+            }
+            
+            await _context.SaveChangesAsync();
+            
+            _logger.LogInformation("✅ Supplier sync tamamlandı: {Imported} yeni, {Updated} güncellendi", 
+                importedCount, updatedCount);
+            
+            return importedCount + updatedCount;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Supplier sync hatası: {Message}", ex.Message);
+            throw;
+        }
+    }
+    
+    /// <summary>
+    /// Katana ID'ye göre supplier bul veya oluştur
+    /// </summary>
+    public async Task<SupplierDto?> GetOrCreateFromKatanaIdAsync(string katanaId)
+    {
+        try
+        {
+            // Önce local DB'de ara
+            var existing = await _context.Suppliers
+                .FirstOrDefaultAsync(s => s.KatanaId == katanaId);
+            
+            if (existing != null)
+            {
+                return MapToDto(existing);
+            }
+            
+            // Katana'dan çek
+            _logger.LogInformation("🔍 Katana'dan supplier çekiliyor: {KatanaId}", katanaId);
+            var katanaSupplier = await _katanaService.GetSupplierByIdAsync(katanaId);
+            
+            if (katanaSupplier == null)
+            {
+                _logger.LogWarning("⚠️ Katana'da supplier bulunamadı: {KatanaId}", katanaId);
+                return null;
+            }
+            
+            // İlk adres varsa al
+            var firstAddress = katanaSupplier.Addresses?.FirstOrDefault();
+            var addressStr = firstAddress != null 
+                ? $"{firstAddress.Line1}, {firstAddress.City}, {firstAddress.State} {firstAddress.Zip}".Trim()
+                : null;
+            
+            // Yeni supplier oluştur
+            var newSupplier = new Supplier
+            {
+                KatanaId = katanaSupplier.Id.ToString(),
+                Name = katanaSupplier.Name ?? "Unknown Supplier",
+                TaxNo = katanaSupplier.TaxNo,
+                Email = katanaSupplier.Email,
+                Phone = katanaSupplier.Phone,
+                Address = addressStr,
+                City = firstAddress?.City,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            
+            _context.Suppliers.Add(newSupplier);
+            await _context.SaveChangesAsync();
+            
+            _logger.LogInformation("✅ Yeni supplier oluşturuldu: {Name} (KatanaId: {KatanaId})", 
+                newSupplier.Name, katanaId);
+            
+            return MapToDto(newSupplier);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ GetOrCreateFromKatanaId hatası: {KatanaId}", katanaId);
+            return null;
+        }
     }
 
     private SupplierDto MapToDto(Supplier s)
