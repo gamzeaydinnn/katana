@@ -1,7 +1,10 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Katana.Business.Interfaces;
-using Katana.Core.DTOs.Koza;
+using Katana.Core.DTOs;
+using KozaDtos = Katana.Core.DTOs.Koza;
+using KozaStockCardListDto = Katana.Core.DTOs.KozaStokKartiListDto;
 
 namespace Katana.API.Controllers.Admin;
 
@@ -33,7 +36,7 @@ public sealed class KozaStockCardsController : ControllerBase
     /// <param name="eklemeBit">Optional: Filter by creation date end (dd/MM/yyyy)</param>
     /// <param name="ct">Cancellation token</param>
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<KozaStokKartiDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IReadOnlyList<KozaStockCardListDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> List(
         [FromQuery] DateTime? eklemeBas = null,
@@ -46,14 +49,96 @@ public sealed class KozaStockCardsController : ControllerBase
                 eklemeBas?.ToString("dd/MM/yyyy") ?? "null", 
                 eklemeBit?.ToString("dd/MM/yyyy") ?? "null");
             
-            // 5 dakikalık timeout ile çalış - büyük veri setleri için
             using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+
+            var request = new LucaListStockCardsRequest
+            {
+                StkSkart = new LucaStockCardCodeFilter()
+            };
+
+            if (eklemeBas.HasValue || eklemeBit.HasValue)
+            {
+                request.StkSkart.EklemeTarihiBas = eklemeBas?.ToString("dd/MM/yyyy");
+                request.StkSkart.EklemeTarihiBit = eklemeBit?.ToString("dd/MM/yyyy") ?? DateTime.Now.ToString("dd/MM/yyyy");
+                request.StkSkart.EklemeTarihiOp = "between";
+            }
             
-            var stockCards = await _lucaService.ListStockCardsSimpleAsync(eklemeBas, eklemeBit, linkedCts.Token);
+            var allCards = new List<KozaStockCardListDto>();
+            var pageNo = 1;
+            const int pageSize = 100;
+            var maxPages = 20;
+            var consecutiveEmptyPages = 0;
+
+            while (pageNo <= maxPages)
+            {
+                JsonElement jsonResult = default;
+                var attempt = 0;
+                const int maxAttempts = 2;
+
+                while (attempt < maxAttempts)
+                {
+                    attempt++;
+                    try
+                    {
+                        jsonResult = await _lucaService.ListStockCardsAsync(
+                            request,
+                            linkedCts.Token,
+                            pageNo: pageNo,
+                            pageSize: pageSize,
+                            skipEnsure: false);
+                        
+                        var pageCards = ParseStockCards(jsonResult);
+                        
+                        if (pageCards.Count == 0)
+                        {
+                            consecutiveEmptyPages++;
+                            _logger.LogInformation("Page {Page} returned 0 items (consecutive empty: {Empty})", 
+                                pageNo, consecutiveEmptyPages);
+                            
+                            if (consecutiveEmptyPages >= 2)
+                            {
+                                _logger.LogInformation("Two consecutive empty pages, stopping pagination");
+                                goto PaginationComplete;
+                            }
+                        }
+                        else
+                        {
+                            consecutiveEmptyPages = 0;
+                            allCards.AddRange(pageCards);
+                            _logger.LogInformation("Page {Page}: +{Count} cards (Total: {Total})", 
+                                pageNo, pageCards.Count, allCards.Count);
+                            
+                            if (pageCards.Count < pageSize)
+                            {
+                                _logger.LogInformation("Last page detected (partial page with {Count} items)", pageCards.Count);
+                                goto PaginationComplete;
+                            }
+                        }
+                        
+                        break;
+                    }
+                    catch (InvalidOperationException ex) when (ex.Message.Contains("HTML", StringComparison.OrdinalIgnoreCase) && attempt < maxAttempts)
+                    {
+                        _logger.LogWarning("Page {Page} attempt {Attempt} returned HTML, refreshing session...", pageNo, attempt);
+                        await _lucaService.ForceSessionRefreshAsync();
+                        await Task.Delay(1000);
+                    }
+                    catch (Exception ex) when (attempt < maxAttempts)
+                    {
+                        _logger.LogWarning(ex, "Page {Page} attempt {Attempt} failed, retrying...", pageNo, attempt);
+                        await Task.Delay(500);
+                    }
+                }
+                
+                pageNo++;
+            }
+
+            PaginationComplete:
+            _logger.LogInformation("✅ Retrieved {Count} stock cards from Koza (pages: {Pages})", 
+                allCards.Count, pageNo - 1);
             
-            _logger.LogInformation("Retrieved {Count} stock cards from Koza", stockCards.Count);
-            return Ok(stockCards);
+            return Ok(allCards);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
@@ -72,16 +157,39 @@ public sealed class KozaStockCardsController : ControllerBase
         }
     }
 
+    private static List<KozaStockCardListDto> ParseStockCards(JsonElement jsonResult)
+    {
+        if (jsonResult.ValueKind == JsonValueKind.Array)
+        {
+            return JsonSerializer.Deserialize<List<KozaStockCardListDto>>(jsonResult.GetRawText()) 
+                ?? new List<KozaStockCardListDto>();
+        }
+
+        if (jsonResult.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var key in new[] { "list", "stkSkart", "data", "items" })
+            {
+                if (jsonResult.TryGetProperty(key, out var prop) && prop.ValueKind == JsonValueKind.Array)
+                {
+                    return JsonSerializer.Deserialize<List<KozaStockCardListDto>>(prop.GetRawText()) 
+                        ?? new List<KozaStockCardListDto>();
+                }
+            }
+        }
+
+        return new List<KozaStockCardListDto>();
+    }
+
     /// <summary>
     /// Koza'da yeni stok kartı oluştur
     /// POST /api/admin/koza/stocks/create
     /// </summary>
     [HttpPost("create")]
-    [ProducesResponseType(typeof(KozaResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(KozaDtos.KozaResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Create(
-        [FromBody] KozaCreateStokKartiRequest request,
+        [FromBody] KozaDtos.KozaCreateStokKartiRequest request,
         CancellationToken ct)
     {
         try
