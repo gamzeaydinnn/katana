@@ -109,4 +109,33 @@ public class SuppliersController : ControllerBase
         _loggingService.LogInfo($"Supplier deactivated: {id}", User?.Identity?.Name, null, LogCategory.UserAction);
         return NoContent();
     }
+
+    /// <summary>
+    /// Katana'dan tüm supplier'ları import et
+    /// </summary>
+    [HttpPost("sync-from-katana")]
+    [AllowAnonymous]
+    public async Task<IActionResult> SyncFromKatana()
+    {
+        try
+        {
+            var count = await _supplierService.SyncFromKatanaAsync();
+            _loggingService.LogInfo($"Supplier sync from Katana completed: {count} suppliers", 
+                User?.Identity?.Name, null, LogCategory.Sync);
+            return Ok(new { 
+                success = true, 
+                message = $"{count} supplier senkronize edildi",
+                syncedCount = count 
+            });
+        }
+        catch (Exception ex)
+        {
+            _loggingService.LogError($"Supplier sync from Katana failed: {ex.Message}", ex);
+            return StatusCode(500, new { 
+                success = false, 
+                message = "Supplier senkronizasyonu başarısız", 
+                error = ex.Message 
+            });
+        }
+    }
 }

@@ -1,46 +1,46 @@
 import {
-    Add as AddIcon,
-    ArrowBack as BackIcon,
-    CheckCircle as CheckCircleIcon,
-    CloudUpload as CloudUploadIcon,
-    Delete as DeleteIcon,
-    Error as ErrorIcon,
-    HourglassEmpty as PendingIcon,
-    Refresh as RefreshIcon,
-    Save as SaveIcon,
-    Visibility as ViewIcon,
-    Warning as WarningIcon,
+  Add as AddIcon,
+  ArrowBack as BackIcon,
+  CheckCircle as CheckCircleIcon,
+  CloudUpload as CloudUploadIcon,
+  Delete as DeleteIcon,
+  Error as ErrorIcon,
+  HourglassEmpty as PendingIcon,
+  Refresh as RefreshIcon,
+  Save as SaveIcon,
+  Visibility as ViewIcon,
+  Warning as WarningIcon,
 } from "@mui/icons-material";
 import {
-    Alert,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    CardHeader,
-    Checkbox,
-    Chip,
-    CircularProgress,
-    Divider,
-    FormControl,
-    FormControlLabel,
-    FormHelperText,
-    Grid,
-    IconButton,
-    InputLabel,
-    MenuItem,
-    Paper,
-    Select,
-    Snackbar,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TextField,
-    Tooltip,
-    Typography,
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Checkbox,
+  Chip,
+  CircularProgress,
+  Divider,
+  FormControl,
+  FormControlLabel,
+  FormHelperText,
+  Grid,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Tooltip,
+  Typography,
 } from "@mui/material";
 import React, { useCallback, useEffect, useState } from "react";
 import api from "../../services/api";
@@ -318,10 +318,16 @@ const PurchaseOrders: React.FC = () => {
       }
 
       const response = await api.get<{
-        data: PurchaseOrderListItem[];
-        total: number;
+        items: PurchaseOrderListItem[];
+        pagination: {
+          currentPage: number;
+          pageSize: number;
+          totalCount: number;
+          totalPages: number;
+        };
+        warnings?: string[];
       }>("/purchase-orders", { params });
-      setOrders(response.data.data || []);
+      setOrders(response.data.items || []);
     } catch (err) {
       console.error("Failed to fetch purchase orders:", err);
       setSnackbar({
@@ -381,11 +387,17 @@ const PurchaseOrders: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchOrders();
-    fetchStats();
-    fetchSuppliers();
-    fetchProducts();
-  }, [fetchOrders]);
+    // Sayfa açıldığında önce Katana'dan sync yap, sonra listeyi yükle
+    const initializeData = async () => {
+      await handleSyncFromKatana();
+      await fetchSuppliers();
+      await fetchProducts();
+      await fetchStats();
+    };
+    
+    initializeData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (selectedOrderId && view === "detail") {
@@ -547,6 +559,44 @@ const PurchaseOrders: React.FC = () => {
   };
 
   // ===== SYNC HANDLERS =====
+
+  const handleSyncFromKatana = async () => {
+    try {
+      setSyncing(true);
+      setSnackbar({
+        open: true,
+        message: "Katana'dan siparişler çekiliyor...",
+        severity: "info",
+      });
+
+      const response = await api.post<{
+        message: string;
+        imported: number;
+        updated: number;
+        skipped: number;
+        total: number;
+        suppliersSynced: number;
+      }>("/purchase-orders/sync-from-katana");
+
+      setSnackbar({
+        open: true,
+        message: `✅ ${response.data.total} sipariş senkronize edildi (${response.data.imported} yeni, ${response.data.updated} güncellendi)`,
+        severity: "success",
+      });
+      
+      await fetchOrders();
+      await fetchStats();
+    } catch (err) {
+      console.error("Katana sync failed:", err);
+      setSnackbar({
+        open: true,
+        message: "Katana senkronizasyonu başarısız",
+        severity: "error",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const handleSyncOrder = async (id: number) => {
     try {
@@ -723,6 +773,18 @@ const PurchaseOrders: React.FC = () => {
           Satınalma Siparişleri
         </Typography>
         <Box sx={{ display: "flex", gap: 0.5 }}>
+          <Tooltip title="Katana'dan Siparişleri Çek">
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<CloudUploadIcon />}
+              onClick={handleSyncFromKatana}
+              disabled={syncing || loading}
+              sx={{ fontSize: "0.75rem", px: 1.5, py: 0.5, minWidth: "auto" }}
+            >
+              {syncing ? "Çekiliyor..." : "Katana'dan Çek"}
+            </Button>
+          </Tooltip>
           <IconButton
             size="small"
             color="primary"
