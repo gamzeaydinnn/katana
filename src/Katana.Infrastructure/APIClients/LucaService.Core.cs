@@ -28,6 +28,7 @@ namespace Katana.Infrastructure.APIClients;
 public partial class LucaService : ILucaService
 {
     private readonly Katana.Core.Interfaces.ILucaCookieJarStore? _externalCookieJarStore;
+    private readonly Katana.Core.Interfaces.ISyncProgressReporter _syncProgressReporter;
     private readonly HttpClient _httpClient;
     private readonly LucaApiSettings _settings;
     private readonly ILogger<LucaService> _logger;
@@ -43,6 +44,7 @@ public partial class LucaService : ILucaService
     private HttpClientHandler? _cookieHandler;
     private HttpClient? _cookieHttpClient;
     private bool _isCookieAuthenticated = false;
+    private bool _branchSelected;
     private DateTime? _lastSuccessfulAuthAt = null;
     private static readonly System.Threading.SemaphoreSlim _loginSemaphore = new System.Threading.SemaphoreSlim(1, 1);
     
@@ -82,12 +84,18 @@ public partial class LucaService : ILucaService
     };
     private const int KozaThrottleMinDelayMs = 350;
     private const int KozaThrottleMaxDelayMs = 1000;
-    public LucaService(HttpClient httpClient, IOptions<LucaApiSettings> settings, ILogger<LucaService> logger, Katana.Core.Interfaces.ILucaCookieJarStore? cookieJarStore = null)
+    public LucaService(
+        HttpClient httpClient,
+        IOptions<LucaApiSettings> settings,
+        ILogger<LucaService> logger,
+        Katana.Core.Interfaces.ILucaCookieJarStore? cookieJarStore = null,
+        Katana.Core.Interfaces.ISyncProgressReporter? syncProgressReporter = null)
     {
         _httpClient = httpClient;
         _settings = settings.Value;
         _logger = logger;
         _externalCookieJarStore = cookieJarStore;
+        _syncProgressReporter = syncProgressReporter ?? new Katana.Core.Interfaces.NoopSyncProgressReporter();
         _encoding = InitializeEncoding(_settings.Encoding);
 
         ApplyDefaultHttpClientHeaders(_httpClient);
@@ -378,12 +386,12 @@ public partial class LucaService : ILucaService
     /// Session'ı tamamen yeniler - tüm cookie state'i temizler ve yeniden login yapar.
     /// HTML response alındığında veya session timeout durumunda kullanılır.
     /// </summary>
-    private async Task ForceSessionRefreshAsync()
+    public async Task ForceSessionRefreshAsync()
     {
         _logger.LogWarning("🔄 ForceSessionRefreshAsync: Tüm session state temizleniyor...");
         
         // 1. Tüm session state'i temizle
-        _isCookieAuthenticated = false;
+        MarkSessionUnauthenticated();
         _sessionCookie = null;
         _manualJSessionId = null;
         _cookieExpiresAt = null;
@@ -470,6 +478,18 @@ public partial class LucaService : ILucaService
         _logger.LogInformation("✅ ForceSessionRefreshAsync tamamlandı. Authenticated: {IsAuth}, Cookie: {HasCookie}", 
             _isCookieAuthenticated, 
             !string.IsNullOrWhiteSpace(_sessionCookie) || !string.IsNullOrWhiteSpace(_manualJSessionId));
+    }
+
+    private void MarkSessionUnauthenticated()
+    {
+        _isCookieAuthenticated = false;
+        _branchSelected = false;
+    }
+
+    private bool BranchSelectionCompleted()
+    {
+        _branchSelected = true;
+        return true;
     }
 
     private async Task LoginWithServiceAsync()
@@ -652,7 +672,7 @@ public partial class LucaService : ILucaService
         catch (Exception ex)
         {
             _logger.LogError(ex, "!!! Koza authentication failed !!!");
-            _isCookieAuthenticated = false;
+            MarkSessionUnauthenticated();
             throw;
         }
         finally
@@ -908,7 +928,7 @@ public partial class LucaService : ILucaService
                                             _cookieContainer = null;
                                             _isCookieAuthenticated = true;
                                             _sessionCookie = manualCookieValue;
-                                            return true;
+                                            return BranchSelectionCompleted();
                                         }
                                     }
                                     catch (Exception)
@@ -918,7 +938,7 @@ public partial class LucaService : ILucaService
                                         _cookieContainer = null;
                                         _isCookieAuthenticated = true;
                                         _sessionCookie = manualCookieValue;
-                                        return true;
+                                        return BranchSelectionCompleted();
                                     }
                                 }
                                 try { manualClient.Dispose(); } catch { }
@@ -933,7 +953,7 @@ public partial class LucaService : ILucaService
                             _logger.LogWarning(ex, "Manual-cookie retry attempt failed");
                         }
                         _logger.LogError("ChangeBranch returned login/branch error and manual retry did not succeed");
-                        _isCookieAuthenticated = false;
+                        MarkSessionUnauthenticated();
                         return false;
                     }
 
@@ -969,7 +989,7 @@ public partial class LucaService : ILucaService
                         _logger.LogWarning("⚠️ Session warmup başarısız oldu, ancak devam ediliyor");
                     }
                     
-                    return true;
+                    return BranchSelectionCompleted();
         }
         catch (Exception ex)
         {
@@ -1326,14 +1346,24 @@ public partial class LucaService : ILucaService
         }
         return false;
     }
-    private async Task EnsureBranchSelectedAsync()
+    private async Task EnsureBranchSelectedAsync(bool force = false)
     {
         if (_settings.UseTokenAuth) return;
         if (_cookieHttpClient == null) return;
+        if (!force && _branchSelected && _isCookieAuthenticated)
+        {
+            _logger.LogDebug("Branch already selected; skipping re-selection.");
+            return;
+        }
 
         await _branchSemaphore.WaitAsync();
         try
         {
+            if (!force && _branchSelected && _isCookieAuthenticated)
+            {
+                _logger.LogDebug("Branch already selected (inside lock); skipping.");
+                return;
+            }
             List<LucaBranchDto> branches = new List<LucaBranchDto>();
             try
             {
@@ -1516,7 +1546,7 @@ retryChangeBranch:
                         if (!string.IsNullOrWhiteSpace(body) && (body.Contains("Login olunmalı", StringComparison.OrdinalIgnoreCase) || body.Contains("login olunmali", StringComparison.OrdinalIgnoreCase) || body.Contains("1001") || body.Contains("1002")))
                         {
                             _logger.LogWarning("ChangeBranch response indicates not-authenticated or invalid session: {Preview}", body.Length > 300 ? body.Substring(0, 300) : body);
-                            _isCookieAuthenticated = false;
+                            MarkSessionUnauthenticated();
 
                             if (!reAuthed)
                             {
@@ -1545,7 +1575,7 @@ retryChangeBranch:
                                     if (codeProp.GetInt32() == 0)
                                     {
                                         _logger.LogInformation("ChangeBranch succeeded using {Desc}", desc);
-                                        return true;
+                                        return BranchSelectionCompleted();
                                     }
                                     else
                                     {
@@ -1555,13 +1585,13 @@ retryChangeBranch:
                                 else
                                 {
                                     _logger.LogInformation("ChangeBranch succeeded (HTTP OK) using {Desc}", desc);
-                                    return true;
+                                    return BranchSelectionCompleted();
                                 }
                             }
                             catch (Exception)
                             {
                                 _logger.LogInformation("ChangeBranch HTTP OK with unparseable body using {Desc}", desc);
-                                return true;
+                                return BranchSelectionCompleted();
                             }
                         }
                         else
