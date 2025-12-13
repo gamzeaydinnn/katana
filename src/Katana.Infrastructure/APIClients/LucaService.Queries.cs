@@ -117,6 +117,10 @@ public partial class LucaService
         await EnsureBranchSelectedAsync();
         await VerifyBranchSelectionAsync();
 
+        // 🔥 FATURA ENDPOINT WARMUP: Struts Action'ını uyandır
+        // StockCards warmup'ı farklı bir Action class'ı uyandırıyor, fatura için ayrı warmup gerekli
+        await WarmupInvoiceEndpointAsync();
+
         var endpoint = _settings.Endpoints.InvoiceCreate;
         var encoder = _encoding;
         var contentBytes = new ByteArrayContent(encoder.GetBytes(json));
@@ -128,7 +132,7 @@ public partial class LucaService
         };
         ApplyManualSessionCookie(httpRequest);
 
-        var response = await SendWithAuthRetryAsync(httpRequest, "CREATE_INVOICE_RAW", 2);
+        var response = await SendWithAuthRetryAsync(httpRequest, "CREATE_INVOICE_RAW", 3);
         var responseContent = await ReadResponseContentAsync(response);
         await AppendRawLogAsync("CREATE_INVOICE_RAW", endpoint, json, response.StatusCode, responseContent);
 

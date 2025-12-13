@@ -330,20 +330,15 @@ public static class KatanaToLucaMapper
         return taxNo.Length == 11 ? 2 : 1;
     }
 
-    private static int? ParseDocumentNo(string? documentNo)
+    private static string? ParseDocumentNo(string? documentNo)
     {
         if (string.IsNullOrWhiteSpace(documentNo))
         {
             return null;
         }
 
-        if (int.TryParse(documentNo, out var parsed))
-        {
-            return parsed;
-        }
-
-        var digits = new string(documentNo.Where(char.IsDigit).ToArray());
-        return int.TryParse(digits, out var fallback) ? fallback : null;
+        // Luca API string bekliyor, direkt gönder
+        return documentNo.Trim();
     }
 
     private static string NormalizeTypeHint(string? value)
