@@ -245,9 +245,10 @@ builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();
     options.KeepAliveInterval = TimeSpan.FromSeconds(15);
-    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(120);
 });
 builder.Services.AddScoped<IPendingNotificationPublisher, SignalRNotificationPublisher>();
+builder.Services.AddSingleton<Katana.Core.Interfaces.ISyncProgressReporter, Katana.API.Notifications.SignalRSyncProgressReporter>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<AdminService>();
 var jwt = builder.Configuration.GetSection("Jwt");

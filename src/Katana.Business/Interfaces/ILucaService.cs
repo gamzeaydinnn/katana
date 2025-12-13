@@ -2,6 +2,7 @@
 using Katana.Core.DTOs.Koza;
 using Katana.Core.Entities;
 using System.Text.Json;
+using KozaDtos = Katana.Core.DTOs.Koza;
 
 namespace Katana.Business.Interfaces;
 
@@ -13,6 +14,7 @@ public interface ILucaService
     Task<SalesOrderSyncResultDto> CreateSalesOrderInvoiceAsync(SalesOrder order, string? depoKodu = null, CancellationToken ct = default);
 
     Task<bool> WarmupCacheWithRetryAsync(int maxAttempts = 3, CancellationToken cancellationToken = default);
+    Task ForceSessionRefreshAsync();
     Task<LucaCacheStatusDto> GetCacheStatusAsync();
     Task<bool> UpdateStockCardAsync(long stockCardId, Product product);
     Task<long?> CreateStockCardAsync(Product product);
@@ -54,7 +56,7 @@ public interface ILucaService
     Task<List<Katana.Core.DTOs.LucaProductDto>> FetchProductsAsync(System.Threading.CancellationToken cancellationToken = default);
 
     
-    Task<System.Text.Json.JsonElement> ListStockCardsAsync(LucaListStockCardsRequest request, CancellationToken ct = default);
+    Task<System.Text.Json.JsonElement> ListStockCardsAsync(LucaListStockCardsRequest request, CancellationToken ct = default, int pageNo = 1, int pageSize = 100, bool skipEnsure = false);
     Task<System.Text.Json.JsonElement> ListStockCardsAsync(string? kodBas = null, string? kodBit = null, string kodOp = "between", CancellationToken ct = default);
     Task<List<LucaStockCardSummaryDto>> ListStockCardsAsync(System.Threading.CancellationToken cancellationToken = default);
     Task<System.Text.Json.JsonElement> ListStockCardPriceListsAsync(LucaListStockCardPriceListsRequest request);
@@ -235,7 +237,7 @@ public interface ILucaService
     Task<KozaResult> CreateDepotAsync(KozaCreateDepotRequest req, CancellationToken ct = default);
     
     // Koza Stok Kartı işlemleri
-    Task<IReadOnlyList<KozaStokKartiDto>> ListStockCardsSimpleAsync(DateTime? eklemeBas = null, DateTime? eklemeBit = null, CancellationToken ct = default);
+    Task<IReadOnlyList<KozaDtos.KozaStokKartiDto>> ListStockCardsSimpleAsync(DateTime? eklemeBas = null, DateTime? eklemeBit = null, CancellationToken ct = default);
     Task<KozaResult> CreateStockCardSimpleAsync(KozaCreateStokKartiRequest req, CancellationToken ct = default);
     
     // Koza Cari (Müşteri/Tedarikçi) işlemleri
