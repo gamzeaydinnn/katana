@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Katana.Business.Services;
 
 namespace Katana.Tests.Controllers;
 
@@ -18,6 +19,9 @@ public class SalesOrdersControllerTests
     private readonly Mock<ILucaService> _mockLucaService;
     private readonly Mock<ILoggingService> _mockLoggingService;
     private readonly Mock<IAuditService> _mockAuditService;
+    private readonly Mock<IKatanaService> _mockKatanaService;
+    private readonly Mock<Microsoft.Extensions.Logging.ILogger<SalesOrdersController>> _mockLogger;
+    private readonly Mock<ILocationMappingService> _mockLocationMappingService;
     private readonly IntegrationDbContext _context;
     private readonly SalesOrdersController _controller;
 
@@ -32,12 +36,18 @@ public class SalesOrdersControllerTests
         _mockLucaService = new Mock<ILucaService>();
         _mockLoggingService = new Mock<ILoggingService>();
         _mockAuditService = new Mock<IAuditService>();
+        _mockKatanaService = new Mock<IKatanaService>();
+        _mockLogger = new Mock<Microsoft.Extensions.Logging.ILogger<SalesOrdersController>>();
+        _mockLocationMappingService = new Mock<ILocationMappingService>();
         
         _controller = new SalesOrdersController(
             _context,
             _mockLucaService.Object,
             _mockLoggingService.Object,
-            _mockAuditService.Object
+            _mockAuditService.Object,
+            _mockLogger.Object,
+            _mockKatanaService.Object,
+            _mockLocationMappingService.Object
         );
     }
 

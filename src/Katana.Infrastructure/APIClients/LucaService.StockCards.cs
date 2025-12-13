@@ -20,7 +20,14 @@ public partial class LucaService
     /// </summary>
     public async Task<JsonElement> CreateStockCardAsync(LucaCreateStokKartiRequest request)
     {
+        // 🔥 MİMARİ RAPOR UYUMLU: Session kontrolü + Branch seçimi
         await EnsureAuthenticatedAsync();
+        
+        // 🔥 KRİTİK: Branch seçimi ZORUNLU - Mimari rapor bölüm 2.4.1
+        if (!_settings.UseTokenAuth)
+        {
+            await EnsureBranchSelectedAsync();
+        }
 
         var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
         // Ensure single-stock-card creation always targets the SKART endpoint.
@@ -40,17 +47,17 @@ public partial class LucaService
             request.AlisTevkifatTipId,
             request.SatisTevkifatTipId);
         
-        try
-        {
-            _logger.LogInformation("ATTEMPT 1: JSON with original property names");
-            var json1 = JsonSerializer.Serialize(request, jsonOptionsOriginal);
-            var content1 = CreateKozaContent(json1);
-            using var req1 = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content1 };
-            ApplyManualSessionCookie(req1);
-            var resp1 = await client.SendAsync(req1);
-            var body1 = await ReadResponseContentAsync(resp1);
-            await AppendRawLogAsync("CREATE_STOCK_ATTEMPT1", endpoint, json1, resp1.StatusCode, body1);
-            try { await SaveHttpTrafficAsync("CREATE_STOCK_ATTEMPT1", req1, resp1); } catch { }
+	        try
+	        {
+	            _logger.LogInformation("ATTEMPT 1: JSON with original property names");
+	            var json1 = JsonSerializer.Serialize(request, jsonOptionsOriginal);
+	            var content1 = CreateKozaContent(json1);
+	            using var req1 = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content1 };
+	            ApplyManualSessionCookie(req1);
+	            var resp1 = await SendWithAuthRetryAsync(req1, "CREATE_STOCK_ATTEMPT1_HTTP", 2);
+	            var body1 = await ReadResponseContentAsync(resp1);
+	            await AppendRawLogAsync("CREATE_STOCK_ATTEMPT1", endpoint, json1, resp1.StatusCode, body1);
+	            try { await SaveHttpTrafficAsync("CREATE_STOCK_ATTEMPT1", req1, resp1); } catch { }
 
             if (resp1.IsSuccessStatusCode)
             {
@@ -68,18 +75,18 @@ public partial class LucaService
         {
             _logger.LogWarning(ex, "ATTEMPT 1 exception");
         }
-        try
-        {
-            _logger.LogInformation("ATTEMPT 2: Wrapped object (stkSkart)");
-            var wrapped = new { stkSkart = request };
-            var json2 = JsonSerializer.Serialize(wrapped, jsonOptionsOriginal);
-            var content2 = CreateKozaContent(json2);
-            using var req2 = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content2 };
-            ApplyManualSessionCookie(req2);
-            var resp2 = await client.SendAsync(req2);
-            var body2 = await ReadResponseContentAsync(resp2);
-            await AppendRawLogAsync("CREATE_STOCK_ATTEMPT2", endpoint, json2, resp2.StatusCode, body2);
-            try { await SaveHttpTrafficAsync("CREATE_STOCK_ATTEMPT2", req2, resp2); } catch { }
+	        try
+	        {
+	            _logger.LogInformation("ATTEMPT 2: Wrapped object (stkSkart)");
+	            var wrapped = new { stkSkart = request };
+	            var json2 = JsonSerializer.Serialize(wrapped, jsonOptionsOriginal);
+	            var content2 = CreateKozaContent(json2);
+	            using var req2 = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content2 };
+	            ApplyManualSessionCookie(req2);
+	            var resp2 = await SendWithAuthRetryAsync(req2, "CREATE_STOCK_ATTEMPT2_HTTP", 2);
+	            var body2 = await ReadResponseContentAsync(resp2);
+	            await AppendRawLogAsync("CREATE_STOCK_ATTEMPT2", endpoint, json2, resp2.StatusCode, body2);
+	            try { await SaveHttpTrafficAsync("CREATE_STOCK_ATTEMPT2", req2, resp2); } catch { }
 
             if (resp2.IsSuccessStatusCode)
             {
@@ -96,10 +103,10 @@ public partial class LucaService
         {
             _logger.LogWarning(ex, "ATTEMPT 2 exception");
         }
-        try
-        {
-            _logger.LogInformation("ATTEMPT 3: Form-encoded key/value pairs");
-            var fields = new Dictionary<string, string?>
+	        try
+	        {
+	            _logger.LogInformation("ATTEMPT 3: Form-encoded key/value pairs");
+	            var fields = new Dictionary<string, string?>
             {
                 ["kartAdi"] = request.KartAdi,
                 ["kartKodu"] = request.KartKodu,
@@ -123,12 +130,12 @@ public partial class LucaService
             var content3 = new ByteArrayContent(formBytes);
             content3.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded") { CharSet = _encoding.WebName };
 
-            using var req3 = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content3 };
-            ApplyManualSessionCookie(req3);
-            var resp3 = await client.SendAsync(req3);
-            var body3 = await ReadResponseContentAsync(resp3);
-            await AppendRawLogAsync("CREATE_STOCK_ATTEMPT3", endpoint, formBody ?? string.Empty, resp3.StatusCode, body3);
-            try { await SaveHttpTrafficAsync("CREATE_STOCK_ATTEMPT3", req3, resp3); } catch { }
+	            using var req3 = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content3 };
+	            ApplyManualSessionCookie(req3);
+	            var resp3 = await SendWithAuthRetryAsync(req3, "CREATE_STOCK_ATTEMPT3_HTTP", 2);
+	            var body3 = await ReadResponseContentAsync(resp3);
+	            await AppendRawLogAsync("CREATE_STOCK_ATTEMPT3", endpoint, formBody ?? string.Empty, resp3.StatusCode, body3);
+	            try { await SaveHttpTrafficAsync("CREATE_STOCK_ATTEMPT3", req3, resp3); } catch { }
             if (resp3.IsSuccessStatusCode)
             {
                 var parsed = ParseKozaOperationResponse(body3);

@@ -6,6 +6,11 @@ namespace Katana.Business.Interfaces;
 
 public interface IKatanaService
 {
+    /// <summary>
+     /// Upsert stock for a SKU in Katana: create product if missing, otherwise increase stock.
+     /// </summary>
+    Task<bool> SyncProductStockAsync(string sku, decimal quantity, long? locationId = null, string? productName = null, decimal? salesPrice = null);
+
     Task<List<KatanaStockDto>> GetStockChangesAsync(DateTime fromDate, DateTime toDate);
     Task<List<KatanaProductDto>> GetProductsAsync();
     Task<List<KatanaCustomerDto>> GetCustomersAsync();

@@ -4,6 +4,46 @@
         <name>Katana.API</name>
     </assembly>
     <members>
+        <member name="M:Katana.API.Controllers.Admin.CustomerMappingController.GetAllMappings">
+            <summary>
+            Tüm customer mapping'leri getir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.CustomerMappingController.GetMappingByCustomerId(System.String)">
+            <summary>
+            Customer ID'ye göre mapping getir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.CustomerMappingController.GetCariKodu(System.String)">
+            <summary>
+            Customer ID'ye göre cari kodu getir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.CustomerMappingController.GetFinansalNesneId(System.String)">
+            <summary>
+            Customer ID'ye göre finansal nesne ID getir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.CustomerMappingController.GetMappingByTaxNo(System.String)">
+            <summary>
+            Vergi numarasına göre mapping getir (duplicate kontrolü)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.CustomerMappingController.CreateOrUpdateMapping(Katana.API.Controllers.Admin.CreateCustomerMappingRequest)">
+            <summary>
+            Customer mapping oluştur veya güncelle
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.CustomerMappingController.CheckDuplicate(Katana.API.Controllers.Admin.CheckDuplicateRequest)">
+            <summary>
+            Duplicate customer kontrolü
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.CustomerMappingController.GetCustomerToCariKoduMap">
+            <summary>
+            Customer → Cari Kodu dictionary'si getir
+            </summary>
+        </member>
         <member name="T:Katana.API.Controllers.Admin.DeduplicationController">
             <summary>
             Controller for stock card deduplication operations
@@ -49,6 +89,36 @@
             <param name="rules">New rules configuration</param>
             <returns>Success status</returns>
         </member>
+        <member name="M:Katana.API.Controllers.Admin.DocumentMappingController.MapDocument(Katana.API.Controllers.Admin.MapDocumentRequest)">
+            <summary>
+            Katana belge tipini Koza'ya map et
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.DocumentMappingController.GetSalesOrderBelgeTuru(System.Boolean,System.Boolean)">
+            <summary>
+            Sales Order için belge türü al
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.DocumentMappingController.GetPurchaseOrderBelgeTuru(System.Boolean,System.Boolean)">
+            <summary>
+            Purchase Order için belge türü al
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.DocumentMappingController.GetStockAdjustmentBelgeTuru(System.String)">
+            <summary>
+            Stock Adjustment için belge türü al
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.DocumentMappingController.ValidateBelgeTuru(Katana.API.Controllers.Admin.ValidateBelgeTuruRequest)">
+            <summary>
+            Belge türü validate et
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.DocumentMappingController.ListBelgeTurleri">
+            <summary>
+            Tüm belge türlerini listele
+            </summary>
+        </member>
         <member name="T:Katana.API.Controllers.Admin.KozaCariController">
             <summary>
             Koza Cari (Müşteri/Tedarikçi) yönetimi endpoint'leri
@@ -73,7 +143,7 @@
             GET /api/admin/koza/cari/{finansalNesneId}/authorized
             </summary>
         </member>
-        <member name="M:Katana.API.Controllers.Admin.KozaCariController.CreateMovement(Katana.Business.DTOs.Koza.KozaCariHareketRequest,System.Threading.CancellationToken)">
+        <member name="M:Katana.API.Controllers.Admin.KozaCariController.CreateMovement(Katana.Core.DTOs.Koza.KozaCariHareketRequest,System.Threading.CancellationToken)">
             <summary>
             Cari hareket ekleme
             POST /api/admin/koza/cari/movements
@@ -97,6 +167,24 @@
             GET /api/admin/koza/cari/suppliers/mappings
             </summary>
         </member>
+        <member name="M:Katana.API.Controllers.Admin.KozaCariController.ListCustomers(System.Threading.CancellationToken)">
+            <summary>
+            Koza'daki müşteri carilerini listele
+            GET /api/admin/koza/cari/customers
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.KozaCariController.SyncCustomers(System.Threading.CancellationToken)">
+            <summary>
+            Katana Customer → Koza Müşteri Cari toplu senkronizasyonu
+            POST /api/admin/koza/cari/customers/sync
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.KozaCariController.GetCustomerMappings(System.Threading.CancellationToken)">
+            <summary>
+            Customer mapping'leri listele
+            GET /api/admin/koza/cari/customers/mappings
+            </summary>
+        </member>
         <member name="T:Katana.API.Controllers.Admin.KozaDepotsController">
             <summary>
             Koza Depo yönetimi endpoint'leri
@@ -111,10 +199,12 @@
             POST /api/admin/koza/depots/sync?batchSize=50
             </summary>
         </member>
-        <member name="M:Katana.API.Controllers.Admin.KozaDepotsController.Create(Katana.Business.DTOs.Koza.KozaCreateDepotRequest,System.Threading.CancellationToken)">
+        <member name="M:Katana.API.Controllers.Admin.KozaDepotsController.Create(Katana.Core.DTOs.Koza.KozaCreateDepotRequest,System.Threading.CancellationToken,System.Boolean)">
             <summary>
             Koza'da yeni depo oluştur
-            POST /api/admin/koza/depots/create
+            POST /api/admin/koza/depots/create?idempotent=true
+            idempotent=true: Mevcut depot'lar skip edilir (idempotent işlem)
+            idempotent=false (default): Mevcut depot'lar 409 Conflict döner
             </summary>
         </member>
         <member name="M:Katana.API.Controllers.Admin.KozaDepotsController.NormalizeKategoriKod(System.String)">
@@ -129,13 +219,16 @@
             Frontend bu endpoint'ler üzerinden Koza stok kartı işlemlerini yapar
             </summary>
         </member>
-        <member name="M:Katana.API.Controllers.Admin.KozaStockCardsController.List(System.Threading.CancellationToken)">
+        <member name="M:Katana.API.Controllers.Admin.KozaStockCardsController.List(System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.Threading.CancellationToken)">
             <summary>
             Koza'daki tüm stok kartlarını listele
             GET /api/admin/koza/stocks
             </summary>
+            <param name="eklemeBas">Optional: Filter by creation date start (dd/MM/yyyy)</param>
+            <param name="eklemeBit">Optional: Filter by creation date end (dd/MM/yyyy)</param>
+            <param name="ct">Cancellation token</param>
         </member>
-        <member name="M:Katana.API.Controllers.Admin.KozaStockCardsController.Create(Katana.Business.DTOs.Koza.KozaCreateStokKartiRequest,System.Threading.CancellationToken)">
+        <member name="M:Katana.API.Controllers.Admin.KozaStockCardsController.Create(Katana.Core.DTOs.Koza.KozaCreateStokKartiRequest,System.Threading.CancellationToken)">
             <summary>
             Koza'da yeni stok kartı oluştur
             POST /api/admin/koza/stocks/create
@@ -159,6 +252,96 @@
               "barkod": "8888888"
             }
             </remarks>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.LocationMappingController.GetAllMappings">
+            <summary>
+            Tüm location mapping'leri getir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.LocationMappingController.GetMappingByLocationId(System.String)">
+            <summary>
+            Location ID'ye göre mapping getir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.LocationMappingController.GetDepoKodu(System.String)">
+            <summary>
+            Location ID'ye göre depo kodu getir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.LocationMappingController.CreateOrUpdateMapping(Katana.API.Controllers.Admin.CreateLocationMappingRequest)">
+            <summary>
+            Location mapping oluştur veya güncelle
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.LocationMappingController.ValidateDepoKodu(Katana.API.Controllers.Admin.ValidateDepoKoduRequest)">
+            <summary>
+            Depo kodunu validate et
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.LocationMappingController.GetLocationToDepoKoduMap">
+            <summary>
+            Location → Depo Kodu dictionary'si getir
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.TaxRateMappingController.GetAllMappings">
+            <summary>
+            Gets all tax rate mappings
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.TaxRateMappingController.GetMappingByTaxRateId(System.Int64)">
+            <summary>
+            Gets tax rate mapping by Katana tax_rate_id
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.TaxRateMappingController.GetKdvOranByTaxRateId(System.Int64,System.Decimal)">
+            <summary>
+            Gets Koza KDV oranı by Katana tax_rate_id
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.TaxRateMappingController.CreateOrUpdateMapping(Katana.API.Controllers.Admin.TaxRateMappingRequest)">
+            <summary>
+            Creates or updates tax rate mapping
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.TaxRateMappingController.GetTaxRateDictionary">
+            <summary>
+            Gets dictionary of tax_rate_id → kdvOran for bulk operations
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.TaxRateMappingController.DeleteMapping(System.Int64)">
+            <summary>
+            Deletes tax rate mapping
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.UoMMappingController.GetAllMappings">
+            <summary>
+            Gets all UoM mappings
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.UoMMappingController.GetMappingByUoMString(System.String)">
+            <summary>
+            Gets UoM mapping by Katana UoM string
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.UoMMappingController.GetOlcumBirimiIdByUoMString(System.String,System.Int64)">
+            <summary>
+            Gets Koza olcumBirimiId by Katana UoM string
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.UoMMappingController.CreateOrUpdateMapping(Katana.API.Controllers.Admin.UoMMappingRequest)">
+            <summary>
+            Creates or updates UoM mapping
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.UoMMappingController.GetUoMDictionary">
+            <summary>
+            Gets dictionary of UoM string → olcumBirimiId for bulk operations
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.Admin.UoMMappingController.DeleteMapping(System.String)">
+            <summary>
+            Deletes UoM mapping
+            </summary>
         </member>
         <member name="M:Katana.API.Controllers.CustomersController.SyncToLuca(System.Int32)">
             <summary>
@@ -273,6 +456,105 @@
             <param name="id">Ürün ID</param>
             <returns>Gönderim sonucu</returns>
         </member>
+        <member name="T:Katana.API.Controllers.LucaInvoicesController">
+            <summary>
+            Luca Fatura API Controller
+            
+            Bu controller, Luca API'nin fatura modülünü expose eder.
+            Tüm endpoint'ler Luca API'ye direkt istek gönderir.
+            
+            Kullanım:
+            - POST /api/luca-invoices/pdf-link - Fatura PDF linki al
+            - POST /api/luca-invoices/list - Fatura listesi
+            - POST /api/luca-invoices/list-currency - Dövizli fatura listesi
+            - POST /api/luca-invoices/create - Yeni fatura oluştur
+            - POST /api/luca-invoices/close - Fatura kapat/ödeme
+            - DELETE /api/luca-invoices/{invoiceId} - Fatura sil
+            - POST /api/luca-invoices/send - Fatura gönder (E-Fatura/E-Arşiv)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.LucaInvoicesController.GetInvoicePdfLink(Katana.Core.DTOs.LucaInvoicePdfLinkRequest)">
+            <summary>
+            Fatura PDF Linki Al
+            
+            Faturanın PDF çıktısını almak için kullanılan servistir.
+            </summary>
+            <param name="request">Fatura ID içeren istek</param>
+            <returns>PDF link bilgisi</returns>
+        </member>
+        <member name="M:Katana.API.Controllers.LucaInvoicesController.ListInvoices(Katana.Core.DTOs.LucaListInvoicesRequest,System.Boolean)">
+            <summary>
+            Fatura Listesi
+            
+            Mevcut faturaları listelemek için kullanılır.
+            </summary>
+            <param name="request">Fatura listeleme parametreleri</param>
+            <param name="detayliListe">Detaylı liste getirilsin mi?</param>
+            <returns>Fatura listesi</returns>
+        </member>
+        <member name="M:Katana.API.Controllers.LucaInvoicesController.ListCurrencyInvoices(Katana.Core.DTOs.LucaListCurrencyInvoicesRequest)">
+            <summary>
+            Dövizli Fatura Listesi
+            
+            Dövizli faturaları listelemek için özelleştirilmiş bir istek.
+            </summary>
+            <param name="request">Dövizli fatura listeleme parametreleri</param>
+            <returns>Dövizli fatura listesi</returns>
+        </member>
+        <member name="M:Katana.API.Controllers.LucaInvoicesController.CreateInvoice(Katana.Core.DTOs.LucaCreateInvoiceHeaderRequest)">
+            <summary>
+            Fatura Oluştur
+            
+            Yeni bir fatura oluşturmak için kullanılır. Tüm detaylar (cari, ürünler, vergiler) burada tanımlanır.
+            
+            ÖNEMLI: Eğer HTML response alıyorsanız, session kaybı var demektir!
+            </summary>
+            <param name="request">Fatura oluşturma isteği (detaylar dahil)</param>
+            <returns>Oluşturulan fatura bilgisi</returns>
+        </member>
+        <member name="M:Katana.API.Controllers.LucaInvoicesController.CloseInvoice(Katana.Core.DTOs.LucaCloseInvoiceRequest)">
+            <summary>
+            Fatura Kapat / Ödeme
+            
+            Faturaya bağlı ödeme/kapama kaydı girmek için kullanılır.
+            </summary>
+            <param name="request">Fatura kapama isteği</param>
+            <returns>Kapama işlemi sonucu</returns>
+        </member>
+        <member name="M:Katana.API.Controllers.LucaInvoicesController.DeleteInvoice(System.Int64)">
+            <summary>
+            Fatura Sil
+            
+            Belirtilen faturayı silmek için kullanılır.
+            </summary>
+            <param name="invoiceId">Silinecek fatura ID</param>
+            <returns>Silme işlemi sonucu</returns>
+        </member>
+        <member name="M:Katana.API.Controllers.LucaInvoicesController.SendInvoice(Katana.Core.DTOs.LucaSendInvoiceRequest)">
+            <summary>
+            Fatura Gönder
+            
+            E-Fatura veya E-Arşiv olarak fatura gönderir.
+            </summary>
+            <param name="request">Fatura gönderme isteği</param>
+            <returns>Gönderim işlemi sonucu</returns>
+        </member>
+        <member name="M:Katana.API.Controllers.LucaInvoicesController.GetSessionStatus">
+            <summary>
+            Session Durumu Kontrol
+            
+            Luca API session'ının durumunu kontrol eder.
+            </summary>
+            <returns>Session durumu</returns>
+        </member>
+        <member name="M:Katana.API.Controllers.LucaInvoicesController.RefreshSession">
+            <summary>
+            Session Yenile
+            
+            Luca API session'ını zorla yeniler (HTML response sorunu için).
+            </summary>
+            <returns>Yenileme sonucu</returns>
+        </member>
         <member name="M:Katana.API.Controllers.LucaProxyController.GetKozaStockCards">
             <summary>
             GET /api/luca/koza-stock-cards - Fetches stock cards from Luca/Koza
@@ -306,16 +588,6 @@
         <member name="M:Katana.API.Controllers.ManufacturingOrdersController.GetStats">
             <summary>
             Üretim emri istatistikleri
-            </summary>
-        </member>
-        <member name="M:Katana.API.Controllers.MappingController.GetLucaCategories">
-            <summary>
-            Luca sistemindeki mevcut kategori kodlarını ve açıklamalarını getirir
-            </summary>
-        </member>
-        <member name="M:Katana.API.Controllers.MappingController.GetCategoryMappings">
-            <summary>
-            Katana kategori -> Luca kategori mapping'lerini getirir
             </summary>
         </member>
         <member name="T:Katana.API.Controllers.OrderInvoiceSyncController">
@@ -398,7 +670,7 @@
         </member>
         <member name="M:Katana.API.Controllers.PurchaseOrdersController.SyncToLuca(System.Int32)">
             <summary>
-            Tek siparişi Luca'ya senkronize et
+            Tek siparişi Luca'ya fatura olarak senkronize et
             </summary>
         </member>
         <member name="M:Katana.API.Controllers.PurchaseOrdersController.GetSyncStatus(System.Int32)">
@@ -419,6 +691,11 @@
         <member name="M:Katana.API.Controllers.PurchaseOrdersController.GetStats">
             <summary>
             Satınalma siparişi istatistikleri
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.PurchaseOrdersController.UpdateStatus(System.Int32,Katana.API.Controllers.UpdatePurchaseOrderStatusRequest)">
+            <summary>
+            Sipariş durumunu güncelle (Pending -> Approved -> Received)
             </summary>
         </member>
         <member name="M:Katana.API.Controllers.PurchaseOrdersController.Delete(System.Int32)">
@@ -460,6 +737,11 @@
         <member name="M:Katana.API.Controllers.SalesOrdersController.GetStats">
             <summary>
             Sipariş istatistikleri
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SalesOrdersController.ApproveOrder(System.Int32)">
+            <summary>
+            Admin onayı - Siparişi onayla ve Katana'ya stok olarak ekle
             </summary>
         </member>
         <member name="T:Katana.API.Controllers.StockMovementSyncController">
@@ -518,6 +800,91 @@
             Toplu stok hareketi senkronizasyon isteği
             </summary>
         </member>
+        <member name="M:Katana.API.Controllers.SyncController.GetSyncHistory">
+            <summary>
+            Senkronizasyon geçmişini getir (Admin, Manager, StokYonetici)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.StartSync(Katana.API.Controllers.StartSyncRequest)">
+            <summary>
+            Senkronizasyon başlat (SADECE Admin)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.RunCompleteSync(System.Nullable{System.DateTime})">
+            <summary>
+            Tüm senkronizasyonu çalıştır (SADECE Admin)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.RunStockSync(System.Nullable{System.DateTime})">
+            <summary>
+            Stok senkronizasyonu (SADECE Admin)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.RunInvoiceSync(System.Nullable{System.DateTime})">
+            <summary>
+            Fatura senkronizasyonu (SADECE Admin)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.RunCustomerSync(System.Nullable{System.DateTime})">
+            <summary>
+            Müşteri senkronizasyonu (SADECE Admin)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SyncProductsToLuca(Katana.Core.DTOs.SyncOptionsDto,System.Nullable{System.DateTime})">
+            <summary>
+            Ürünleri Luca'ya senkronize et (SADECE Admin)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SyncSuppliers">
+            <summary>
+            Tedarikçi senkronizasyonu (SADECE Admin)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SyncWarehouses">
+            <summary>
+            Depo senkronizasyonu (SADECE Admin)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SyncCustomersLuca">
+            <summary>
+            Müşteri Luca senkronizasyonu (SADECE Admin)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.GetSyncStatus">
+            <summary>
+            Senkronizasyon durumlarını getir (Admin, Manager, StokYonetici)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.GetSyncTypeStatus(System.String)">
+            <summary>
+            Belirli sync tipi durumunu getir (Admin, Manager, StokYonetici)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SyncStockFromLuca(System.Nullable{System.DateTime})">
+            <summary>
+            Luca'dan stok senkronizasyonu (SADECE Admin)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SyncInvoicesFromLuca(System.Nullable{System.DateTime})">
+            <summary>
+            Luca'dan fatura senkronizasyonu (SADECE Admin)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SyncCustomersFromLuca(System.Nullable{System.DateTime})">
+            <summary>
+            Luca'dan müşteri senkronizasyonu (SADECE Admin)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SyncDespatchFromLuca(System.Nullable{System.DateTime})">
+            <summary>
+            Luca'dan irsaliye senkronizasyonu (SADECE Admin)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SyncAllFromLuca(System.Nullable{System.DateTime})">
+            <summary>
+            Luca'dan tüm senkronizasyon (SADECE Admin)
+            </summary>
+        </member>
         <member name="M:Katana.API.Controllers.SyncController.DebugProductSync(System.String)">
             <summary>
             DEBUG: Tek bir ürünün Katana ve Luca'daki durumunu karşılaştır
@@ -525,7 +892,59 @@
         </member>
         <member name="M:Katana.API.Controllers.SyncController.ForceSyncProduct(System.String)">
             <summary>
-            DEBUG: Tek bir ürünü zorla Luca'ya gönder (değişiklik kontrolü yapmadan)
+            DEBUG: Tek bir ürünü zorla Luca'ya gönder (SADECE Admin)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SyncWarehousesToLuca">
+            <summary>
+            ✅ Katana Location'larını Luca'ya Depo olarak senkronize et (SADECE Admin)
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SendSalesInvoiceToLuca(Katana.Core.DTOs.LucaCreateInvoiceHeaderRequest)">
+            <summary>
+            ✅ Luca'ya satış faturası gönder (SADECE Admin)
+            Luca'daki stok kartlarını kullanarak fatura oluşturur
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncController.SyncSalesOrdersFromKatana(System.Int32)">
+            <summary>
+            ✅ Katana'dan satış siparişlerini manuel senkronize et (SADECE Admin)
+            Background worker'ı beklemeden anında siparişleri çeker
+            </summary>
+        </member>
+        <member name="T:Katana.API.Controllers.SyncDashboardController">
+            <summary>
+            Sync Dashboard API - Provides monitoring and analytics for sync jobs
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncDashboardController.GetAllJobs(System.Int32,System.Int32)">
+            <summary>
+            GET /api/sync/dashboard/jobs - Get all sync jobs with status
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncDashboardController.GetJobDetails(System.String)">
+            <summary>
+            GET /api/sync/dashboard/jobs/{id} - Get job details with logs
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncDashboardController.GetSummary(System.Nullable{System.DateTime})">
+            <summary>
+            GET /api/sync/dashboard/summary - Today's sync summary
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncDashboardController.GetStats">
+            <summary>
+            GET /api/sync/dashboard/stats - Overall statistics
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncDashboardController.RetryJob(System.String)">
+            <summary>
+            POST /api/sync/dashboard/jobs/{id}/retry - Retry failed job
+            </summary>
+        </member>
+        <member name="M:Katana.API.Controllers.SyncDashboardController.DeleteJob(System.String)">
+            <summary>
+            DELETE /api/sync/dashboard/jobs/{id} - Delete job
             </summary>
         </member>
         <member name="T:Katana.API.Workers.KatanaSalesOrderSyncWorker">
@@ -579,6 +998,12 @@
         <member name="T:Katana.API.Workers.BatchProgressDetails">
             <summary>
             SignalR ile gönderilen detaylı ilerleme bilgisi
+            </summary>
+        </member>
+        <member name="T:Katana.API.Workers.LucaCacheRefreshService">
+            <summary>
+            Luca stok kartı cache'ini periyodik olarak yeniler.
+            Basit, hafif bir BackgroundService (Quartz yok).
             </summary>
         </member>
     </members>

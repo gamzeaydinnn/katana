@@ -25,6 +25,47 @@
             Kategori koduna göre açıklama getirir
             </summary>
         </member>
+        <member name="T:Katana.Core.Converters.StringToDecimalConverter">
+            <summary>
+            JSON converter that handles decimal values that may come as strings from Katana API.
+            Katana API sometimes returns numeric values as strings (e.g., "123.45" instead of 123.45).
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Converters.StringToDecimalNonNullableConverter">
+            <summary>
+            Non-nullable version for required decimal fields
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.LoginRequest">
+            <summary>
+            Login request DTO
+            </summary>
+        </member>
+        <member name="M:Katana.Core.DTOs.LoginRequest.#ctor(System.String,System.String)">
+            <summary>
+            Login request DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.LoginResponse">
+            <summary>
+            Login response DTO
+            </summary>
+        </member>
+        <member name="M:Katana.Core.DTOs.LoginResponse.#ctor(System.String)">
+            <summary>
+            Login response DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.ChangePasswordRequest">
+            <summary>
+            Change password request DTO
+            </summary>
+        </member>
+        <member name="M:Katana.Core.DTOs.ChangePasswordRequest.#ctor(System.String,System.String)">
+            <summary>
+            Change password request DTO
+            </summary>
+        </member>
         <member name="T:Katana.Core.DTOs.BatchJobStatus">
             <summary>
             Batch job durumu
@@ -175,6 +216,216 @@
             Export format for analysis results
             </summary>
         </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaCariAdresListRequest">
+            <summary>
+            Cari Adres Listesi Request
+            Endpoint: ListeleWSGnlSsAdres.do
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaCariAdresDto">
+            <summary>
+            Cari Adres DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaCariYetkiliListRequest">
+            <summary>
+            Cari Yetkili Kişiler Listesi Request
+            Endpoint: ListeleFinFinansalNesneYetkili.do
+            Body: { "gnlFinansalNesne": { "finansalNesneId": 137212 } }
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaCariYetkiliDto">
+            <summary>
+            Cari Yetkili DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaCalismaKosulRequest">
+            <summary>
+            Cari Çalışma Koşulları Request
+            Endpoint: GetirFinCalismaKosul.do
+            Body: { "calismaKosulId": 998 }
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaCalismaKosulDto">
+            <summary>
+            Çalışma Koşulu DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaCariHareketRequest">
+            <summary>
+            Cari Hareket Ekleme Request
+            Endpoint: EkleFinCariHareketBaslikWS.do
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.Koza.KozaCariHareketRequest.BelgeTurDetayId">
+            <summary>
+            Belge Tür Detay ID
+            Örnek değerler için Luca dökümantasyonuna bakın
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.Koza.KozaCariHareketRequest.CariTuru">
+            <summary>
+            Cari Türü: 1 = Müşteri, 2 = Tedarikçi
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaCariHareketDetay">
+            <summary>
+            Cari Hareket Detay Satırı
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.Koza.KozaCariHareketDetay.KartTuru">
+            <summary>
+            Kart Türü: 1 = Kasa, 2 = Banka, 3 = Çek/Senet, vb.
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.SupplierSyncResult">
+            <summary>
+            Tedarikçi Sync Sonucu
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KatanaSupplierToCariDto">
+            <summary>
+            Katana Supplier'dan Koza Cari'ye dönüşüm için DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.CustomerSyncResult">
+            <summary>
+            Müşteri Sync Sonucu
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KatanaCustomerToCariDto">
+            <summary>
+            Katana Customer'dan Luca Cari'ye dönüşüm için DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KatanaLocationToDepoDto">
+            <summary>
+            Katana Location'dan Koza Depo'ya dönüşüm için DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaCariListFilterRequest">
+            <summary>
+            Cari Listeleme Filtreleme Request
+            Müşteri ve Tedarikçi listeleme için kod aralığı filtreleme
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaCariFilter">
+            <summary>
+            Cari Filtreleme (kodBas, kodBit, kodOp)
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaKodFiltre">
+            <summary>
+            Kod Filtreleme (kodBas, kodBit, kodOp)
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaMusteriEkleRequest">
+            <summary>
+            Koza Müşteri Kartı Ekleme Request (EkleFinMusteriWS.do)
+            Dokümantasyona tam uyumlu
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaTedarikciEkleRequest">
+            <summary>
+            Koza Tedarikçi Kartı Ekleme Request (EkleFinTedarikciWS.do)
+            Müşteri kartı ekleme ile aynı alanlar
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaCariListResponse">
+            <summary>
+            Koza Cari Listesi Response
+            Endpoint: ListeleFinTedarikci.do, ListeleFinMusteri.do
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaCariDto">
+            <summary>
+            Koza Cari (Müşteri/Tedarikçi) Kartı DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaSupplierListItemDto">
+            <summary>
+            Koza tedarikçi listesini UI'de göstermek için sadeleştirilmiş DTO
+            </summary>
+        </member>
+        <member name="M:Katana.Core.DTOs.Koza.KozaSupplierListItemDto.FromKozaCari(Katana.Core.DTOs.Koza.KozaCariDto)">
+            <summary>
+            Koza cari DTO'sundan sade liste DTO'su oluşturur
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaMusteriDto">
+            <summary>
+            Koza müşteri listeleme DTO (ListeleFinMusteri.do)
+            Gerçek Koza JSON alan adlarıyla birebir uyumlu
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaMusteriAdresDto">
+            <summary>
+            Koza müşteri fatura adres DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaIletisimDto">
+            <summary>
+            Koza müşteri iletişim DTO
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaCustomerListItemDto">
+            <summary>
+            Koza müşteri listesini UI'de göstermek için sadeleştirilmiş DTO
+            </summary>
+        </member>
+        <member name="M:Katana.Core.DTOs.Koza.KozaCustomerListItemDto.FromKozaCari(Katana.Core.DTOs.Koza.KozaCariDto)">
+            <summary>
+            Koza cari DTO'sundan sade liste DTO'su oluşturur
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaDepoDto">
+            <summary>
+            Koza Stok Depo Kartı
+            Endpoint: ListeleStkDepo.do, EkleStkWsDepo.do
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.Koza.KozaDepoDto.DepoKategoriAgacId">
+            <summary>Luca depo kategori ağacı ID'si</summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.Koza.KozaDepoDto.SisDepoKategoriAgacKodu">
+            <summary>Luca depo kategori ağacı kodu</summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaDepoListResponse">
+            <summary>
+            Depo Listeleme Response
+            Koza response alanı değişken olabiliyor (depolar veya stkDepoListesi)
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaCreateDepotRequest">
+            <summary>
+            Depo Ekleme Request
+            FIX: Frontend wrapper gönderiyor {"stkDepo":{...}}, biz karşılıyoruz
+            Ama Luca'ya sadece içini (StkDepo) göndereceğiz - düz format
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaResult">
+            <summary>
+            Genel Koza işlem sonucu
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaStokKartiDto">
+            <summary>
+            Basitleştirilmiş Koza Stok Kartı DTO
+            Frontend ile backend arasında kullanılır
+            Tam LucaCreateStokKartiRequest çok karmaşık, sadece gerekli alanları içerir
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaStokKartiListResponse">
+            <summary>
+            Stok Kartı Listeleme Response
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.Koza.KozaCreateStokKartiRequest">
+            <summary>
+            Stok Kartı Ekleme Request
+            Koza'nın beklediği format: { stkKart: { ... } }
+            </summary>
+        </member>
         <member name="T:Katana.Core.DTOs.LucaStockCardDetails">
             <summary>
             Luca'daki mevcut stok kartı detayları (karşılaştırma için)
@@ -193,6 +444,36 @@
         <member name="P:Katana.Core.DTOs.LucaStockCardDetails.Miktar">
             <summary>
             Stok miktarı (karşılaştırma için)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.LucaCreateInvoiceHeaderRequest.BelgeTarihi">
+            <summary>
+            Luca API STRING tarih formatı bekliyor: "dd/MM/yyyy" (örn: "07/10/2025")
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.LucaCreateInvoiceHeaderRequest.VadeTarihi">
+            <summary>
+            Luca API STRING tarih formatı bekliyor: "dd/MM/yyyy" (örn: "07/10/2025")
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.LucaCreateInvoiceHeaderRequest.BelgeTurDetayId">
+            <summary>
+            Luca API STRING bekliyor: "76" (Satış Faturası)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.LucaCreateInvoiceHeaderRequest.FaturaTur">
+            <summary>
+            Luca API STRING bekliyor: "1" (Normal Fatura)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.LucaCreateInvoiceHeaderRequest.MusteriTedarikci">
+            <summary>
+            Luca API STRING bekliyor: "1" (Müşteri)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.DTOs.LucaCreateInvoiceHeaderRequest.EfaturaTuru">
+            <summary>
+            E-Fatura türü: 1=TICARIFATURA, 2=TEMELFATURA, 3=YOLCUBERABERFATURA, 4=IHRACAT, 5=OZELMATRAH
             </summary>
         </member>
         <member name="P:Katana.Core.DTOs.LucaCreateStokKartiRequest.Miktar">
@@ -214,6 +495,16 @@
         <member name="T:Katana.Core.DTOs.LucaListCariKartRequest">
             <summary>
             Luca cari kart listesi isteği
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.LucaSoforDto">
+            <summary>
+            Şoför bilgisi (E-İrsaliye için)
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.LucaDorseDto">
+            <summary>
+            Dorse bilgisi (E-İrsaliye için)
             </summary>
         </member>
         <member name="T:Katana.Core.DTOs.LucaAdresDto">
@@ -396,6 +687,41 @@
             Örnek: {"skartId": 79409, "error": false, "message": "00013225 - Test Ürünü stok kartı başarılı bir şekilde kaydedilmiştir."}
             </summary>
         </member>
+        <member name="T:Katana.Core.DTOs.LucaCreateInvoiceResponse">
+            <summary>
+            Fatura Oluşturma Yanıtı
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.LucaInvoicePdfLinkResponse">
+            <summary>
+            Fatura PDF Link Yanıtı
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.LucaCloseInvoiceResponse">
+            <summary>
+            Fatura Kapama Yanıtı
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.LucaDeleteInvoiceResponse">
+            <summary>
+            Fatura Silme Yanıtı
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.LucaSendInvoiceRequest">
+            <summary>
+            Fatura Gönder İsteği (E-Fatura/E-Arşiv için)
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.LucaSendInvoiceResponse">
+            <summary>
+            Fatura Gönder Yanıtı
+            </summary>
+        </member>
+        <member name="T:Katana.Core.DTOs.LucaCurrencyReport">
+            <summary>
+            Döviz Raporu için kullanılan yardımcı DTO
+            </summary>
+        </member>
         <member name="T:Katana.Core.DTOs.LocalSalesOrderDto">
             <summary>
             Sales Order DTO for list and detail views (local entity, not Katana API DTO)
@@ -497,9 +823,87 @@
             Son sync hatası
             </summary>
         </member>
+        <member name="P:Katana.Core.Entities.Customer.LastSyncHash">
+            <summary>
+            Son senkronize edilen verinin hash'i (değişiklik tespiti için)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.Customer.SyncStatus">
+            <summary>
+            Senkronizasyon durumu: PENDING, SYNCED, FAILED
+            </summary>
+        </member>
         <member name="M:Katana.Core.Entities.Customer.GenerateLucaCode">
             <summary>
             Luca cari kart kodunu oluşturur (CK-{Id})
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Entities.CustomerKozaCariMapping">
+            <summary>
+            Katana Customer → Koza Cari (Müşteri) mapping tablosu
+            Katana müşterileri Koza'da Cari kartı olarak tutulur (cariTipId=1)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.CustomerKozaCariMapping.KatanaCustomerId">
+            <summary>
+            Katana Customer ID (string to handle long IDs from Katana API)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.CustomerKozaCariMapping.KozaCariKodu">
+            <summary>
+            Koza cari kodu (CK-{KatanaCustomerId} formatında veya Koza'dan dönen kod)
+            ÖNEMLI: String olarak sakla - leading zero kaybı olmasın!
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.CustomerKozaCariMapping.KozaFinansalNesneId">
+            <summary>
+            Koza finansal nesne ID
+            Cari işlemleri (adres, yetkili, hareket) için gerekli
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.CustomerKozaCariMapping.KatanaCustomerName">
+            <summary>
+            Katana Customer adı (log/debug için)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.CustomerKozaCariMapping.KozaCariTanim">
+            <summary>
+            Koza cari tanımı (log/debug için)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.CustomerKozaCariMapping.KatanaCustomerTaxNo">
+            <summary>
+            Katana Customer vergi numarası (duplicate kontrolü için)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.CustomerKozaCariMapping.SyncStatus">
+            <summary>
+            Senkronizasyon durumu: PENDING, SYNCED, FAILED
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.CustomerKozaCariMapping.LastSyncHash">
+            <summary>
+            Son senkronize edilen verinin hash'i (değişiklik tespiti için)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.CustomerKozaCariMapping.LastSyncError">
+            <summary>
+            Son senkronizasyon hatası (varsa)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.CustomerKozaCariMapping.LastSyncAt">
+            <summary>
+            Son senkronize edilen tarih
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.CustomerKozaCariMapping.UpdatedAt">
+            <summary>
+            Son güncelleme zamanı
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.CustomerKozaCariMapping.CreatedAt">
+            <summary>
+            Oluşturma zamanı
             </summary>
         </member>
         <member name="T:Katana.Core.Entities.KozaDepot">
@@ -571,9 +975,34 @@
             Eldeki miktar endpoint'i için gerekli
             </summary>
         </member>
+        <member name="P:Katana.Core.Entities.LocationKozaDepotMapping.SyncStatus">
+            <summary>
+            Senkronizasyon durumu: PENDING, SYNCED, FAILED
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.LocationKozaDepotMapping.LastSyncHash">
+            <summary>
+            Son senkronize edilen verinin hash'i (değişiklik tespiti için)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.LocationKozaDepotMapping.LastSyncError">
+            <summary>
+            Son senkronizasyon hatası (varsa)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.LocationKozaDepotMapping.LastSyncAt">
+            <summary>
+            Son senkronize edilen tarih
+            </summary>
+        </member>
         <member name="P:Katana.Core.Entities.LocationKozaDepotMapping.UpdatedAt">
             <summary>
             Son güncelleme zamanı
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.LocationKozaDepotMapping.CreatedAt">
+            <summary>
+            Oluşturma zamanı
             </summary>
         </member>
         <member name="P:Katana.Core.Entities.LocationKozaDepotMapping.KatanaLocationName">
@@ -605,6 +1034,11 @@
         <member name="P:Katana.Core.Entities.ProductLucaMapping.IsActive">
             <summary>
             Her Katana ürünü için sadece 1 aktif kayıt olur
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.ProductLucaMapping.LastSyncHash">
+            <summary>
+            Son senkronize edilen verinin hash'i (değişiklik tespiti için)
             </summary>
         </member>
         <member name="P:Katana.Core.Entities.PurchaseOrder.LucaPurchaseOrderId">
@@ -817,6 +1251,21 @@
             Son senkronizasyon hatası
             </summary>
         </member>
+        <member name="P:Katana.Core.Entities.Supplier.LastSyncHash">
+            <summary>
+            Son senkronize edilen verinin hash'i (değişiklik tespiti için)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.Supplier.SyncStatus">
+            <summary>
+            Senkronizasyon durumu: PENDING, SYNCED, FAILED
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.Supplier.LastSyncAt">
+            <summary>
+            Son senkronize edilen tarih
+            </summary>
+        </member>
         <member name="M:Katana.Core.Entities.Supplier.GenerateLucaCode">
             <summary>
             Luca cari kart kodunu oluşturur (TED-{Id})
@@ -854,6 +1303,26 @@
             Koza cari tanımı (log/debug için)
             </summary>
         </member>
+        <member name="P:Katana.Core.Entities.SupplierKozaCariMapping.SyncStatus">
+            <summary>
+            Senkronizasyon durumu: PENDING, SYNCED, FAILED
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.SupplierKozaCariMapping.LastSyncHash">
+            <summary>
+            Son senkronize edilen verinin hash'i (değişiklik tespiti için)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.SupplierKozaCariMapping.LastSyncError">
+            <summary>
+            Son senkronizasyon hatası (varsa)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.SupplierKozaCariMapping.LastSyncAt">
+            <summary>
+            Son senkronize edilen tarih
+            </summary>
+        </member>
         <member name="P:Katana.Core.Entities.SupplierKozaCariMapping.UpdatedAt">
             <summary>
             Son güncelleme zamanı
@@ -864,6 +1333,49 @@
             Oluşturma zamanı
             </summary>
         </member>
+        <member name="T:Katana.Core.Entities.TaxRateMapping">
+            <summary>
+            Maps Katana tax_rate_id to Koza KDV oranı (decimal format: 0.18 for 18%)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.TaxRateMapping.KatanaTaxRateId">
+            <summary>
+            Katana tax_rate_id from sales_order_rows, shipping_fees, etc.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.TaxRateMapping.KozaKdvOran">
+            <summary>
+            Koza KDV oranı (decimal: 0.18 = 18%, 0.20 = 20%, 0.01 = 1%, 0.08 = 8%)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.TaxRateMapping.Description">
+            <summary>
+            Human-readable description (e.g., "Standard VAT 18%", "Reduced VAT 8%")
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Entities.UoMMapping">
+            <summary>
+            Maps Katana Unit of Measure string to Koza olcumBirimiId
+            Examples: "pcs" → 5 (Adet), "kg" → 1 (Kilogram), "m" → 3 (Metre)
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.UoMMapping.KatanaUoMString">
+            <summary>
+            Katana UoM string (e.g., "pcs", "kg", "m", "l", "box", "unit")
+            Stored in uppercase for case-insensitive matching
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.UoMMapping.KozaOlcumBirimiId">
+            <summary>
+            Koza ölçüm birimi ID
+            Common values: 1=Kilogram, 2=Gram, 3=Metre, 4=Litre, 5=Adet, 6=Kutu, etc.
+            </summary>
+        </member>
+        <member name="P:Katana.Core.Entities.UoMMapping.Description">
+            <summary>
+            Human-readable description (e.g., "Pieces", "Kilograms", "Meters")
+            </summary>
+        </member>
         <member name="T:Katana.Core.Events.OrderStatusChangedEvent">
             <summary>
             Order status değiştiğinde tetiklenen event
@@ -872,6 +1384,125 @@
         <member name="T:Katana.Core.Events.PurchaseOrderStatusChangedEvent">
             <summary>
             PurchaseOrder status değiştiğinde tetiklenen event
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Events.ProductCreatedEvent">
+            <summary>
+            Yeni ürün oluşturulduğunda tetiklenen event
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Events.ProductUpdatedEvent">
+            <summary>
+            Ürün güncellendiğinde tetiklenen event
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Events.StockAdjustmentCreatedEvent">
+            <summary>
+            Yeni stok düzeltmesi oluşturulduğunda tetiklenen event
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Events.StockMovementFailedEvent">
+            <summary>
+            Stok hareketi Luca aktarımı başarısız olduğunda tetiklenen event
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Events.StockMovementSyncedEvent">
+            <summary>
+            Stok hareketi Luca'ya başarıyla aktarıldığında tetiklenen event
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Events.StockTransferCreatedEvent">
+            <summary>
+            Yeni stok transferi oluşturulduğunda tetiklenen event
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaSalesOrderHeader(Katana.Core.Entities.SalesOrder,Katana.Core.Entities.Customer)">
+            <summary>
+            Maps SalesOrder entity to Luca sales order header request
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaPurchaseOrderFromEntity(Katana.Core.Entities.PurchaseOrder,Katana.Core.Entities.Supplier)">
+            <summary>
+            Maps PurchaseOrder entity (with Luca fields) to Luca purchase order request.
+            Uses entity's own Luca-related properties.
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaInvoiceFromPurchaseOrder(Katana.Core.Entities.PurchaseOrder,Katana.Core.Entities.Supplier)">
+            <summary>
+            Maps PurchaseOrder entity to Luca INVOICE request (Alım Faturası - BelgeTurDetayId: 69)
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaInvoiceFromSalesOrder(Katana.Core.Entities.SalesOrder,Katana.Core.Entities.Customer,System.String)">
+            <summary>
+            Maps SalesOrder entity to Luca INVOICE request (Satış Faturası - BelgeTurDetayId: 76)
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaStockCard(Katana.Core.Entities.Product)">
+            <summary>
+            Katana Product -> Koza stok kartı oluşturma DTO'su (EkleStkWsSkart.do).
+            Burada zorunlu alanlar doldurulur, diğerleri güvenli varsayılanlarla bırakılır.
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaStockCard(Katana.Core.Entities.Product,System.Nullable{System.Int64},System.Nullable{System.Double})">
+            <summary>
+            Katana Product -> Koza stok kartı oluşturma DTO'su.
+            Ölçü birimi ID'si farklı şube/kurulumlara göre değişebildiğinden parametre ile alınabilir.
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaStockCard(Katana.Core.DTOs.KatanaProductDto,System.Nullable{System.Int64},System.Nullable{System.Double})">
+            <summary>
+            KatanaProductDto (harici API) -> Koza stok kartı DTO'su.
+            SKU boşsa KAT-{Id} kodu kullanılır, KDV ve para birimi için güvenli varsayılanlar atanır.
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.ValidateLucaStockCard(Katana.Core.DTOs.LucaCreateStokKartiRequest)">
+            <summary>
+            Luca stok kartı gönderimi öncesi minimum alan doğrulaması.
+            ✅ RAPOR UYUMLU: Sadece dokümantasyondaki zorunlu alanları kontrol eder
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaServiceStockCard(Katana.Core.Entities.Product)">
+            <summary>
+            Hizmet kartı (KartTuru = 2) için stok kartı DTO'su.
+            Temel alanları MapToLucaStockCard'dan devralır, sadece kart türünü günceller.
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaCustomerFullUpdate(Katana.Core.Entities.Customer,System.String)">
+            <summary>
+            Luca cari kart güncelleme DTO'su oluşturur
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.NormalizeCountry(System.String)">
+            <summary>
+            Ülke adını normalize eder (Luca formatına uygun)
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaAddress(System.String,System.String,System.String,System.String,System.String,System.String,System.Int64,System.String,System.Boolean)">
+            <summary>
+            Customer adresi → Luca adres DTO
+            NOT: Katana state → atlanır, city → ilce, district → Luca'da yok
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.MapCustomerToLucaAddress(Katana.Core.Entities.Customer,System.Int64)">
+            <summary>
+            Customer entity'den Luca adres DTO oluşturur
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.NormalizeTurkishText(System.String)">
+            <summary>
+            Türkçe metinleri normalize eder - Türkçe karakterleri İngilizce karşılıklarına çevirir.
+            Luca/Koza sisteminde Türkçe karakter encoding sorunlarını önlemek için kullanılır.
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.NormalizeWarehouseCode(System.String)">
+            <summary>
+            Koza depo kod formatını normalize eder.
+            Luca'daki MERKEZ DEPO kodu: "002"
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Helpers.MappingHelper.ValidateWarehouseCode(System.String,System.String)">
+            <summary>
+            Depo kodunu validate et - boş veya geçersizse exception fırlat
             </summary>
         </member>
         <member name="T:Katana.Core.Helpers.StatusMapper">
@@ -924,73 +1555,6 @@
             Hata koduna göre kısa açıklama döner
             </summary>
         </member>
-        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaSalesOrderHeader(Katana.Core.Entities.SalesOrder,Katana.Core.Entities.Customer)">
-            <summary>
-            Maps SalesOrder entity to Luca sales order header request
-            </summary>
-        </member>
-        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaPurchaseOrderFromEntity(Katana.Core.Entities.PurchaseOrder,Katana.Core.Entities.Supplier)">
-            <summary>
-            Maps PurchaseOrder entity (with Luca fields) to Luca purchase order request.
-            Uses entity's own Luca-related properties.
-            </summary>
-        </member>
-        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaStockCard(Katana.Core.Entities.Product)">
-            <summary>
-            Katana Product -> Koza stok kartı oluşturma DTO'su (EkleStkWsSkart.do).
-            Burada zorunlu alanlar doldurulur, diğerleri güvenli varsayılanlarla bırakılır.
-            </summary>
-        </member>
-        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaStockCard(Katana.Core.Entities.Product,System.Nullable{System.Int64},System.Nullable{System.Double})">
-            <summary>
-            Katana Product -> Koza stok kartı oluşturma DTO'su.
-            Ölçü birimi ID'si farklı şube/kurulumlara göre değişebildiğinden parametre ile alınabilir.
-            </summary>
-        </member>
-        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaStockCard(Katana.Core.DTOs.KatanaProductDto,System.Nullable{System.Int64},System.Nullable{System.Double})">
-            <summary>
-            KatanaProductDto (harici API) -> Koza stok kartı DTO'su.
-            SKU boşsa KAT-{Id} kodu kullanılır, KDV ve para birimi için güvenli varsayılanlar atanır.
-            </summary>
-        </member>
-        <member name="M:Katana.Core.Helpers.MappingHelper.ValidateLucaStockCard(Katana.Core.DTOs.LucaCreateStokKartiRequest)">
-            <summary>
-            Luca stok kartı gönderimi öncesi minimum alan doğrulaması.
-            </summary>
-        </member>
-        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaServiceStockCard(Katana.Core.Entities.Product)">
-            <summary>
-            Hizmet kartı (KartTuru = 2) için stok kartı DTO'su.
-            Temel alanları MapToLucaStockCard'dan devralır, sadece kart türünü günceller.
-            </summary>
-        </member>
-        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaCustomerFullUpdate(Katana.Core.Entities.Customer,System.String)">
-            <summary>
-            Luca cari kart güncelleme DTO'su oluşturur
-            </summary>
-        </member>
-        <member name="M:Katana.Core.Helpers.MappingHelper.NormalizeCountry(System.String)">
-            <summary>
-            Ülke adını normalize eder (Luca formatına uygun)
-            </summary>
-        </member>
-        <member name="M:Katana.Core.Helpers.MappingHelper.MapToLucaAddress(System.String,System.String,System.String,System.String,System.String,System.String,System.Int64,System.String,System.Boolean)">
-            <summary>
-            Customer adresi → Luca adres DTO
-            NOT: Katana state → atlanır, city → ilce, district → Luca'da yok
-            </summary>
-        </member>
-        <member name="M:Katana.Core.Helpers.MappingHelper.MapCustomerToLucaAddress(Katana.Core.Entities.Customer,System.Int64)">
-            <summary>
-            Customer entity'den Luca adres DTO oluşturur
-            </summary>
-        </member>
-        <member name="M:Katana.Core.Helpers.MappingHelper.NormalizeWarehouseCode(System.String)">
-            <summary>
-            Koza depo kod formatını normalize eder.
-            Luca'daki MERKEZ DEPO kodu: "002"
-            </summary>
-        </member>
         <member name="M:Katana.Core.Interfaces.ICustomerService.UpdateLastSyncErrorAsync(System.Int32,System.String,System.Nullable{System.Int64})">
             <summary>
             Luca senkronizasyon hatasını ve finansalNesneId'yi günceller
@@ -1013,7 +1577,7 @@
             Veritabanında bu eşleşmeleri tutan tablolar olmalıdır.
             </summary>
         </member>
-        <member name="M:Katana.Core.Interfaces.IOrderMappingRepository.GetLucaCariKoduByCustomerIdAsync(System.Int32)">
+        <member name="M:Katana.Core.Interfaces.IOrderMappingRepository.GetLucaCariKoduByCustomerIdAsync(System.String)">
             <summary>
             Katana Customer ID'den Luca Cari Kodu'nu getirir
             </summary>
@@ -1038,7 +1602,7 @@
             Tax Rate ID'den vergi oranını getirir
             </summary>
         </member>
-        <member name="M:Katana.Core.Interfaces.IOrderMappingRepository.SaveLucaInvoiceIdAsync(System.Int32,System.Int64,System.String,System.String)">
+        <member name="M:Katana.Core.Interfaces.IOrderMappingRepository.SaveLucaInvoiceIdAsync(System.Int32,System.Int64,System.String,System.String,System.String,System.String,System.String)">
             <summary>
             Luca'ya gönderilmiş fatura ID'sini kaydeder (idem potent)
             </summary>
@@ -1051,6 +1615,16 @@
         <member name="M:Katana.Core.Interfaces.IOrderMappingRepository.UpdateLucaInvoiceIdAsync(System.Int32,System.Int64,System.String,System.String)">
             <summary>
             Mevcut Luca fatura ID mapping'ini günceller
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IOrderMappingRepository.GetMappingInfoAsync(System.Int32,System.String)">
+            <summary>
+            Sipariş-level mapping bilgilerini (serı/no) getirir
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IOrderMappingRepository.UpsertMappingInfoAsync(System.Int32,System.String,System.String,System.String,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Sipariş-level mapping bilgilerini (seri/no/takip) upsert eder
             </summary>
         </member>
         <member name="M:Katana.Core.Interfaces.IOrderMappingRepository.GetBelgeTurDetayIdAsync(System.Boolean)">
@@ -1066,6 +1640,11 @@
         <member name="M:Katana.Core.Interfaces.IOrderMappingRepository.GetDefaultCashAccountCodeAsync">
             <summary>
             Varsayılan kasa hesap kodunu getirir
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Interfaces.IPendingNotificationPublisher">
+            <summary>
+            Bildirim yayınlama interface'i - SignalR üzerinden gerçek zamanlı bildirimler
             </summary>
         </member>
         <member name="T:Katana.Core.Interfaces.IProductMappingRepository">
@@ -1162,6 +1741,404 @@
         <member name="M:Katana.Core.Interfaces.IStockMovementMappingRepository.GetAllLocationMappingsAsync">
             <summary>
             Tüm depo mapping'lerini getirir
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.ITaxRateMappingService.GetKdvOranByTaxRateIdAsync(System.Int64,System.Decimal)">
+            <summary>
+            Gets Koza KDV oranı by Katana tax_rate_id
+            Returns default rate if mapping not found
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.ITaxRateMappingService.GetMappingByTaxRateIdAsync(System.Int64)">
+            <summary>
+            Gets tax rate mapping by Katana tax_rate_id
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.ITaxRateMappingService.CreateOrUpdateMappingAsync(System.Int64,System.Decimal,System.String)">
+            <summary>
+            Creates or updates tax rate mapping
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.ITaxRateMappingService.GetAllMappingsAsync">
+            <summary>
+            Gets all active tax rate mappings
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.ITaxRateMappingService.GetTaxRateToKdvOranMapAsync">
+            <summary>
+            Gets dictionary of Katana tax_rate_id → Koza KDV oranı for bulk operations
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.ITaxRateMappingService.DeleteMappingAsync(System.Int64)">
+            <summary>
+            Deletes tax rate mapping
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IUoMMappingService.GetOlcumBirimiIdByUoMStringAsync(System.String,System.Int64)">
+            <summary>
+            Gets Koza olcumBirimiId by Katana UoM string
+            Returns default ID if mapping not found
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IUoMMappingService.GetMappingByUoMStringAsync(System.String)">
+            <summary>
+            Gets UoM mapping by Katana UoM string (case-insensitive)
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IUoMMappingService.CreateOrUpdateMappingAsync(System.String,System.Int64,System.String)">
+            <summary>
+            Creates or updates UoM mapping
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IUoMMappingService.GetAllMappingsAsync">
+            <summary>
+            Gets all active UoM mappings
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IUoMMappingService.GetUoMToOlcumBirimiIdMapAsync">
+            <summary>
+            Gets dictionary of Katana UoM string → Koza olcumBirimiId for bulk operations
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Interfaces.IUoMMappingService.DeleteMappingAsync(System.String)">
+            <summary>
+            Deletes UoM mapping
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Utilities.BelgeTuruValidator">
+            <summary>
+            Koza belge türü validation
+            Yanlış belge türü seçimi kontrolü
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.BelgeTuruValidator.IsFatura(System.Int64)">
+            <summary>
+            Belge türünün fatura olup olmadığını kontrol et
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.BelgeTuruValidator.IsIrsaliye(System.Int64)">
+            <summary>
+            Belge türünün irsaliye olup olmadığını kontrol et
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.BelgeTuruValidator.IsStokHareketi(System.Int64)">
+            <summary>
+            Belge türünün stok hareketi olup olmadığını kontrol et
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.BelgeTuruValidator.IsSayim(System.Int64)">
+            <summary>
+            Belge türünün sayım olup olmadığını kontrol et
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.BelgeTuruValidator.IsSatis(System.Int64)">
+            <summary>
+            Belge türünün satış yönlü olup olmadığını kontrol et
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.BelgeTuruValidator.IsAlim(System.Int64)">
+            <summary>
+            Belge türünün alım yönlü olup olmadığını kontrol et
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.BelgeTuruValidator.IsIade(System.Int64)">
+            <summary>
+            Belge türünün iade olup olmadığını kontrol et
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.BelgeTuruValidator.Validate(System.Int64,System.String)">
+            <summary>
+            Belge türü validation - geçerli mi?
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.BelgeTuruValidator.ValidateOrThrow(System.Int64,System.String)">
+            <summary>
+            Belge türü validation - exception fırlat
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.BelgeTuruValidator.GetDescription(System.Int64)">
+            <summary>
+            Belge türü açıklaması al
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Utilities.CariKoduValidator">
+            <summary>
+            Cari kodu validation ve normalizasyon
+            ÖNEMLI: Leading zero kaybını önlemek için string olarak sakla!
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.CariKoduValidator.IsValidFormat(System.String)">
+            <summary>
+            Cari kodunun format olarak geçerli olup olmadığını kontrol et
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.CariKoduValidator.Normalize(System.String)">
+            <summary>
+            Cari kodunu normalize et (trim, uppercase)
+            ÖNEMLI: Leading zero'ları korur!
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.CariKoduValidator.Validate(System.String)">
+            <summary>
+            Cari kodunu validate et ve hata mesajı döndür
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.CariKoduValidator.ValidateOrThrow(System.String,System.String)">
+            <summary>
+            Cari kodu boş veya geçersizse exception fırlat
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.CariKoduValidator.GenerateCustomerCode(System.Int32)">
+            <summary>
+            Customer için default cari kodu oluştur
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.CariKoduValidator.GenerateSupplierCode(System.String)">
+            <summary>
+            Supplier için default cari kodu oluştur
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.CariKoduValidator.IsKategoriliKod(System.String)">
+            <summary>
+            Kategorili kod formatını kontrol et (örn: "000.00000001")
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.CariKoduValidator.PreserveLeadingZeros(System.String)">
+            <summary>
+            Leading zero'ları koru - string olarak sakla uyarısı
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.CariKoduValidator.AreEqual(System.String,System.String)">
+            <summary>
+            Cari kodu karşılaştırması (case-insensitive, leading zero aware)
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Utilities.CurrencyValidator">
+            <summary>
+            Validates and normalizes currency codes (ISO 4217)
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.CurrencyValidator.IsValidCurrency(System.String)">
+            <summary>
+            Checks if currency code is valid (ISO 4217 format)
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.CurrencyValidator.NormalizeCurrency(System.String)">
+            <summary>
+            Normalizes currency code to uppercase ISO 4217 format
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.CurrencyValidator.Validate(System.String)">
+            <summary>
+            Validates currency and returns normalized value or throws exception
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.CurrencyValidator.ValidateOrThrow(System.String)">
+            <summary>
+            Validates currency and throws exception if invalid
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.CurrencyValidator.GetSupportedCurrencies">
+            <summary>
+            Gets list of supported currency codes
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.CurrencyValidator.GetOrDefault(System.String,System.String)">
+            <summary>
+            Gets currency or default if invalid
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Utilities.DepoKoduValidator">
+            <summary>
+            Depo kodu validation ve normalizasyon
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.DepoKoduValidator.IsValidFormat(System.String)">
+            <summary>
+            Depo kodunun format olarak geçerli olup olmadığını kontrol et
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.DepoKoduValidator.Normalize(System.String)">
+            <summary>
+            Depo kodunu normalize et (trim, uppercase)
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.DepoKoduValidator.Validate(System.String)">
+            <summary>
+            Depo kodunu validate et ve hata mesajı döndür
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.DepoKoduValidator.ValidateOrThrow(System.String,System.String)">
+            <summary>
+            Depo kodu boş veya geçersizse exception fırlat
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.DepoKoduValidator.GetOrDefault(System.String,System.String)">
+            <summary>
+            Depo kodu boş veya geçersizse default değer döndür
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Utilities.KdvCalculator">
+            <summary>
+            KDV dahil/hariç hesaplama utility
+            Koza'da kdvFlag: true = KDV dahil, false = KDV hariç
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KdvCalculator.CalculateWithVat(System.Decimal,System.Decimal)">
+            <summary>
+            KDV hariç tutardan KDV dahil tutar hesapla
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KdvCalculator.CalculateWithoutVat(System.Decimal,System.Decimal)">
+            <summary>
+            KDV dahil tutardan KDV hariç tutar hesapla
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KdvCalculator.CalculateVatAmount(System.Decimal,System.Decimal)">
+            <summary>
+            KDV tutarını hesapla
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KdvCalculator.CalculateLineTotal(System.Decimal,System.Decimal,System.Boolean,System.Decimal)">
+            <summary>
+            Satır toplamı hesapla (miktar * birim fiyat)
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KdvCalculator.CalculateInvoiceTotal(System.Collections.Generic.IEnumerable{System.ValueTuple{System.Decimal,System.Decimal,System.Decimal}},System.Boolean)">
+            <summary>
+            Fatura toplamı hesapla (tüm satırlar)
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KdvCalculator.PercentageToDecimal(System.Decimal)">
+            <summary>
+            KDV oranını yüzde formatından ondalık formatına çevir (18 -> 0.18)
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KdvCalculator.DecimalToPercentage(System.Decimal)">
+            <summary>
+            KDV oranını ondalık formatından yüzde formatına çevir (0.18 -> 18)
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KdvCalculator.AreAmountsEqual(System.Decimal,System.Decimal,System.Decimal)">
+            <summary>
+            Tutar uyumsuzluğu kontrolü (tolerans ile)
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KdvCalculator.ConvertVatInclusion(System.Decimal,System.Decimal,System.Boolean,System.Boolean)">
+            <summary>
+            KDV dahil/hariç dönüşüm
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KdvCalculator.CalculateKozaLine(System.Decimal,System.Decimal,System.Decimal,System.Boolean)">
+            <summary>
+            Satır detayı hesaplama (Koza formatı için)
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Utilities.KozaLineCalculation">
+            <summary>
+            Koza satır hesaplama sonucu
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Utilities.KozaDateTimeHelper">
+            <summary>
+            Koza tarih formatı yönetimi ve timezone dönüşümleri
+            Koza formatı: dd/MM/yyyy (timezone yok)
+            Katana formatı: ISO8601 (timezone var)
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KozaDateTimeHelper.ToKozaDateFormat(System.DateTime)">
+            <summary>
+            DateTime'ı Koza formatına çevir (dd/MM/yyyy)
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KozaDateTimeHelper.ToKozaDateTimeFormat(System.DateTime)">
+            <summary>
+            DateTime'ı Koza datetime formatına çevir (dd/MM/yyyy HH:mm:ss)
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KozaDateTimeHelper.ToKozaDateFormat(System.Nullable{System.DateTime})">
+            <summary>
+            Nullable DateTime'ı Koza formatına çevir
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KozaDateTimeHelper.FromKozaDateFormat(System.String)">
+            <summary>
+            Koza formatından (dd/MM/yyyy) DateTime'a çevir
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KozaDateTimeHelper.FromKozaDateTimeFormat(System.String)">
+            <summary>
+            Koza datetime formatından (dd/MM/yyyy HH:mm:ss) DateTime'a çevir
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KozaDateTimeHelper.Iso8601ToKozaFormat(System.String)">
+            <summary>
+            ISO8601 string'i Koza formatına çevir
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KozaDateTimeHelper.Today">
+            <summary>
+            Bugünün tarihini Koza formatında döndür
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KozaDateTimeHelper.Now">
+            <summary>
+            Şu anki zamanı Koza datetime formatında döndür
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KozaDateTimeHelper.IsValidDateRange(System.DateTime,System.DateTime)">
+            <summary>
+            Tarih aralığı validation
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.KozaDateTimeHelper.ToKozaDateRange(System.DateTime,System.DateTime)">
+            <summary>
+            Tarih aralığını Koza formatında döndür
+            </summary>
+        </member>
+        <member name="T:Katana.Core.Utilities.MappingHashHelper">
+            <summary>
+            Mapping tabloları için hash hesaplama ve değişiklik tespiti
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.MappingHashHelper.ComputeHash(System.Object)">
+            <summary>
+            Verilen nesneyi JSON'a çevirip SHA256 hash'ini hesapla
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.MappingHashHelper.ComputeSha256(System.String)">
+            <summary>
+            String'in SHA256 hash'ini hesapla
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.MappingHashHelper.HasChanged(System.String,System.Object)">
+            <summary>
+            Mapping'in değişip değişmediğini kontrol et
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.MappingHashHelper.ComputeSupplierMappingHash(System.String,System.String,System.Nullable{System.Int64})">
+            <summary>
+            Supplier mapping'i için hash hesapla
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.MappingHashHelper.ComputeCustomerMappingHash(System.String,System.String,System.Nullable{System.Int64},System.String)">
+            <summary>
+            Customer mapping'i için hash hesapla
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.MappingHashHelper.ComputeLocationMappingHash(System.String,System.String,System.Nullable{System.Int64})">
+            <summary>
+            Location mapping'i için hash hesapla
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.MappingHashHelper.ComputeProductMappingHash(System.String,System.String,System.String,System.Nullable{System.Int64})">
+            <summary>
+            Product mapping'i için hash hesapla
+            </summary>
+        </member>
+        <member name="M:Katana.Core.Utilities.MappingHashHelper.ComputeOrderMappingHash(System.Int32,System.Int64,System.String,System.String)">
+            <summary>
+            Order mapping'i için hash hesapla
             </summary>
         </member>
     </members>

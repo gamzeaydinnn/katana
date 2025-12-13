@@ -69,6 +69,183 @@ public class KatanaService : IKatanaService
         }
     }
 
+    public async Task<bool> SyncProductStockAsync(string sku, decimal quantity, long? locationId = null, string? productName = null, decimal? salesPrice = null)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(sku))
+            {
+                _logger.LogWarning("SyncProductStockAsync called with empty SKU");
+                return false;
+            }
+
+            if (quantity <= 0)
+            {
+                _logger.LogWarning("SyncProductStockAsync called with non-positive quantity. Sku={Sku}, Qty={Qty}", sku, quantity);
+                return false;
+            }
+
+            async Task<(long? VariantId, long? ProductId)> FindVariantAsync(string inputSku)
+            {
+                var skuVariants = new[] { inputSku, inputSku.Trim(), inputSku.ToLowerInvariant(), inputSku.ToUpperInvariant() }
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct()
+                    .ToArray();
+
+                foreach (var skuVariant in skuVariants)
+                {
+                    try
+                    {
+                        var variantUrl = $"{_settings.Endpoints.Variants}?sku={Uri.EscapeDataString(skuVariant)}";
+                        var resp = await _httpClient.GetAsync(variantUrl);
+                        var body = await resp.Content.ReadAsStringAsync();
+
+                        if (!resp.IsSuccessStatusCode)
+                        {
+                            _logger.LogWarning("Katana variant lookup failed. Sku={Sku}, Status={Status}, Body={Body}", skuVariant, resp.StatusCode, body);
+                            continue;
+                        }
+
+                        using var doc = JsonDocument.Parse(body);
+                        if (!doc.RootElement.TryGetProperty("data", out var dataEl) || dataEl.ValueKind != JsonValueKind.Array)
+                            continue;
+
+                        var first = dataEl.EnumerateArray().FirstOrDefault();
+                        if (first.ValueKind != JsonValueKind.Object)
+                            continue;
+
+                        long? variantId = null;
+                        long? productId = null;
+
+                        if (first.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.Number)
+                            variantId = idEl.GetInt64();
+                        else if (first.TryGetProperty("id", out idEl) && idEl.ValueKind == JsonValueKind.String && long.TryParse(idEl.GetString(), out var parsedVar))
+                            variantId = parsedVar;
+
+                        if (first.TryGetProperty("product_id", out var pidEl) && pidEl.ValueKind == JsonValueKind.Number)
+                            productId = pidEl.GetInt64();
+                        else if (first.TryGetProperty("product_id", out pidEl) && pidEl.ValueKind == JsonValueKind.String && long.TryParse(pidEl.GetString(), out var parsedPid))
+                            productId = parsedPid;
+
+                        if (variantId.HasValue)
+                        {
+                            _logger.LogInformation("Katana variant found. Sku={Sku}, VariantId={VariantId}, ProductId={ProductId}", skuVariant, variantId, productId);
+                            return (variantId, productId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Katana variant lookup parse failed. Sku={Sku}", skuVariant);
+                    }
+                }
+
+                return (null, null);
+            }
+
+            async Task<long?> ResolveLocationIdAsync()
+            {
+                if (locationId.HasValue && locationId.Value > 0)
+                    return locationId.Value;
+
+                const string cacheKey = "katana-primary-location-id";
+                if (_cache.TryGetValue<long?>(cacheKey, out var cached) && cached.HasValue)
+                    return cached;
+
+                try
+                {
+                    var locations = await GetLocationsAsync();
+                    var primary = locations.FirstOrDefault(l => l.IsPrimary == true) ?? locations.FirstOrDefault();
+                    if (primary == null)
+                        return null;
+
+                    _cache.Set(cacheKey, primary.Id, TimeSpan.FromMinutes(30));
+                    return primary.Id;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to resolve Katana primary location id");
+                    return null;
+                }
+            }
+
+            var (variantId, _) = await FindVariantAsync(sku);
+            if (!variantId.HasValue)
+            {
+                _logger.LogWarning("SyncProductStockAsync: variant not found in Katana for SKU {Sku}. Attempting create...", sku);
+
+                var createDto = new KatanaProductDto
+                {
+                    Name = string.IsNullOrWhiteSpace(productName) ? sku.Trim() : productName,
+                    SKU = sku.Trim(),
+                    SalesPrice = salesPrice ?? 0,
+                    Unit = "pcs",
+                    IsActive = true
+                };
+
+                var created = await CreateProductAsync(createDto);
+                if (created == null)
+                {
+                    _logger.LogWarning("SyncProductStockAsync: CreateProductAsync returned null. Sku={Sku}", sku);
+                    return false;
+                }
+
+                // After creating product, re-query variants by SKU to obtain variant_id.
+                (variantId, _) = await FindVariantAsync(sku);
+                if (!variantId.HasValue)
+                {
+                    _logger.LogWarning("SyncProductStockAsync: product created but variant still not found. Sku={Sku}", sku);
+                    return false;
+                }
+            }
+
+            var resolvedLocationId = await ResolveLocationIdAsync();
+            if (!resolvedLocationId.HasValue)
+            {
+                _logger.LogWarning("SyncProductStockAsync: location id could not be resolved. Sku={Sku}", sku);
+                return false;
+            }
+
+            var req = new StockAdjustmentCreateRequest
+            {
+                StockAdjustmentNumber = $"ADMIN-{DateTime.UtcNow:yyyyMMddHHmmss}-{sku.Trim()}".Length > 50
+                    ? $"ADMIN-{DateTime.UtcNow:yyyyMMddHHmmss}-{sku.Trim()}".Substring(0, 50)
+                    : $"ADMIN-{DateTime.UtcNow:yyyyMMddHHmmss}-{sku.Trim()}",
+                StockAdjustmentDate = DateTime.UtcNow,
+                LocationId = resolvedLocationId.Value,
+                Reason = "Admin approval",
+                AdditionalInfo = $"SalesOrder approval stock increase for SKU={sku.Trim()}",
+                StockAdjustmentRows = new List<StockAdjustmentRowDto>
+                {
+                    new StockAdjustmentRowDto
+                    {
+                        VariantId = variantId.Value,
+                        Quantity = quantity
+                    }
+                }
+            };
+
+            _logger.LogInformation("Katana stock adjustment create. Sku={Sku}, VariantId={VariantId}, LocationId={LocationId}, Qty={Qty}",
+                sku, variantId, resolvedLocationId, quantity);
+
+            var createdAdj = await CreateStockAdjustmentAsync(req);
+            if (createdAdj == null)
+            {
+                _logger.LogWarning("SyncProductStockAsync: CreateStockAdjustmentAsync returned null. Sku={Sku}", sku);
+                return false;
+            }
+
+            _logger.LogInformation("SyncProductStockAsync: stock adjustment created. Sku={Sku}, AdjustmentId={AdjustmentId}, Number={Number}",
+                sku, createdAdj.Id, createdAdj.StockAdjustmentNumber);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SyncProductStockAsync failed. Sku={Sku}", sku);
+            _loggingService.LogError($"Katana SyncProductStockAsync failed for {sku}", ex, null, "SyncProductStockAsync", LogCategory.ExternalAPI);
+            return false;
+        }
+    }
+
     public async Task<List<KatanaProductDto>> GetProductsAsync()
     {
         var allProducts = new List<KatanaProductDto>();
@@ -2231,6 +2408,7 @@ public class KatanaService : IKatanaService
     {
         _logger.LogInformation("Creating stock adjustment via Katana API");
         var json = JsonSerializer.Serialize(request, _jsonOptions);
+        _logger.LogDebug("CreateStockAdjustmentAsync payload: {Payload}", json);
         var resp = await _httpClient.PostAsync(_settings.Endpoints.StockAdjustments, new StringContent(json, Encoding.UTF8, "application/json"));
         var content = await resp.Content.ReadAsStringAsync();
 
@@ -2240,6 +2418,7 @@ public class KatanaService : IKatanaService
             resp.EnsureSuccessStatusCode();
         }
 
+        _logger.LogDebug("CreateStockAdjustmentAsync response: {Body}", content);
         return JsonSerializer.Deserialize<StockAdjustmentDto>(content, _jsonOptions);
     }
 

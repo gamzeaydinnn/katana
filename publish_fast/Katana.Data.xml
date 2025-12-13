@@ -214,6 +214,86 @@
         <member name="M:Katana.Data.Migrations.SyncAllEntities.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
+        <member name="T:Katana.Data.Migrations.AddSyncTrackingToMappings">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddSyncTrackingToMappings.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddSyncTrackingToMappings.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddSyncTrackingToMappings.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.AddCustomerSupplierSyncTracking">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddCustomerSupplierSyncTracking.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddCustomerSupplierSyncTracking.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddCustomerSupplierSyncTracking.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.AddTaxRateAndUoMMappings">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddTaxRateAndUoMMappings.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddTaxRateAndUoMMappings.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddTaxRateAndUoMMappings.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.SchemaAlignmentFixes">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.SchemaAlignmentFixes.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.SchemaAlignmentFixes.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.SchemaAlignmentFixes.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.FixCustomerMappingIdType">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.FixCustomerMappingIdType.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.FixCustomerMappingIdType.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.FixCustomerMappingIdType.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="P:Katana.Data.Models.MappingTable.LastSyncHash">
+            <summary>
+            Son senkronize edilen verinin hash'i (değişiklik tespiti için)
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.MappingTable.LastSyncAt">
+            <summary>
+            Son senkronize edilen tarih
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.MappingTable.SyncStatus">
+            <summary>
+            Senkronizasyon durumu: PENDING, SYNCED, FAILED
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.MappingTable.LastSyncError">
+            <summary>
+            Son senkronizasyon hatası (varsa)
+            </summary>
+        </member>
         <member name="T:Katana.Data.Models.OrderMapping">
             <summary>
             Katana Order ID'lerini Luca Invoice ID'lerine map eden tablo
@@ -241,6 +321,36 @@
             (Örn: PendingStockAdjustment.ExternalOrderId, SalesOrder.OrderNo)
             </summary>
         </member>
+        <member name="P:Katana.Data.Models.OrderMapping.BelgeSeri">
+            <summary>
+            Koza'da kullanılan belge serisi
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.BelgeNo">
+            <summary>
+            Koza'da kullanılan belge numarası
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.BelgeTakipNo">
+            <summary>
+            Belge takip numarası (Katana order_no veya externalOrderId)
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.SyncStatus">
+            <summary>
+            Senkronizasyon durumu: PENDING, SYNCED, FAILED
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.LastSyncHash">
+            <summary>
+            Son senkronize edilen verinin hash'i (değişiklik tespiti için)
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.LastSyncError">
+            <summary>
+            Son senkronizasyon hatası (varsa)
+            </summary>
+        </member>
         <member name="P:Katana.Data.Models.OrderMapping.CreatedAt">
             <summary>
             Mapping oluşturulma tarihi
@@ -249,6 +359,11 @@
         <member name="P:Katana.Data.Models.OrderMapping.UpdatedAt">
             <summary>
             Mapping güncelleme tarihi (Luca ID değiştirildiğinde)
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.LastSyncAt">
+            <summary>
+            Son senkronize edilen tarih
             </summary>
         </member>
         <member name="T:Katana.Data.Repositories.OrderMappingRepository">

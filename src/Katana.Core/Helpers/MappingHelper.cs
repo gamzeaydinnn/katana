@@ -622,6 +622,67 @@ public static class MappingHelper
         };
     }
 
+    /// <summary>
+    /// Maps SalesOrder entity to Luca INVOICE request (Satış Faturası - BelgeTurDetayId: 76)
+    /// </summary>
+    public static LucaCreateInvoiceHeaderRequest MapToLucaInvoiceFromSalesOrder(Entities.SalesOrder order, Customer customer, string? depoKodu = null)
+    {
+        var cariKod = !string.IsNullOrWhiteSpace(customer.LucaCode)
+            ? customer.LucaCode
+            : GenerateCustomerCode(customer.TaxNo);
+
+        var belgeTakipNo = string.IsNullOrWhiteSpace(order.OrderNo) ? order.Id.ToString() : order.OrderNo;
+        var belgeTarihi = order.OrderCreatedDate ?? DateTime.UtcNow;
+        var vadeTarihi = belgeTarihi.AddDays(30);
+        var resolvedDepoKodu = string.IsNullOrWhiteSpace(depoKodu) ? "001" : depoKodu;
+
+        static double NormalizeKdvOran(decimal? taxRatePercentOrDecimal)
+        {
+            var rate = (double)(taxRatePercentOrDecimal ?? 20m);
+            if (rate > 1.0) rate /= 100.0;
+            return rate;
+        }
+
+        return new LucaCreateInvoiceHeaderRequest
+        {
+            BelgeSeri = order.BelgeSeri ?? "A",
+            BelgeNo = ParseDocumentNo(order.BelgeNo ?? order.OrderNo, order.Id),
+            BelgeTakipNo = belgeTakipNo,
+            BelgeTarihi = belgeTarihi.ToString("dd/MM/yyyy"),
+            DuzenlemeSaati = order.DuzenlemeSaati ?? DateTime.Now.ToString("HH:mm"),
+            VadeTarihi = vadeTarihi.ToString("dd/MM/yyyy"),
+            BelgeAciklama = string.IsNullOrWhiteSpace(order.AdditionalInfo) ? $"Katana Sipariş No: {order.OrderNo}" : order.AdditionalInfo,
+            BelgeTurDetayId = "76", // Satış faturası
+            FaturaTur = "1",
+            ParaBirimKod = string.IsNullOrWhiteSpace(order.Currency) ? "TRY" : order.Currency,
+            KurBedeli = 1.0,
+            MusteriTedarikci = "1",
+            CariKodu = cariKod,
+            CariTanim = customer.Title,
+            CariYasalUnvan = customer.Title,
+            CariKisaAd = customer.Title.Length > 50 ? customer.Title.Substring(0, 50) : customer.Title,
+            VergiNo = customer.Type == 1 ? customer.TaxNo : null,
+            TcKimlikNo = customer.Type == 2 ? customer.TaxNo : null,
+            VergiDairesi = customer.TaxOffice,
+            CariTip = customer.Type == 1 ? 0 : 1,
+            Il = customer.City,
+            Ilce = customer.District,
+            ReferansNo = order.CustomerRef,
+            KdvFlag = true,
+            DetayList = order.Lines.Select(l => new LucaCreateInvoiceDetailRequest
+            {
+                KartTuru = 1,
+                KartKodu = NormalizeSku(l.SKU),
+                KartAdi = NormalizeTurkishText(l.ProductName),
+                DepoKodu = resolvedDepoKodu,
+                BirimFiyat = (double)(l.PricePerUnit ?? 0),
+                Miktar = (double)l.Quantity,
+                KdvOran = NormalizeKdvOran(l.TaxRate),
+                Tutar = l.Total.HasValue ? (double)l.Total.Value : null
+            }).ToList()
+        };
+    }
+
     public static LucaCreateSupplierRequest MapToLucaSupplierCreate(Supplier supplier)
     {
         return new LucaCreateSupplierRequest
@@ -1708,7 +1769,14 @@ public static class MappingHelper
 
     private static string GenerateCustomerCode(string taxNo)
     {
-        return $"CUST_{taxNo}";
+        // Koza/Luca tarafında "CUST_" gibi prefix'ler 500/HTML response'a sebep olabiliyor.
+        // En güvenli fallback: mümkünse doğrudan vergi no kullan, yoksa geçici varsayılan cari kodu.
+        if (string.IsNullOrWhiteSpace(taxNo))
+        {
+            return "120.01.001";
+        }
+
+        return taxNo.Trim();
     }
 
     private static PurchaseOrderStatus MapPurchaseOrderStatus(string status)

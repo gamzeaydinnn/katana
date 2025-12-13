@@ -4,6 +4,35 @@
         <name>Katana.Infrastructure</name>
     </assembly>
     <members>
+        <member name="M:Katana.Infrastructure.APIClients.KatanaService.CreateProductAsync(Katana.Core.DTOs.KatanaProductDto)">
+            <summary>
+            Creates a new product in Katana API
+            
+            Payload structure:
+            {
+              "name": "Product Name",           // Required
+              "uom": "pcs",                     // Required
+              "category_name": "Category",      // Optional
+              "is_sellable": true,              // Optional, default true
+              "is_producible": false,           // Optional
+              "is_purchasable": true,           // Optional
+              "variants": [                     // Required, at least 1
+                {
+                  "sku": "PROD-001",
+                  "sales_price": 100.00,
+                  "purchase_price": 50.00
+                }
+              ]
+            }
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.KatanaService.DeleteProductAsync(System.Int32)">
+            <summary>
+            Deletes a product from Katana API
+            </summary>
+            <param name="productId">The Katana product ID to delete</param>
+            <returns>True if deletion successful (204 No Content), false otherwise</returns>
+        </member>
         <member name="M:Katana.Infrastructure.APIClients.KatanaService.GetSalesOrdersBatchedAsync(System.Nullable{System.DateTime},System.Int32)">
             <summary>
             Memory-efficient batched sales order retrieval with server-side pagination
@@ -11,6 +40,9 @@
             </summary>
         </member>
         <member name="T:Katana.Infrastructure.APIClients.LucaService">
+            <summary>
+            Cache warmup and helper methods for Luca stock card operations.
+            </summary>
             <summary>
             Koza Cari (Müşteri/Tedarikçi) işlemleri
             Endpoint'ler: ListeleWSGnlSsAdres.do, GetirFinCalismaKosul.do, 
@@ -54,7 +86,7 @@
             Body: { "gnlFinansalNesne": { "finansalNesneId": X } }
             </summary>
         </member>
-        <member name="M:Katana.Infrastructure.APIClients.LucaService.CreateCariHareketAsync(Katana.Business.DTOs.Koza.KozaCariHareketRequest,System.Threading.CancellationToken)">
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.CreateCariHareketAsync(Katana.Core.DTOs.Koza.KozaCariHareketRequest,System.Threading.CancellationToken)">
             <summary>
             Cari Hareket Ekleme (EkleFinCariHareketBaslikWS.do)
             </summary>
@@ -64,13 +96,33 @@
             Koza Müşteri Carilerini Listele (ListeleFinMusteri.do)
             </summary>
         </member>
-        <member name="M:Katana.Infrastructure.APIClients.LucaService.EnsureDepotAsync(Katana.Business.DTOs.Koza.KatanaLocationToDepoDto,System.Threading.CancellationToken)">
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.ListMusteriCarilerAsync(System.String,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Koza Müşteri Carilerini Listele (ListeleFinMusteri.do) - Filtreleme ile
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.ListMusteriCustomerItemsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Luca müşteri carilerini sade liste DTO'suna map ederek döndürür
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.ListMusteriCustomerItemsAsync(System.String,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Luca müşteri carilerini sade liste DTO'suna map ederek döndürür (filtrelenmiş)
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.CreateMusteriCariAsync(Katana.Core.DTOs.Koza.KozaMusteriEkleRequest,System.Threading.CancellationToken)">
+            <summary>
+            Koza Müşteri Kartı Ekleme (EkleFinMusteriWS.do) - Dokümantasyona tam uyumlu
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.EnsureDepotAsync(Katana.Core.DTOs.Koza.KatanaLocationToDepoDto,System.Threading.CancellationToken)">
             <summary>
             Katana Location'u Koza Depo olarak senkronize eder
             Yoksa oluşturur, varsa atlar
             </summary>
         </member>
-        <member name="M:Katana.Infrastructure.APIClients.LucaService.EnsureCustomerCariAsync(Katana.Business.DTOs.Koza.KatanaCustomerToCariDto,System.Threading.CancellationToken)">
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.EnsureCustomerCariAsync(Katana.Core.DTOs.Koza.KatanaCustomerToCariDto,System.Threading.CancellationToken)">
             <summary>
             Katana Customer'ı Luca Müşteri Cari olarak senkronize eder
             Yoksa oluşturur, varsa atlar
@@ -82,6 +134,18 @@
             HTML response alındığında veya session timeout durumunda kullanılır.
             </summary>
         </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.WarmupSessionAsync">
+            <summary>
+            Session warmup: Struts framework'ünü uyandırmak için basit bir GET isteği atar.
+            Login + cookie alındıktan sonra çağrılmalıdır.
+            "Unable to instantiate Action" hatasını önlemek için kullanılır.
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.GetDepoListAsync">
+            <summary>
+            Luca depolarını listele (eski API uyumluluğu için)
+            </summary>
+        </member>
         <member name="M:Katana.Infrastructure.APIClients.LucaService.ListDepotsAsync(System.Threading.CancellationToken)">
             <summary>
             Koza depolarını listele (ListeleStkDepo.do)
@@ -89,10 +153,41 @@
             UseNoPagingHeader: appsettings'den kontrol edilir (performans için)
             </summary>
         </member>
-        <member name="M:Katana.Infrastructure.APIClients.LucaService.CreateDepotAsync(Katana.Business.DTOs.Koza.KozaCreateDepotRequest,System.Threading.CancellationToken)">
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.CreateDepotAsync(Katana.Core.DTOs.Koza.KozaCreateDepotRequest,System.Threading.CancellationToken)">
             <summary>
             Koza'da yeni depo oluştur (EkleStkWsDepo.do)
             Content-Type: application/json
+            Format: { "stkDepo": { "kod": "...", "tanim": "...", ... } }
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.ListStockCardsAsync(System.String,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Stok Kartları Listeleme - Filtreleme ile (ListeleStkSkart.do)
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.ListStockCardsAsync(Katana.Core.DTOs.LucaListStockCardsRequest,System.Threading.CancellationToken)">
+            <summary>
+            Stok Kartları Listeleme - Request ile (ListeleStkSkart.do)
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.ListStockCardSuppliersAsync(System.Int64,System.Threading.CancellationToken)">
+            <summary>
+            Stok Kartı Temin Yerleri Listesi - skartId ile (ListeleStkSkartTeminYeri.do)
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.ListStockCardSuppliersAsync(Katana.Core.DTOs.LucaStockCardByIdRequest,System.Threading.CancellationToken)">
+            <summary>
+            Stok Kartı Temin Yerleri Listesi - Request ile (ListeleStkSkartTeminYeri.do)
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.ListInvoicesAsync(System.Nullable{System.Int32},System.Nullable{System.Int32},System.Nullable{System.Int64},System.Nullable{System.Int64},System.String,System.String,System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Fatura Listesi - Filtreleme ile (ListeleFtrSsFaturaBaslik.do)
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.ListInvoicesAsync(Katana.Core.DTOs.LucaListInvoicesRequest,System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Fatura Listesi - Request ile (ListeleFtrSsFaturaBaslik.do)
             </summary>
         </member>
         <member name="M:Katana.Infrastructure.APIClients.LucaService.CreateWarehouseTransferAsync(Katana.Core.DTOs.LucaStockTransferRequest)">
@@ -187,24 +282,51 @@
             Örnek: "DEMİR TALAŞ" vs "DEM?R TALA?" -> "DEMIRTALAS" vs "DEMRTALA?" -> MATCH!
             </summary>
         </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.NormalizeForUltraLooseComparison(System.String)">
+            <summary>
+            ULTRA TOLERANSLI NORMALİZASYON: Tüm encoding sorunlarını, boşlukları, noktalama işaretlerini temizler
+            Ø, ø, ?? karakterlerini O'ya çevirir. Sadece harf ve rakamları bırakır.
+            Örn: "Ø35*1,5 PIPE" → "O3515PIPE", "??35*1,5 PIPE" → "O3515PIPE"
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.CalculateStringSimilarity(System.String,System.String)">
+            <summary>
+            İki string arasındaki benzerlik oranını hesaplar (Levenshtein Distance tabanlı)
+            0.0 = Tamamen farklı, 1.0 = Tamamen aynı
+            Örn: "O3515PIPE" vs "O35151PIPE" → 0.91 (benzer)
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.LevenshteinDistance(System.String,System.String)">
+            <summary>
+            Levenshtein Distance (Edit Distance) hesaplar
+            İki string arasındaki minimum düzenleme sayısını (insertion, deletion, substitution) bulur
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.SendInvoiceAsync(Katana.Core.DTOs.LucaSendInvoiceRequest)">
+            <summary>
+            E-Fatura veya E-Arşiv olarak fatura gönderir.
+            Not: Koleksiyonda endpoint tam belirtilmemiş, muhtemelen entegrasyon tetikleyicisidir.
+            </summary>
+        </member>
         <member name="M:Katana.Infrastructure.APIClients.LucaService.CreateStockCardAsync(Katana.Core.DTOs.LucaCreateStokKartiRequest)">
             <summary>
             Luca/Koza'ya stok kartı oluşturur (birden fazla deneme ile)
             </summary>
         </member>
-        <member name="M:Katana.Infrastructure.APIClients.LucaService.ListStockCardsSimpleAsync(System.Threading.CancellationToken)">
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.ListStockCardsSimpleAsync(System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.Threading.CancellationToken)">
             <summary>
             Koza stok kartlarını listele (basitleştirilmiş)
             Frontend için sadece gerekli alanları döndürür
+            Postman "Stok Kartı Listesi" request format'ını kullanır
             </summary>
         </member>
-        <member name="M:Katana.Infrastructure.APIClients.LucaService.CreateStockCardSimpleAsync(Katana.Business.DTOs.Koza.KozaCreateStokKartiRequest,System.Threading.CancellationToken)">
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.CreateStockCardSimpleAsync(Katana.Core.DTOs.Koza.KozaCreateStokKartiRequest,System.Threading.CancellationToken)">
             <summary>
             Koza'da yeni stok kartı oluştur (basitleştirilmiş)
             Frontend'den gelen basit DTO'yu LucaCreateStokKartiRequest'e çevirir
             </summary>
         </member>
-        <member name="M:Katana.Infrastructure.APIClients.LucaService.MapToFullStokKartiRequest(Katana.Business.DTOs.Koza.KozaStokKartiDto)">
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.MapToFullStokKartiRequest(Katana.Core.DTOs.Koza.KozaStokKartiDto)">
             <summary>
             Basit DTO'yu tam LucaCreateStokKartiRequest'e çevir
             </summary>
@@ -225,6 +347,17 @@
             Tarih formatı kontrolü (dd/MM/yyyy)
             </summary>
         </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.ParseStockCardFromJson(System.Text.Json.JsonElement)">
+            <summary>
+            JSON element'ten stok kartı parse et
+            Koza bazen KDV oranlarını string olarak döndürür ("%20" gibi)
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.ParseKdvOran(System.Text.Json.JsonElement,System.String[])">
+            <summary>
+            KDV oranını parse et - string ("%20") veya number olabilir
+            </summary>
+        </member>
         <member name="M:Katana.Infrastructure.APIClients.LucaService.ParseStockCardResponse(System.String,System.String,System.String)">
             <summary>
             Stok kartı response parse
@@ -240,19 +373,51 @@
             Luca Tedarikçi Carilerini Listele (ListeleFinTedarikci.do)
             </summary>
         </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.ListTedarikciCarilerAsync(System.String,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Luca Tedarikçi Carilerini Listele (ListeleFinTedarikci.do) - Filtreleme ile
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.ListTedarikciSupplierItemsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Luca tedarikçi carilerini sade liste DTO'suna map ederek döndürür
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.ListTedarikciSupplierItemsAsync(System.String,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Luca tedarikçi carilerini sade liste DTO'suna map ederek döndürür (filtrelenmiş)
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.CreateTedarikciCariAsync(Katana.Core.DTOs.Koza.KozaTedarikciEkleRequest,System.Threading.CancellationToken)">
+            <summary>
+            Koza Tedarikçi Kartı Ekleme (EkleFinTedarikciWS.do) - Postman ile birebir uyumlu
+            </summary>
+        </member>
         <member name="M:Katana.Infrastructure.APIClients.LucaService.UpsertCariCardAsync(Katana.Core.Entities.Supplier)">
             <summary>
             Katana Supplier'ı Luca/Koza Cari olarak ekler/günceller
             </summary>
         </member>
-        <member name="M:Katana.Infrastructure.APIClients.LucaService.EnsureSupplierCariAsync(Katana.Business.DTOs.Koza.KatanaSupplierToCariDto,System.Threading.CancellationToken)">
+        <member name="M:Katana.Infrastructure.APIClients.LucaService.EnsureSupplierCariAsync(Katana.Core.DTOs.Koza.KatanaSupplierToCariDto,System.Threading.CancellationToken)">
             <summary>
             Katana Supplier → Luca Tedarikçi Cari (Legacy)
             </summary>
         </member>
-        <member name="M:Katana.Infrastructure.Helpers.LucaRequestFactory.CreateBatchStockCardRequests(System.Collections.Generic.List{Katana.Business.Models.DTOs.ExcelProductDto},System.Double,System.Int64,System.Int64,System.String)">
+        <member name="T:Katana.Infrastructure.Caching.RedisStockCardCache">
+            <summary>
+            Redis-based implementation of stock card cache
+            Provides persistent SKU → StockCardId mapping across session restarts
+            </summary>
+        </member>
+        <member name="M:Katana.Infrastructure.Helpers.LucaRequestFactory.CreateBatchStockCardRequests(System.Collections.Generic.List{Katana.Core.DTOs.ExcelProductDto},System.Double,System.Int64,System.Int64,System.String)">
             <summary>
             Excel ürün listesi için form-encoded istekleri üretir.
+            </summary>
+        </member>
+        <member name="T:Katana.Infrastructure.Session.LucaSessionManager">
+            <summary>
+            Thread-safe Luca session manager implementation
+            Manages JSESSIONID lifecycle with automatic refresh
             </summary>
         </member>
         <member name="T:Katana.Infrastructure.Utils.CircuitBreakerPolicies">
@@ -286,6 +451,12 @@
         <member name="M:Katana.Infrastructure.Utils.CircuitBreakerPolicies.GetCircuitStates">
             <summary>
             Circuit durumlarını döndür (health check için)
+            </summary>
+        </member>
+        <member name="T:Katana.Infrastructure.Workers.SyncWorker">
+            <summary>
+            Background worker for processing sync operations
+            Supports parallel batch processing with retry policies
             </summary>
         </member>
     </members>
