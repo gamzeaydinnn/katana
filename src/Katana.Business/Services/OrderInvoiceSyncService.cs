@@ -350,20 +350,13 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
 
         var belgeTurDetayId = await _mappingRepo.GetBelgeTurDetayIdAsync(isSalesOrder: true);
 
-        // BelgeNo string'i int'e parse et (Luca int bekliyor)
-        // Parse edemezse deterministik fallback üret (0/NULL göndermemek için)
-        int belgeNoInt;
-        if (!int.TryParse(belgeNo, out belgeNoInt))
-        {
-            // map bozuksa deterministik numeric üret
-            var fallback = TryExtractDigitsLast9(belgeNo) ?? (1_000_000 + order.Id).ToString();
-            belgeNoInt = int.Parse(fallback);
-        }
+        // Luca API artık string belgeNo kabul ediyor
+        var belgeNoStr = string.IsNullOrWhiteSpace(belgeNo) ? order.Id.ToString() : belgeNo.Trim();
 
         var request = new LucaCreateInvoiceHeaderRequest
         {
             BelgeSeri = belgeSeri,
-            BelgeNo = belgeNoInt,
+            BelgeNo = belgeNoStr,
             BelgeTarihi = order.OrderDate.ToString("dd/MM/yyyy"),
             VadeTarihi = order.OrderDate.AddDays(30).ToString("dd/MM/yyyy"),
             BelgeAciklama = $"Katana Sales Order #{order.OrderNo}",

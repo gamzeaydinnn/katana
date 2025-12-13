@@ -343,7 +343,7 @@ public partial class LucaService
                     GnlOrgSsBelge = new LucaBelgeDto
                     {
                         BelgeSeri = invoice.BelgeSeri ?? _settings.DefaultBelgeSeri ?? "A",
-                        BelgeNo = invoice.BelgeNo,
+                        BelgeNo = int.TryParse(invoice.BelgeNo, out var belgeNoInt) ? belgeNoInt : (int?)null,
                         BelgeTarihi = ParseDateOrDefault(invoice.BelgeTarihi),
                         VadeTarihi = ParseDateOrDefault(invoice.VadeTarihi),
                         BelgeTurDetayId = ParseLong(invoice.BelgeTurDetayId)
@@ -430,9 +430,9 @@ public partial class LucaService
             return invoice.BelgeTakipNo;
         }
 
-        if (invoice.BelgeNo.HasValue)
+        if (!string.IsNullOrWhiteSpace(invoice.BelgeNo))
         {
-            return $"{invoice.BelgeSeri ?? "A"}-{invoice.BelgeNo.Value}";
+            return $"{invoice.BelgeSeri ?? "A"}-{invoice.BelgeNo}";
         }
 
         return "INVOICE";

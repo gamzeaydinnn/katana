@@ -158,7 +158,6 @@ public partial class LucaService : ILucaService
 
         return sb.ToString();
     }
-    private System.Threading.CancellationTokenSource? _cookieRefreshCts;
     private static Encoding InitializeEncoding(string? encodingName)
     {
         try
@@ -1704,6 +1703,75 @@ retryChangeBranch:
         {
             _logger.LogWarning(ex, "⚠️ Session warmup sırasında hata oluştu");
             await Task.Delay(2000);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Fatura endpoint'i için warmup - Struts FtrWsFaturaBaslik Action'ını uyandırır.
+    /// StockCards warmup'ı farklı bir Action class'ı uyandırıyor, fatura için ayrı warmup gerekli.
+    /// </summary>
+    private async Task<bool> WarmupInvoiceEndpointAsync()
+    {
+        try
+        {
+            _logger.LogInformation("🔥 Fatura endpoint warmup başlatılıyor...");
+            
+            // Fatura listesi endpoint'ine basit bir sorgu at - bu FtrWsFaturaBaslik Action'ını uyandırır
+            var warmupBody = new
+            {
+                parUstHareketTuru = 1, // Satış faturası
+                parAltHareketTuru = 1,
+                ftrSsFaturaBaslik = new
+                {
+                    gnlOrgSsBelge = new
+                    {
+                        belgeTarihiBas = DateTime.UtcNow.AddDays(-1).ToString("dd/MM/yyyy"),
+                        belgeTarihiBit = DateTime.UtcNow.ToString("dd/MM/yyyy"),
+                        belgeTarihiOp = "between"
+                    }
+                }
+            };
+            
+            var json = JsonSerializer.Serialize(warmupBody, _jsonOptions);
+            
+            using var request = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.InvoiceList)
+            {
+                Content = CreateKozaContent(json)
+            };
+            
+            ApplySessionCookie(request);
+            ApplyManualSessionCookie(request);
+            
+            var response = await (_cookieHttpClient ?? _httpClient).SendAsync(request);
+            var responseBody = await response.Content.ReadAsStringAsync();
+            
+            _logger.LogDebug("Fatura warmup response status: {Status}, body length: {Length}", 
+                response.StatusCode, 
+                responseBody?.Length ?? 0);
+            
+            if (!string.IsNullOrWhiteSpace(responseBody))
+            {
+                var trimmed = responseBody.TrimStart();
+                if (trimmed.StartsWith("{") || trimmed.StartsWith("["))
+                {
+                    _logger.LogInformation("✅ Fatura endpoint warmup başarılı - JSON response alındı");
+                    return true;
+                }
+                
+                if (trimmed.StartsWith("<") || trimmed.Contains("<!DOCTYPE", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning("⚠️ Fatura warmup: HTML response alındı (session timeout olabilir)");
+                    return false;
+                }
+            }
+            
+            _logger.LogInformation("✅ Fatura endpoint warmup tamamlandı");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "⚠️ Fatura endpoint warmup sırasında hata oluştu");
             return false;
         }
     }

@@ -87,8 +87,8 @@ public class LucaInvoiceDto
     [JsonPropertyName("yuklemeTarihi")]
     public DateTime? YuklemeTarihi { get; set; }
 
-    [JsonPropertyName("babsFlag")]
-    public bool BabsFlag { get; set; }
+	    [JsonPropertyName("babsFlag")]
+	    public bool BabsFlag { get; set; }
 
     [JsonPropertyName("kdvFlag")]
     public bool? KdvFlag { get; set; } 
@@ -1412,7 +1412,8 @@ public class LucaCreateInvoiceHeaderRequest
     public string? BelgeSeri { get; set; }
 
     [JsonPropertyName("belgeNo")]
-    public int? BelgeNo { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BelgeNo { get; set; }
 
     /// <summary>
     /// Luca API STRING tarih formatı bekliyor: "dd/MM/yyyy" (örn: "07/10/2025")
@@ -1475,8 +1476,8 @@ public class LucaCreateInvoiceHeaderRequest
     [JsonPropertyName("kurBedeli")]
     public double KurBedeli { get; set; } = 1.0;
 
-    [JsonPropertyName("babsFlag")]
-    public bool BabsFlag { get; set; }
+	    [JsonIgnore]
+	    public bool? BabsFlag { get; set; }
 
     [JsonPropertyName("kdvFlag")]
     public bool KdvFlag { get; set; } = true;
@@ -1591,7 +1592,7 @@ public class LucaCreateInvoiceHeaderRequest
     public string? EfaturaNo { get; set; }
 
     [JsonPropertyName("irsaliyeBilgisiList")]
-    public List<LucaLinkedDocument> IrsaliyeBilgisiList { get; set; } = new();
+    public List<LucaLinkedDocument>? IrsaliyeBilgisiList { get; set; }
 
     // Finansal hareket değişkenleri
     [JsonPropertyName("fhAttribute1Deger")]
