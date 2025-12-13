@@ -3,8 +3,9 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Linq;
-using Katana.Core.DTOs.Koza;
 using Katana.Core.DTOs;
+using Katana.Core.DTOs.Koza;
+using KozaDtos = Katana.Core.DTOs.Koza;
 using Microsoft.Extensions.Logging;
 
 namespace Katana.Infrastructure.APIClients;
@@ -161,7 +162,7 @@ public partial class LucaService
     /// Frontend için sadece gerekli alanları döndürür
     /// Postman "Stok Kartı Listesi" request format'ını kullanır
     /// </summary>
-    public async Task<IReadOnlyList<KozaStokKartiDto>> ListStockCardsSimpleAsync(
+    public async Task<IReadOnlyList<KozaDtos.KozaStokKartiDto>> ListStockCardsSimpleAsync(
         DateTime? eklemeBas = null,
         DateTime? eklemeBit = null,
         CancellationToken ct = default)
@@ -265,7 +266,7 @@ public partial class LucaService
             {
                 _logger.LogError("❌ Luca returned HTML (session expired). Response: {Snippet}", logPreview);
                 await AppendRawLogAsync("LIST_STOCK_HTML_ERROR", _settings.Endpoints.StockCards, json, res.StatusCode, body);
-                return new List<KozaStokKartiDto>();
+                return new List<KozaDtos.KozaStokKartiDto>();
             }
             
             // Plain text error (not JSON)
@@ -276,12 +277,12 @@ public partial class LucaService
             {
                 _logger.LogError("❌ Luca returned plain text error: '{Text}'", trimmedBody);
                 await AppendRawLogAsync("LIST_STOCK_TEXT_ERROR", _settings.Endpoints.StockCards, json, res.StatusCode, body);
-                return new List<KozaStokKartiDto>();
+                return new List<KozaDtos.KozaStokKartiDto>();
             }
 
             // Parse JSON response - Koza bazen KDV oranlarını string olarak döndürür ("%20" gibi)
             // Bu yüzden manuel parse yapıyoruz
-            var stoklar = new List<KozaStokKartiDto>();
+            var stoklar = new List<KozaDtos.KozaStokKartiDto>();
             try
             {
                 using var doc = JsonDocument.Parse(body);
@@ -309,7 +310,7 @@ public partial class LucaService
                     {
                         var errorMsg = root.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : "Unknown error";
                         _logger.LogError("❌ Koza API returned error: {Message}", errorMsg);
-                        return new List<KozaStokKartiDto>();
+                        return new List<KozaDtos.KozaStokKartiDto>();
                     }
                 }
 
@@ -340,7 +341,7 @@ public partial class LucaService
                     body.Length > 500 ? body.Substring(0, 500) : body);
                 
                 await AppendRawLogAsync("LIST_STOCK_JSON_ERROR", _settings.Endpoints.StockCards, json, res.StatusCode, body);
-                return new List<KozaStokKartiDto>();
+                return new List<KozaDtos.KozaStokKartiDto>();
             }
             
             _logger.LogInformation("✅ Retrieved {Count} stock cards from Koza", stoklar.Count);
@@ -413,8 +414,13 @@ public partial class LucaService
     /// <summary>
     /// Basit DTO'yu tam LucaCreateStokKartiRequest'e çevir
     /// </summary>
-    private LucaCreateStokKartiRequest MapToFullStokKartiRequest(KozaStokKartiDto simple)
+    private LucaCreateStokKartiRequest MapToFullStokKartiRequest(KozaDtos.KozaStokKartiDto simple)
     {
+        // ✅ Tarih formatını düzelt - Koza dd/MM/yyyy formatı bekliyor
+        var baslangicTarihi = !string.IsNullOrWhiteSpace(simple.BaslangicTarihi) 
+            ? simple.BaslangicTarihi 
+            : DateTime.UtcNow.ToString("dd/MM/yyyy");
+
         return new LucaCreateStokKartiRequest
         {
             KartKodu = simple.KartKodu,
@@ -427,7 +433,7 @@ public partial class LucaService
             KartSatisKdvOran = simple.KartSatisKdvOran,
             UzunAdi = simple.UzunAdi ?? simple.KartAdi,
             Barkod = simple.Barkod ?? string.Empty,
-            BaslangicTarihi = simple.BaslangicTarihi ?? DateTime.UtcNow.ToString("yyyy-MM-dd"),
+            BaslangicTarihi = baslangicTarihi,  // ✅ Düzeltilmiş format (dd/MM/yyyy)
             MinStokKontrol = simple.MinStokKontrol,
             MinStokMiktari = simple.MinStokMiktari,
             MaxStokKontrol = simple.MaxStokKontrol,
@@ -444,13 +450,14 @@ public partial class LucaService
             RafOmru = 0,
             GarantiSuresi = 0,
             GtipKodu = string.Empty,
-            AlisTevkifatOran = null,           // Luca doc: "7/10" formatında string veya null
-            AlisTevkifatTipId = null,          // Luca doc: alisTevkifatTipId (NOT: alisTevkifatKod DEĞİL!)
-            SatisTevkifatOran = null,          // Luca doc: "2/10" formatında string veya null
-            SatisTevkifatTipId = null,         // Luca doc: satisTevkifatTipId (NOT: satisTevkifatKod DEĞİL!)
+            AlisTevkifatOran = null,
+            AlisTevkifatTipId = null,
+            SatisTevkifatOran = null,
+            SatisTevkifatTipId = null,
             IhracatKategoriNo = string.Empty,
             UtsVeriAktarimiFlag = 0,
-            BagDerecesi = 0
+            BagDerecesi = 0,
+            LotNoFlag = simple.LotNoFlag  // ✅ Postman'de var
         };
     }
 
@@ -572,9 +579,9 @@ public partial class LucaService
     /// JSON element'ten stok kartı parse et
     /// Koza bazen KDV oranlarını string olarak döndürür ("%20" gibi)
     /// </summary>
-    private KozaStokKartiDto? ParseStockCardFromJson(JsonElement item)
+    private KozaDtos.KozaStokKartiDto? ParseStockCardFromJson(JsonElement item)
     {
-        var dto = new KozaStokKartiDto();
+        var dto = new KozaDtos.KozaStokKartiDto();
 
         // ID alanları
         if (item.TryGetProperty("skartId", out var skartId))

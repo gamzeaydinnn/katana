@@ -10,6 +10,18 @@ public class PurchaseOrder
 
     public string OrderNo { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Katana'daki purchase order ID (senkronizasyon için)
+    /// </summary>
+    [StringLength(50)]
+    public string? KatanaPurchaseOrderId { get; set; }
+
+    /// <summary>
+    /// Katana'daki supplier ID (string format)
+    /// </summary>
+    [StringLength(50)]
+    public string? KatanaSupplierId { get; set; }
+
     public int SupplierId { get; set; }
 
     public string? SupplierCode { get; set; }

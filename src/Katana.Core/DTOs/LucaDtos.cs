@@ -945,6 +945,43 @@ public class LucaListStockCardsRequest
     [JsonPropertyName("stkSkart")]
     public LucaStockCardCodeFilter StkSkart { get; set; } = new();
 }
+
+/// <summary>
+/// Frontend için basitleştirilmiş stok kartı DTO
+/// </summary>
+public class KozaStokKartiListDto
+{
+    [JsonPropertyName("skartId")]
+    public long? SkartId { get; set; }
+    
+    [JsonPropertyName("kod")]
+    public string? KartKodu { get; set; }
+    
+    [JsonPropertyName("kartAdi")]
+    public string? KartAdi { get; set; }
+    
+    [JsonPropertyName("barkod")]
+    public string? Barkod { get; set; }
+    
+    [JsonPropertyName("anaBirimAdi")]
+    public string? Birim { get; set; }
+    
+    [JsonPropertyName("stokMiktari")]
+    public double? Miktar { get; set; }
+    
+    [JsonPropertyName("kartAlisKdvOran")]
+    public double? AlisKdvOran { get; set; }
+    
+    [JsonPropertyName("kartSatisKdvOran")]
+    public double? SatisKdvOran { get; set; }
+    
+    [JsonPropertyName("kategoriAgacKod")]
+    public string? KategoriKodu { get; set; }
+    
+    // Frontend compatibility
+    [JsonIgnore]
+    public long? StokKartId => SkartId;
+}
 public class LucaListStockCardPriceListsRequest
 {
     [JsonPropertyName("stkSkart")]
@@ -2465,16 +2502,6 @@ public class LucaUtsTransmitRequest
 
 
 
-
-
-
-
-
-
-
-
-
-
 public class LucaCreateCariHareketDetayRequest
 {
     [JsonPropertyName("kartTuru")]
@@ -2492,9 +2519,6 @@ public class LucaCreateCariHareketDetayRequest
     [JsonPropertyName("aciklama")]
     public string? Aciklama { get; set; }
 }
-
-
-
 
 public class LucaCreateCariHareketRequest
 {
@@ -2522,7 +2546,6 @@ public class LucaCreateCariHareketRequest
 
     [JsonPropertyName("belgeTurDetayId")]
     public long BelgeTurDetayId { get; set; }
-
     
     [JsonPropertyName("cariTuru")]
     public int CariTuru { get; set; }
@@ -2536,8 +2559,6 @@ public class LucaCreateCariHareketRequest
     [JsonPropertyName("detayList")]
     public List<LucaCreateCariHareketDetayRequest> DetayList { get; set; } = new();
 }
-
-
 
 public class LucaListCustomerTransactionsRequest
 {
@@ -2607,8 +2628,6 @@ public class LucaCustomerDetailDto
     public string? Email { get; set; }
 }
 
-
-
 public class LucaUpdateCustomerRequest
 {
     [JsonPropertyName("cariKodu")]
@@ -2652,8 +2671,6 @@ public class LucaUpdateSupplierRequest
     [JsonPropertyName("telefon")]
     public string? Telefon { get; set; }
 }
-
-
 
 public class LucaCreateCustomerRequest
 {
@@ -2854,10 +2871,6 @@ public class LucaCreateSupplierRequest : LucaCreateCustomerRequest
 }
 
 
-
-
-
-
 public class LucaCreateOrderDetailRequest
 {
     [JsonPropertyName("kartTuru")]
@@ -2950,8 +2963,6 @@ public class LucaCreateOrderDetailRequest
     [JsonPropertyName("shAttribute5Ack")]
     public string? ShAttribute5Ack { get; set; }
 }
-
-
 
 
 public class LucaCreateOrderHeaderRequest
@@ -3096,15 +3107,11 @@ public class LucaCreateOrderHeaderRequest
 }
 
 
-
-
 public class LucaDeleteOrderRequest
 {
     [JsonPropertyName("ssSiparisBaslikId")]
     public long SsSiparisBaslikId { get; set; }
 }
-
-
 
 
 public class LucaDeleteOrderDetailRequest
@@ -3118,8 +3125,6 @@ public class LucaOrderDetailToDelete
     [JsonPropertyName("detayId")]
     public long DetayId { get; set; }
 }
-
-
 
 public class LucaCreateSalesOrderRequest
 {
@@ -3165,7 +3170,6 @@ public class LucaSalesOrderDetailRequest
     [JsonPropertyName("kdvOran")]
     public double KdvOran { get; set; }
 }
-
 
 
 public class LucaUpdateSalesOrderRequest
@@ -3473,7 +3477,6 @@ public class LucaPurchaseOrderLineDto
     [JsonPropertyName("kdvOran")]
     public double? KdvOran { get; set; }
 }
-
 
 
 public class LucaCreateWarehouseTransferRequest

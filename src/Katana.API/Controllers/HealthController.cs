@@ -12,16 +12,13 @@ public class HealthController : ControllerBase
 {
     private readonly ILogger<HealthController> _logger;
     private readonly IKatanaService _katanaService;
-    private readonly ILucaService _lucaService;
 
     public HealthController(
         ILogger<HealthController> logger,
-        IKatanaService katanaService,
-        ILucaService lucaService)
+        IKatanaService katanaService)
     {
         _logger = logger;
         _katanaService = katanaService;
-        _lucaService = lucaService;
     }
 
     /// <summary>
@@ -78,61 +75,21 @@ public class HealthController : ControllerBase
     }
 
     /// <summary>
-    /// Luca API bağlantı durumu
-    /// </summary>
-    [HttpGet("luca")]
-    public async Task<IActionResult> CheckLucaHealth()
-    {
-        var result = new ExternalServiceHealthResult { Service = "Luca API" };
-        
-        try
-        {
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            var isHealthy = await _lucaService.TestConnectionAsync();
-            sw.Stop();
-
-            result.IsHealthy = isHealthy;
-            result.ResponseTimeMs = sw.ElapsedMilliseconds;
-            result.Message = isHealthy ? "Connection successful" : "Connection failed";
-            result.CheckedAt = DateTime.UtcNow;
-
-            if (!isHealthy)
-            {
-                _logger.LogWarning("Luca API health check failed");
-                return StatusCode(503, result);
-            }
-
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Luca API health check error");
-            result.IsHealthy = false;
-            result.Message = $"Error: {ex.Message}";
-            result.CheckedAt = DateTime.UtcNow;
-            return StatusCode(503, result);
-        }
-    }
-
-    /// <summary>
     /// Tüm servislerin durumu
     /// </summary>
     [HttpGet("all")]
     public async Task<IActionResult> CheckAllServices()
     {
-        var katanaTask = CheckServiceHealthAsync("Katana", () => _katanaService.TestConnectionAsync());
-        var lucaTask = CheckServiceHealthAsync("Luca", () => _lucaService.TestConnectionAsync());
-
-        await Task.WhenAll(katanaTask, lucaTask);
+        var katanaResult = await CheckServiceHealthAsync("Katana", () => _katanaService.TestConnectionAsync());
 
         var results = new
         {
-            status = katanaTask.Result.IsHealthy && lucaTask.Result.IsHealthy ? "Healthy" : "Degraded",
+            status = katanaResult.IsHealthy ? "Healthy" : "Degraded",
             checkedAt = DateTime.UtcNow,
-            services = new[] { katanaTask.Result, lucaTask.Result }
+            services = new[] { katanaResult }
         };
 
-        var statusCode = results.status == "Healthy" ? 200 : 503;
+        var statusCode = katanaResult.IsHealthy ? 200 : 503;
         return StatusCode(statusCode, results);
     }
 
