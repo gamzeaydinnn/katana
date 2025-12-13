@@ -416,7 +416,7 @@ public static class MappingHelper
             VergiNo = customer.Type == 1 ? customer.TaxNo : null,
             TcKimlikNo = customer.Type == 2 ? customer.TaxNo : null,
             VergiDairesi = customer.TaxOffice,
-            CariTip = customer.Type == 1 ? 0 : 1,
+            CariTip = customer.Type == 1 ? 2 : 1, // 1=Kurumsal->2(Tüzel), 2=Bireysel->1(Gerçek), 0/null->1(Varsayılan)
             ReferansNo = order.CustomerRef,
             BelgeAciklama = order.AdditionalInfo,
             DetayList = order.Lines.Select(l => new LucaCreateOrderDetailRequest
@@ -587,7 +587,7 @@ public static class MappingHelper
         return new LucaCreateInvoiceHeaderRequest
         {
             BelgeSeri = po.DocumentSeries ?? "A",
-            BelgeNo = int.TryParse(po.LucaDocumentNo ?? belgeTakipNo, out var belgeNoInt) ? belgeNoInt : null,
+            BelgeNo = po.LucaDocumentNo ?? belgeTakipNo,
             BelgeTakipNo = belgeTakipNo,
             BelgeTarihi = belgeTarihi.ToString("dd/MM/yyyy"),
             VadeTarihi = vadeTarihi.ToString("dd/MM/yyyy"),
@@ -605,6 +605,7 @@ public static class MappingHelper
             AdresSerbest = supplier.Address,
             KdvFlag = po.VatIncluded,
             ReferansNo = po.ReferenceCode ?? $"KAT-PO-{po.Id}",
+            IrsaliyeBilgisiList = null, // Boş liste yerine null gönder
             DetayList = po.Items.Select(item => new LucaCreateInvoiceDetailRequest
             {
                 KartTuru = 1, // Stok
@@ -646,12 +647,16 @@ public static class MappingHelper
         return new LucaCreateInvoiceHeaderRequest
         {
             BelgeSeri = order.BelgeSeri ?? "A",
-            BelgeNo = ParseDocumentNo(order.BelgeNo ?? order.OrderNo, order.Id),
+            BelgeNo = null, // Satış faturasında Luca belge numarasını kendisi üretir; gönderme
             BelgeTakipNo = belgeTakipNo,
             BelgeTarihi = belgeTarihi.ToString("dd/MM/yyyy"),
             DuzenlemeSaati = order.DuzenlemeSaati ?? DateTime.Now.ToString("HH:mm"),
             VadeTarihi = vadeTarihi.ToString("dd/MM/yyyy"),
-            BelgeAciklama = string.IsNullOrWhiteSpace(order.AdditionalInfo) ? $"Katana Sipariş No: {order.OrderNo}" : order.AdditionalInfo,
+            BelgeAciklama = !string.IsNullOrWhiteSpace(order.AdditionalInfo)
+                ? order.AdditionalInfo
+                : !string.IsNullOrWhiteSpace(order.OrderNo)
+                    ? $"{order.OrderNo} nolu sipariş"
+                    : $"Katana Sipariş: {order.Id}",
             BelgeTurDetayId = "76", // Satış faturası
             FaturaTur = "1",
             ParaBirimKod = string.IsNullOrWhiteSpace(order.Currency) ? "TRY" : order.Currency,
@@ -664,11 +669,15 @@ public static class MappingHelper
             VergiNo = customer.Type == 1 ? customer.TaxNo : null,
             TcKimlikNo = customer.Type == 2 ? customer.TaxNo : null,
             VergiDairesi = customer.TaxOffice,
-            CariTip = customer.Type == 1 ? 0 : 1,
-            Il = customer.City,
-            Ilce = customer.District,
+            CariTip = customer.Type == 1 ? 2 : 1, // 1=Kurumsal->2(Tüzel), 2=Bireysel->1(Gerçek), 0/null->1(Varsayılan)
+	            Il = !string.IsNullOrWhiteSpace(customer.City) ? NormalizeTurkishText(customer.City).ToUpperInvariant() : "ISTANBUL",
+	            Ilce = !string.IsNullOrWhiteSpace(customer.District) ? NormalizeTurkishText(customer.District).ToUpperInvariant() : "MERKEZ",
             ReferansNo = order.CustomerRef,
             KdvFlag = true,
+            OdemeTipi = "DIGER",
+            GonderimTipi = "ELEKTRONIK",
+            EfaturaTuru = 1,
+            IrsaliyeBilgisiList = null, // Boş liste yerine null gönder
             DetayList = order.Lines.Select(l => new LucaCreateInvoiceDetailRequest
             {
                 KartTuru = 1,
@@ -1885,6 +1894,16 @@ public static class MappingHelper
         }
 
         return fallback > 0 ? fallback : null;
+    }
+
+    private static string? ParseDocumentNoAsString(string? rawValue, int fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(rawValue))
+        {
+            return rawValue.Trim();
+        }
+
+        return fallback > 0 ? fallback.ToString() : null;
     }
 
     private static string? TrimAndTruncate(string? value, int maxLength)

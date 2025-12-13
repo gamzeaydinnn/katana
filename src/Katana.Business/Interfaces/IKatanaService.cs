@@ -46,6 +46,11 @@ public interface IKatanaService
     Task<KatanaManufacturingOrderDto?> GetManufacturingOrderByIdAsync(string id);
     Task<KatanaVariantDto?> GetVariantAsync(string variantId);
     Task<List<KatanaVariantDto>> GetVariantsAsync(string? productId = null);
+    
+    /// <summary>
+    /// SKU ile variant ID'sini bulur
+    /// </summary>
+    Task<long?> FindVariantIdBySkuAsync(string sku);
     Task<List<KatanaBatchDto>> GetBatchesAsync(string? productId = null);
     Task<List<KatanaStockTransferDto>> GetStockTransfersAsync(string? status = null);
     Task<List<KatanaSalesReturnDto>> GetSalesReturnsAsync(DateTime? fromDate = null);
