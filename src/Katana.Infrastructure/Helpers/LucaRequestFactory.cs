@@ -66,7 +66,7 @@ public static class LucaRequestFactory
         var header = new LucaCreateInvoiceHeaderRequest
         {
             BelgeSeri = belgeSeri,
-            BelgeNo = belgeNo,
+            BelgeNo = belgeNo?.ToString(),
             BelgeTarihi = (belgeTarihi ?? DateTime.UtcNow).ToString("dd/MM/yyyy"),
             BelgeTurDetayId = belgeTurDetayId.ToString(),
             BelgeTakipNo = belgeTakipNo,

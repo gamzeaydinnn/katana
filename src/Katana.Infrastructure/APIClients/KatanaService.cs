@@ -79,6 +79,8 @@ public class KatanaService : IKatanaService
                 return false;
             }
 
+            sku = sku.Trim();
+
             if (quantity <= 0)
             {
                 _logger.LogWarning("SyncProductStockAsync called with non-positive quantity. Sku={Sku}, Qty={Qty}", sku, quantity);
@@ -169,14 +171,15 @@ public class KatanaService : IKatanaService
             }
 
             var (variantId, _) = await FindVariantAsync(sku);
+            var createdNewProduct = false;
             if (!variantId.HasValue)
             {
                 _logger.LogWarning("SyncProductStockAsync: variant not found in Katana for SKU {Sku}. Attempting create...", sku);
 
                 var createDto = new KatanaProductDto
                 {
-                    Name = string.IsNullOrWhiteSpace(productName) ? sku.Trim() : productName,
-                    SKU = sku.Trim(),
+                    Name = string.IsNullOrWhiteSpace(productName) ? $"Yeni Ürün ({sku})" : productName.Trim(),
+                    SKU = sku,
                     SalesPrice = salesPrice ?? 0,
                     Unit = "pcs",
                     IsActive = true
@@ -185,15 +188,20 @@ public class KatanaService : IKatanaService
                 var created = await CreateProductAsync(createDto);
                 if (created == null)
                 {
-                    _logger.LogWarning("SyncProductStockAsync: CreateProductAsync returned null. Sku={Sku}", sku);
-                    return false;
+                    // SKU already exists / race condition scenarios may yield null (e.g., 422),
+                    // so we fall back to re-querying variants before failing hard.
+                    _logger.LogWarning("SyncProductStockAsync: CreateProductAsync returned null. Will retry variant lookup. Sku={Sku}", sku);
+                }
+                else
+                {
+                    createdNewProduct = true;
                 }
 
-                // After creating product, re-query variants by SKU to obtain variant_id.
+                // After creating product (or if creation raced), re-query variants by SKU to obtain variant_id.
                 (variantId, _) = await FindVariantAsync(sku);
                 if (!variantId.HasValue)
                 {
-                    _logger.LogWarning("SyncProductStockAsync: product created but variant still not found. Sku={Sku}", sku);
+                    _logger.LogWarning("SyncProductStockAsync: variant still not found after create attempt. Sku={Sku}", sku);
                     return false;
                 }
             }
@@ -207,13 +215,15 @@ public class KatanaService : IKatanaService
 
             var req = new StockAdjustmentCreateRequest
             {
-                StockAdjustmentNumber = $"ADMIN-{DateTime.UtcNow:yyyyMMddHHmmss}-{sku.Trim()}".Length > 50
-                    ? $"ADMIN-{DateTime.UtcNow:yyyyMMddHHmmss}-{sku.Trim()}".Substring(0, 50)
-                    : $"ADMIN-{DateTime.UtcNow:yyyyMMddHHmmss}-{sku.Trim()}",
+                StockAdjustmentNumber = $"{(createdNewProduct ? "ADMIN-NEW" : "ADMIN")}-{DateTime.UtcNow:yyyyMMddHHmmss}-{sku}".Length > 50
+                    ? $"{(createdNewProduct ? "ADMIN-NEW" : "ADMIN")}-{DateTime.UtcNow:yyyyMMddHHmmss}-{sku}".Substring(0, 50)
+                    : $"{(createdNewProduct ? "ADMIN-NEW" : "ADMIN")}-{DateTime.UtcNow:yyyyMMddHHmmss}-{sku}",
                 StockAdjustmentDate = DateTime.UtcNow,
                 LocationId = resolvedLocationId.Value,
                 Reason = "Admin approval",
-                AdditionalInfo = $"SalesOrder approval stock increase for SKU={sku.Trim()}",
+                AdditionalInfo = createdNewProduct
+                    ? $"SalesOrder approval stock increase for NEW SKU={sku}"
+                    : $"SalesOrder approval stock increase for SKU={sku}",
                 StockAdjustmentRows = new List<StockAdjustmentRowDto>
                 {
                     new StockAdjustmentRowDto
@@ -2565,6 +2575,60 @@ public class KatanaService : IKatanaService
     {
         _logger.LogInformation("GetVariantsAsync called (productId: {ProductId}), placeholder implementation returning empty list.", productId);
         return Task.FromResult(new List<KatanaVariantDto>());
+    }
+
+    public async Task<long?> FindVariantIdBySkuAsync(string sku)
+    {
+        if (string.IsNullOrWhiteSpace(sku))
+            return null;
+
+        var skuVariants = new[] { sku, sku.Trim(), sku.ToLowerInvariant(), sku.ToUpperInvariant() }
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct()
+            .ToArray();
+
+        foreach (var skuVariant in skuVariants)
+        {
+            try
+            {
+                var variantUrl = $"{_settings.Endpoints.Variants}?sku={Uri.EscapeDataString(skuVariant)}";
+                var resp = await _httpClient.GetAsync(variantUrl);
+                var body = await resp.Content.ReadAsStringAsync();
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Katana variant lookup failed. Sku={Sku}, Status={Status}", skuVariant, resp.StatusCode);
+                    continue;
+                }
+
+                using var doc = JsonDocument.Parse(body);
+                if (!doc.RootElement.TryGetProperty("data", out var dataEl) || dataEl.ValueKind != JsonValueKind.Array)
+                    continue;
+
+                var first = dataEl.EnumerateArray().FirstOrDefault();
+                if (first.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                long? variantId = null;
+                if (first.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.Number)
+                    variantId = idEl.GetInt64();
+                else if (first.TryGetProperty("id", out idEl) && idEl.ValueKind == JsonValueKind.String && long.TryParse(idEl.GetString(), out var parsedVar))
+                    variantId = parsedVar;
+
+                if (variantId.HasValue)
+                {
+                    _logger.LogInformation("Katana variant found by SKU. Sku={Sku}, VariantId={VariantId}", skuVariant, variantId);
+                    return variantId;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Katana variant lookup parse failed. Sku={Sku}", skuVariant);
+            }
+        }
+
+        _logger.LogWarning("FindVariantIdBySkuAsync: variant not found for SKU {Sku}", sku);
+        return null;
     }
 
     public Task<List<KatanaBatchDto>> GetBatchesAsync(string? productId = null)
