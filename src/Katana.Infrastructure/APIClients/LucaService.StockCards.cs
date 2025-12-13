@@ -409,6 +409,11 @@ public partial class LucaService
     /// </summary>
     private LucaCreateStokKartiRequest MapToFullStokKartiRequest(KozaDtos.KozaStokKartiDto simple)
     {
+        // ✅ Tarih formatını düzelt - Koza dd/MM/yyyy formatı bekliyor
+        var baslangicTarihi = !string.IsNullOrWhiteSpace(simple.BaslangicTarihi) 
+            ? simple.BaslangicTarihi 
+            : DateTime.UtcNow.ToString("dd/MM/yyyy");
+
         return new LucaCreateStokKartiRequest
         {
             KartKodu = simple.KartKodu,
@@ -421,7 +426,7 @@ public partial class LucaService
             KartSatisKdvOran = simple.KartSatisKdvOran,
             UzunAdi = simple.UzunAdi ?? simple.KartAdi,
             Barkod = simple.Barkod ?? string.Empty,
-            BaslangicTarihi = simple.BaslangicTarihi ?? DateTime.UtcNow.ToString("yyyy-MM-dd"),
+            BaslangicTarihi = baslangicTarihi,  // ✅ Düzeltilmiş format (dd/MM/yyyy)
             MinStokKontrol = simple.MinStokKontrol,
             MinStokMiktari = simple.MinStokMiktari,
             MaxStokKontrol = simple.MaxStokKontrol,
@@ -438,13 +443,14 @@ public partial class LucaService
             RafOmru = 0,
             GarantiSuresi = 0,
             GtipKodu = string.Empty,
-            AlisTevkifatOran = null,           // Luca doc: "7/10" formatında string veya null
-            AlisTevkifatTipId = null,          // Luca doc: alisTevkifatTipId (NOT: alisTevkifatKod DEĞİL!)
-            SatisTevkifatOran = null,          // Luca doc: "2/10" formatında string veya null
-            SatisTevkifatTipId = null,         // Luca doc: satisTevkifatTipId (NOT: satisTevkifatKod DEĞİL!)
+            AlisTevkifatOran = null,
+            AlisTevkifatTipId = null,
+            SatisTevkifatOran = null,
+            SatisTevkifatTipId = null,
             IhracatKategoriNo = string.Empty,
             UtsVeriAktarimiFlag = 0,
-            BagDerecesi = 0
+            BagDerecesi = 0,
+            LotNoFlag = simple.LotNoFlag  // ✅ Postman'de var
         };
     }
 
