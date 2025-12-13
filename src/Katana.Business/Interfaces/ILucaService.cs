@@ -14,7 +14,6 @@ public interface ILucaService
     Task<SalesOrderSyncResultDto> CreateSalesOrderInvoiceAsync(SalesOrder order, string? depoKodu = null, CancellationToken ct = default);
 
     Task<bool> WarmupCacheWithRetryAsync(int maxAttempts = 3, CancellationToken cancellationToken = default);
-    Task ForceSessionRefreshAsync();
     Task<LucaCacheStatusDto> GetCacheStatusAsync();
     Task<bool> UpdateStockCardAsync(long stockCardId, Product product);
     Task<long?> CreateStockCardAsync(Product product);
