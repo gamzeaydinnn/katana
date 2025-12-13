@@ -14,17 +14,17 @@ public interface ILucaService
     Task<SalesOrderSyncResultDto> CreateSalesOrderInvoiceAsync(SalesOrder order, string? depoKodu = null, CancellationToken ct = default);
 
     Task<bool> WarmupCacheWithRetryAsync(int maxAttempts = 3, CancellationToken cancellationToken = default);
-    Task ForceSessionRefreshAsync();
-    Task<LucaCacheStatusDto> GetCacheStatusAsync();
-    Task<bool> UpdateStockCardAsync(long stockCardId, Product product);
-    Task<long?> CreateStockCardAsync(Product product);
-    
-    Task<bool> TestConnectionAsync();
     
     /// <summary>
     /// Force session refresh - HTML response sorununu önler
     /// </summary>
     Task ForceSessionRefreshAsync();
+    
+    Task<LucaCacheStatusDto> GetCacheStatusAsync();
+    Task<bool> UpdateStockCardAsync(long stockCardId, Product product);
+    Task<long?> CreateStockCardAsync(Product product);
+    
+    Task<bool> TestConnectionAsync();
     
     Task<SyncResultDto> SendInvoicesAsync(List<LucaCreateInvoiceHeaderRequest> invoices);
     Task<SyncResultDto> SendStockMovementsAsync(List<LucaStockDto> stockMovements);
