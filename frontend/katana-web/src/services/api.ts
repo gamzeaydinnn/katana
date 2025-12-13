@@ -1,9 +1,9 @@
 import axios from "axios";
 import { showGlobalToast } from "../providers/FeedbackProvider";
 import {
-    decodeJwtPayload,
-    isJwtExpired,
-    isJwtTokenExpired,
+  decodeJwtPayload,
+  isJwtExpired,
+  isJwtTokenExpired,
 } from "../utils/jwt";
 
 let detectedApiUrl: string | null = null;
@@ -425,16 +425,7 @@ export const kozaAPI = {
       api.post("/admin/koza/depots/create", payload).then((res) => res.data),
   },
 
-  // Stok Kartı İşlemleri
-  stockCards: {
-    list: () => api.get("/admin/koza/stocks").then((res) => res.data),
-    create: (payload: any) =>
-      api.post("/admin/koza/stocks/create", payload).then((res) => res.data),
-  },
 
-  // Legacy endpoint - geriye dönük uyumluluk için
-  getLucaStockCards: () =>
-    api.get("/Luca/koza-stock-cards").then((res) => res.data),
 };
 
 /**

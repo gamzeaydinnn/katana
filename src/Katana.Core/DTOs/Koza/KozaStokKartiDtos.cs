@@ -209,6 +209,9 @@ public sealed class KozaStokKartiDto
     [JsonPropertyName("maliyetHesaplanacakFlag")]
     public int MaliyetHesaplanacakFlag { get; set; } = 1;
     
+    [JsonPropertyName("lotNoFlag")]
+    public int LotNoFlag { get; set; } = 0;
+    
     // Listele'den gelen ID
     [JsonPropertyName("stokKartId")]
     public long? StokKartId { get; set; }
