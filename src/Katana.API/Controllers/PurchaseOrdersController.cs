@@ -29,6 +29,7 @@ public class PurchaseOrdersController : ControllerBase
     private readonly ILogger<PurchaseOrdersController> _logger;
     private readonly IHubContext<NotificationHub> _hubContext;
     private readonly IKatanaService _katanaService;
+    private readonly ISupplierService _supplierService;
 
     public PurchaseOrdersController(
         IntegrationDbContext context,
@@ -38,7 +39,8 @@ public class PurchaseOrdersController : ControllerBase
         IMemoryCache cache,
         ILogger<PurchaseOrdersController> logger,
         IHubContext<NotificationHub> hubContext,
-        IKatanaService katanaService)
+        IKatanaService katanaService,
+        ISupplierService supplierService)
     {
         _context = context;
         _lucaService = lucaService;
@@ -48,6 +50,7 @@ public class PurchaseOrdersController : ControllerBase
         _logger = logger;
         _hubContext = hubContext;
         _katanaService = katanaService;
+        _supplierService = supplierService;
     }
 
     // ===== LIST & DETAIL ENDPOINTS =====
@@ -66,14 +69,16 @@ public class PurchaseOrdersController : ControllerBase
     {
         try
         {
-            var query = _context.PurchaseOrders
-                .Include(p => p.Supplier)
-                .AsQueryable();
+            // ✅ LEFT JOIN kullan - supplier yoksa da siparişi göster
+            var query = from po in _context.PurchaseOrders
+                        join s in _context.Suppliers on po.SupplierId equals s.Id into supplierGroup
+                        from supplier in supplierGroup.DefaultIfEmpty()
+                        select new { PurchaseOrder = po, Supplier = supplier };
 
             // Filter by status
             if (!string.IsNullOrEmpty(status) && Enum.TryParse<PurchaseOrderStatus>(status, true, out var statusEnum))
             {
-                query = query.Where(p => p.Status == statusEnum);
+                query = query.Where(x => x.PurchaseOrder.Status == statusEnum);
             }
 
             // Filter by sync status
@@ -81,9 +86,9 @@ public class PurchaseOrdersController : ControllerBase
             {
                 query = syncStatus switch
                 {
-                    "synced" => query.Where(p => p.IsSyncedToLuca && string.IsNullOrEmpty(p.LastSyncError)),
-                    "error" => query.Where(p => !string.IsNullOrEmpty(p.LastSyncError)),
-                    "not_synced" => query.Where(p => !p.IsSyncedToLuca && string.IsNullOrEmpty(p.LastSyncError)),
+                    "synced" => query.Where(x => x.PurchaseOrder.IsSyncedToLuca && string.IsNullOrEmpty(x.PurchaseOrder.LastSyncError)),
+                    "error" => query.Where(x => !string.IsNullOrEmpty(x.PurchaseOrder.LastSyncError)),
+                    "not_synced" => query.Where(x => !x.PurchaseOrder.IsSyncedToLuca && string.IsNullOrEmpty(x.PurchaseOrder.LastSyncError)),
                     _ => query
                 };
             }
@@ -91,26 +96,34 @@ public class PurchaseOrdersController : ControllerBase
             // Filter by search (OrderNo veya Supplier Name)
             if (!string.IsNullOrEmpty(search))
             {
-                query = query.Where(p => 
-                    p.OrderNo.Contains(search) || 
-                    (p.Supplier != null && p.Supplier.Name.Contains(search)));
+                query = query.Where(x => 
+                    x.PurchaseOrder.OrderNo.Contains(search) || 
+                    (x.Supplier != null && x.Supplier.Name.Contains(search)));
             }
 
             var totalCount = await query.CountAsync();
             var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
             
             var items = await query
-                .OrderByDescending(p => p.CreatedAt)
+                .OrderByDescending(x => x.PurchaseOrder.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(p => new 
+                .Select(x => new 
                 {
-                    Id = p.Id,
-                    OrderNumber = p.OrderNo,
-                    SupplierName = p.Supplier != null ? p.Supplier.Name : null,
-                    TotalAmount = p.TotalAmount,
-                    Status = p.Status.ToString(),
-                    CreatedDate = p.CreatedAt
+                    Id = x.PurchaseOrder.Id,
+                    OrderNo = x.PurchaseOrder.OrderNo,
+                    SupplierId = x.PurchaseOrder.SupplierId,
+                    SupplierName = x.Supplier != null ? x.Supplier.Name : "⚠️ Supplier Not Mapped",
+                    SupplierMapped = x.Supplier != null,
+                    TotalAmount = x.PurchaseOrder.TotalAmount,
+                    Status = x.PurchaseOrder.Status.ToString(),
+                    OrderDate = x.PurchaseOrder.OrderDate,
+                    ExpectedDate = x.PurchaseOrder.ExpectedDate,
+                    IsSyncedToLuca = x.PurchaseOrder.IsSyncedToLuca,
+                    LastSyncError = x.PurchaseOrder.LastSyncError,
+                    LastSyncAt = x.PurchaseOrder.LastSyncAt,
+                    LucaPurchaseOrderId = x.PurchaseOrder.LucaPurchaseOrderId,
+                    LucaDocumentNo = x.PurchaseOrder.LucaDocumentNo
                 })
                 .ToListAsync();
 
@@ -123,7 +136,10 @@ public class PurchaseOrdersController : ControllerBase
                     pageSize, 
                     totalCount, 
                     totalPages 
-                } 
+                },
+                warnings = items.Any(i => !i.SupplierMapped) 
+                    ? new[] { "Bazı siparişlerin tedarikçi eşleşmesi eksik. Lütfen supplier sync yapın." }
+                    : null
             });
         }
         catch (Exception ex)
@@ -911,6 +927,228 @@ public class PurchaseOrdersController : ControllerBase
             $"Satınalma siparişi silindi: {order.OrderNo}");
 
         return Ok(new { message = "Sipariş silindi" });
+    }
+
+    // ===== KATANA SYNC ENDPOINT =====
+
+    /// <summary>
+    /// Katana'dan satınalma siparişlerini import et
+    /// </summary>
+    [HttpPost("sync-from-katana")]
+    [AllowAnonymous]
+    public async Task<ActionResult> SyncFromKatana([FromQuery] string? status = null, [FromQuery] DateTime? fromDate = null)
+    {
+        try
+        {
+            _logger.LogInformation("🔄 Katana'dan purchase order senkronizasyonu başlatılıyor (status: {Status}, fromDate: {FromDate})", 
+                status ?? "all", fromDate?.ToString("yyyy-MM-dd") ?? "none");
+
+            // 1. Önce supplier'ları sync et (önerilir)
+            _logger.LogInformation("📦 Supplier senkronizasyonu yapılıyor...");
+            var supplierSyncCount = await _supplierService.SyncFromKatanaAsync();
+            _logger.LogInformation("✅ {Count} supplier senkronize edildi", supplierSyncCount);
+
+            // 2. Katana'dan purchase order'ları çek
+            // Status: null/"all" → tümü, "open" → açık, "done" → tamamlanmış
+            string? mappedStatus = null;
+            if (!string.IsNullOrEmpty(status) && 
+                !status.Equals("all", StringComparison.OrdinalIgnoreCase) &&
+                !status.Equals("tümü", StringComparison.OrdinalIgnoreCase))
+            {
+                mappedStatus = status;
+            }
+
+            var katanaOrders = await _katanaService.GetPurchaseOrdersAsync(mappedStatus, fromDate);
+            _logger.LogInformation("📥 Katana'dan {Count} purchase order çekildi", katanaOrders.Count);
+
+            int importedCount = 0;
+            int updatedCount = 0;
+            int skippedCount = 0;
+
+            foreach (var katanaOrder in katanaOrders)
+            {
+                try
+                {
+                    // KatanaPurchaseOrderId ile mevcut kaydı bul
+                    var existing = await _context.PurchaseOrders
+                        .Include(p => p.Items)
+                        .FirstOrDefaultAsync(p => p.KatanaPurchaseOrderId == katanaOrder.Id);
+
+                    // Supplier eşleştirme
+                    Supplier? supplier = null;
+                    if (!string.IsNullOrEmpty(katanaOrder.SupplierCode))
+                    {
+                        supplier = await _context.Suppliers
+                            .FirstOrDefaultAsync(s => s.KatanaId == katanaOrder.SupplierCode);
+
+                        // Supplier bulunamazsa placeholder oluştur
+                        if (supplier == null)
+                        {
+                            _logger.LogWarning("⚠️ Supplier bulunamadı (KatanaId: {KatanaId}), placeholder oluşturuluyor", 
+                                katanaOrder.SupplierCode);
+                            
+                            supplier = new Supplier
+                            {
+                                KatanaId = katanaOrder.SupplierCode,
+                                Name = $"Katana Supplier {katanaOrder.SupplierCode}",
+                                IsActive = true,
+                                CreatedAt = DateTime.UtcNow,
+                                UpdatedAt = DateTime.UtcNow
+                            };
+                            _context.Suppliers.Add(supplier);
+                            await _context.SaveChangesAsync(); // Supplier ID'yi almak için kaydet
+                        }
+                    }
+
+                    if (supplier == null)
+                    {
+                        _logger.LogWarning("⚠️ Sipariş {OrderId} için supplier bulunamadı, atlanıyor", katanaOrder.Id);
+                        skippedCount++;
+                        continue;
+                    }
+
+                    if (existing == null)
+                    {
+                        // Yeni purchase order oluştur
+                        var newOrder = new PurchaseOrder
+                        {
+                            KatanaPurchaseOrderId = katanaOrder.Id,
+                            OrderNo = !string.IsNullOrEmpty(katanaOrder.Id) ? $"KAT-{katanaOrder.Id}" : $"PO-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..8].ToUpper()}",
+                            SupplierId = supplier.Id,
+                            SupplierCode = supplier.Code ?? katanaOrder.SupplierCode,
+                            KatanaSupplierId = katanaOrder.SupplierCode,
+                            Status = MapKatanaStatus(katanaOrder.Status),
+                            OrderDate = katanaOrder.OrderDate,
+                            TotalAmount = katanaOrder.Items.Sum(i => i.TotalAmount),
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow,
+                            IsSynced = false,
+                            IsSyncedToLuca = false
+                        };
+
+                        // Item'ları ekle
+                        foreach (var katanaItem in katanaOrder.Items)
+                        {
+                            // SKU ile product bul
+                            var product = await _context.Products
+                                .FirstOrDefaultAsync(p => p.SKU == katanaItem.ProductSKU);
+
+                            if (product == null)
+                            {
+                                _logger.LogWarning("⚠️ Ürün bulunamadı (SKU: {SKU}), item atlanıyor", katanaItem.ProductSKU);
+                                continue;
+                            }
+
+                            var item = new PurchaseOrderItem
+                            {
+                                ProductId = product.Id,
+                                Quantity = katanaItem.Quantity,
+                                UnitPrice = katanaItem.UnitPrice,
+                                LucaStockCode = product.SKU,
+                                WarehouseCode = "01",
+                                VatRate = 20,
+                                UnitCode = "AD",
+                                DiscountAmount = 0
+                            };
+                            newOrder.Items.Add(item);
+                        }
+
+                        _context.PurchaseOrders.Add(newOrder);
+                        importedCount++;
+                        _logger.LogDebug("✅ Yeni sipariş oluşturuldu: {OrderNo}", newOrder.OrderNo);
+                    }
+                    else
+                    {
+                        // Mevcut purchase order'ı güncelle
+                        existing.SupplierId = supplier.Id;
+                        existing.SupplierCode = supplier.Code ?? katanaOrder.SupplierCode;
+                        existing.KatanaSupplierId = katanaOrder.SupplierCode;
+                        existing.Status = MapKatanaStatus(katanaOrder.Status);
+                        existing.OrderDate = katanaOrder.OrderDate;
+                        existing.TotalAmount = katanaOrder.Items.Sum(i => i.TotalAmount);
+                        existing.UpdatedAt = DateTime.UtcNow;
+
+                        // Item'ları güncelle (basit: sil-yeniden ekle)
+                        _context.PurchaseOrderItems.RemoveRange(existing.Items);
+                        existing.Items.Clear();
+
+                        foreach (var katanaItem in katanaOrder.Items)
+                        {
+                            var product = await _context.Products
+                                .FirstOrDefaultAsync(p => p.SKU == katanaItem.ProductSKU);
+
+                            if (product == null)
+                            {
+                                _logger.LogWarning("⚠️ Ürün bulunamadı (SKU: {SKU}), item atlanıyor", katanaItem.ProductSKU);
+                                continue;
+                            }
+
+                            var item = new PurchaseOrderItem
+                            {
+                                ProductId = product.Id,
+                                Quantity = katanaItem.Quantity,
+                                UnitPrice = katanaItem.UnitPrice,
+                                LucaStockCode = product.SKU,
+                                WarehouseCode = "01",
+                                VatRate = 20,
+                                UnitCode = "AD",
+                                DiscountAmount = 0
+                            };
+                            existing.Items.Add(item);
+                        }
+
+                        updatedCount++;
+                        _logger.LogDebug("🔄 Sipariş güncellendi: {OrderNo}", existing.OrderNo);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "❌ Sipariş import hatası (KatanaId: {OrderId}): {Message}", 
+                        katanaOrder.Id, ex.Message);
+                    skippedCount++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("✅ Katana sync tamamlandı: {Imported} yeni, {Updated} güncellendi, {Skipped} atlandı", 
+                importedCount, updatedCount, skippedCount);
+
+            _auditService.LogSync(
+                "PurchaseOrderKatanaSync",
+                User.Identity?.Name ?? "System",
+                $"Katana'dan {importedCount + updatedCount} sipariş senkronize edildi");
+
+            return Ok(new
+            {
+                message = "Katana senkronizasyonu tamamlandı",
+                imported = importedCount,
+                updated = updatedCount,
+                skipped = skippedCount,
+                total = importedCount + updatedCount,
+                suppliersSynced = supplierSyncCount
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Katana sync hatası: {Message}", ex.Message);
+            _loggingService.LogError($"Katana purchase order sync failed: {ex.Message}", ex);
+            return StatusCode(500, new { message = "Katana senkronizasyonu başarısız", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Katana status'unu local enum'a map et
+    /// </summary>
+    private PurchaseOrderStatus MapKatanaStatus(string katanaStatus)
+    {
+        return katanaStatus?.ToLowerInvariant() switch
+        {
+            "open" => PurchaseOrderStatus.Pending,
+            "done" => PurchaseOrderStatus.Received,
+            "cancelled" => PurchaseOrderStatus.Cancelled,
+            _ => PurchaseOrderStatus.Pending
+        };
     }
 }
 

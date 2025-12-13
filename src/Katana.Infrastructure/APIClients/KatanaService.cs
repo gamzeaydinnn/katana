@@ -1456,22 +1456,222 @@ public class KatanaService : IKatanaService
         }
     }
 
-    public Task<List<KatanaPurchaseOrderDto>> GetPurchaseOrdersAsync(string? status = null, DateTime? fromDate = null)
+    public async Task<List<KatanaPurchaseOrderDto>> GetPurchaseOrdersAsync(string? status = null, DateTime? fromDate = null)
     {
-        _logger.LogInformation("GetPurchaseOrdersAsync called (status: {Status}, fromDate: {FromDate}), placeholder implementation returning empty list.", status, fromDate);
-        return Task.FromResult(new List<KatanaPurchaseOrderDto>());
+        try
+        {
+            var allOrders = new List<KatanaPurchaseOrderDto>();
+            var page = 1;
+            const int PAGE_SIZE = 100;
+            var moreRecords = true;
+
+            // ✅ Status mapping: null/"all" → param gönderme, "open" → open, "done" → done
+            string? mappedStatus = null;
+            if (!string.IsNullOrEmpty(status) && 
+                !status.Equals("all", StringComparison.OrdinalIgnoreCase) &&
+                !status.Equals("tümü", StringComparison.OrdinalIgnoreCase))
+            {
+                mappedStatus = status.ToLowerInvariant();
+            }
+
+            _logger.LogInformation("🔄 Katana'dan purchase orders çekiliyor (status: {Status}, fromDate: {FromDate})", 
+                mappedStatus ?? "all", fromDate?.ToString("yyyy-MM-dd") ?? "none");
+
+            while (moreRecords)
+            {
+                var queryParams = new List<string>
+                {
+                    $"page={page}",
+                    $"limit={PAGE_SIZE}"
+                };
+
+                // Status filtresi ekle (varsa)
+                if (!string.IsNullOrEmpty(mappedStatus))
+                {
+                    queryParams.Add($"status={mappedStatus}");
+                }
+
+                // Tarih filtresi ekle (varsa) - ama dikkatli, çok kısıtlayıcı olmasın
+                if (fromDate.HasValue)
+                {
+                    var dateStr = fromDate.Value.ToString("yyyy-MM-dd");
+                    queryParams.Add($"created_at_from={dateStr}");
+                }
+
+                var queryString = string.Join("&", queryParams);
+                var url = $"/purchase-orders?{queryString}";
+                var response = await _httpClient.GetAsync(url);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Katana purchase orders API returned {StatusCode} for page {Page}", 
+                        response.StatusCode, page);
+                    break;
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                
+                using var doc = JsonDocument.Parse(content);
+                var root = doc.RootElement;
+                var pageOrders = new List<KatanaPurchaseOrderDto>();
+
+                if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var poEl in dataEl.EnumerateArray())
+                    {
+                        var id = poEl.TryGetProperty("id", out var idEl) ? idEl.ToString() : string.Empty;
+                        var statusVal = poEl.TryGetProperty("status", out var statusEl) ? statusEl.GetString() : "unknown";
+                        var createdAt = poEl.TryGetProperty("created_at", out var createdEl) && 
+                                       DateTime.TryParse(createdEl.GetString(), out var dt) ? dt : DateTime.UtcNow;
+                        var supplierId = poEl.TryGetProperty("supplier_id", out var supplierEl) ? supplierEl.ToString() : string.Empty;
+
+                        var items = new List<KatanaPurchaseOrderItemDto>();
+                        if (poEl.TryGetProperty("rows", out var rowsEl) && rowsEl.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var rowEl in rowsEl.EnumerateArray())
+                            {
+                                var sku = rowEl.TryGetProperty("variant_sku", out var skuEl) ? skuEl.GetString() : string.Empty;
+                                var qty = rowEl.TryGetProperty("quantity", out var qtyEl) && qtyEl.TryGetDecimal(out var q) ? (int)q : 0;
+                                var price = rowEl.TryGetProperty("unit_price", out var priceEl) && priceEl.TryGetDecimal(out var p) ? p : 0;
+
+                                items.Add(new KatanaPurchaseOrderItemDto
+                                {
+                                    ProductSKU = sku ?? string.Empty,
+                                    Quantity = qty,
+                                    UnitPrice = price,
+                                    TotalAmount = qty * price
+                                });
+                            }
+                        }
+
+                        pageOrders.Add(new KatanaPurchaseOrderDto
+                        {
+                            Id = id,
+                            Status = statusVal ?? "unknown",
+                            OrderDate = createdAt,
+                            SupplierCode = supplierId,
+                            Items = items
+                        });
+                    }
+                }
+
+                _logger.LogInformation("Page {Page}: +{Count} purchase orders (Total: {Total})", 
+                    page, pageOrders.Count, allOrders.Count + pageOrders.Count);
+                
+                allOrders.AddRange(pageOrders);
+
+                if (pageOrders.Count == 0 || pageOrders.Count < PAGE_SIZE)
+                {
+                    moreRecords = false;
+                }
+                else
+                {
+                    page++;
+                    await Task.Delay(50); // Rate limit
+                }
+            }
+
+            _logger.LogInformation("✅ Katana'dan {Count} purchase order çekildi (status: {Status})", 
+                allOrders.Count, mappedStatus ?? "all");
+            
+            return allOrders;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Katana purchase orders çekme hatası");
+            return new List<KatanaPurchaseOrderDto>();
+        }
     }
 
-    public Task<KatanaPurchaseOrderDto?> GetPurchaseOrderByIdAsync(string id)
+    public async Task<KatanaPurchaseOrderDto?> GetPurchaseOrderByIdAsync(string id)
     {
-        _logger.LogInformation("GetPurchaseOrderByIdAsync called for Id: {Id}, placeholder implementation returning null.", id);
-        return Task.FromResult<KatanaPurchaseOrderDto?>(null);
+        try
+        {
+            var response = await _httpClient.GetAsync($"/purchase-orders/{id}");
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Katana purchase order {Id} bulunamadı: {StatusCode}", id, response.StatusCode);
+                return null;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            
+            using var doc = JsonDocument.Parse(content);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("data", out var dataEl))
+            {
+                return null;
+            }
+
+            var poId = dataEl.TryGetProperty("id", out var idEl) ? idEl.ToString() : string.Empty;
+            var statusVal = dataEl.TryGetProperty("status", out var statusEl) ? statusEl.GetString() : "unknown";
+            var createdAt = dataEl.TryGetProperty("created_at", out var createdEl) && 
+                           DateTime.TryParse(createdEl.GetString(), out var dt) ? dt : DateTime.UtcNow;
+            var supplierId = dataEl.TryGetProperty("supplier_id", out var supplierEl) ? supplierEl.ToString() : string.Empty;
+
+            var items = new List<KatanaPurchaseOrderItemDto>();
+            if (dataEl.TryGetProperty("rows", out var rowsEl) && rowsEl.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var rowEl in rowsEl.EnumerateArray())
+                {
+                    var sku = rowEl.TryGetProperty("variant_sku", out var skuEl) ? skuEl.GetString() : string.Empty;
+                    var qty = rowEl.TryGetProperty("quantity", out var qtyEl) && qtyEl.TryGetDecimal(out var q) ? (int)q : 0;
+                    var price = rowEl.TryGetProperty("unit_price", out var priceEl) && priceEl.TryGetDecimal(out var p) ? p : 0;
+
+                    items.Add(new KatanaPurchaseOrderItemDto
+                    {
+                        ProductSKU = sku ?? string.Empty,
+                        Quantity = qty,
+                        UnitPrice = price,
+                        TotalAmount = qty * price
+                    });
+                }
+            }
+
+            return new KatanaPurchaseOrderDto
+            {
+                Id = poId,
+                Status = statusVal ?? "unknown",
+                OrderDate = createdAt,
+                SupplierCode = supplierId,
+                Items = items
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Katana purchase order {Id} çekme hatası", id);
+            return null;
+        }
     }
 
-    public Task<string?> ReceivePurchaseOrderAsync(string id)
+    public async Task<string?> ReceivePurchaseOrderAsync(string id)
     {
-        _logger.LogInformation("ReceivePurchaseOrderAsync called for Id: {Id}, placeholder implementation returning null.", id);
-        return Task.FromResult<string?>(null);
+        try
+        {
+            var request = new { purchase_order_id = id };
+            var jsonContent = JsonSerializer.Serialize(request, _jsonOptions);
+            var httpContent = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync("/purchase-orders/receive", httpContent);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("Katana purchase order {Id} receive failed: {StatusCode}, {Error}", 
+                    id, response.StatusCode, errorContent);
+                return null;
+            }
+
+            _logger.LogInformation("✅ Katana purchase order {Id} received", id);
+            return id;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Katana purchase order {Id} receive hatası", id);
+            return null;
+        }
     }
 
     public async Task<List<KatanaSupplierDto>> GetSuppliersAsync()

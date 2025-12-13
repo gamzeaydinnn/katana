@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using System.Threading;
 
 namespace Katana.Business.Services;
 
@@ -25,6 +26,7 @@ namespace Katana.Business.Services;
 
 public class SyncService : ISyncService
 {
+    private static readonly SemaphoreSlim _productStockCardSyncLock = new(1, 1);
     private readonly IKatanaService _katanaService;
     private readonly IExtractorService _extractorService;
     private readonly ITransformerService _transformerService;
@@ -133,6 +135,19 @@ public class SyncService : ISyncService
 
     public async Task<SyncResultDto> SyncProductsToLucaAsync(string? sessionId = null, SyncOptionsDto? options = null)
     {
+        if (!await _productStockCardSyncLock.WaitAsync(0))
+        {
+            _logger.LogWarning("PRODUCT_STOCK_CARD sync already running; new request ignored.");
+            return new SyncResultDto
+            {
+                SyncType = "PRODUCT_STOCK_CARD",
+                IsSuccess = false,
+                Message = "Another PRODUCT_STOCK_CARD sync is already running."
+            };
+        }
+
+        try
+        {
         options ??= new SyncOptionsDto();
         var stopwatch = Stopwatch.StartNew();
         var logEntry = await StartOperationLogAsync("PRODUCT_STOCK_CARD");
@@ -314,6 +329,11 @@ public class SyncService : ISyncService
 
         return response;
     }
+    finally
+    {
+        _productStockCardSyncLock.Release();
+    }
+}
 
     // Backwards-compatible overload
     public Task<SyncResultDto> SyncProductsToLucaAsync(SyncOptionsDto options)
