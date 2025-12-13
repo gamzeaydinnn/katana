@@ -34,6 +34,12 @@ public class Supplier
     public DateTime? UpdatedAt { get; set; }
 
     /// <summary>
+    /// Katana'daki supplier ID (senkronizasyon için)
+    /// </summary>
+    [MaxLength(50)]
+    public string? KatanaId { get; set; }
+
+    /// <summary>
     /// Luca'daki cari kart kodu (TED-{Id} formatında)
     /// </summary>
     [MaxLength(50)]

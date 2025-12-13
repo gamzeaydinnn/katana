@@ -945,6 +945,43 @@ public class LucaListStockCardsRequest
     [JsonPropertyName("stkSkart")]
     public LucaStockCardCodeFilter StkSkart { get; set; } = new();
 }
+
+/// <summary>
+/// Frontend için basitleştirilmiş stok kartı DTO
+/// </summary>
+public class KozaStokKartiListDto
+{
+    [JsonPropertyName("skartId")]
+    public long? SkartId { get; set; }
+    
+    [JsonPropertyName("kod")]
+    public string? KartKodu { get; set; }
+    
+    [JsonPropertyName("kartAdi")]
+    public string? KartAdi { get; set; }
+    
+    [JsonPropertyName("barkod")]
+    public string? Barkod { get; set; }
+    
+    [JsonPropertyName("anaBirimAdi")]
+    public string? Birim { get; set; }
+    
+    [JsonPropertyName("stokMiktari")]
+    public double? Miktar { get; set; }
+    
+    [JsonPropertyName("kartAlisKdvOran")]
+    public double? AlisKdvOran { get; set; }
+    
+    [JsonPropertyName("kartSatisKdvOran")]
+    public double? SatisKdvOran { get; set; }
+    
+    [JsonPropertyName("kategoriAgacKod")]
+    public string? KategoriKodu { get; set; }
+    
+    // Frontend compatibility
+    [JsonIgnore]
+    public long? StokKartId => SkartId;
+}
 public class LucaListStockCardPriceListsRequest
 {
     [JsonPropertyName("stkSkart")]
