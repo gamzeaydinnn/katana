@@ -95,13 +95,43 @@ public partial class LucaService
 
         var json = JsonSerializer.Serialize(request, _jsonOptions);
         _logger.LogInformation("📄 CreateInvoice - Sending JSON: {Json}", json);
-        
-        var content = CreateKozaContent(json);
 
-        var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
-        var response = await client.PostAsync(_settings.Endpoints.Invoices, content);
-        var responseContent = await response.Content.ReadAsStringAsync();
-        
+        if (_settings.UseTokenAuth)
+        {
+            var content = CreateKozaContent(json);
+            var tokenResponse = await _httpClient.PostAsync(_settings.Endpoints.Invoices, content);
+            var tokenResponseContent = await tokenResponse.Content.ReadAsStringAsync();
+
+            _logger.LogInformation("📄 CreateInvoice (token) - Response Status: {Status}, Body: {Body}",
+                tokenResponse.StatusCode, tokenResponseContent);
+
+            if (!tokenResponse.IsSuccessStatusCode)
+            {
+                _logger.LogError("❌ CreateInvoice (token) FAILED - Status: {Status}, Body: {Body}", tokenResponse.StatusCode, tokenResponseContent);
+                throw new HttpRequestException($"Luca API Error ({tokenResponse.StatusCode}): {tokenResponseContent}");
+            }
+
+            return JsonSerializer.Deserialize<JsonElement>(tokenResponseContent);
+        }
+
+        await EnsureBranchSelectedAsync();
+        await VerifyBranchSelectionAsync();
+
+        var endpoint = _settings.Endpoints.InvoiceCreate;
+        var encoder = _encoding;
+        var contentBytes = new ByteArrayContent(encoder.GetBytes(json));
+        contentBytes.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = _encoding.WebName };
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = contentBytes
+        };
+        ApplyManualSessionCookie(httpRequest);
+
+        var response = await SendWithAuthRetryAsync(httpRequest, "CREATE_INVOICE_RAW", 2);
+        var responseContent = await ReadResponseContentAsync(response);
+        await AppendRawLogAsync("CREATE_INVOICE_RAW", endpoint, json, response.StatusCode, responseContent);
+
         _logger.LogInformation("📄 CreateInvoice - Response Status: {Status}, Body: {Body}", 
             response.StatusCode, responseContent);
         
@@ -430,6 +460,13 @@ public partial class LucaService
                    || body.TrimStart().StartsWith("<", StringComparison.Ordinal); // HTML login page
         }
 
+        static bool LooksLikeJson(string? body)
+        {
+            if (string.IsNullOrWhiteSpace(body)) return false;
+            var trimmed = body.TrimStart();
+            return trimmed.StartsWith("{", StringComparison.Ordinal) || trimmed.StartsWith("[", StringComparison.Ordinal);
+        }
+
         async Task<(HttpStatusCode Status, string Body)> SendOnceAsync()
         {
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.SalesOrder)
@@ -443,6 +480,8 @@ public partial class LucaService
             var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
             var res = await client.SendAsync(httpRequest);
             var body = await res.Content.ReadAsStringAsync();
+            try { await AppendRawLogAsync("SALES_ORDER_HEADER", _settings.Endpoints.SalesOrder, json, res.StatusCode, body); } catch { }
+            try { await SaveHttpTrafficAsync("SALES_ORDER_HEADER", httpRequest, res); } catch { }
             return (res.StatusCode, body);
         }
 
@@ -461,6 +500,20 @@ public partial class LucaService
         if ((int)first.Status >= 400)
         {
             throw new HttpRequestException($"Luca SalesOrder API failed with status {(int)first.Status}");
+        }
+
+        // Luca sometimes returns 200 with an HTML login page or other non-JSON content.
+        // Never attempt to parse such responses as JSON.
+        if (LooksLikeLoginRequired(first.Body))
+        {
+            var preview = first.Body.Length > 300 ? first.Body.Substring(0, 300) : first.Body;
+            throw new UnauthorizedAccessException($"Login olunmalı. ResponsePreview={preview}");
+        }
+
+        if (!LooksLikeJson(first.Body))
+        {
+            var preview = first.Body.Length > 300 ? first.Body.Substring(0, 300) : first.Body;
+            throw new InvalidOperationException($"Unexpected non-JSON response from Luca SalesOrder endpoint. ResponsePreview={preview}");
         }
 
         return JsonSerializer.Deserialize<JsonElement>(first.Body);
@@ -1112,6 +1165,30 @@ public partial class LucaService
         try
         {
             if (request == null) return;
+
+            // If the CookieContainer already has cookies for this host, prefer sending the full cookie set.
+            // Some Koza flows rely on multiple cookies; sending only JSESSIONID can lead to "Login olunmalı.".
+            try
+            {
+                if (_cookieContainer != null && !string.IsNullOrWhiteSpace(_settings.BaseUrl))
+                {
+                    var baseUri = new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
+                    var cookies = _cookieContainer.GetCookies(baseUri).Cast<System.Net.Cookie>().ToList();
+                    if (cookies.Count > 0)
+                    {
+                        var cookieHeader = string.Join("; ", cookies.Select(c => $"{c.Name}={c.Value}"));
+                        request.Headers.Remove("Cookie");
+                        request.Headers.TryAddWithoutValidation("Cookie", cookieHeader);
+                        _logger.LogDebug("🍪 ApplyManualSessionCookie: Applied CookieContainer cookies (count={Count}, names={Names})",
+                            cookies.Count, string.Join(",", cookies.Select(c => c.Name).Distinct()));
+                        return;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "🍪 ApplyManualSessionCookie: Failed to apply CookieContainer cookie set; falling back to single-cookie mode");
+            }
             
             // 🔥 DEBUG: Cookie durumunu logla
             var cookieSource = "none";
@@ -1165,17 +1242,12 @@ public partial class LucaService
                 trimmed = "JSESSIONID=" + trimmed;
             }
 
-            if (!request.Headers.Contains("Cookie"))
-            {
-                request.Headers.TryAddWithoutValidation("Cookie", trimmed);
-                _logger.LogDebug("🍪 ApplyManualSessionCookie: Applied cookie from {Source} (preview: {Preview})", 
-                    cookieSource, 
-                    trimmed.Length > 50 ? trimmed.Substring(0, 50) + "..." : trimmed);
-            }
-            else
-            {
-                _logger.LogDebug("🍪 ApplyManualSessionCookie: Cookie header already exists, skipping");
-            }
+            // Always set/replace cookie header; a stale Cookie header causes "Login olunmalı" even after a successful login.
+            request.Headers.Remove("Cookie");
+            request.Headers.TryAddWithoutValidation("Cookie", trimmed);
+            _logger.LogDebug("🍪 ApplyManualSessionCookie: Applied cookie from {Source} (preview: {Preview})",
+                cookieSource,
+                trimmed.Length > 50 ? trimmed.Substring(0, 50) + "..." : trimmed);
         }
         catch (Exception ex)
         {

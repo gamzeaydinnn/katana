@@ -26,6 +26,95 @@ namespace Katana.Infrastructure.APIClients;
 /// </summary>
 public partial class LucaService
 {
+    public async Task<SalesOrderSyncResultDto> CreateSalesOrderInvoiceAsync(SalesOrder order, string? depoKodu = null, CancellationToken ct = default)
+    {
+        if (order == null) throw new ArgumentNullException(nameof(order));
+
+        if (order.Customer == null)
+        {
+            return new SalesOrderSyncResultDto
+            {
+                IsSuccess = false,
+                Message = "Müşteri bilgisi eksik",
+                ErrorDetails = "Customer is null"
+            };
+        }
+
+        if (order.Lines == null || order.Lines.Count == 0)
+        {
+            return new SalesOrderSyncResultDto
+            {
+                IsSuccess = false,
+                Message = "Sipariş satırları bulunamadı",
+                ErrorDetails = "No order lines"
+            };
+        }
+
+        static string? TryGetMessage(JsonElement el)
+        {
+            if (el.TryGetProperty("mesaj", out var mesaj) && mesaj.ValueKind == JsonValueKind.String)
+                return mesaj.GetString();
+            if (el.TryGetProperty("message", out var msg) && msg.ValueKind == JsonValueKind.String)
+                return msg.GetString();
+            if (el.TryGetProperty("error", out var err) && err.ValueKind == JsonValueKind.String)
+                return err.GetString();
+            return null;
+        }
+
+        static int? TryGetInvoiceId(JsonElement el)
+        {
+            if (el.TryGetProperty("faturaId", out var faturaIdProp) && faturaIdProp.ValueKind == JsonValueKind.Number)
+                return faturaIdProp.GetInt32();
+            if (el.TryGetProperty("invoiceId", out var invIdProp) && invIdProp.ValueKind == JsonValueKind.Number)
+                return invIdProp.GetInt32();
+            if (el.TryGetProperty("id", out var idProp) && idProp.ValueKind == JsonValueKind.Number)
+                return idProp.GetInt32();
+            return null;
+        }
+
+        static bool? TryGetSuccess(JsonElement el)
+        {
+            if (el.TryGetProperty("basarili", out var basarili)
+                && (basarili.ValueKind == JsonValueKind.True || basarili.ValueKind == JsonValueKind.False))
+                return basarili.GetBoolean();
+            if (el.TryGetProperty("success", out var success)
+                && (success.ValueKind == JsonValueKind.True || success.ValueKind == JsonValueKind.False))
+                return success.GetBoolean();
+            return null;
+        }
+
+        try
+        {
+            var request = MappingHelper.MapToLucaInvoiceFromSalesOrder(order, order.Customer, depoKodu);
+            var response = await CreateInvoiceRawAsync(request);
+
+            var success = TryGetSuccess(response);
+            var invoiceId = TryGetInvoiceId(response);
+            var message = TryGetMessage(response);
+
+            var isOk = success ?? invoiceId.HasValue;
+            return new SalesOrderSyncResultDto
+            {
+                IsSuccess = isOk,
+                Message = isOk ? "Luca satış faturası oluşturuldu" : "Luca satış faturası oluşturma başarısız",
+                LucaOrderId = invoiceId,
+                SyncedAt = DateTime.UtcNow,
+                ErrorDetails = isOk ? null : (message ?? "Bilinmeyen Luca hatası")
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CreateSalesOrderInvoiceAsync failed. OrderId={OrderId}, OrderNo={OrderNo}", order.Id, order.OrderNo);
+            return new SalesOrderSyncResultDto
+            {
+                IsSuccess = false,
+                Message = "Luca satış faturası oluşturma başarısız",
+                ErrorDetails = ex.Message,
+                SyncedAt = DateTime.UtcNow
+            };
+        }
+    }
+
     private async Task AuthenticateAsync()
     {
         try
@@ -410,6 +499,9 @@ public partial class LucaService
             attempt++;
             var client = _cookieHttpClient ?? _httpClient;
 
+            // Ensure session cookie is attached even when CookieContainer fails to apply it automatically.
+            // ApplySessionCookie uses CookieContainer, ApplyManualSessionCookie can fall back to in-memory/manual cookie values.
+            ApplySessionCookie(request);
             ApplyManualSessionCookie(request);
 
             HttpResponseMessage response;

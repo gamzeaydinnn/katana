@@ -4,6 +4,7 @@ using Katana.Core.Entities;
 using Katana.Core.Enums;
 using Katana.Core.Helpers;
 using Katana.Core.Interfaces;
+using Katana.Business.Services;
 using Katana.Data.Context;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,6 +24,7 @@ public class SalesOrdersController : ControllerBase
     private readonly IAuditService _auditService;
     private readonly ILogger<SalesOrdersController> _logger;
     private readonly IKatanaService _katanaService;
+    private readonly ILocationMappingService _locationMappingService;
 
     public SalesOrdersController(
         IntegrationDbContext context,
@@ -30,7 +32,8 @@ public class SalesOrdersController : ControllerBase
         ILoggingService loggingService,
         IAuditService auditService,
         ILogger<SalesOrdersController> logger,
-        IKatanaService katanaService)
+        IKatanaService katanaService,
+        ILocationMappingService locationMappingService)
     {
         _context = context;
         _lucaService = lucaService;
@@ -38,6 +41,7 @@ public class SalesOrdersController : ControllerBase
         _auditService = auditService;
         _logger = logger;
         _katanaService = katanaService;
+        _locationMappingService = locationMappingService;
     }
 
     /// <summary>
@@ -170,104 +174,86 @@ public class SalesOrdersController : ControllerBase
             return BadRequest(new { message = "Sipariş satırları bulunamadı. Katana'dan tekrar senkronize edin." });
         }
 
+        // Cari kodu validasyonu: "CUST_" gibi değerler Luca tarafında HTML/500'a sebep olabilir.
+        var customerCode = !string.IsNullOrWhiteSpace(order.Customer.LucaCode) ? order.Customer.LucaCode : order.Customer.TaxNo;
+        if (string.IsNullOrWhiteSpace(customerCode) || customerCode.StartsWith("CUST_", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { message = "Müşterinin geçerli bir Vergi No veya Luca Cari Kodu eksik/geçersiz. 'CUST_' gönderilemez." });
+        }
+
         // Duplikasyon kontrolü - Zaten senkronize edilmiş ve hata yoksa reddet
         if (order.IsSyncedToLuca && string.IsNullOrEmpty(order.LastSyncError))
         {
             return BadRequest(new { message = "Order already synced to Luca", lucaOrderId = order.LucaOrderId });
         }
 
-        try
+        // Dış entegrasyon çağrısı (Luca) retry stratejisinin içine sokulmaz: transient DB retry durumunda Luca'ya duplicate gitmesin.
+        var depoKodu = await _locationMappingService.GetDepoKoduByLocationIdAsync(order.LocationId?.ToString() ?? string.Empty);
+        var lucaResult = await _lucaService.CreateSalesOrderInvoiceAsync(order, depoKodu);
+
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            // Map to Luca request
-            var lucaRequest = MappingHelper.MapToLucaSalesOrderHeader(order, order.Customer);
-
-            // Call Luca API
-            var result = await _lucaService.CreateSalesOrderHeaderAsync(lucaRequest);
-
-            static string? TryGetLucaMessage(System.Text.Json.JsonElement el)
+            await using var tx = await _context.Database.BeginTransactionAsync();
+            try
             {
-                if (el.TryGetProperty("mesaj", out var mesaj) && mesaj.ValueKind == System.Text.Json.JsonValueKind.String)
-                    return mesaj.GetString();
-                if (el.TryGetProperty("message", out var msg) && msg.ValueKind == System.Text.Json.JsonValueKind.String)
-                    return msg.GetString();
-                if (el.TryGetProperty("error", out var err) && err.ValueKind == System.Text.Json.JsonValueKind.String)
-                    return err.GetString();
-                return null;
-            }
+                var current = await _context.SalesOrders.FirstOrDefaultAsync(s => s.Id == id);
+                if (current == null)
+                    return NotFound($"Sipariş bulunamadı: {id}");
 
-            var isOk = true;
-            if (result.TryGetProperty("basarili", out var basariliProp)
-                && (basariliProp.ValueKind == System.Text.Json.JsonValueKind.True
-                    || basariliProp.ValueKind == System.Text.Json.JsonValueKind.False))
-            {
-                isOk = basariliProp.GetBoolean();
-            }
+                current.LastSyncAt = DateTime.UtcNow;
+                current.UpdatedAt = DateTime.UtcNow;
 
-            // Extract LucaOrderId from response
-            int? lucaOrderId = null;
-            if (result.TryGetProperty("siparisId", out var siparisIdProp) && siparisIdProp.ValueKind == System.Text.Json.JsonValueKind.Number)
-                lucaOrderId = siparisIdProp.GetInt32();
-            else if (result.TryGetProperty("id", out var idProp) && idProp.ValueKind == System.Text.Json.JsonValueKind.Number)
-                lucaOrderId = idProp.GetInt32();
+                if (lucaResult.IsSuccess && lucaResult.LucaOrderId.HasValue)
+                {
+                    current.IsSyncedToLuca = true;
+                    current.LucaOrderId = lucaResult.LucaOrderId;
+                    current.LastSyncError = null;
+                    await _context.SaveChangesAsync();
+                    await tx.CommitAsync();
 
-            if (!isOk || !lucaOrderId.HasValue)
-            {
-                var lucaMsg = TryGetLucaMessage(result) ?? "Luca sipariş oluşturma başarısız (id dönmedi)";
+                    _logger.LogInformation("SalesOrder synced to Luca. OrderId={OrderId}, OrderNo={OrderNo}, LucaId={LucaId}", id, order.OrderNo, lucaResult.LucaOrderId);
+                    _loggingService.LogInfo($"SalesOrder {id} synced to Luca (invoice): {lucaResult.LucaOrderId}",
+                        User?.Identity?.Name, null, LogCategory.Business);
 
-                order.LastSyncError = lucaMsg;
-                order.LastSyncAt = DateTime.UtcNow;
-                order.IsSyncedToLuca = false;
+                    return Ok(new SalesOrderSyncResultDto
+                    {
+                        IsSuccess = true,
+                        Message = "Luca'ya başarıyla senkronize edildi",
+                        LucaOrderId = lucaResult.LucaOrderId,
+                        SyncedAt = current.LastSyncAt
+                    });
+                }
+
+                current.IsSyncedToLuca = false;
+                current.LastSyncError = lucaResult.ErrorDetails ?? "Luca satış faturası oluşturma başarısız";
                 await _context.SaveChangesAsync();
+                await tx.CommitAsync();
 
-                _logger.LogWarning("Luca sales order sync failed. OrderId={OrderId}, OrderNo={OrderNo}, Message={Message}", id, order.OrderNo, lucaMsg);
-                _loggingService.LogWarning($"Luca sales order sync failed: {lucaMsg}", User?.Identity?.Name, $"SalesOrderId={id}", LogCategory.Business);
+                _logger.LogError("Luca sync failed. OrderId={OrderId}, OrderNo={OrderNo}, Error={Error}", id, order.OrderNo, current.LastSyncError);
+                _loggingService.LogWarning($"Luca sales order sync failed: {current.LastSyncError}",
+                    User?.Identity?.Name, $"SalesOrderId={id}", LogCategory.Business);
 
-                return Ok(new SalesOrderSyncResultDto
+                return BadRequest(new SalesOrderSyncResultDto
                 {
                     IsSuccess = false,
-                    Message = "Luca senkronizasyonu başarısız",
-                    ErrorDetails = lucaMsg,
-                    SyncedAt = order.LastSyncAt
+                    Message = "Luca entegrasyon hatası",
+                    ErrorDetails = current.LastSyncError,
+                    SyncedAt = current.LastSyncAt
                 });
             }
-
-            // Update order with sync result
-            order.LucaOrderId = lucaOrderId;
-            order.IsSyncedToLuca = true;
-            order.LastSyncAt = DateTime.UtcNow;
-            order.LastSyncError = null;
-            await _context.SaveChangesAsync();
-
-            _loggingService.LogInfo($"SalesOrder {id} synced to Luca: {lucaOrderId}", 
-                User?.Identity?.Name, null, LogCategory.Business);
-
-            return Ok(new SalesOrderSyncResultDto
+            catch (Exception ex)
             {
-                IsSuccess = true,
-                Message = "Luca'ya başarıyla senkronize edildi",
-                LucaOrderId = lucaOrderId,
-                SyncedAt = order.LastSyncAt
-            });
-        }
-        catch (Exception ex)
-        {
-            // Update order with error
-            order.LastSyncError = ex.Message;
-            order.LastSyncAt = DateTime.UtcNow;
-            order.IsSyncedToLuca = false;
-            await _context.SaveChangesAsync();
-
-            _loggingService.LogError($"SalesOrder {id} Luca sync failed", ex, 
-                User?.Identity?.Name, null, LogCategory.Business);
-
-            return Ok(new SalesOrderSyncResultDto
-            {
-                IsSuccess = false,
-                Message = "Luca senkronizasyonu başarısız",
-                ErrorDetails = ex.Message,
-                SyncedAt = order.LastSyncAt
-            });
-        }
+                await tx.RollbackAsync();
+                _logger.LogError(ex, "SyncToLuca Critical Error OrderId: {OrderId}", id);
+                return StatusCode(500, new SalesOrderSyncResultDto
+                {
+                    IsSuccess = false,
+                    Message = "Entegrasyon sırasında kritik hata.",
+                    ErrorDetails = ex.Message
+                });
+            }
+        });
     }
 
     /// <summary>
@@ -319,16 +305,8 @@ public class SalesOrdersController : ControllerBase
         int failCount = 0;
         var errors = new ConcurrentBag<object>();
 
-        static string? TryGetLucaMessage(System.Text.Json.JsonElement el)
-        {
-            if (el.TryGetProperty("mesaj", out var mesaj) && mesaj.ValueKind == System.Text.Json.JsonValueKind.String)
-                return mesaj.GetString();
-            if (el.TryGetProperty("message", out var msg) && msg.ValueKind == System.Text.Json.JsonValueKind.String)
-                return msg.GetString();
-            if (el.TryGetProperty("error", out var err) && err.ValueKind == System.Text.Json.JsonValueKind.String)
-                return err.GetString();
-            return null;
-        }
+        var locationToDepo = await _locationMappingService.GetLocationToDepoKoduMapAsync();
+        const string defaultDepoKodu = "001";
 
         // DbContext thread-safe değil: paralelde sadece HTTP çağrısı yap, EF entity güncellemesini tek thread'de yap.
         var semaphore = new SemaphoreSlim(5);
@@ -347,30 +325,19 @@ public class SalesOrdersController : ControllerBase
                     return (OrderId: order.Id, OrderNo: order.OrderNo, Success: false, LucaOrderId: (int?)null, Error: "Order has no lines");
                 }
 
-                var lucaRequest = MappingHelper.MapToLucaSalesOrderHeader(order, order.Customer);
-                var result = await _lucaService.CreateSalesOrderHeaderAsync(lucaRequest);
+                var depoKey = order.LocationId?.ToString() ?? string.Empty;
+                var depoKodu = (!string.IsNullOrWhiteSpace(depoKey) && locationToDepo.TryGetValue(depoKey, out var mappedDepo) && !string.IsNullOrWhiteSpace(mappedDepo))
+                    ? mappedDepo
+                    : defaultDepoKodu;
 
-                var isOk = true;
-                if (result.TryGetProperty("basarili", out var basariliProp)
-                    && (basariliProp.ValueKind == System.Text.Json.JsonValueKind.True
-                        || basariliProp.ValueKind == System.Text.Json.JsonValueKind.False))
+                var lucaResult = await _lucaService.CreateSalesOrderInvoiceAsync(order, depoKodu);
+                if (!lucaResult.IsSuccess || !lucaResult.LucaOrderId.HasValue)
                 {
-                    isOk = basariliProp.GetBoolean();
-                }
-
-                int? lucaOrderId = null;
-                if (result.TryGetProperty("siparisId", out var siparisIdProp) && siparisIdProp.ValueKind == System.Text.Json.JsonValueKind.Number)
-                    lucaOrderId = siparisIdProp.GetInt32();
-                else if (result.TryGetProperty("id", out var idProp) && idProp.ValueKind == System.Text.Json.JsonValueKind.Number)
-                    lucaOrderId = idProp.GetInt32();
-
-                if (!isOk || !lucaOrderId.HasValue)
-                {
-                    var msg = TryGetLucaMessage(result) ?? "Luca sipariş oluşturma başarısız (id dönmedi)";
+                    var msg = lucaResult.ErrorDetails ?? "Luca satış faturası oluşturma başarısız (id dönmedi)";
                     return (OrderId: order.Id, OrderNo: order.OrderNo, Success: false, LucaOrderId: (int?)null, Error: msg);
                 }
 
-                return (OrderId: order.Id, OrderNo: order.OrderNo, Success: true, LucaOrderId: lucaOrderId, Error: (string?)null);
+                return (OrderId: order.Id, OrderNo: order.OrderNo, Success: true, LucaOrderId: lucaResult.LucaOrderId, Error: (string?)null);
             }
             catch (Exception ex)
             {
@@ -465,180 +432,150 @@ public class SalesOrdersController : ControllerBase
     [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult> ApproveOrder(int id)
     {
-        var order = await _context.SalesOrders
-            .Include(s => s.Lines)
-            .FirstOrDefaultAsync(s => s.Id == id);
-
-        if (order == null)
+        static string Truncate(string value, int maxLen)
         {
-            return NotFound(new { success = false, message = $"Sipariş bulunamadı: {id}" });
+            if (string.IsNullOrEmpty(value)) return value;
+            return value.Length <= maxLen ? value : value.Substring(0, maxLen);
         }
 
-        // Zaten onaylanmış mı kontrol et
-        if (order.Status == "APPROVED" || order.Status == "SHIPPED")
+        try
         {
-            return BadRequest(new { success = false, message = "Bu sipariş zaten onaylanmış" });
-        }
+            var order = await _context.SalesOrders
+                .Include(s => s.Lines)
+                .FirstOrDefaultAsync(s => s.Id == id);
 
-        if (order.Lines == null || order.Lines.Count == 0)
-        {
-            _logger.LogWarning("SalesOrder approve requested but order has no lines. OrderId={OrderId}, OrderNo={OrderNo}", id, order.OrderNo);
-            return BadRequest(new
+            if (order == null)
+                return NotFound(new { success = false, message = $"Sipariş bulunamadı: {id}" });
+
+            if (order.Status == "APPROVED" || order.Status == "SHIPPED")
+                return BadRequest(new { success = false, message = "Bu sipariş zaten onaylanmış" });
+
+            if (order.Lines == null || order.Lines.Count == 0)
             {
-                success = false,
-                message = "Sipariş satırları bulunamadı. Katana'dan tekrar senkronize edin (Siparişler > Katana'dan Çek).",
-                orderNo = order.OrderNo
-            });
-        }
+                _logger.LogWarning("SalesOrder approve requested but order has no lines. OrderId={OrderId}, OrderNo={OrderNo}", id, order.OrderNo);
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Sipariş satırları bulunamadı. Katana'dan tekrar senkronize edin (Siparişler > Katana'dan Çek).",
+                    orderNo = order.OrderNo
+                });
+            }
 
-        _logger.LogInformation("Approving SalesOrder. OrderId={OrderId}, OrderNo={OrderNo}, LineCount={LineCount}", id, order.OrderNo, order.Lines.Count);
-        _loggingService.LogInfo($"SalesOrder approve started: {order.OrderNo} (lines={order.Lines.Count})",
-            User.Identity?.Name, $"SalesOrderId={id}", LogCategory.Business);
+            _logger.LogInformation("Approving SalesOrder. OrderId={OrderId}, OrderNo={OrderNo}, LineCount={LineCount}", id, order.OrderNo, order.Lines.Count);
+            _loggingService.LogInfo($"SalesOrder approve started: {order.OrderNo} (lines={order.Lines.Count})",
+                User.Identity?.Name, $"SalesOrderId={id}", LogCategory.Business);
 
-        var syncResults = new List<object>();
-        int successCount = 0;
-        int failCount = 0;
+            var syncResults = new List<object>();
+            var failureSummaries = new List<string>();
+            var successCount = 0;
+            var failCount = 0;
 
-        // Her sipariş kalemi için Katana'ya stok ekle
-        foreach (var line in order.Lines)
-        {
-            try
+            foreach (var line in order.Lines)
             {
-                if (string.IsNullOrEmpty(line.SKU))
+                try
                 {
-                    _logger.LogWarning("⚠️ SKU boş, atlanıyor: LineId={LineId}", line.Id);
-                    syncResults.Add(new { sku = "N/A", success = false, error = "SKU boş" });
-                    failCount++;
-                    continue;
-                }
-
-                // Katana'da ürün var mı kontrol et
-                var existingProduct = await _katanaService.GetProductBySkuAsync(line.SKU);
-
-                if (existingProduct != null)
-                {
-                    // Ürün varsa stok güncelle
-                    if (!int.TryParse(existingProduct.Id, out var katanaProductId))
+                    if (string.IsNullOrWhiteSpace(line.SKU))
                     {
-                        _logger.LogWarning("⚠️ Katana ürün ID sayısal değil: {Id}", existingProduct.Id);
-                        syncResults.Add(new { sku = line.SKU, success = false, error = "Geçersiz Katana ID" });
+                        var msg = $"LineId={line.Id}: SKU boş";
+                        _logger.LogWarning("SalesOrder approve skipped line: {Message}", msg);
+                        syncResults.Add(new { sku = "N/A", success = false, error = "SKU boş" });
+                        failureSummaries.Add(msg);
                         failCount++;
                         continue;
                     }
 
-                    var newStock = (existingProduct.InStock ?? 0) + line.Quantity;
-                    var updated = await _katanaService.UpdateProductAsync(
-                        katanaProductId,
-                        existingProduct.Name,
-                        existingProduct.SalesPrice,
-                        (int)Math.Round(newStock, MidpointRounding.AwayFromZero)
-                    );
-
-                    if (updated)
+                    if (line.Quantity <= 0)
                     {
-                        _logger.LogInformation("✅ Katana stok güncellendi: {SKU}, Yeni Stok: {Stock}", line.SKU, newStock);
-                        syncResults.Add(new { sku = line.SKU, success = true, action = "updated", newStock });
+                        var msg = $"SKU={line.SKU}: geçersiz miktar ({line.Quantity})";
+                        _logger.LogWarning("SalesOrder approve skipped line: {Message}", msg);
+                        syncResults.Add(new { sku = line.SKU, success = false, error = "Miktar 0 veya negatif" });
+                        failureSummaries.Add(msg);
+                        failCount++;
+                        continue;
+                    }
+
+                    var ok = await _katanaService.SyncProductStockAsync(
+                        sku: line.SKU,
+                        quantity: line.Quantity,
+                        locationId: order.LocationId,
+                        productName: line.ProductName,
+                        salesPrice: line.PricePerUnit);
+
+                    if (ok)
+                    {
+                        syncResults.Add(new { sku = line.SKU, success = true, action = "synced" });
                         successCount++;
                     }
                     else
                     {
-                        _logger.LogWarning("⚠️ Katana stok güncellenemedi: {SKU}", line.SKU);
-                        syncResults.Add(new { sku = line.SKU, success = false, error = "Katana stok güncelleme başarısız (UpdateProductAsync=false)" });
+                        var msg = $"SKU={line.SKU}: Katana stok senkronu başarısız";
+                        _logger.LogWarning("SalesOrder approve failed: {Message}", msg);
+                        syncResults.Add(new { sku = line.SKU, success = false, error = "Katana stok senkronu başarısız" });
+                        failureSummaries.Add(msg);
                         failCount++;
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                    // Ürün yoksa oluştur
-                    var intendedStock = (int)Math.Round(line.Quantity, MidpointRounding.AwayFromZero);
-                    var newProduct = new KatanaProductDto
-                    {
-                        Name = line.ProductName ?? line.SKU,
-                        SKU = line.SKU,
-                        SalesPrice = line.PricePerUnit ?? 0,
-                        Unit = "pcs",
-                        IsActive = true
-                    };
-
-                    var created = await _katanaService.CreateProductAsync(newProduct);
-
-                    if (created != null)
-                    {
-                        if (!int.TryParse(created.Id, out var createdProductId))
-                        {
-                            _logger.LogWarning("Katana product created but ID is not numeric. Sku={Sku}, Id={Id}", line.SKU, created.Id);
-                            syncResults.Add(new { sku = line.SKU, success = false, action = "created", error = "Katana ürün oluşturuldu ama ID parse edilemedi" });
-                            failCount++;
-                        }
-                        else
-                        {
-                            // Katana API create payload doesn't set on_hand; apply stock via update.
-                            var stockUpdated = await _katanaService.UpdateProductAsync(
-                                createdProductId,
-                                created.Name,
-                                created.SalesPrice,
-                                intendedStock);
-
-                            if (stockUpdated)
-                            {
-                                _logger.LogInformation("✅ Katana ürün oluşturuldu ve stok set edildi: {SKU}, Stock: {Stock}", line.SKU, intendedStock);
-                                syncResults.Add(new { sku = line.SKU, success = true, action = "created", newStock = intendedStock });
-                                successCount++;
-                            }
-                            else
-                            {
-                                _logger.LogWarning("Katana product created but stock update failed. Sku={Sku}, ProductId={ProductId}", line.SKU, createdProductId);
-                                syncResults.Add(new { sku = line.SKU, success = false, action = "created", error = "Katana ürün oluşturuldu ama stok set edilemedi" });
-                                failCount++;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogWarning("⚠️ Katana ürün oluşturulamadı: {SKU}", line.SKU);
-                        syncResults.Add(new { sku = line.SKU, success = false, error = "Katana ürün oluşturma başarısız (CreateProductAsync=null)" });
-                        failCount++;
-                    }
+                    var msg = $"SKU={line.SKU}: {ex.Message}";
+                    _logger.LogError(ex, "SalesOrder approve Katana sync failed. OrderId={OrderId}, Sku={Sku}", id, line.SKU);
+                    syncResults.Add(new { sku = line.SKU, success = false, error = ex.Message });
+                    failureSummaries.Add(msg);
+                    failCount++;
                 }
+            }
+
+            await using var tx = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                order.Status = failCount == 0 ? "APPROVED" : "APPROVED_WITH_ERRORS";
+                order.LastSyncError = failCount == 0
+                    ? null
+                    : Truncate(string.Join(" | ", failureSummaries.Distinct().Take(25)), 1900);
+                order.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+                await tx.CommitAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Katana sync hatası: {SKU}", line.SKU);
-                syncResults.Add(new { sku = line.SKU, success = false, error = ex.Message });
-                failCount++;
+                await tx.RollbackAsync();
+                _logger.LogError(ex, "SalesOrder approve failed while persisting result. OrderId={OrderId}", id);
+                _loggingService.LogError($"SalesOrder approve DB update failed: {id}", ex, User.Identity?.Name, null, LogCategory.Business);
+                return StatusCode(500, new { success = false, message = "Onay sonucu kaydedilirken hata oluştu." });
             }
+
+            _auditService.LogUpdate(
+                "SalesOrder",
+                id.ToString(),
+                User.Identity?.Name ?? "System",
+                null,
+                $"Sipariş onaylandı ve Katana'ya {successCount} ürün eklendi/güncellendi");
+
+            _logger.LogInformation("SalesOrder approval completed. OrderId={OrderId}, OrderNo={OrderNo}, Success={Success}, Failed={Failed}, Status={Status}",
+                id, order.OrderNo, successCount, failCount, order.Status);
+            _loggingService.LogInfo($"SalesOrder approve completed: {order.OrderNo} (ok={successCount}, fail={failCount}, status={order.Status})",
+                User.Identity?.Name, $"SalesOrderId={id}", LogCategory.Business);
+
+            return Ok(new
+            {
+                success = failCount == 0,
+                message = failCount == 0
+                    ? $"Sipariş onaylandı. {successCount} ürün Katana'ya eklendi/güncellendi."
+                    : $"Sipariş onaylandı ama Katana senkronunda hata var. Başarılı: {successCount}, Hatalı: {failCount}.",
+                orderNo = order.OrderNo,
+                orderStatus = order.Status,
+                successCount,
+                failCount,
+                syncResults
+            });
         }
-
-        // Sipariş durumunu güncelle
-        order.Status = failCount == 0 ? "APPROVED" : "APPROVED_WITH_ERRORS";
-        order.LastSyncError = failCount == 0 ? null : $"Katana stock sync failed for {failCount} line(s).";
-        order.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-
-        _auditService.LogUpdate(
-            "SalesOrder",
-            id.ToString(),
-            User.Identity?.Name ?? "System",
-            null,
-            $"Sipariş onaylandı ve Katana'ya {successCount} ürün eklendi/güncellendi");
-
-        _logger.LogInformation("SalesOrder approval completed. OrderId={OrderId}, OrderNo={OrderNo}, Success={Success}, Failed={Failed}, Status={Status}",
-            id, order.OrderNo, successCount, failCount, order.Status);
-        _loggingService.LogInfo($"SalesOrder approve completed: {order.OrderNo} (ok={successCount}, fail={failCount}, status={order.Status})",
-            User.Identity?.Name, $"SalesOrderId={id}", LogCategory.Business);
-
-        return Ok(new
+        catch (Exception ex)
         {
-            success = failCount == 0,
-            message = failCount == 0
-                ? $"Sipariş onaylandı. {successCount} ürün Katana'ya eklendi/güncellendi."
-                : $"Sipariş onaylandı ama Katana senkronunda hata var. Başarılı: {successCount}, Hatalı: {failCount}.",
-            orderNo = order.OrderNo,
-            orderStatus = order.Status,
-            successCount,
-            failCount,
-            syncResults
-        });
+            _logger.LogError(ex, "ApproveOrder critical error. OrderId={OrderId}", id);
+            _loggingService.LogError($"ApproveOrder critical error: {id}", ex, User.Identity?.Name, null, LogCategory.Business);
+            return StatusCode(500, new { success = false, message = "Sunucu hatası oluştu.", error = ex.Message });
+        }
     }
 
     private static LocalSalesOrderDto MapToDto(SalesOrder order)

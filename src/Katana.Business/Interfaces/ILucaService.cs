@@ -7,6 +7,11 @@ namespace Katana.Business.Interfaces;
 
 public interface ILucaService
 {
+    /// <summary>
+    /// Creates a SALES INVOICE in Luca from a local SalesOrder entity.
+    /// </summary>
+    Task<SalesOrderSyncResultDto> CreateSalesOrderInvoiceAsync(SalesOrder order, string? depoKodu = null, CancellationToken ct = default);
+
     Task<bool> WarmupCacheWithRetryAsync(int maxAttempts = 3, CancellationToken cancellationToken = default);
     Task<LucaCacheStatusDto> GetCacheStatusAsync();
     Task<bool> UpdateStockCardAsync(long stockCardId, Product product);
