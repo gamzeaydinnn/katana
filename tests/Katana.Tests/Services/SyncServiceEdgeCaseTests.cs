@@ -5,7 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Katana.Business.Interfaces;
-using Katana.Business.UseCases.Sync;
+using Katana.Business.Services;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Data.Context;
