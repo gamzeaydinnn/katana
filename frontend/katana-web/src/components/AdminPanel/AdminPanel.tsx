@@ -84,11 +84,23 @@ interface AdminSyncLog {
   isSuccess: boolean;
 }
 
+interface StockMovement {
+  id: number;
+  productName: string;
+  sku: string;
+  quantity: number;
+  movementType: string;
+  movementDate: string;
+  reason?: string;
+  createdAt: string;
+}
+
 const AdminPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [syncLogs, setSyncLogs] = useState<AdminSyncLog[]>([]);
   const [products, setProducts] = useState<AdminProduct[]>([]);
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -132,7 +144,7 @@ const AdminPanel: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const [statsRes, productsRes, logsRes, healthRes] = await Promise.all([
+      const [statsRes, productsRes, logsRes, movementsRes, healthRes] = await Promise.all([
         api.get("/adminpanel/statistics"),
         api.get(
           `/adminpanel/products?page=${page + 1}&pageSize=${rowsPerPage}`
@@ -140,6 +152,7 @@ const AdminPanel: React.FC = () => {
         api.get(
           `/adminpanel/sync-logs?page=${page + 1}&pageSize=${rowsPerPage}`
         ),
+        api.get("/adminpanel/recent-stock-movements?take=10"),
         api.get("/adminpanel/katana-health"),
       ]);
 
@@ -194,6 +207,20 @@ const AdminPanel: React.FC = () => {
             (Array.isArray(rawLogs) ? rawLogs.length : 0) ??
             0
         )
+      );
+
+      const rawMovements = ((movementsRes as any).data?.movements ?? []) as any[];
+      setStockMovements(
+        (Array.isArray(rawMovements) ? rawMovements : []).map((m) => ({
+          id: Number(m.id ?? 0),
+          productName: String(m.productName ?? "Bilinmeyen Ürün"),
+          sku: String(m.sku ?? ""),
+          quantity: Number(m.quantity ?? 0),
+          movementType: String(m.movementType ?? ""),
+          movementDate: String(m.movementDate ?? m.createdAt ?? ""),
+          reason: m.reason ? String(m.reason) : undefined,
+          createdAt: String(m.createdAt ?? ""),
+        }))
       );
 
       if (healthRes && typeof (healthRes as any).data !== "undefined") {
@@ -776,11 +803,15 @@ const AdminPanel: React.FC = () => {
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
+              gridTemplateColumns: { 
+                xs: "1fr", 
+                md: "repeat(2, 1fr)", 
+                lg: "repeat(3, 1fr)" 
+              },
               gap: 3,
             }}
           >
-            {}
+            {/* Son Eklenen Ürünler */}
             <Paper sx={{ p: { xs: 1.5, md: 3 }, borderRadius: 2 }}>
               <Typography
                 variant="h6"
@@ -878,14 +909,14 @@ const AdminPanel: React.FC = () => {
                   )}
                 </Box>
               ) : (
-                <TableContainer>
-                  <Table size="small">
+                <TableContainer sx={{ overflowX: "auto", maxWidth: "100%" }}>
+                  <Table size="small" sx={{ minWidth: "auto" }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell>SKU</TableCell>
-                        <TableCell>Ürün Adı</TableCell>
-                        <TableCell align="right">Stok</TableCell>
-                        <TableCell>Durum</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>SKU</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>Ürün Adı</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>Stok</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>Durum</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -899,8 +930,13 @@ const AdminPanel: React.FC = () => {
                               : `product-${idx}`
                           }
                         >
-                          <TableCell>{product.sku}</TableCell>
-                          <TableCell>{product.name}</TableCell>
+                          <TableCell sx={{ whiteSpace: "nowrap" }}>{product.sku}</TableCell>
+                          <TableCell sx={{ 
+                            maxWidth: "150px",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap"
+                          }}>{product.name}</TableCell>
                           <TableCell align="right">{product.stock}</TableCell>
                           <TableCell>
                             <Chip
@@ -917,7 +953,197 @@ const AdminPanel: React.FC = () => {
               )}
             </Paper>
 
-            {}
+            {/* Son Stok Hareketleri */}
+            <Paper sx={{ p: { xs: 1.5, md: 3 }, borderRadius: 2 }}>
+              <Typography
+                variant="h6"
+                gutterBottom
+                sx={{
+                  fontWeight: 600,
+                  fontFamily: '"Poppins", "Inter", sans-serif',
+                  letterSpacing: "-0.3px",
+                  mb: 2,
+                }}
+              >
+                Son Stok Hareketleri
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              
+              {/* Summary Cards */}
+              <Box sx={{ 
+                display: "grid", 
+                gridTemplateColumns: { xs: "1fr 1fr", sm: "1fr 1fr", md: "repeat(2, 1fr)" },
+                gap: 1.5,
+                mb: 3
+              }}>
+                {/* Toplam Girdi */}
+                <Card sx={{ 
+                  background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                  color: "white",
+                  borderRadius: 2
+                }}>
+                  <CardContent sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+                    <Typography variant="caption" sx={{ opacity: 0.9, display: "block", mb: 0.5 }}>
+                      Toplam Girdi
+                    </Typography>
+                    <Typography variant="h5" fontWeight={700} fontSize={{ xs: "1.5rem", sm: "1.75rem" }}>
+                      {stockMovements
+                        .filter((m) => m.quantity > 0)
+                        .reduce((sum, m) => sum + m.quantity, 0)
+                        .toLocaleString("tr-TR")}
+                    </Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.8, display: "block", mt: 0.5 }}>
+                      Son {stockMovements.length} hareket
+                    </Typography>
+                  </CardContent>
+                </Card>
+
+                {/* Toplam Stok */}
+                <Card sx={{ 
+                  background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                  color: "white",
+                  borderRadius: 2
+                }}>
+                  <CardContent sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+                    <Typography variant="caption" sx={{ opacity: 0.9, display: "block", mb: 0.5 }}>
+                      Toplam Çıktı
+                    </Typography>
+                    <Typography variant="h5" fontWeight={700} fontSize={{ xs: "1.5rem", sm: "1.75rem" }}>
+                      {Math.abs(
+                        stockMovements
+                          .filter((m) => m.quantity < 0)
+                          .reduce((sum, m) => sum + m.quantity, 0)
+                      ).toLocaleString("tr-TR")}
+                    </Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.8, display: "block", mt: 0.5 }}>
+                      Son {stockMovements.length} hareket
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Box>
+              {isMobile ? (
+                <Box
+                  sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}
+                >
+                  {stockMovements.length === 0 ? (
+                    <Typography
+                      color="text.secondary"
+                      align="center"
+                      sx={{ py: 2 }}
+                    >
+                      Stok hareketi bulunamadı
+                    </Typography>
+                  ) : (
+                    stockMovements.map((movement, idx) => (
+                      <Paper
+                        key={movement.id || `movement-${idx}`}
+                        sx={{
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: 2,
+                          p: 1.5,
+                        }}
+                      >
+                        <Typography variant="subtitle1" fontWeight={600}>
+                          {movement.productName}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                          SKU: <strong>{movement.sku}</strong>
+                        </Typography>
+                        <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Miktar
+                            </Typography>
+                            <Typography fontWeight={600} color={movement.quantity > 0 ? "success.main" : "error.main"}>
+                              {movement.quantity > 0 ? "+" : ""}{movement.quantity}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Hareket
+                            </Typography>
+                            <Typography fontWeight={600}>
+                              {movement.movementType}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              Tarih
+                            </Typography>
+                            <Typography variant="body2">
+                              {new Date(movement.movementDate).toLocaleString("tr-TR")}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        {movement.reason && (
+                          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                            Sebep: {movement.reason}
+                          </Typography>
+                        )}
+                      </Paper>
+                    ))
+                  )}
+                </Box>
+              ) : (
+                <TableContainer sx={{ overflowX: "auto", maxWidth: "100%" }}>
+                  <Table size="small" sx={{ minWidth: "auto" }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>Ürün</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>SKU</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>Miktar</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>Hareket</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>Tarih</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {stockMovements.map((movement, idx) => (
+                        <TableRow key={movement.id || `movement-${idx}`}>
+                          <TableCell sx={{ 
+                            maxWidth: "120px",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap"
+                          }}>{movement.productName}</TableCell>
+                          <TableCell sx={{ whiteSpace: "nowrap" }}>{movement.sku}</TableCell>
+                          <TableCell align="right">
+                            <Typography
+                              component="span"
+                              fontWeight={600}
+                              fontSize="0.875rem"
+                              color={movement.quantity > 0 ? "success.main" : "error.main"}
+                            >
+                              {movement.quantity > 0 ? "+" : ""}{movement.quantity}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ 
+                            maxWidth: "100px",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            fontSize: "0.875rem"
+                          }}>{movement.movementType}</TableCell>
+                          <TableCell sx={{ 
+                            whiteSpace: "nowrap",
+                            fontSize: "0.875rem"
+                          }}>
+                            {new Date(movement.movementDate).toLocaleString("tr-TR", {
+                              month: "2-digit",
+                              day: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Paper>
+
+            {/* Son Sync Logları */}
             <Paper sx={{ p: { xs: 1.5, md: 3 }, borderRadius: 2 }}>
               <Typography
                 variant="h6"
@@ -942,16 +1168,12 @@ const AdminPanel: React.FC = () => {
                       align="center"
                       sx={{ py: 2 }}
                     >
-                      Kayıt bulunamadı
+                      Sync logu bulunamadı
                     </Typography>
                   ) : (
                     syncLogs.map((log, idx) => (
                       <Paper
-                        key={
-                          log.id && String(log.id) !== "0"
-                            ? log.id
-                            : `log-${idx}`
-                        }
+                        key={log.id || `log-${idx}`}
                         sx={{
                           border: "1px solid",
                           borderColor: "divider",
@@ -986,27 +1208,21 @@ const AdminPanel: React.FC = () => {
                   )}
                 </Box>
               ) : (
-                <TableContainer>
-                  <Table size="small">
+                <TableContainer sx={{ overflowX: "auto", maxWidth: "100%" }}>
+                  <Table size="small" sx={{ minWidth: "auto" }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell>Entegrasyon</TableCell>
-                        <TableCell>Tarih</TableCell>
-                        <TableCell>Durum</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>Entegrasyon</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>Tarih</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>Durum</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {syncLogs.map((log, idx) => (
-                        <TableRow
-                          key={
-                            log.id && String(log.id) !== "0"
-                              ? log.id
-                              : `log-${idx}`
-                          }
-                        >
-                          <TableCell>{log.integrationName}</TableCell>
-                          <TableCell>
-                            {new Date(log.createdAt).toLocaleString("tr-TR")}
+                        <TableRow key={log.id || `log-${idx}`}>
+                          <TableCell sx={{ fontSize: "0.875rem", maxWidth: "150px", overflow: "hidden", textOverflow: "ellipsis" }}>{log.integrationName}</TableCell>
+                          <TableCell sx={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}>
+                            {new Date(log.createdAt).toLocaleDateString("tr-TR", { month: "2-digit", day: "2-digit" })} {new Date(log.createdAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
                           </TableCell>
                           <TableCell>
                             <Chip
@@ -1021,19 +1237,6 @@ const AdminPanel: React.FC = () => {
                   </Table>
                 </TableContainer>
               )}
-              <TablePagination
-                component="div"
-                count={totalSyncLogs}
-                page={page}
-                onPageChange={(_, newPage) => setPage(newPage)}
-                rowsPerPage={rowsPerPage}
-                onRowsPerPageChange={(e) => {
-                  setRowsPerPage(parseInt(e.target.value, 10));
-                  setPage(0);
-                }}
-                rowsPerPageOptions={[5, 10, 25]}
-                labelRowsPerPage="Sayfa başına:"
-              />
             </Paper>
           </Box>
         </Box>
