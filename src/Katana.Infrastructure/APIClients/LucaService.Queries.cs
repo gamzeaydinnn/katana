@@ -105,6 +105,12 @@ public partial class LucaService
             _logger.LogInformation("📄 CreateInvoice (token) - Response Status: {Status}, Body: {Body}",
                 tokenResponse.StatusCode, tokenResponseContent);
 
+            if (IsHtmlResponse(tokenResponseContent))
+            {
+                LogHtmlResponse("CREATE_INVOICE_RAW_TOKEN", tokenResponse, tokenResponseContent, attempt: 1, maxAttempts: 1);
+                throw new InvalidOperationException($"Luca API returned HTML content for invoice create (token mode). Status={(int)tokenResponse.StatusCode}");
+            }
+
             if (!tokenResponse.IsSuccessStatusCode)
             {
                 _logger.LogError("❌ CreateInvoice (token) FAILED - Status: {Status}, Body: {Body}", tokenResponse.StatusCode, tokenResponseContent);
@@ -138,6 +144,12 @@ public partial class LucaService
 
         _logger.LogInformation("📄 CreateInvoice - Response Status: {Status}, Body: {Body}", 
             response.StatusCode, responseContent);
+
+        if (IsHtmlResponse(responseContent))
+        {
+            LogHtmlResponse("CREATE_INVOICE_RAW", response, responseContent, attempt: 1, maxAttempts: 1);
+            throw new InvalidOperationException($"Luca API returned HTML content for invoice create. Status={(int)response.StatusCode}");
+        }
         
         if (!response.IsSuccessStatusCode)
         {
