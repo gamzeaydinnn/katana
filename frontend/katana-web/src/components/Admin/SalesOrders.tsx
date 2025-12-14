@@ -545,17 +545,44 @@ const SalesOrders: React.FC = () => {
       </Paper>
 
       {/* Table */}
-      <TableContainer component={Paper} sx={{ overflowX: "auto", maxWidth: "100%" }}>
+      <TableContainer
+        component={Paper}
+        sx={{ overflowX: "auto", maxWidth: "100%" }}
+      >
         <Table size="small" sx={{ minWidth: { xs: "100%", sm: "650px" } }}>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>Sipariş No</TableCell>
-              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>Müşteri</TableCell>
-              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>Tarih</TableCell>
-              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>Durum</TableCell>
-              <TableCell align="right" sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>Tutar</TableCell>
-              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>Koza</TableCell>
-              <TableCell align="center" sx={{ whiteSpace: "nowrap", fontSize: "0.875rem", minWidth: "140px" }}>İşlemler</TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                Sipariş No
+              </TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                Müşteri
+              </TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                Tarih
+              </TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                Durum
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}
+              >
+                Tutar
+              </TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                Koza
+              </TableCell>
+              <TableCell
+                align="center"
+                sx={{
+                  whiteSpace: "nowrap",
+                  fontSize: "0.875rem",
+                  minWidth: "140px",
+                }}
+              >
+                İşlemler
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -577,10 +604,25 @@ const SalesOrders: React.FC = () => {
               orders.map((order) => (
                 <TableRow key={order.id} hover>
                   <TableCell sx={{ fontSize: "0.875rem" }}>
-                    <Typography fontWeight="medium" fontSize="0.875rem">{order.orderNo}</Typography>
+                    <Typography fontWeight="medium" fontSize="0.875rem">
+                      {order.orderNo}
+                    </Typography>
                   </TableCell>
-                  <TableCell sx={{ fontSize: "0.875rem", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>{order.customerName || "-"}</TableCell>
-                  <TableCell sx={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}>{formatDate(order.orderCreatedDate)}</TableCell>
+                  <TableCell
+                    sx={{
+                      fontSize: "0.875rem",
+                      maxWidth: "120px",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {order.customerName || "-"}
+                  </TableCell>
+                  <TableCell
+                    sx={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}
+                  >
+                    {formatDate(order.orderCreatedDate)}
+                  </TableCell>
                   <TableCell>
                     <Chip
                       label={order.status}
@@ -595,7 +637,10 @@ const SalesOrders: React.FC = () => {
                       }
                     />
                   </TableCell>
-                  <TableCell align="right" sx={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}>
+                  <TableCell
+                    align="right"
+                    sx={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}
+                  >
                     {formatCurrency(order.total, order.currency)}
                   </TableCell>
                   <TableCell>
@@ -605,7 +650,14 @@ const SalesOrders: React.FC = () => {
                     />
                   </TableCell>
                   <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
-                    <Box sx={{ display: "flex", gap: 0.5, justifyContent: "center", flexWrap: "nowrap" }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        gap: 0.5,
+                        justifyContent: "center",
+                        flexWrap: "nowrap",
+                      }}
+                    >
                       <Tooltip title="Detay">
                         <IconButton
                           size="small"
