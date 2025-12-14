@@ -292,6 +292,40 @@ public class AdminController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Son eklenen stok hareketlerini döner (Admin Dashboard için)
+    /// </summary>
+    [HttpGet("recent-stock-movements")]
+    [Authorize(Roles = "Admin,Manager,StokYonetici")]
+    public async Task<IActionResult> GetRecentStockMovements([FromQuery] int take = 10)
+    {
+        try
+        {
+            var movements = await _context.StockMovements
+                .Include(sm => sm.Product)
+                .OrderByDescending(sm => sm.MovementDate)
+                .Take(take)
+                .Select(sm => new {
+                    id = sm.Id,
+                    productName = sm.Product != null ? sm.Product.Name : "Bilinmeyen Ürün",
+                    sku = sm.Product != null ? sm.Product.SKU : sm.SKU,
+                    quantity = sm.ChangeQuantity,
+                    movementType = sm.MovementType,
+                    movementDate = sm.MovementDate,
+                    reason = sm.Reason,
+                    createdAt = sm.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(new { movements, total = movements.Count });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Son stok hareketleri alınırken hata oluştu");
+            return StatusCode(500, new { error = "Stok hareketleri alınamadı" });
+        }
+    }
+
     
     [HttpGet("sync-logs-anon")]
     [AllowAnonymous]
