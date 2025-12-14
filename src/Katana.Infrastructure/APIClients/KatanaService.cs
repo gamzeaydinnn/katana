@@ -2791,7 +2791,29 @@ public class KatanaService : IKatanaService
     public async Task<StockAdjustmentDto?> CreateStockAdjustmentAsync(StockAdjustmentCreateRequest request)
     {
         _logger.LogInformation("Creating stock adjustment via Katana API");
-        var json = JsonSerializer.Serialize(request, _jsonOptions);
+        
+        // ✅ API'nin kabul ettiği alanları içeren temiz request body oluştur
+        // id alanı GÖNDERİLMEMELİ, cost_per_unit number olmalı
+        // batch_transactions: Batch tracking olmayan ürünler için GÖNDERMEYİN
+        var requestBody = new
+        {
+            stock_adjustment_number = request.StockAdjustmentNumber,
+            stock_adjustment_date = request.StockAdjustmentDate.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+            location_id = request.LocationId,
+            reason = request.Reason ?? "Stock adjustment",
+            additional_info = request.AdditionalInfo,
+            stock_adjustment_rows = request.StockAdjustmentRows?.Select(row => new
+            {
+                variant_id = row.VariantId,
+                quantity = row.Quantity,
+                // cost_per_unit MUTLAKA number olmalı
+                cost_per_unit = row.CostPerUnit ?? 0.0m
+                // batch_transactions GÖNDERİLMİYOR - Katana batch tracking olmayan ürünler için bunu istemiyor
+                // ID alanı da GÖNDERİLMİYOR!
+            }).ToList()
+        };
+        
+        var json = JsonSerializer.Serialize(requestBody, _jsonOptions);
         _logger.LogDebug("CreateStockAdjustmentAsync payload: {Payload}", json);
         var resp = await _httpClient.PostAsync(_settings.Endpoints.StockAdjustments, CreateKatanaJsonContent(json));
         var content = await resp.Content.ReadAsStringAsync();
@@ -2920,16 +2942,58 @@ public class KatanaService : IKatanaService
     {
         _logger.LogInformation("CreateSalesOrderAsync called for OrderNo: {OrderNo}", salesOrder?.OrderNo);
         
-        var json = JsonSerializer.Serialize(salesOrder, _jsonOptions);
+        // ✅ SADECE API'NIN KABUL ETTİĞİ ALANLAR - Fazla alanları çıkar (422 hatasını önler)
+        var requestBody = new
+        {
+            order_no = salesOrder?.OrderNo,
+            delivery_date = salesOrder?.DeliveryDate,
+            customer_id = salesOrder?.CustomerId,
+            location_id = salesOrder?.LocationId,
+            additional_info = salesOrder?.AdditionalInfo,
+            customer_ref = salesOrder?.CustomerRef,
+            status = salesOrder?.Status ?? "NOT_SHIPPED",
+            currency = salesOrder?.Currency,
+            
+            // SALES ORDER ROWS - Sadece gerekli alanlar (id, product_availability, created_at vb. çıkarıldı)
+            sales_order_rows = salesOrder?.SalesOrderRows?.Select(row => new
+            {
+                variant_id = row.VariantId,
+                quantity = row.Quantity,
+                price_per_unit = row.PricePerUnit,
+                tax_rate_id = row.TaxRateId,
+                location_id = row.LocationId,
+                // attributes ARRAY olarak gönder
+                attributes = (object?)(row.Attributes?.Select(a => new { key = a.Key, value = a.Value }).ToList()) ?? Array.Empty<object>()
+                // ID, product_availability, created_at, updated_at, batch_transactions, serial_numbers GÖNDERİLMİYOR!
+            }).ToList(),
+            
+            // addresses ARRAY olarak gönder
+            addresses = (object?)(salesOrder?.Addresses?.Select(a => new
+            {
+                entity_type = a.EntityType,
+                first_name = a.FirstName,
+                last_name = a.LastName,
+                company = a.Company,
+                line_1 = a.Line1,
+                line_2 = a.Line2,
+                city = a.City,
+                state = a.State,
+                zip = a.Zip,
+                country = a.Country,
+                phone = a.Phone
+            }).ToList()) ?? Array.Empty<object>()
+        };
         
-        // ✅ YENİ KOD: HttpRequestMessage ile manuel kontrol
+        var json = JsonSerializer.Serialize(requestBody, _jsonOptions);
+        
+        // ✅ HttpRequestMessage ile manuel kontrol
         using var request = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.SalesOrders);
         
         // Content'i ekle - ByteArrayContent kullanarak charset'ten kaçın
         var bytes = System.Text.Encoding.UTF8.GetBytes(json);
         request.Content = new ByteArrayContent(bytes);
         
-        // 🔥 HEADER'LARI TEMİZLE VE SADECE BİZİMKİNİ EKLE
+        // HEADER'LARI TEMİZLE VE SADECE BİZİMKİNİ EKLE
         request.Content.Headers.Clear();
         request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
         
