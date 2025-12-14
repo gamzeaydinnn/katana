@@ -152,8 +152,9 @@ builder.Services.AddHttpClient<IKatanaService, KatanaService>((sp, client) =>
     client.Timeout = TimeSpan.FromSeconds(s.TimeoutSeconds);
     client.DefaultRequestHeaders.Authorization =
         new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", s.ApiKey?.Trim());
-    client.DefaultRequestHeaders.Accept.Add(
-        new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+    
+    // ❌ Don't add Accept header - it might cause issues
+    // client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json");
 })
     .AddHttpMessageHandler<RateLimitHandler>();
 builder.Services.AddScoped<IKatanaApiClient, KatanaApiClient>();

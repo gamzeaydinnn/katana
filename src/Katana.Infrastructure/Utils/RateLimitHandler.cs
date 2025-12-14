@@ -15,6 +15,18 @@ public class RateLimitHandler : DelegatingHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        // 🔥 Request gönderilmeden ÖNCE Content-Type'ı kontrol et ve charset'i kaldır
+        if (request.Content?.Headers.ContentType != null)
+        {
+            var contentType = request.Content.Headers.ContentType;
+            
+            // Charset varsa KALDIR
+            if (!string.IsNullOrEmpty(contentType.CharSet))
+            {
+                _logger.LogDebug("Removing charset from Content-Type: {ContentType}", contentType);
+                contentType.CharSet = null;
+            }
+        }
         
         string? bufferedContent = null;
         if (request.Content != null)
@@ -25,6 +37,12 @@ public class RateLimitHandler : DelegatingHandler
         for (var attempt = 1; attempt <= MaxRetryAttempts; attempt++)
         {
             var req = CloneRequest(request, bufferedContent);
+            
+            // Clone'da da charset'i temizle
+            if (req.Content?.Headers.ContentType != null)
+            {
+                req.Content.Headers.ContentType.CharSet = null;
+            }
 
             var response = await base.SendAsync(req, cancellationToken);
             LogRateHeaders(response);
@@ -45,23 +63,38 @@ public class RateLimitHandler : DelegatingHandler
 
     private static HttpRequestMessage CloneRequest(HttpRequestMessage request, string? bufferedContent)
     {
-        var mediaType = request.Content?.Headers.ContentType?.MediaType ?? "application/json";
         var clone = new HttpRequestMessage(request.Method, request.RequestUri)
         {
-            Content = bufferedContent != null ? new StringContent(bufferedContent, System.Text.Encoding.UTF8, mediaType) : null,
             Version = request.Version
         };
 
+        // 🔥 ByteArrayContent kullan - StringContent charset ekliyor!
+        if (bufferedContent != null)
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes(bufferedContent);
+            clone.Content = new ByteArrayContent(bytes);
+            
+            // Content-Type'ı charset OLMADAN ayarla
+            var mediaType = request.Content?.Headers.ContentType?.MediaType ?? "application/json";
+            clone.Content.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
+        }
+
+        // Request headers'ı kopyala
         foreach (var header in request.Headers)
         {
             clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
         }
 
-        if (request.Content != null)
+        // Content headers'ı kopyala (Content-Type hariç - zaten ayarladık)
+        if (request.Content != null && clone.Content != null)
         {
             foreach (var header in request.Content.Headers)
             {
-                clone.Content?.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                // Content-Type'ı atlayalım çünkü zaten charset olmadan ayarladık
+                if (header.Key.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                    
+                clone.Content.Headers.TryAddWithoutValidation(header.Key, header.Value);
             }
         }
 

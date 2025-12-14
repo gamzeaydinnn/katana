@@ -40,13 +40,19 @@ public class KatanaService : IKatanaService
         };
     }
 
-    private static StringContent CreateKatanaJsonContent(string json)
+    private static HttpContent CreateKatanaJsonContent(string json)
     {
-        var content = new StringContent(json, Encoding.UTF8);
-        content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
-        {
-            CharSet = null
-        };
+        // Use ByteArrayContent to have full control over Content-Type header
+        var bytes = Encoding.UTF8.GetBytes(json);
+        var content = new ByteArrayContent(bytes);
+        
+        // Clear all existing Content-Type headers first
+        content.Headers.ContentType = null;
+        content.Headers.Remove("Content-Type");
+        
+        // Set Content-Type to exactly "application/json" without charset
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        
         return content;
     }
 
@@ -1452,36 +1458,118 @@ public class KatanaService : IKatanaService
     {
         try
         {
-            _logger.LogInformation("Updating Katana product ID: {ProductId}", katanaProductId);
+            _logger.LogInformation("Updating Katana product ID: {ProductId}, Name: {Name}, Price: {Price}, Stock: {Stock}", 
+                katanaProductId, name, salesPrice, stock);
 
-            var updatePayload = new
+            // Step 1: Get product details to find variant ID
+            var productResponse = await _httpClient.GetAsync($"{_settings.Endpoints.Products}/{katanaProductId}");
+            if (!productResponse.IsSuccessStatusCode)
             {
-                name = name,
-                variants = new[]
-                {
-                    new
-                    {
-                        sales_price = salesPrice,
-                        on_hand = stock
-                    }
-                }
-            };
-
-            var json = JsonSerializer.Serialize(updatePayload, _jsonOptions);
-            var content = CreateKatanaJsonContent(json);
-
-            var response = await _httpClient.PatchAsync($"{_settings.Endpoints.Products}/{katanaProductId}", content);
-            
-            if (response.IsSuccessStatusCode)
-            {
-                _logger.LogInformation("Successfully updated Katana product ID: {ProductId}", katanaProductId);
-                return true;
+                _logger.LogWarning("Failed to get product details for ID: {ProductId}", katanaProductId);
+                return false;
             }
-            
-            var errorContent = await response.Content.ReadAsStringAsync();
-            _logger.LogWarning("Failed to update Katana product ID: {ProductId}. Status: {Status}, Error: {Error}", 
-                katanaProductId, response.StatusCode, errorContent);
-            return false;
+
+            var productJson = await productResponse.Content.ReadAsStringAsync();
+            using var productDoc = JsonDocument.Parse(productJson);
+            var productRoot = productDoc.RootElement;
+
+            // Extract variant ID from the first variant
+            long? variantId = null;
+            if (productRoot.TryGetProperty("variants", out var variantsEl) && variantsEl.ValueKind == JsonValueKind.Array)
+            {
+                var firstVariant = variantsEl.EnumerateArray().FirstOrDefault();
+                if (firstVariant.ValueKind == JsonValueKind.Object && firstVariant.TryGetProperty("id", out var idEl))
+                {
+                    if (idEl.ValueKind == JsonValueKind.Number)
+                        variantId = idEl.GetInt64();
+                    else if (idEl.ValueKind == JsonValueKind.String && long.TryParse(idEl.GetString(), out var parsed))
+                        variantId = parsed;
+                }
+            }
+
+            if (!variantId.HasValue)
+            {
+                _logger.LogWarning("Could not find variant ID for product: {ProductId}", katanaProductId);
+                return false;
+            }
+
+            _logger.LogInformation("Found variant ID: {VariantId} for product: {ProductId}", variantId, katanaProductId);
+
+            // Step 2: Update product name (if needed)
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                var productPayload = new { name = name };
+                var productJsonPayload = JsonSerializer.Serialize(productPayload, _jsonOptions);
+                
+                using var productRequest = new HttpRequestMessage(HttpMethod.Patch, $"{_settings.Endpoints.Products}/{katanaProductId}");
+                var productBytes = System.Text.Encoding.UTF8.GetBytes(productJsonPayload);
+                productRequest.Content = new ByteArrayContent(productBytes);
+                productRequest.Content.Headers.Clear();
+                productRequest.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+                productRequest.Headers.Clear();
+                productRequest.Headers.Authorization = _httpClient.DefaultRequestHeaders.Authorization;
+                productRequest.Headers.Accept.Clear();
+                productRequest.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+                var productUpdateResponse = await _httpClient.SendAsync(productRequest);
+                if (!productUpdateResponse.IsSuccessStatusCode)
+                {
+                    var errorContent = await productUpdateResponse.Content.ReadAsStringAsync();
+                    _logger.LogWarning("Failed to update product name. ID: {ProductId}, Error: {Error}", 
+                        katanaProductId, errorContent);
+                }
+                else
+                {
+                    _logger.LogInformation("Successfully updated product name for ID: {ProductId}", katanaProductId);
+                }
+            }
+
+            // Step 3: Update variant price (if provided)
+            if (salesPrice.HasValue)
+            {
+                var variantPayload = new Dictionary<string, object?>
+                {
+                    ["sales_price"] = salesPrice.Value
+                };
+
+                var variantJsonPayload = JsonSerializer.Serialize(variantPayload, _jsonOptions);
+                
+                using var variantRequest = new HttpRequestMessage(HttpMethod.Patch, $"{_settings.Endpoints.Variants}/{variantId}");
+                var variantBytes = System.Text.Encoding.UTF8.GetBytes(variantJsonPayload);
+                variantRequest.Content = new ByteArrayContent(variantBytes);
+                variantRequest.Content.Headers.Clear();
+                variantRequest.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+                variantRequest.Headers.Clear();
+                variantRequest.Headers.Authorization = _httpClient.DefaultRequestHeaders.Authorization;
+                variantRequest.Headers.Accept.Clear();
+                variantRequest.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+                _logger.LogInformation("🔍 UpdateVariant Request to: {Endpoint}", $"{_settings.Endpoints.Variants}/{variantId}");
+                _logger.LogInformation("🔍 UpdateVariant Payload: {Payload}", variantJsonPayload);
+
+                var variantUpdateResponse = await _httpClient.SendAsync(variantRequest);
+                if (!variantUpdateResponse.IsSuccessStatusCode)
+                {
+                    var errorContent = await variantUpdateResponse.Content.ReadAsStringAsync();
+                    _logger.LogWarning("Failed to update variant price. ID: {VariantId}, Error: {Error}", 
+                        variantId, errorContent);
+                    return false;
+                }
+                
+                _logger.LogInformation("Successfully updated variant price for ID: {VariantId}", variantId);
+            }
+
+            // Step 4: Update stock via Stock Adjustment (if provided)
+            // Note: Stock cannot be updated directly via variant PATCH - must use stock adjustments
+            if (stock.HasValue && stock.Value > 0)
+            {
+                _logger.LogInformation("Stock update requested ({Stock} units) but skipping - use SyncProductStockAsync or CreateStockAdjustmentAsync instead", 
+                    stock.Value);
+                // Stock updates should be done via SyncProductStockAsync which creates proper stock adjustments
+            }
+
+            _logger.LogInformation("✅ Successfully updated Katana product ID: {ProductId}", katanaProductId);
+            return true;
         }
         catch (Exception ex)
         {
@@ -1576,8 +1664,24 @@ public class KatanaService : IKatanaService
             var json = JsonSerializer.Serialize(payload, _jsonOptions);
             _logger.LogDebug("CreateProductAsync payload: {Payload}", json);
 
-            var content = CreateKatanaJsonContent(json);
-            var response = await _httpClient.PostAsync(_settings.Endpoints.Products, content);
+            // ✅ YENİ KOD: HttpRequestMessage ile manuel kontrol
+            using var request = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.Products);
+            
+            // Content'i ekle - ByteArrayContent kullanarak charset'ten kaçın
+            var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+            request.Content = new ByteArrayContent(bytes);
+            
+            // 🔥 HEADER'LARI TEMİZLE VE SADECE BİZİMKİNİ EKLE
+            request.Content.Headers.Clear();
+            request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+            
+            // Request header'larını da kontrol et
+            request.Headers.Clear();
+            request.Headers.Authorization = _httpClient.DefaultRequestHeaders.Authorization;
+            request.Headers.Accept.Clear();
+            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+            
+            var response = await _httpClient.SendAsync(request);
             var responseContent = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
@@ -2815,28 +2919,78 @@ public class KatanaService : IKatanaService
     public async Task<SalesOrderDto?> CreateSalesOrderAsync(SalesOrderDto salesOrder)
     {
         _logger.LogInformation("CreateSalesOrderAsync called for OrderNo: {OrderNo}", salesOrder?.OrderNo);
+        
         var json = JsonSerializer.Serialize(salesOrder, _jsonOptions);
-        var resp = await _httpClient.PostAsync(_settings.Endpoints.SalesOrders, CreateKatanaJsonContent(json));
-        var content = await resp.Content.ReadAsStringAsync();
+        
+        // ✅ YENİ KOD: HttpRequestMessage ile manuel kontrol
+        using var request = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoints.SalesOrders);
+        
+        // Content'i ekle - ByteArrayContent kullanarak charset'ten kaçın
+        var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+        request.Content = new ByteArrayContent(bytes);
+        
+        // 🔥 HEADER'LARI TEMİZLE VE SADECE BİZİMKİNİ EKLE
+        request.Content.Headers.Clear();
+        request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+        
+        // Request header'larını da kontrol et
+        request.Headers.Clear();
+        request.Headers.Authorization = _httpClient.DefaultRequestHeaders.Authorization;
+        request.Headers.Accept.Clear();
+        request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+        
+        // Debug logging
+        _logger.LogInformation("🔍 Request Headers: {Headers}", 
+            string.Join(", ", request.Headers.Select(h => $"{h.Key}={string.Join(",", h.Value)}")));
+        _logger.LogInformation("🔍 Content Headers: {Headers}", 
+            string.Join(", ", request.Content.Headers.Select(h => $"{h.Key}={string.Join(",", h.Value)}")));
+        
+        var resp = await _httpClient.SendAsync(request);
+        var responseContent = await resp.Content.ReadAsStringAsync();
+        
         if (!resp.IsSuccessStatusCode)
         {
-            _logger.LogWarning("CreateSalesOrderAsync failed. Status {Status}, Body {Body}", resp.StatusCode, content);
+            _logger.LogWarning("CreateSalesOrderAsync failed. Status {Status}, Body {Body}", 
+                resp.StatusCode, responseContent);
             resp.EnsureSuccessStatusCode();
         }
-        return JsonSerializer.Deserialize<SalesOrderDto>(content, _jsonOptions);
+        
+        return JsonSerializer.Deserialize<SalesOrderDto>(responseContent, _jsonOptions);
     }
 
     public async Task<SalesOrderDto?> UpdateSalesOrderAsync(SalesOrderDto salesOrder)
     {
         _logger.LogInformation("UpdateSalesOrderAsync called for OrderNo: {OrderNo}", salesOrder?.OrderNo);
+        
         var json = JsonSerializer.Serialize(salesOrder, _jsonOptions);
-        var resp = await _httpClient.PutAsync($"{_settings.Endpoints.SalesOrders}/{salesOrder?.Id}", CreateKatanaJsonContent(json));
+        
+        // ✅ YENİ KOD: HttpRequestMessage ile manuel kontrol
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"{_settings.Endpoints.SalesOrders}/{salesOrder?.Id}");
+        
+        // Content'i ekle - ByteArrayContent kullanarak charset'ten kaçın
+        var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+        request.Content = new ByteArrayContent(bytes);
+        
+        // 🔥 HEADER'LARI TEMİZLE VE SADECE BİZİMKİNİ EKLE
+        request.Content.Headers.Clear();
+        request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+        
+        // Request header'larını da kontrol et
+        request.Headers.Clear();
+        request.Headers.Authorization = _httpClient.DefaultRequestHeaders.Authorization;
+        request.Headers.Accept.Clear();
+        request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+        
+        var resp = await _httpClient.SendAsync(request);
         var content = await resp.Content.ReadAsStringAsync();
+        
         if (!resp.IsSuccessStatusCode)
         {
-            _logger.LogWarning("UpdateSalesOrderAsync failed. Status {Status}, Body {Body}", resp.StatusCode, content);
+            _logger.LogWarning("UpdateSalesOrderAsync failed. Status {Status}, Body {Body}", 
+                resp.StatusCode, content);
             resp.EnsureSuccessStatusCode();
         }
+        
         return JsonSerializer.Deserialize<SalesOrderDto>(content, _jsonOptions);
     }
 

@@ -734,4 +734,55 @@ public class SalesOrdersController : ControllerBase
             }).ToList()
         };
     }
+
+    /// <summary>
+    /// APPROVED_WITH_ERRORS durumundaki siparişlerin durumunu temizle
+    /// Charset sorunu düzeltildikten sonra eski hataları temizlemek için kullanılır
+    /// </summary>
+    [HttpPost("clear-errors")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> ClearApprovedErrors()
+    {
+        try
+        {
+            _logger.LogInformation("ClearApprovedErrors: Clearing APPROVED_WITH_ERRORS status");
+
+            // APPROVED_WITH_ERRORS durumundaki siparişleri bul
+            var failedOrders = await _context.SalesOrders
+                .Where(o => o.Status == "APPROVED_WITH_ERRORS")
+                .ToListAsync();
+
+            if (!failedOrders.Any())
+            {
+                return Ok(new { success = true, message = "Temizlenecek sipariş bulunamadı.", clearedCount = 0 });
+            }
+
+            _logger.LogInformation("Found {Count} orders with APPROVED_WITH_ERRORS status", failedOrders.Count);
+
+            // Tüm siparişlerin durumunu APPROVED olarak güncelle ve hata mesajını temizle
+            foreach (var order in failedOrders)
+            {
+                order.Status = "APPROVED";
+                order.LastSyncError = null;
+                order.UpdatedAt = DateTime.UtcNow;
+                _logger.LogInformation("Cleared error status for order: {OrderNo} (ID: {OrderId})", order.OrderNo, order.Id);
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("ClearApprovedErrors completed. Cleared {Count} orders", failedOrders.Count);
+
+            return Ok(new
+            {
+                success = true,
+                message = $"{failedOrders.Count} siparişin hata durumu temizlendi.",
+                clearedCount = failedOrders.Count
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ClearApprovedErrors: Unexpected error");
+            return StatusCode(500, new { success = false, message = "Hata durumu temizlenirken hata oluştu.", error = ex.Message });
+        }
+    }
 }
