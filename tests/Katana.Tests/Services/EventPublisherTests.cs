@@ -184,9 +184,9 @@ public class EventPublisherTests : IDisposable
     }
 
     // Helper methods
-    private async Task<Katana.Data.Models.PurchaseOrder> CreateTestPurchaseOrder()
+    private async Task<PurchaseOrder> CreateTestPurchaseOrder()
     {
-        var po = new Katana.Data.Models.PurchaseOrder
+        var po = new PurchaseOrder
         {
             SupplierId = 1,
             Status = PurchaseOrderStatus.Approved,
@@ -198,9 +198,9 @@ public class EventPublisherTests : IDisposable
         return po;
     }
 
-    private async Task<Katana.Data.Models.PendingStockAdjustment> CreateTestPendingStockAdjustment(int poId)
+    private async Task<PendingStockAdjustment> CreateTestPendingStockAdjustment(int poId)
     {
-        var pending = new Katana.Data.Models.PendingStockAdjustment
+        var pending = new PendingStockAdjustment
         {
             ExternalOrderId = poId.ToString(),
             ProductId = 1,

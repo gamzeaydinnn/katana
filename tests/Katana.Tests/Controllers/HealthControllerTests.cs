@@ -2,7 +2,7 @@ using Xunit;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Katana.API.Controllers;
-using Katana.Core.Interfaces;
+using Katana.Business.Interfaces;
 using Microsoft.Extensions.Logging;
 using Moq;
 
