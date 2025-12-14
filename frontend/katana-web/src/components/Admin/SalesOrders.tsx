@@ -545,17 +545,44 @@ const SalesOrders: React.FC = () => {
       </Paper>
 
       {/* Table */}
-      <TableContainer component={Paper}>
-        <Table size="small">
+      <TableContainer
+        component={Paper}
+        sx={{ overflowX: "auto", maxWidth: "100%" }}
+      >
+        <Table size="small" sx={{ minWidth: { xs: "100%", sm: "650px" } }}>
           <TableHead>
             <TableRow>
-              <TableCell>Sipariş No</TableCell>
-              <TableCell>Müşteri</TableCell>
-              <TableCell>Tarih</TableCell>
-              <TableCell>Durum</TableCell>
-              <TableCell align="right">Tutar</TableCell>
-              <TableCell>Koza</TableCell>
-              <TableCell align="center">İşlemler</TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                Sipariş No
+              </TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                Müşteri
+              </TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                Tarih
+              </TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                Durum
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}
+              >
+                Tutar
+              </TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                Koza
+              </TableCell>
+              <TableCell
+                align="center"
+                sx={{
+                  whiteSpace: "nowrap",
+                  fontSize: "0.875rem",
+                  minWidth: "140px",
+                }}
+              >
+                İşlemler
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -576,15 +603,31 @@ const SalesOrders: React.FC = () => {
             ) : (
               orders.map((order) => (
                 <TableRow key={order.id} hover>
-                  <TableCell>
-                    <Typography fontWeight="medium">{order.orderNo}</Typography>
+                  <TableCell sx={{ fontSize: "0.875rem" }}>
+                    <Typography fontWeight="medium" fontSize="0.875rem">
+                      {order.orderNo}
+                    </Typography>
                   </TableCell>
-                  <TableCell>{order.customerName || "-"}</TableCell>
-                  <TableCell>{formatDate(order.orderCreatedDate)}</TableCell>
+                  <TableCell
+                    sx={{
+                      fontSize: "0.875rem",
+                      maxWidth: "120px",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {order.customerName || "-"}
+                  </TableCell>
+                  <TableCell
+                    sx={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}
+                  >
+                    {formatDate(order.orderCreatedDate)}
+                  </TableCell>
                   <TableCell>
                     <Chip
                       label={order.status}
                       size="small"
+                      sx={{ fontSize: "0.75rem" }}
                       color={
                         order.status === "SHIPPED"
                           ? "success"
@@ -594,7 +637,10 @@ const SalesOrders: React.FC = () => {
                       }
                     />
                   </TableCell>
-                  <TableCell align="right">
+                  <TableCell
+                    align="right"
+                    sx={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}
+                  >
                     {formatCurrency(order.total, order.currency)}
                   </TableCell>
                   <TableCell>
@@ -603,50 +649,62 @@ const SalesOrders: React.FC = () => {
                       error={order.lastSyncError}
                     />
                   </TableCell>
-                  <TableCell align="center">
-                    <Tooltip title="Detay">
-                      <IconButton
-                        size="small"
-                        onClick={() => fetchOrderDetail(order.id)}
-                        disabled={detailLoading}
-                      >
-                        <ViewIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    {/* Admin Onay Butonu - PENDING durumundaki siparişler için */}
-                    {(order.status === "PENDING" ||
-                      order.status === "NOT_SHIPPED") && (
-                      <Tooltip title="Onayla ve Katana'ya Stok Ekle">
+                  <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        gap: 0.5,
+                        justifyContent: "center",
+                        flexWrap: "nowrap",
+                      }}
+                    >
+                      <Tooltip title="Detay">
                         <IconButton
                           size="small"
-                          onClick={() =>
-                            openApprovalDialog(order.id, order.orderNo)
-                          }
-                          disabled={approving === order.id}
-                          color="success"
+                          onClick={() => fetchOrderDetail(order.id)}
+                          disabled={detailLoading}
+                          sx={{ padding: "4px" }}
                         >
-                          {approving === order.id ? (
+                          <ViewIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      {/* Admin Onay Butonu - PENDING durumundaki siparişler için */}
+                      {(order.status === "PENDING" ||
+                        order.status === "NOT_SHIPPED") && (
+                        <Tooltip title="Onayla">
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              openApprovalDialog(order.id, order.orderNo)
+                            }
+                            disabled={approving === order.id}
+                            color="success"
+                            sx={{ padding: "4px" }}
+                          >
+                            {approving === order.id ? (
+                              <CircularProgress size={16} />
+                            ) : (
+                              <ApproveIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Koza">
+                        <IconButton
+                          size="small"
+                          onClick={() => syncToLuca(order.id)}
+                          disabled={syncing === order.id}
+                          color="primary"
+                          sx={{ padding: "4px" }}
+                        >
+                          {syncing === order.id ? (
                             <CircularProgress size={16} />
                           ) : (
-                            <ApproveIcon fontSize="small" />
+                            <SyncIcon fontSize="small" />
                           )}
                         </IconButton>
                       </Tooltip>
-                    )}
-                    <Tooltip title="Koza'ya Senkronize Et">
-                      <IconButton
-                        size="small"
-                        onClick={() => syncToLuca(order.id)}
-                        disabled={syncing === order.id}
-                        color="primary"
-                      >
-                        {syncing === order.id ? (
-                          <CircularProgress size={16} />
-                        ) : (
-                          <SyncIcon fontSize="small" />
-                        )}
-                      </IconButton>
-                    </Tooltip>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))
