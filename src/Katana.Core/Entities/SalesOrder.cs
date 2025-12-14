@@ -28,6 +28,10 @@ public class SalesOrder
     [MaxLength(3)]
     public string? Currency { get; set; } = "TRY";
 
+    /// <summary>
+    /// Katana API status (raw string): NOT_SHIPPED, OPEN, SHIPPED, DELIVERED, CANCELLED, etc.
+    /// This is stored as-is from Katana API, not mapped to OrderStatus enum.
+    /// </summary>
     [MaxLength(50)]
     public string Status { get; set; } = "NOT_SHIPPED";
 

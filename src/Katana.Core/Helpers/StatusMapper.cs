@@ -8,13 +8,25 @@ namespace Katana.Core.Helpers;
 public static class StatusMapper
 {
     // Katana API -> Backend OrderStatus mapping
+    // Katana status values observed in production:
+    // - NOT_SHIPPED, OPEN: Order created but not shipped
+    // - PARTIALLY_SHIPPED, PROCESSING: Some items shipped
+    // - FULLY_SHIPPED, SHIPPED: All items shipped
+    // - DELIVERED, DONE: Order delivered/completed
+    // - CANCELLED, CANCELED: Order cancelled
+    // - RETURNED: Order returned
     private static readonly Dictionary<string, OrderStatus> KatanaToOrderStatus = new(StringComparer.OrdinalIgnoreCase)
     {
         { "NOT_SHIPPED", OrderStatus.Pending },
+        { "OPEN", OrderStatus.Pending },
         { "PARTIALLY_SHIPPED", OrderStatus.Processing },
+        { "PROCESSING", OrderStatus.Processing },
         { "FULLY_SHIPPED", OrderStatus.Shipped },
+        { "SHIPPED", OrderStatus.Shipped },
         { "DELIVERED", OrderStatus.Delivered },
+        { "DONE", OrderStatus.Delivered },
         { "CANCELLED", OrderStatus.Cancelled },
+        { "CANCELED", OrderStatus.Cancelled },
         { "RETURNED", OrderStatus.Returned }
     };
 

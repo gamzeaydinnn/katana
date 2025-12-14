@@ -21,9 +21,6 @@ using System.Threading;
 
 namespace Katana.Business.Services;
 
-
-
-
 public class SyncService : ISyncService
 {
     private static readonly SemaphoreSlim _productStockCardSyncLock = new(1, 1);

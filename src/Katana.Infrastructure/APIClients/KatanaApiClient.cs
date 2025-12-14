@@ -201,10 +201,29 @@ public class KatanaApiClient : IKatanaApiClient
         return dtos.Select(MapPurchaseOrder).ToList();
     }
 
+    /// <summary>
+    /// LEGACY METHOD - Returns Order entities (with OrderStatus enum).
+    /// 
+    /// ⚠️ NOT USED BY SYNC CODE ⚠️
+    /// The sync code uses IKatanaService.GetSalesOrdersBatchedAsync directly
+    /// and maps to SalesOrder entity (with string status) in the sync controllers.
+    /// 
+    /// This method is kept for backward compatibility but should not be used for new code.
+    /// </summary>
+    [Obsolete("Use IKatanaService.GetSalesOrdersBatchedAsync directly for sync operations. This method returns legacy Order entities.")]
     public async Task<List<Order>> GetSalesOrdersAsync(DateTime? fromDate = null)
     {
-        var dtos = await _katanaService.GetSalesOrdersAsync(fromDate);
-        return dtos.Select(MapSalesOrder).ToList();
+        // Use batched/paginated retrieval to avoid missing orders when Katana has many records
+        // This ensures we get ALL orders, not just the first page
+        var allOrders = new List<Order>();
+        
+        await foreach (var batch in _katanaService.GetSalesOrdersBatchedAsync(fromDate, batchSize: 100))
+        {
+            var mappedBatch = batch.Select(MapSalesOrder).ToList();
+            allOrders.AddRange(mappedBatch);
+        }
+        
+        return allOrders;
     }
 
     public async Task<Order?> CreateSalesOrderAsync(Order order)
@@ -428,12 +447,40 @@ public class KatanaApiClient : IKatanaApiClient
         return new Order
         {
             OrderNo = string.IsNullOrWhiteSpace(dto.OrderNo) ? dto.Id.ToString() : dto.OrderNo,
-            CustomerId = 0,
-            Status = OrderStatus.Pending,
+            CustomerId = 0, // ⚠️ Will be resolved by caller using customer mapping logic
+            Status = MapKatanaStatusToOrderStatus(dto.Status), // Map actual status from Katana
             TotalAmount = dto.Total ?? 0,
             OrderDate = dto.OrderCreatedDate ?? DateTime.UtcNow,
             Currency = string.IsNullOrWhiteSpace(dto.Currency) ? "TRY" : dto.Currency,
             IsSynced = false
+        };
+    }
+
+    /// <summary>
+    /// Maps Katana API status strings to OrderStatus enum.
+    /// Note: This is for the legacy Order entity. SalesOrder uses string status directly.
+    /// 
+    /// Katana status values observed in production:
+    /// - NOT_SHIPPED: Order created but not shipped (shown in "Open" tab in Katana UI)
+    /// - OPEN: Alternative status for open orders (some Katana versions)
+    /// - PARTIALLY_SHIPPED: Some items shipped
+    /// - FULLY_SHIPPED / SHIPPED: All items shipped
+    /// - DELIVERED: Order delivered to customer
+    /// - CANCELLED / CANCELED: Order cancelled
+    /// - RETURNED: Order returned by customer
+    /// - DONE: Order completed (legacy status)
+    /// </summary>
+    private static OrderStatus MapKatanaStatusToOrderStatus(string katanaStatus)
+    {
+        return katanaStatus?.ToUpperInvariant() switch
+        {
+            "NOT_SHIPPED" or "OPEN" => OrderStatus.Pending,
+            "PARTIALLY_SHIPPED" or "PROCESSING" => OrderStatus.Processing,
+            "FULLY_SHIPPED" or "SHIPPED" => OrderStatus.Shipped,
+            "DELIVERED" or "DONE" => OrderStatus.Delivered,
+            "CANCELLED" or "CANCELED" => OrderStatus.Cancelled,
+            "RETURNED" => OrderStatus.Returned,
+            _ => OrderStatus.Pending // Default fallback for unknown statuses
         };
     }
 

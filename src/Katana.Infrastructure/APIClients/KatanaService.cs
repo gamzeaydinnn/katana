@@ -566,12 +566,16 @@ public class KatanaService : IKatanaService
 
         try
         {
-            _logger.LogInformation("Getting customer by ID from Katana: {CustomerId}", customerId);
+            var endpoint = $"{_settings.Endpoints.Customers}/{customerId}";
+            _logger.LogDebug("🔍 Fetching customer from Katana: {Endpoint}", endpoint);
             
-            var response = await _httpClient.GetAsync($"{_settings.Endpoints.Customers}/{customerId}");
+            var response = await _httpClient.GetAsync(endpoint);
             
             if (!response.IsSuccessStatusCode)
             {
+                _logger.LogWarning("❌ Katana customer fetch failed: {StatusCode} - {Reason}", 
+                    response.StatusCode, response.ReasonPhrase);
+                
                 if (response.StatusCode == HttpStatusCode.NotFound)
                 {
                     _logger.LogWarning("Customer not found in Katana: {CustomerId}", customerId);
@@ -586,6 +590,8 @@ public class KatanaService : IKatanaService
             }
 
             var content = await response.Content.ReadAsStringAsync();
+            _logger.LogDebug("📦 Katana customer response: {Json}", content);
+            
             using var doc = JsonDocument.Parse(content);
             var root = doc.RootElement;
             
@@ -2714,6 +2720,9 @@ public class KatanaService : IKatanaService
     /// <summary>
     /// Memory-efficient batched sales order retrieval with server-side pagination
     /// Uses Katana API's native pagination instead of loading all data
+    /// 
+    /// When fromDate is null: Fetches ONLY open orders (status=NOT_SHIPPED) - matches Katana UI "Open" tab
+    /// When fromDate is provided: Fetches ALL orders created after that date (no status filter)
     /// </summary>
     public async IAsyncEnumerable<List<SalesOrderDto>> GetSalesOrdersBatchedAsync(
         DateTime? fromDate = null, 
@@ -2722,7 +2731,8 @@ public class KatanaService : IKatanaService
         int page = 1;
         int totalRetrieved = 0;
         
-        _logger.LogInformation("Starting paginated sales order retrieval (batchSize={BatchSize})", batchSize);
+        _logger.LogInformation("Starting paginated sales order retrieval (batchSize={BatchSize}, fromDate={FromDate})", 
+            batchSize, fromDate?.ToString("yyyy-MM-dd") ?? "null (open orders only)");
 
         while (true)
         {
@@ -2735,7 +2745,14 @@ public class KatanaService : IKatanaService
             
             if (fromDate.HasValue)
             {
+                // Date filter provided: Get all orders created after this date (any status)
                 queryParams.Add($"created_at_min={fromDate:yyyy-MM-dd}");
+            }
+            else
+            {
+                // No date filter: Get ONLY open orders (matches Katana UI "Open" tab)
+                // This ensures we fetch old orders like SO-41, SO-47 that are still open
+                queryParams.Add("status=NOT_SHIPPED");
             }
             
             var query = "?" + string.Join("&", queryParams);
