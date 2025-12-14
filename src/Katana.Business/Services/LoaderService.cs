@@ -224,7 +224,8 @@ public class LoaderService : ILoaderService
                 productDto,
                 _lucaSettings,
                 productCategoryMappings,
-                _katanaMappingSettings);
+                _katanaMappingSettings,
+                unitMappings: _lucaSettings.UnitMapping);
             
             lucaStockCards.Add(card);
         }
