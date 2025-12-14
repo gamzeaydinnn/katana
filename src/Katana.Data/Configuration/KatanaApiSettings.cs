@@ -18,7 +18,7 @@ public class KatanaApiSettings
 
     public string AuthHeaderType { get; set; } = "X-Api-Key";
     public string AcceptHeader { get; set; } = "application/json";
-    public string ContentType { get; set; } = "application/json; charset=utf-8";
+    public string ContentType { get; set; } = "application/json";
     public RateLimitSettings RateLimit { get; set; } = new();
     public PaginationSettings Pagination { get; set; } = new();
 
