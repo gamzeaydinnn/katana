@@ -17,16 +17,25 @@ public class StockMovement
     [MaxLength(50)]
     public string ProductSku { get; set; } = string.Empty;
 
+    [MaxLength(50)]
+    public string SKU { get; set; } = string.Empty;
+
     public int ChangeQuantity { get; set; }
 
     [Required]
     public MovementType MovementType { get; set; }
 
-    
+    [MaxLength(200)]
+    public string Reason { get; set; } = string.Empty;
+
     [MaxLength(100)]
     public string SourceDocument { get; set; } = string.Empty;
 
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public DateTime MovementDate { get; set; } = DateTime.UtcNow;
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [MaxLength(100)]
     public string WarehouseCode { get; set; } = "MAIN";
