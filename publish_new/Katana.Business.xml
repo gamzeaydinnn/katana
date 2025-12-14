@@ -1,0 +1,1312 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Katana.Business</name>
+    </assembly>
+    <members>
+        <member name="T:Katana.Business.DTOs.LucaCacheStatusDto">
+            <summary>
+            Luca cache durumu (stok kartı cache'i) için basit DTO.
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Extensions.MappingExtensions">
+            <summary>
+            Mapping entity'leri için extension method'lar
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Extensions.MappingExtensions.CreateSupplierMapping(System.String,System.String,System.Nullable{System.Int64},System.String,System.String)">
+            <summary>
+            Supplier mapping'i oluştur ve hash'ini hesapla
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Extensions.MappingExtensions.CreateCustomerMapping(System.String,System.String,System.Nullable{System.Int64},System.String,System.String,System.String)">
+            <summary>
+            Customer mapping'i oluştur ve hash'ini hesapla
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Extensions.MappingExtensions.CreateLocationMapping(System.String,System.String,System.Nullable{System.Int64},System.String,System.String)">
+            <summary>
+            Location mapping'i oluştur ve hash'ini hesapla
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Extensions.MappingExtensions.CreateProductMapping(System.String,System.String,System.String,System.Nullable{System.Int64})">
+            <summary>
+            Product mapping'i oluştur ve hash'ini hesapla
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Extensions.MappingExtensions.CreateOrderMapping(System.Int32,System.Int64,System.String,System.String)">
+            <summary>
+            Order mapping'i oluştur ve hash'ini hesapla
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Extensions.MappingExtensions.UpdateHash(Katana.Data.Models.MappingTable)">
+            <summary>
+            MappingTable'a hash ekle
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Extensions.MappingExtensions.UpdateHash(Katana.Core.Entities.SupplierKozaCariMapping)">
+            <summary>
+            Supplier mapping'in hash'ini güncelle
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Extensions.MappingExtensions.UpdateHash(Katana.Core.Entities.LocationKozaDepotMapping)">
+            <summary>
+            Location mapping'in hash'ini güncelle
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Extensions.MappingExtensions.UpdateHash(Katana.Core.Entities.ProductLucaMapping)">
+            <summary>
+            Product mapping'in hash'ini güncelle
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Extensions.MappingExtensions.UpdateHash(Katana.Data.Models.OrderMapping)">
+            <summary>
+            Order mapping'in hash'ini güncelle
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Extensions.MappingExtensions.UpdateHash(Katana.Core.Entities.CustomerKozaCariMapping)">
+            <summary>
+            Customer mapping'in hash'ini güncelle
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Interfaces.IBatchJobService">
+            <summary>
+            Batch job yönetim servisi interface'i
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IBatchJobService.CreateBatchJobAsync(Katana.Core.DTOs.BatchPushRequest,System.String)">
+            <summary>
+            Yeni batch job oluşturur ve kuyruğa ekler
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IBatchJobService.GetJobStatus(System.String)">
+            <summary>
+            Job durumunu getirir
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IBatchJobService.GetActiveJobs">
+            <summary>
+            Tüm aktif job'ları getirir
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IBatchJobService.CancelJob(System.String,System.String,System.String)">
+            <summary>
+            Job'u iptal eder
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IBatchJobService.DequeuePendingJob">
+            <summary>
+            Bekleyen job'u alır (worker için)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IBatchJobService.UpdateJobStatus(System.String,System.Action{Katana.Core.DTOs.BatchJobItem})">
+            <summary>
+            Job durumunu günceller
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IBatchJobService.CleanupOldJobs(System.TimeSpan)">
+            <summary>
+            Job geçmişini temizler (tamamlanmış/iptal edilmiş eski job'ları siler)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IBatchJobService.HasPendingJobs">
+            <summary>
+            Bekleyen job var mı kontrol eder
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IKatanaService.SyncProductStockAsync(System.String,System.Decimal,System.Nullable{System.Int64},System.String,System.Nullable{System.Decimal})">
+            <summary>
+            Upsert stock for a SKU in Katana: create product if missing, otherwise increase stock.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IKatanaService.FindVariantIdBySkuAsync(System.String)">
+            <summary>
+            SKU ile variant ID'sini bulur
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IKatanaService.GetSalesOrdersBatchedAsync(System.Nullable{System.DateTime},System.Int32)">
+            <summary>
+            Memory-efficient batched sales order retrieval for large datasets
+            Prevents memory leaks when processing 1000+ orders
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaService.CreateSalesOrderInvoiceAsync(Katana.Core.Entities.SalesOrder,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Creates a SALES INVOICE in Luca from a local SalesOrder entity.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaService.ForceSessionRefreshAsync">
+            <summary>
+            Force session refresh - HTML response sorununu önler
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaService.FindCariCardByCodeAsync(System.String)">
+            <summary>
+            Luca'da cari kart arar (kartKodu/cariKodu bazlı)
+            </summary>
+            <param name="kartKodu">Cari kart kodu (örn: CK-102)</param>
+            <returns>finansalNesneId bulunursa, bulunamazsa null</returns>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaService.UpdateCariCardAsync(Katana.Core.DTOs.LucaUpdateCustomerFullRequest)">
+            <summary>
+            Luca'da cari kart günceller (GuncelleFinMusteriWS.do)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaService.UpsertCariCardAsync(Katana.Core.Entities.Customer)">
+            <summary>
+            UPSERT: Cari kart varsa güncelle, yoksa oluştur (Customer için)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaService.UpsertCariCardAsync(Katana.Core.Entities.Supplier)">
+            <summary>
+            UPSERT: Cari kart varsa güncelle, yoksa oluştur (Supplier için)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaService.SendCustomerAddressAsync(System.Int64,System.String,System.String,System.String,System.Boolean)">
+            <summary>
+            Müşteri adreslerini Luca'ya gönderir
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaService.CreateStockCardV2Async(Katana.Core.DTOs.LucaCreateStockCardRequestV2,System.Threading.CancellationToken)">
+            <summary>
+            Luca/Koza'ya stok kartı oluşturur - V2 (Yeni API formatı)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaService.FindStockCardBySkuAsync(System.String)">
+            <summary>
+            Search for a stock card by SKU/KartKodu in Luca.
+            Returns the skartId if found, null if not found.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaService.UpsertStockCardAsync(Katana.Core.DTOs.LucaCreateStokKartiRequest)">
+            <summary>
+            UPSERT: If stock card exists in Luca, skip (API doesn't support update).
+            If not exists, create new card.
+            Returns success with info about whether it was created or already existed.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaService.CreateWarehouseTransferAsync(Katana.Core.DTOs.LucaStockTransferRequest)">
+            <summary>
+            Luca Depo Transferi (Wrapper) - LucaStockTransferRequest için
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaService.CreateStockVoucherAsync(Katana.Core.DTOs.LucaStockVoucherRequest)">
+            <summary>
+            Luca DSH Stok Hareketi Fişi (Fire, Sarf, Sayım Fazlası vb.)
+            EkleStkWsDshBaslik.do endpoint'i
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Interfaces.ILucaSessionManager">
+            <summary>
+            Thread-safe Luca session manager interface
+            Manages JSESSIONID lifecycle, auto-refresh, and session pooling
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaSessionManager.GetActiveSessionAsync">
+            <summary>
+            Get current active session ID (JSESSIONID)
+            Thread-safe, returns valid session or refreshes if expired
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaSessionManager.RefreshSessionAsync">
+            <summary>
+            Force refresh session (login to Luca and get new JSESSIONID)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaSessionManager.IsSessionValidAsync">
+            <summary>
+            Check if current session is valid (not expired)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaSessionManager.GetSessionExpiry">
+            <summary>
+            Get session expiration time
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaSessionManager.SetSessionAsync(System.String,System.DateTime)">
+            <summary>
+            Manually set session ID (for testing or external session injection)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaSessionManager.ClearSessionAsync">
+            <summary>
+            Clear current session (logout)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ILucaSessionManager.GetSessionStatsAsync">
+            <summary>
+            Get session statistics (for monitoring)
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Interfaces.IOrderInvoiceSyncService">
+            <summary>
+            Katana Order'larını Luca'ya Fatura olarak senkronize eden servis interface'i
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IOrderInvoiceSyncService.SyncSalesOrderToLucaAsync(System.Int32)">
+            <summary>
+            Katana Sales Order'ı Luca'ya Satış Faturası olarak gönderir
+            Luca Belge Türü: 18 (Satış Faturası)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IOrderInvoiceSyncService.SyncPurchaseOrderToLucaAsync(System.Int32)">
+            <summary>
+            Katana Purchase Order'ı Luca'ya Alım Faturası olarak gönderir
+            Luca Belge Türü: 16 (Alım Faturası)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IOrderInvoiceSyncService.CloseInvoiceAsync(System.Int32,System.String,System.Decimal)">
+            <summary>
+            Luca'daki faturayı kapatır (ödeme/tahsilat)
+            Sales Order: Tahsilat işlemi
+            Purchase Order: Tediye işlemi
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IOrderInvoiceSyncService.DeleteInvoiceAsync(System.Int32,System.String)">
+            <summary>
+            Luca'daki faturayı siler (sipariş iptali durumunda)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IOrderInvoiceSyncService.SyncPendingSalesOrdersAsync">
+            <summary>
+            Bekleyen tüm Sales Order'ları toplu olarak Luca'ya gönderir
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Interfaces.IOrderSyncQueryService">
+            <summary>
+            Order senkronizasyon paneli için database sorgularını (query logic) encapsulate eder.
+            OrderInvoiceSyncController'dan DB logic'i ayırır.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IOrderSyncQueryService.GetSyncPanelOrdersAsync(System.String,System.Int32,System.Int32)">
+            <summary>
+            Senkronizasyon panelinde gösterilecek siparişleri sayfalanmış olarak getirir.
+            Filtrelenmiş, sorted ve DTO'ya mapped.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IOrderSyncQueryService.GetOrderDetailAsync(System.Int32)">
+            <summary>
+            Tek bir siparişin detayını getirir (customer, items, ürün bilgileriyle birlikte).
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IOrderSyncQueryService.GetSyncStatisticsAsync">
+            <summary>
+            Senkronizasyon dashboard istatistiklerini getirir
+            (toplam, synced, pending, cancelled siparişler ve yüzdeler).
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IOrderSyncQueryService.GetOrderLucaMappingAsync(System.Int32)">
+            <summary>
+            Belirli bir siparişin Luca'daki mapping'ini getirir (varsa).
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Interfaces.OrderListItemDto">
+            <summary>
+            Senkronizasyon panelinde gösterilen sipariş listesi item'ı.
+            </summary>
+        </member>
+        <member name="P:Katana.Business.Interfaces.OrderListItemDto.Status">
+            <summary>
+            Senkronizasyon durumu: "SYNCED", "PENDING", "CANCELLED"
+            </summary>
+        </member>
+        <member name="P:Katana.Business.Interfaces.OrderListItemDto.OrderStatus">
+            <summary>
+            Orijinal sipariş durumu enum'u
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Interfaces.OrderDetailDto">
+            <summary>
+            Sipariş detay sayfasında gösterilen tam veri.
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Interfaces.OrderSyncDashboardStatsDto">
+            <summary>
+            Senkronizasyon dashboard istatistikleri.
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Interfaces.OrderLucaMappingDto">
+            <summary>
+            Sipariş-Luca fatura mapping'i.
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Interfaces.ProductUpdateResult">
+            <summary>
+            Ürün güncellemesi sonucu
+            </summary>
+        </member>
+        <member name="P:Katana.Business.Interfaces.ProductUpdateResult.IsNewVersion">
+            <summary>
+            Yeni versiyon mu oluşturuldu?
+            </summary>
+        </member>
+        <member name="P:Katana.Business.Interfaces.ProductUpdateResult.LucaStockCode">
+            <summary>
+            Versiyonlu Luca stok kodu (örn: SKU-V2)
+            </summary>
+        </member>
+        <member name="P:Katana.Business.Interfaces.ProductUpdateResult.ShouldSendToLuca">
+            <summary>
+            Luca'ya gönderilmeli mi?
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Interfaces.IProductMappingService">
+            <summary>
+            Katana → Luca Append-Only Senkronizasyon için mapping servisi.
+            Luca'da güncelleme endpoint'i olmadığından her değişiklikte yeni versiyonlu SKU oluşturulur.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IProductMappingService.HandleProductUpdateAsync(Katana.Core.DTOs.KatanaProductDto)">
+            <summary>
+            Ana metod: Ürün güncellemesi kontrolü ve yeni versiyon oluşturma
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IProductMappingService.HasProductChangedAsync(Katana.Core.Entities.ProductLucaMapping,Katana.Core.DTOs.KatanaProductDto)">
+            <summary>
+            Değişiklik kontrolü
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IProductMappingService.GenerateVersionedSkuAsync(System.String,System.Int32)">
+            <summary>
+            Versiyonlu SKU üretimi (örn: SKU-V2, SKU-V3...)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IProductMappingService.MarkAsSyncedAsync(System.Int32,System.Int64)">
+            <summary>
+            Sync sonuçlarını güncelle - başarılı
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IProductMappingService.MarkAsSyncFailedAsync(System.Int32,System.String)">
+            <summary>
+            Sync sonuçlarını güncelle - başarısız
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IProductMappingService.GetActiveMappingAsync(System.String)">
+            <summary>
+            Katana ürün ID'sine göre aktif mapping'i getirir
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IProductMappingService.GetPendingMappingsAsync">
+            <summary>
+            PENDING durumundaki mapping'leri getirir
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IProductMappingService.GetFailedMappingsAsync">
+            <summary>
+            FAILED durumundaki mapping'leri getirir
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Interfaces.IStockCardCache">
+            <summary>
+            Redis-based cache interface for Luca stock cards
+            Provides SKU → StockCardId mapping with persistent storage
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockCardCache.GetStockCardIdAsync(System.String)">
+            <summary>
+            Get stock card ID by SKU from Redis cache
+            </summary>
+            <param name="sku">Stock keeping unit (product SKU)</param>
+            <returns>Stock card ID if found, null otherwise</returns>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockCardCache.GetStockCardIdsAsync(System.Collections.Generic.IEnumerable{System.String})">
+            <summary>
+            Get multiple stock card IDs by SKUs from Redis cache
+            </summary>
+            <param name="skus">List of SKUs to lookup</param>
+            <returns>Dictionary of SKU → StockCardId mappings</returns>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockCardCache.SetStockCardIdAsync(System.String,System.Int64)">
+            <summary>
+            Set stock card ID for a SKU in Redis cache
+            </summary>
+            <param name="sku">Stock keeping unit</param>
+            <param name="stockCardId">Luca stock card ID</param>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockCardCache.SetStockCardIdsAsync(System.Collections.Generic.Dictionary{System.String,System.Int64})">
+            <summary>
+            Set multiple stock card IDs in Redis cache (bulk operation)
+            </summary>
+            <param name="mapping">Dictionary of SKU → StockCardId mappings</param>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockCardCache.IsCacheWarmedAsync">
+            <summary>
+            Check if cache is warmed up (contains data)
+            </summary>
+            <returns>True if cache has at least one entry</returns>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockCardCache.GetCacheCountAsync">
+            <summary>
+            Get total count of cached entries
+            </summary>
+            <returns>Number of SKU → StockCardId mappings in cache</returns>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockCardCache.ClearCacheAsync">
+            <summary>
+            Clear all cache entries (use with caution)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockCardCache.GetCacheStatusAsync">
+            <summary>
+            Get cache status information (for diagnostics)
+            </summary>
+            <returns>Cache status details including entry count and health</returns>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockCardCache.WarmupCacheAsync(System.Collections.Generic.Dictionary{System.String,System.Int64})">
+            <summary>
+            Warmup cache with initial stock card data from Luca API
+            </summary>
+            <param name="stockCards">Dictionary of SKU → StockCardId to preload</param>
+        </member>
+        <member name="T:Katana.Business.Interfaces.IStockMovementSyncService">
+            <summary>
+            Stok Transfer ve Adjustment senkronizasyon servisi
+            Katana → Luca (Depo Transfer / DSH Fiş)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockMovementSyncService.GetAllMovementsAsync(Katana.Business.Interfaces.StockMovementFilterDto)">
+            <summary>
+            Tüm stok hareketlerini (transfer + adjustment) listeler
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockMovementSyncService.GetPendingTransfersAsync">
+            <summary>
+            Bekleyen stok transferlerini listeler
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockMovementSyncService.GetPendingAdjustmentsAsync">
+            <summary>
+            Bekleyen stok düzeltmelerini listeler
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockMovementSyncService.SyncTransferToLucaAsync(System.Int32)">
+            <summary>
+            Tek bir stok transferini Luca'ya senkronize eder
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockMovementSyncService.SyncAdjustmentToLucaAsync(System.Int32)">
+            <summary>
+            Tek bir stok düzeltmesini Luca'ya senkronize eder
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockMovementSyncService.SyncBatchAsync(System.Collections.Generic.List{System.Int32},System.Collections.Generic.List{System.Int32})">
+            <summary>
+            Toplu stok hareketi senkronizasyonu
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockMovementSyncService.SyncAllPendingAsync">
+            <summary>
+            Bekleyen tüm hareketleri senkronize eder
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.IStockMovementSyncService.GetDashboardStatsAsync">
+            <summary>
+            Dashboard istatistiklerini döner
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Interfaces.StockMovementSyncDto">
+            <summary>
+            Stok hareketi DTO - Transfer ve Adjustment için ortak
+            </summary>
+        </member>
+        <member name="P:Katana.Business.Interfaces.StockMovementSyncDto.MovementType">
+            <summary>
+            "TRANSFER" veya "ADJUSTMENT"
+            </summary>
+        </member>
+        <member name="P:Katana.Business.Interfaces.StockMovementSyncDto.LocationInfo">
+            <summary>
+            Transfer için "Kaynak → Hedef", Adjustment için "Depo"
+            </summary>
+        </member>
+        <member name="P:Katana.Business.Interfaces.StockMovementSyncDto.SyncStatus">
+            <summary>
+            "PENDING", "SYNCED", "ERROR"
+            </summary>
+        </member>
+        <member name="P:Katana.Business.Interfaces.StockMovementSyncDto.AdjustmentReason">
+            <summary>
+            Adjustment için: Pozitif/Negatif bilgisi
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Interfaces.ISyncWorker">
+            <summary>
+            Background worker interface for asynchronous sync operations
+            Handles queued sync jobs via Hangfire
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ISyncWorker.ProcessStockCardsAsync(System.Nullable{System.Int32},System.Boolean)">
+            <summary>
+            Process stock cards synchronization in background
+            This method is called by Hangfire job queue
+            </summary>
+            <param name="limit">Maximum number of products to sync (null = all)</param>
+            <param name="dryRun">If true, simulate sync without actual updates</param>
+            <returns>Sync result summary with success/failure counts</returns>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ISyncWorker.ProcessCustomersAsync(System.Nullable{System.Int32},System.Boolean)">
+            <summary>
+            Process customer synchronization in background
+            </summary>
+            <param name="limit">Maximum number of customers to sync</param>
+            <param name="dryRun">Dry run mode</param>
+            <returns>Sync result summary</returns>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ISyncWorker.ProcessInvoicesAsync(System.Nullable{System.Int32},System.Boolean)">
+            <summary>
+            Process invoice synchronization in background
+            </summary>
+            <param name="limit">Maximum number of invoices to sync</param>
+            <param name="dryRun">Dry run mode</param>
+            <returns>Sync result summary</returns>
+        </member>
+        <member name="M:Katana.Business.Interfaces.ISyncWorker.GetJobProgressAsync(System.String)">
+            <summary>
+            Get current job progress (for monitoring)
+            </summary>
+            <param name="jobId">Hangfire job ID</param>
+            <returns>Progress information</returns>
+        </member>
+        <member name="M:Katana.Business.Mappers.KatanaToLucaMapper.NormalizeProductNameForLuca(System.String)">
+            <summary>
+            Ürün ismini Luca API'si için normalize eder (Encoding sorunlarını çözer)
+            Luca ISO-8859-9 (Turkish) encoding kullanıyor, UTF-8'den gelen bazı karakterler bozuluyor
+            Ø → O, ?? → temizle, özel karakterleri ASCII'ye çevir
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.BatchJobService">
+            <summary>
+            Batch job yönetim servisi - in-memory kuyruk ve durum takibi
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.ICustomerMappingService">
+            <summary>
+            Customer → Koza Cari mapping servisi
+            Duplicate customer önleme ve cari kodu yönetimi
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.CustomerMappingService.GetCariKoduByCustomerIdAsync(System.String)">
+            <summary>
+            Customer ID'ye göre cari kodu al
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.CustomerMappingService.GetFinansalNesneIdByCustomerIdAsync(System.String)">
+            <summary>
+            Customer ID'ye göre finansal nesne ID al
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.CustomerMappingService.GetMappingByCustomerIdAsync(System.String)">
+            <summary>
+            Customer ID'ye göre mapping al
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.CustomerMappingService.GetMappingByTaxNoAsync(System.String)">
+            <summary>
+            Vergi numarasına göre mapping al (duplicate kontrolü için)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.CustomerMappingService.GetMappingByCariKoduAsync(System.String)">
+            <summary>
+            Cari koduna göre mapping al
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.CustomerMappingService.CreateOrUpdateMappingAsync(System.String,System.String,System.Nullable{System.Int64},System.String,System.String,System.String)">
+            <summary>
+            Mapping oluştur veya güncelle
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.CustomerMappingService.IsDuplicateCustomerAsync(System.String,System.String)">
+            <summary>
+            Duplicate customer kontrolü (vergi numarasına göre)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.CustomerMappingService.GetAllMappingsAsync">
+            <summary>
+            Tüm mapping'leri getir
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.CustomerMappingService.GetCustomerToCariKoduMapAsync">
+            <summary>
+            Customer ID → Cari Kodu dictionary'si al
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.DashboardService.GetRecentActivitiesAsync">
+            <summary>
+            Son aktiviteleri getir
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.DashboardService.GetSystemAlertsAsync">
+            <summary>
+            Sistem uyarılarını getir
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.Deduplication.CanonicalSelector">
+            <summary>
+            Implementation of canonical selection service
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.CanonicalSelector.SelectCanonical(Katana.Core.DTOs.DuplicateGroup,Katana.Core.DTOs.DeduplicationRules)">
+            <summary>
+            Property 12: Canonical selection by rules
+            Property 13: Default canonical selection
+            Selects the canonical stock card based on priority-ordered rules
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.CanonicalSelector.ApplyRule(Katana.Core.DTOs.CanonicalSelectionRule,System.Collections.Generic.List{Katana.Core.DTOs.StockCardInfo})">
+            <summary>
+            Applies a single rule to select a stock card
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.CanonicalSelector.ApplyPreferNoVersionSuffix(System.Collections.Generic.List{Katana.Core.DTOs.StockCardInfo})">
+            <summary>
+            Rule: Prefer stock cards without version suffix
+            Example: BFM-01 preferred over BFM-01-V2
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.CanonicalSelector.ApplyPreferLowerVersion(System.Collections.Generic.List{Katana.Core.DTOs.StockCardInfo})">
+            <summary>
+            Rule: Prefer lowest version number
+            Example: BFM-01-V2 preferred over BFM-01-V5
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.CanonicalSelector.ApplyPreferShorterCode(System.Collections.Generic.List{Katana.Core.DTOs.StockCardInfo})">
+            <summary>
+            Rule: Prefer shortest stock code
+            Example: BFM-01 preferred over BFM-01-EXTRA
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.CanonicalSelector.ApplyPreferNoSpecialCharacters(System.Collections.Generic.List{Katana.Core.DTOs.StockCardInfo})">
+            <summary>
+            Rule: Prefer codes without special characters
+            Example: BFM01 preferred over BFM-01
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.CanonicalSelector.ApplyPreferCorrectEncoding(System.Collections.Generic.List{Katana.Core.DTOs.StockCardInfo})">
+            <summary>
+            Rule: Prefer correctly encoded Turkish characters
+            Example: "KROM TALAŞ" preferred over "KROM TALA?"
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.CanonicalSelector.GetVersionNumber(System.String)">
+            <summary>
+            Extracts version number from stock code
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.Deduplication.DeduplicationService">
+            <summary>
+            Main orchestration service for stock card deduplication
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DeduplicationService.AnalyzeDuplicatesAsync(System.Threading.CancellationToken)">
+            <summary>
+            Property 3: Analysis report structure
+            Property 6: Version count accuracy
+            Analyzes all stock cards and detects duplicates
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DeduplicationService.GeneratePreviewAsync(Katana.Core.DTOs.DuplicateAnalysisResult,System.Threading.CancellationToken)">
+            <summary>
+            Property 11: Preview completeness
+            Generates preview of deduplication actions
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DeduplicationService.ExecuteDeduplicationAsync(Katana.Core.DTOs.DeduplicationPreview,System.Threading.CancellationToken)">
+            <summary>
+            Property 14: Execution follows preview
+            Property 15: Canonical existence check
+            Property 16: Execution summary completeness
+            Executes deduplication by deleting duplicate cards
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DeduplicationService.ExportResultsAsync(Katana.Core.DTOs.DuplicateAnalysisResult,Katana.Core.DTOs.ExportFormat,System.Threading.CancellationToken)">
+            <summary>
+            Exports analysis results to specified format
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DeduplicationService.GetRulesAsync">
+            <summary>
+            Gets current deduplication rules
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DeduplicationService.UpdateRulesAsync(Katana.Core.DTOs.DeduplicationRules)">
+            <summary>
+            Updates deduplication rules
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DeduplicationService.CalculateStatistics(System.Int32,System.Collections.Generic.List{Katana.Core.DTOs.DuplicateGroup})">
+            <summary>
+            Calculates statistics from duplicate groups
+            Property 6: Version count accuracy
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DeduplicationService.BuildActionReason(Katana.Core.DTOs.StockCardInfo,Katana.Core.DTOs.DuplicateGroup)">
+            <summary>
+            Builds human-readable reason for deduplication action
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DeduplicationService.DetermineActionType(Katana.Core.DTOs.DuplicateGroup)">
+            <summary>
+            Determines the type of action needed
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DeduplicationService.VerifyCanonicalExistsAsync(System.Int64,System.Threading.CancellationToken)">
+            <summary>
+            Verifies that canonical card exists in Luca
+            Property 15: Canonical existence check
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DeduplicationService.GetStableHashCode(System.String)">
+            <summary>
+            Generates a stable hash code for a string (used as pseudo-ID)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DeduplicationService.DeleteStockCardAsync(System.Int64,System.Threading.CancellationToken)">
+            <summary>
+            Deletes a stock card from Luca
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.Deduplication.DuplicateDetector">
+            <summary>
+            Implementation of duplicate detection service
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DuplicateDetector.DetectDuplicates(System.Collections.Generic.List{Katana.Core.DTOs.LucaStockDto})">
+            <summary>
+            Detects duplicate stock cards by grouping cards with identical names
+            Property 1: Duplicate identification by name
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DuplicateDetector.CategorizeDuplicate(Katana.Core.DTOs.DuplicateGroup)">
+            <summary>
+            Categorizes a duplicate group based on the type of duplication issue
+            Property 2: Duplicate categorization completeness
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DuplicateDetector.HasVersioningDuplicates(Katana.Core.DTOs.DuplicateGroup)">
+            <summary>
+            Property 4: Version suffix detection
+            Detects if stock codes have version suffixes (-V2, -V3, etc.)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DuplicateDetector.HasConcatenationErrors(Katana.Core.DTOs.DuplicateGroup)">
+            <summary>
+            Property 7: Concatenation error detection
+            Detects if stock code or name is duplicated (first half = second half)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DuplicateDetector.HasEncodingIssues(Katana.Core.DTOs.DuplicateGroup)">
+            <summary>
+            Property 9: Character encoding issue detection
+            Detects if stock names contain question marks (potential Turkish character corruption)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DuplicateDetector.IsConcatenationError(System.String)">
+            <summary>
+            Checks if a string is a concatenation error (first half = second half)
+            Handles separators like -, _, and space
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DuplicateDetector.SortVersionedCards(Katana.Core.DTOs.DuplicateGroup)">
+            <summary>
+            Property 5: Versioned card grouping and sorting
+            Sorts stock cards by version number in ascending order
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DuplicateDetector.GetVersionNumber(System.String)">
+            <summary>
+            Extracts version number from stock code (e.g., "BFM-01-V3" returns 3)
+            Returns 0 if no version suffix found (base version)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DuplicateDetector.AddIssueDescriptions(Katana.Core.DTOs.DuplicateGroup)">
+            <summary>
+            Adds issue descriptions to each stock card in the group
+            Property 8: Concatenation error reporting
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.DuplicateDetector.GetCorrectedValue(System.String)">
+            <summary>
+            Gets the corrected value for a concatenation error (returns first half)
+            Property 8: Concatenation error reporting
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.Deduplication.ICanonicalSelector">
+            <summary>
+            Service for selecting the canonical (preferred) stock card from a duplicate group
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.ICanonicalSelector.SelectCanonical(Katana.Core.DTOs.DuplicateGroup,Katana.Core.DTOs.DeduplicationRules)">
+            <summary>
+            Selects the canonical stock card from a duplicate group based on configured rules
+            Property 12: Canonical selection by rules
+            Property 13: Default canonical selection
+            </summary>
+            <param name="group">Duplicate group to select from</param>
+            <param name="rules">Deduplication rules configuration</param>
+            <returns>The selected canonical stock card</returns>
+        </member>
+        <member name="T:Katana.Business.Services.Deduplication.IDeduplicationService">
+            <summary>
+            Main orchestration service for stock card deduplication
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.IDeduplicationService.AnalyzeDuplicatesAsync(System.Threading.CancellationToken)">
+            <summary>
+            Analyzes all stock cards in Luca and detects duplicates
+            Property 3: Analysis report structure
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.IDeduplicationService.GeneratePreviewAsync(Katana.Core.DTOs.DuplicateAnalysisResult,System.Threading.CancellationToken)">
+            <summary>
+            Generates a preview of deduplication actions based on analysis
+            Property 11: Preview completeness
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.IDeduplicationService.ExecuteDeduplicationAsync(Katana.Core.DTOs.DeduplicationPreview,System.Threading.CancellationToken)">
+            <summary>
+            Executes the deduplication plan by deleting duplicate stock cards
+            Property 14: Execution follows preview
+            Property 15: Canonical existence check
+            Property 16: Execution summary completeness
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.IDeduplicationService.ExportResultsAsync(Katana.Core.DTOs.DuplicateAnalysisResult,Katana.Core.DTOs.ExportFormat,System.Threading.CancellationToken)">
+            <summary>
+            Exports analysis results to specified format
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.IDeduplicationService.GetRulesAsync">
+            <summary>
+            Gets current deduplication rules configuration
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.IDeduplicationService.UpdateRulesAsync(Katana.Core.DTOs.DeduplicationRules)">
+            <summary>
+            Updates deduplication rules configuration
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.Deduplication.IDuplicateDetector">
+            <summary>
+            Service for detecting and categorizing duplicate stock cards
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.IDuplicateDetector.DetectDuplicates(System.Collections.Generic.List{Katana.Core.DTOs.LucaStockDto})">
+            <summary>
+            Detects duplicate stock cards by grouping cards with identical names
+            </summary>
+            <param name="stockCards">List of stock cards to analyze</param>
+            <returns>List of duplicate groups</returns>
+        </member>
+        <member name="M:Katana.Business.Services.Deduplication.IDuplicateDetector.CategorizeDuplicate(Katana.Core.DTOs.DuplicateGroup)">
+            <summary>
+            Categorizes a duplicate group based on the type of duplication issue
+            </summary>
+            <param name="group">Duplicate group to categorize</param>
+            <returns>Category of the duplicate (Versioning, ConcatenationError, CharacterEncoding, or Mixed)</returns>
+        </member>
+        <member name="T:Katana.Business.Services.IDocumentMappingService">
+            <summary>
+            Katana belge türlerini Koza belge türlerine eşleştiren servis
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.DocumentMappingService.GetBelgeTurDetayIdForSalesOrder(System.Boolean,System.Boolean)">
+            <summary>
+            Sales Order → Koza belge türü
+            Fulfillment durumuna göre İrsaliye veya Fatura
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.DocumentMappingService.GetBelgeTurDetayIdForPurchaseOrder(System.Boolean,System.Boolean)">
+            <summary>
+            Purchase Order → Koza belge türü
+            Received durumuna göre İrsaliye veya Fatura
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.DocumentMappingService.GetBelgeTurDetayIdForStockTransfer">
+            <summary>
+            Stock Transfer → Koza Depo Transferi
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.DocumentMappingService.GetBelgeTurDetayIdForStockAdjustment(System.String)">
+            <summary>
+            Stock Adjustment → Koza Diğer Stok Hareketi
+            Adjustment tipine göre Fire, Sarf, Sayım Fazlası vb.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.DocumentMappingService.GetBelgeTurDetayIdForStocktake">
+            <summary>
+            Stocktake → Koza Sayım Sonuç Fişi
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.DocumentMappingService.GetKozaDocumentType(System.String)">
+            <summary>
+            Katana belge tipini Koza belge tipine çevir
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.DocumentMappingService.MapKatanaToKoza(System.String,System.Collections.Generic.Dictionary{System.String,System.Object})">
+            <summary>
+            Katana belge tipini Koza'ya map et (belge tipi + belge tür detay ID)
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.EventPublisher">
+            <summary>
+            Basit event publisher implementasyonu
+            Event'leri log'lar ve Notification oluşturur
+            Gelecekte message queue (RabbitMQ, Azure Service Bus) eklenebilir
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.ILocationMappingService">
+            <summary>
+            Location → Koza Depo mapping servisi
+            Depo kodu validation ve error handling
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.LocationMappingService.GetDepoKoduByLocationIdAsync(System.String)">
+            <summary>
+            Location ID'ye göre depo kodu al (string)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.LocationMappingService.GetDepoKoduByLocationIdAsync(System.Int32)">
+            <summary>
+            Location ID'ye göre depo kodu al (int)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.LocationMappingService.GetDepoIdByLocationIdAsync(System.String)">
+            <summary>
+            Location ID'ye göre Koza depo ID al
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.LocationMappingService.GetMappingByLocationIdAsync(System.String)">
+            <summary>
+            Location ID'ye göre mapping al
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.LocationMappingService.CreateOrUpdateMappingAsync(System.String,System.String,System.Nullable{System.Int64},System.String,System.String)">
+            <summary>
+            Mapping oluştur veya güncelle
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.LocationMappingService.ValidateDepoKoduAsync(System.String)">
+            <summary>
+            Depo kodunun geçerli olup olmadığını kontrol et
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.LocationMappingService.GetAllMappingsAsync">
+            <summary>
+            Tüm mapping'leri getir
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.LocationMappingService.GetLocationToDepoKoduMapAsync">
+            <summary>
+            Location ID → Depo Kodu dictionary'si al
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.IMappingSyncService">
+            <summary>
+            Mapping tabloları için sync tracking ve hash-based change detection
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.MappingSyncService.UpdateMappingSyncStatusAsync``1(``0,System.String,System.String)">
+            <summary>
+            Mapping'in sync durumunu güncelle
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.MappingSyncService.HasMappingChangedAsync``1(``0,System.String)">
+            <summary>
+            Mapping'in değişip değişmediğini kontrol et
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.MappingSyncService.MarkMappingAsSyncedAsync``1(``0,System.String)">
+            <summary>
+            Mapping'i SYNCED olarak işaretle
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.MappingSyncService.MarkMappingAsFailedAsync``1(``0,System.String)">
+            <summary>
+            Mapping'i FAILED olarak işaretle
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.MappingSyncService.GetPendingMappingsAsync``1">
+            <summary>
+            PENDING durumundaki mapping'leri getir
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.MappingSyncService.GetFailedMappingsAsync``1">
+            <summary>
+            FAILED durumundaki mapping'leri getir
+            </summary>
+        </member>
+        <!-- Badly formed XML comment ignored for member "T:Katana.Business.Services.OrderInvoiceSyncService" -->
+        <member name="P:Katana.Business.Services.OrderInvoiceSyncService.LucaCircuitState">
+            <summary>
+            Circuit Breaker durumunu kontrol et
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.OrderInvoiceSyncService.SyncSalesOrderToLucaAsync(System.Int32)">
+            <summary>
+            Katana Sales Order'ı Luca'ya Satış Faturası olarak gönderir.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.OrderInvoiceSyncService.BuildSalesInvoiceRequestAsync(Katana.Core.Entities.Order)">
+            <summary>
+            Sales Order'ı Luca fatura formatına çevirir
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.OrderInvoiceSyncService.SyncPurchaseOrderToLucaAsync(System.Int32)">
+            <summary>
+            Katana Purchase Order'ı Luca'ya Alım Faturası olarak gönderir.
+            Not: PurchaseOrder entity'si projede yoksa, Order entity'si supplier_id ile kullanılabilir
+            veya ayrı bir PurchaseOrder entity'si oluşturulmalıdır.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.OrderInvoiceSyncService.CloseInvoiceAsync(System.Int32,System.String,System.Decimal)">
+            <summary>
+            Luca'daki faturayı kapatır (ödeme/tahsilat işler)
+            Sales Order için: Tahsilat
+            Purchase Order için: Tediye
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.OrderInvoiceSyncService.DeleteInvoiceAsync(System.Int32,System.String)">
+            <summary>
+            Luca'daki faturayı siler (iptal durumunda)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.OrderInvoiceSyncService.SyncPendingSalesOrdersAsync">
+            <summary>
+            Bekleyen (synced olmayan) tüm Sales Order'ları Luca'ya gönderir
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.OrderSyncResultDto">
+            <summary>
+            Tekil order sync sonucu
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.OrderBatchSyncResultDto">
+            <summary>
+            Toplu order sync sonucu
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.OrderSyncQueryService">
+            <summary>
+            Order senkronizasyon paneli için database sorgularını handle eder.
+            OrderInvoiceSyncController'dan DB logic'i ayırarak controller'ı ince tutar.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.OrderSyncQueryService.GetSyncPanelOrdersAsync(System.String,System.Int32,System.Int32)">
+            <summary>
+            Senkronizasyon panelinde gösterilecek siparişleri sayfalanmış olarak getirir.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.OrderSyncQueryService.GetOrderDetailAsync(System.Int32)">
+            <summary>
+            Tek bir siparişin detayını getirir (customer, items, ürün bilgileriyle).
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.OrderSyncQueryService.GetSyncStatisticsAsync">
+            <summary>
+            Senkronizasyon dashboard istatistiklerini getirir.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.OrderSyncQueryService.GetOrderLucaMappingAsync(System.Int32)">
+            <summary>
+            Sipariş-Luca fatura mapping'ini getirir.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.PendingStockAdjustmentService.TriggerLucaSyncAsync(System.String,System.String)">
+            <summary>
+            Onay sonrası tüm senkronizasyonları tetikler:
+            1. Luca'ya stok kartı oluşturma/güncelleme
+            2. Luca'ya stok hareketi gönderme
+            3. Katana'ya stok güncelleme
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.PendingStockAdjustmentService.SyncStockCardToLucaAsync(System.String)">
+            <summary>
+            Luca'ya stok kartı senkronizasyonu - değişen ürünler yeni kart olarak oluşturulur
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.PendingStockAdjustmentService.SyncStockMovementToLucaAsync(System.String)">
+            <summary>
+            Luca'ya stok hareketi gönderir
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.PendingStockAdjustmentService.SyncStockToKatanaAsync(System.String)">
+            <summary>
+            Katana'ya stok güncelleme gönderir
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.PendingStockAdjustmentService.MarkMovementsAsSyncedAsync(System.String)">
+            <summary>
+            StockMovement kayıtlarını senkronize edilmiş olarak işaretler
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.ProductMappingService">
+            <summary>
+            Katana → Luca Append-Only Senkronizasyon için mapping servisi.
+            Luca'da güncelleme endpoint'i olmadığından her değişiklikte yeni versiyonlu SKU oluşturulur.
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.StockMovementSyncService">
+            <summary>
+            Stok Transfer ve Adjustment Luca Senkronizasyon Servisi
+            Katana → Luca Depo Transferi (33) ve DSH Fişleri (150-153)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.StockMovementSyncService.GetAllMovementsAsync(Katana.Business.Interfaces.StockMovementFilterDto)">
+            <summary>
+            Tüm stok hareketlerini listeler (Transfer + Adjustment)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.StockMovementSyncService.GetPendingTransfersAsync">
+            <summary>
+            Bekleyen transferleri listeler
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.StockMovementSyncService.GetPendingAdjustmentsAsync">
+            <summary>
+            Bekleyen adjustment'ları listeler
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.StockMovementSyncService.SyncTransferToLucaAsync(System.Int32)">
+            <summary>
+            Tek bir stok transferini Luca'ya senkronize eder
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.StockMovementSyncService.SyncAdjustmentToLucaAsync(System.Int32)">
+            <summary>
+            Tek bir stok düzeltmesini Luca'ya senkronize eder
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.StockMovementSyncService.SyncBatchAsync(System.Collections.Generic.List{System.Int32},System.Collections.Generic.List{System.Int32})">
+            <summary>
+            Toplu senkronizasyon
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.StockMovementSyncService.SyncAllPendingAsync">
+            <summary>
+            Bekleyen tüm hareketleri senkronize eder
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.StockMovementSyncService.GetDashboardStatsAsync">
+            <summary>
+            Dashboard istatistikleri
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.StockMovementSyncService.NormalizeWarehouseCode(System.String)">
+            <summary>Luca depo kodu formatına normalize et (002)</summary>
+        </member>
+        <member name="M:Katana.Business.Services.SyncService.DetectProductChanges(Katana.Core.DTOs.KatanaProductDto,Katana.Core.DTOs.LucaStockCardSummaryDto,System.Collections.Generic.IReadOnlyDictionary{System.String,System.String})">
+            <summary>
+            Katana ürünü ile Luca stok kartı arasındaki değişiklikleri tespit eder.
+            Luca'da güncelleme yapılamadığı için değişiklik varsa yeni stok kartı oluşturulması gerekir.
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Services.SyncService.ProductChangeInfo">
+            <summary>
+            Ürün değişiklik bilgilerini tutar
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.SyncService.GetCategoryTreeCode(System.String,System.Collections.Generic.IReadOnlyDictionary{System.String,System.String})">
+            <summary>
+            Kategori adını Luca tree code'a çevirir (mapping tablosundan).
+            Mapping bulunamazsa default kategori kodu döner.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.SyncService.IsValidTreeCode(System.String)">
+            <summary>
+            Verilen string'in geçerli bir Luca tree code formatında olup olmadığını kontrol eder.
+            Geçerli formatlar: "001", "001.001", "001.001.001" vb.
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.SyncService.SyncSuppliersToKozaAsync(System.Threading.CancellationToken)">
+            <summary>
+            Katana tedarikçilerini Koza'ya senkronize eder
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.SyncService.SyncWarehousesToKozaAsync(System.Threading.CancellationToken)">
+            <summary>
+            Katana depolarını (Location) Koza'ya senkronize eder
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.SyncService.SyncCustomersToLucaAsync(System.Threading.CancellationToken)">
+            <summary>
+            Katana müşterilerini Luca'ya cari olarak senkronize eder
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.SyncService.DebugProductComparisonAsync(System.String)">
+            <summary>
+            DEBUG: Tek bir ürünün Katana ve Luca'daki durumunu karşılaştırır
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.SyncService.ForceSyncSingleProductAsync(System.String)">
+            <summary>
+            DEBUG: Tek bir ürünü zorla Luca'ya gönderir (değişiklik kontrolü yapmadan)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.SyncService.SyncWarehousesToLucaAsync">
+            <summary>
+            ✅ Katana Location'larını Luca'ya Depo (Warehouse) olarak senkronize eder
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.SyncService.SendSalesInvoiceAsync(Katana.Core.DTOs.LucaCreateInvoiceHeaderRequest)">
+            <summary>
+            ✅ Luca'ya satış faturası gönderir
+            Luca'daki stok kartlarını kullanarak fatura oluşturur
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Services.UoMMappingService.NormalizeUoMString(System.String)">
+            <summary>
+            Normalizes UoM string to uppercase for case-insensitive matching
+            </summary>
+        </member>
+        <member name="T:Katana.Business.Validators.LucaDataValidator">
+            <summary>
+            Luca API'ye gönderilecek verilerin format validation'ı
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Validators.LucaDataValidator.ValidateCariKodu(System.String,System.String)">
+            <summary>
+            Cari kodu validation (null ve boş kontrolü)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Validators.LucaDataValidator.ValidateStokKodu(System.String,System.String)">
+            <summary>
+            Stok kodu validation (null ve boş kontrolü)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Validators.LucaDataValidator.ValidateDecimalPrecision(System.Decimal,System.String)">
+            <summary>
+            Decimal değer validation (Luca API 2 ondalık basamak kabul eder)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Validators.LucaDataValidator.ValidateDate(System.Nullable{System.DateTime},System.String,System.Boolean)">
+            <summary>
+            Tarih validation (Luca API geçmiş/gelecek tarih kısıtlamaları)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Validators.LucaDataValidator.ValidateCurrency(System.String)">
+            <summary>
+            Para birimi validation
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Validators.LucaDataValidator.ValidateDocumentNo(System.String,System.String)">
+            <summary>
+            Belge numarası validation
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Validators.LucaDataValidator.ValidateQuantity(System.Decimal,System.String)">
+            <summary>
+            Miktar validation (pozitif ve makul aralıkta olmalı)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Validators.LucaDataValidator.ValidateTaxRate(System.Decimal)">
+            <summary>
+            Vergi oranı validation (0-1 arası veya 0-100 arası)
+            </summary>
+        </member>
+        <member name="M:Katana.Business.Validators.LucaDataValidator.ValidateAll(System.ValueTuple{System.Boolean,System.String}[])">
+            <summary>
+            Tüm validationları tek seferde çalıştır ve hataları topla
+            </summary>
+        </member>
+    </members>
+</doc>
