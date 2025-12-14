@@ -65,69 +65,77 @@ public class OrderService : IOrderService
 
     public async Task<OrderDto> CreateAsync(CreateOrderDto dto)
     {
-        // Transaction başlat - Order ve PendingStockAdjustments tek seferde kaydedilsin
-        using var transaction = await _context.Database.BeginTransactionAsync();
-        try
+        var strategy = _context.Database.CreateExecutionStrategy();
+        Order? createdOrder = null;
+
+        await strategy.ExecuteAsync(async () =>
         {
-            var order = new Order
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                CustomerId = dto.CustomerId,
-                Status = OrderStatus.Pending,
-                Items = dto.Items.Select(i => new OrderItem
+                var order = new Order
                 {
-                    ProductId = i.ProductId,
-                    Quantity = i.Quantity,
-                    UnitPrice = i.UnitPrice
-                }).ToList()
-            };
-
-            order.TotalAmount = order.Items.Sum(i => i.UnitPrice * i.Quantity);
-
-            _context.Orders.Add(order);
-            
-            // Order + Items kaydet
-            await _context.SaveChangesAsync();
-
-            // PendingStockAdjustments ekle (SaveChanges yapmadan)
-            foreach (var item in order.Items)
-            {
-                var product = await _context.Products.FindAsync(item.ProductId);
-                var sku = product?.SKU ?? string.Empty;
-
-                var pending = new Katana.Data.Models.PendingStockAdjustment
-                {
-                    ExternalOrderId = order.Id.ToString(),
-                    ProductId = item.ProductId,
-                    Sku = sku,
-                    Quantity = -item.Quantity,
-                    RequestedBy = "system",
-                    RequestedAt = DateTimeOffset.UtcNow,
-                    Status = "Pending",
-                    Notes = $"Order #{order.Id} created: {item.Quantity} x ProductId {item.ProductId}"
+                    CustomerId = dto.CustomerId,
+                    Status = OrderStatus.Pending,
+                    Items = dto.Items.Select(i => new OrderItem
+                    {
+                        ProductId = i.ProductId,
+                        Quantity = i.Quantity,
+                        UnitPrice = i.UnitPrice
+                    }).ToList()
                 };
 
-                _context.PendingStockAdjustments.Add(pending);
-            }
-            
-            // Tüm pending adjustments'ı kaydet
-            await _context.SaveChangesAsync();
-            
-            // Transaction commit
-            await transaction.CommitAsync();
+                order.TotalAmount = order.Items.Sum(i => i.UnitPrice * i.Quantity);
 
-            return new OrderDto
+                _context.Orders.Add(order);
+                
+                // Order + Items kaydet
+                await _context.SaveChangesAsync();
+
+                // PendingStockAdjustments ekle (SaveChanges yapmadan)
+                foreach (var item in order.Items)
+                {
+                    var product = await _context.Products.FindAsync(item.ProductId);
+                    var sku = product?.SKU ?? string.Empty;
+
+                    var pending = new Katana.Data.Models.PendingStockAdjustment
+                    {
+                        ExternalOrderId = order.Id.ToString(),
+                        ProductId = item.ProductId,
+                        Sku = sku,
+                        Quantity = -item.Quantity,
+                        RequestedBy = "system",
+                        RequestedAt = DateTimeOffset.UtcNow,
+                        Status = "Pending",
+                        Notes = $"Order #{order.Id} created: {item.Quantity} x ProductId {item.ProductId}"
+                    };
+
+                    _context.PendingStockAdjustments.Add(pending);
+                }
+                
+                // Tüm pending adjustments'ı kaydet
+                await _context.SaveChangesAsync();
+                
+                await transaction.CommitAsync();
+                createdOrder = order;
+            }
+            catch
             {
-                Id = order.Id,
-                CustomerId = order.CustomerId,
-                Status = order.Status.ToString(),
-                TotalAmount = order.TotalAmount
-            };
-        }
-        catch
+                await transaction.RollbackAsync();
+                throw;
+            }
+        });
+
+        if (createdOrder == null)
+            throw new InvalidOperationException("Order could not be created.");
+
+        return new OrderDto
         {
-            await transaction.RollbackAsync();
-            throw;
-        }
+            Id = createdOrder.Id,
+            CustomerId = createdOrder.CustomerId,
+            Status = createdOrder.Status.ToString(),
+            TotalAmount = createdOrder.TotalAmount
+        };
     }
 
     public async Task<bool> UpdateStatusAsync(int id, OrderStatus newStatus)

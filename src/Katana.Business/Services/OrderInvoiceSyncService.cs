@@ -186,11 +186,13 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
 
             if (isSuccess && lucaFaturaId.HasValue)
             {
-                // Transaction başlat - Atomik operasyon için
-                using var transaction = await _context.Database.BeginTransactionAsync();
-                try
+                var strategy = _context.Database.CreateExecutionStrategy();
+                await strategy.ExecuteAsync(async () =>
                 {
-                    // 6. Luca ID'yi mapping tablosuna kaydet
+                    await using var transaction = await _context.Database.BeginTransactionAsync();
+                    try
+                    {
+                        // 6. Luca ID'yi mapping tablosuna kaydet
                         await _mappingRepo.SaveLucaInvoiceIdAsync(
                             orderId,
                             lucaFaturaId.Value,
@@ -199,62 +201,61 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                             belgeSeri: lucaRequest.BelgeSeri,
                             belgeNo: lucaRequest.BelgeNo?.ToString(),
                             belgeTakipNo: lucaRequest.BelgeTakipNo ?? order.OrderNo);
-                    
-                    // 7. Order'ı synced olarak işaretle
-                    order.IsSynced = true;
-                    order.UpdatedAt = DateTime.UtcNow;
-                    await _context.SaveChangesAsync();
 
-                    // Transaction commit
-                    await transaction.CommitAsync();
+                        // 7. Order'ı synced olarak işaretle
+                        order.IsSynced = true;
+                        order.UpdatedAt = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
 
-                    result.Success = true;
-                    result.LucaFaturaId = lucaFaturaId.Value;
-                    result.Message = $"Satış faturası Luca'ya başarıyla gönderildi. Fatura ID: {lucaFaturaId.Value}";
-
-                    _logger.LogInformation(
-                        "Sales Order {OrderNo} successfully synced to Luca. Fatura ID: {FaturaId}",
-                        order.OrderNo, lucaFaturaId.Value
-                    );
-                    
-                    // 8. Audit log ekle
-                    _auditService.LogSync(
-                        "OrderInvoiceSync",
-                        "system",
-                        $"Order {orderId} synced to Luca as Invoice {lucaFaturaId.Value}"
-                    );
-
-                    // 9. InvoiceSyncedEvent publish et (bildirim için)
-                    try
-                    {
-                        // Invoice entity oluştur veya mevcut olanı bul
-                        var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.Id == orderId)
-                            ?? new Invoice 
-                            { 
-                                InvoiceNo = order.OrderNo, 
-                                CustomerId = order.CustomerId,
-                                Amount = order.TotalAmount,
-                                IsSynced = true
-                            };
-                        
-                        var syncEvent = new InvoiceSyncedEvent(invoice, "OrderInvoiceSync");
-                        
-                        // Event publisher ile publish et
-                        await _eventPublisher.PublishAsync(syncEvent);
-                        
-                        _logger.LogInformation("InvoiceSyncedEvent published: {Event}", syncEvent.ToString());
+                        await transaction.CommitAsync();
                     }
-                    catch (Exception eventEx)
+                    catch
                     {
-                        _logger.LogWarning(eventEx, "Failed to publish InvoiceSyncedEvent for Order {OrderId}", orderId);
-                        // Event hatası ana işlemi etkilememeli
+                        await transaction.RollbackAsync();
+                        throw;
                     }
-                }
-                catch (Exception txEx)
+                });
+
+                result.Success = true;
+                result.LucaFaturaId = lucaFaturaId.Value;
+                result.Message = $"Satış faturası Luca'ya başarıyla gönderildi. Fatura ID: {lucaFaturaId.Value}";
+
+                _logger.LogInformation(
+                    "Sales Order {OrderNo} successfully synced to Luca. Fatura ID: {FaturaId}",
+                    order.OrderNo, lucaFaturaId.Value
+                );
+                
+                // 8. Audit log ekle
+                _auditService.LogSync(
+                    "OrderInvoiceSync",
+                    "system",
+                    $"Order {orderId} synced to Luca as Invoice {lucaFaturaId.Value}"
+                );
+
+                // 9. InvoiceSyncedEvent publish et (bildirim için)
+                try
                 {
-                    await transaction.RollbackAsync();
-                    _logger.LogError(txEx, "Transaction failed for Order {OrderId}", orderId);
-                    throw;
+                    // Invoice entity oluştur veya mevcut olanı bul
+                    var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.Id == orderId)
+                        ?? new Invoice 
+                        { 
+                            InvoiceNo = order.OrderNo, 
+                            CustomerId = order.CustomerId,
+                            Amount = order.TotalAmount,
+                            IsSynced = true
+                        };
+                    
+                    var syncEvent = new InvoiceSyncedEvent(invoice, "OrderInvoiceSync");
+                    
+                    // Event publisher ile publish et
+                    await _eventPublisher.PublishAsync(syncEvent);
+                    
+                    _logger.LogInformation("InvoiceSyncedEvent published: {Event}", syncEvent.ToString());
+                }
+                catch (Exception eventEx)
+                {
+                    _logger.LogWarning(eventEx, "Failed to publish InvoiceSyncedEvent for Order {OrderId}", orderId);
+                    // Event hatası ana işlemi etkilememeli
                 }
             }
             else
