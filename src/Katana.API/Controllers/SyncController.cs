@@ -683,16 +683,39 @@ public class SyncController : ControllerBase
     /// <summary>
     /// ✅ Katana'dan satış siparişlerini manuel senkronize et (SADECE Admin)
     /// Background worker'ı beklemeden anında siparişleri çeker
+    /// 
+    /// END-TO-END SYNC FLOW:
+    /// 1. Fetch orders from Katana API (GetSalesOrdersBatchedAsync)
+    ///    - fromDate=null → status=NOT_SHIPPED (open orders only)
+    ///    - fromDate provided → created_at_min filter (all statuses)
+    /// 
+    /// 2. For each order (SalesOrderDto):
+    ///    a. Customer Mapping: Katana customer ID → Local customer ID
+    ///    b. If customer not found: Fetch from Katana API and create locally
+    ///    c. Create SalesOrder entity with:
+    ///       - CustomerId = local database ID (NOT Katana ID)
+    ///       - Status = raw Katana status string (NOT mapped to enum)
+    ///       - All other fields from Katana DTO
+    ///    d. Create SalesOrderLine entities for each row
+    ///    e. Save to database
+    /// 
+    /// 3. Create PendingStockAdjustment for admin approval (open orders only)
+    /// 
+    /// NOTE: This does NOT use KatanaApiClient.GetSalesOrdersAsync (legacy method).
+    ///       It directly uses IKatanaService.GetSalesOrdersBatchedAsync for better control.
     /// </summary>
     [HttpPost("from-katana/sales-orders")]
     [Authorize(Roles = "Admin")]
-    public async Task<ActionResult<SyncResultDto>> SyncSalesOrdersFromKatana([FromQuery] int days = 7)
+    public async Task<ActionResult<SyncResultDto>> SyncSalesOrdersFromKatana([FromQuery] int? days = null)
     {
         try
         {
-            _logger.LogInformation("📥 Katana'dan satış siparişleri manuel senkronizasyonu başlatıldı (son {Days} gün)", days);
+            // days = null ise tüm "Open" siparişleri çek (Katana UI ile aynı mantık)
+            // days belirtilirse sadece son X günün siparişlerini çek
+            var fromDate = days.HasValue ? DateTime.UtcNow.AddDays(-days.Value) : (DateTime?)null;
             
-            var fromDate = DateTime.UtcNow.AddDays(-days);
+            _logger.LogInformation("📥 Katana'dan satış siparişleri manuel senkronizasyonu başlatıldı {DateFilter}", 
+                days.HasValue ? $"(son {days} gün)" : "(tüm açık siparişler)");
             var katanaService = HttpContext.RequestServices.GetRequiredService<IKatanaService>();
             var pendingService = HttpContext.RequestServices.GetRequiredService<Katana.Business.Interfaces.IPendingStockAdjustmentService>();
             var variantMappingService = HttpContext.RequestServices.GetRequiredService<Katana.Business.Interfaces.IVariantMappingService>();
@@ -702,6 +725,14 @@ public class SyncController : ControllerBase
                 .Select(s => s.KatanaOrderId)
                 .ToListAsync();
             var existingKatanaOrderIds = new HashSet<long>(existingKatanaOrderIdsList);
+            
+            // 🔍 DEBUG: Mevcut siparişleri logla
+            _logger.LogWarning("🔍 DEBUG: Found {Count} existing orders in database", existingKatanaOrderIds.Count);
+            if (existingKatanaOrderIds.Count > 0)
+            {
+                _logger.LogWarning("🔍 DEBUG: First 10 existing Katana Order IDs: {Ids}", 
+                    string.Join(", ", existingKatanaOrderIds.Take(10)));
+            }
 
             // ✅ PendingStockAdjustment duplicate prevention (ExternalOrderId|Sku|Quantity)
             var processedItems = await _context.PendingStockAdjustments
@@ -733,6 +764,25 @@ public class SyncController : ControllerBase
             var customerMapping = await _context.Customers
                 .Where(c => c.ReferenceId != null)
                 .ToDictionaryAsync(c => c.ReferenceId!, c => c.Id, StringComparer.OrdinalIgnoreCase);
+            
+            // 🔥 Tüm Katana müşterilerini önceden çek ve cache'le
+            _logger.LogInformation("Fetching all customers from Katana for caching...");
+            var allKatanaCustomers = await katanaService.GetCustomersAsync();
+            
+            // ✅ FIX: Dictionary key'i long yap (string yerine) - direct comparison için
+            var katanaCustomerCache = allKatanaCustomers.ToDictionary(
+                c => c.Id,  // long key - NO ToString()!
+                c => c
+            );
+            _logger.LogInformation("Cached {Count} customers from Katana", katanaCustomerCache.Count);
+            
+            // 🔍 DEBUG: Cache içeriğini logla
+            _logger.LogWarning("🔍 DEBUG: Customer Cache Contents (first 5):");
+            foreach (var kvp in katanaCustomerCache.Take(5))
+            {
+                _logger.LogWarning("  Cache Key: {Key} (Type: {Type}) → Customer ID: {Id}, Name: '{Name}'",
+                    kvp.Key, kvp.Key.GetType().Name, kvp.Value.Id, kvp.Value.Name);
+            }
             
             var newOrdersCount = 0;
             var totalLinesCount = 0;
@@ -778,6 +828,10 @@ public class SyncController : ControllerBase
                 {
                     var shouldSaveSalesOrder = !existingKatanaOrderIds.Contains(order.Id);
                     
+                    // 🔍 DEBUG: Sipariş kontrolü
+                    _logger.LogWarning("🔍 DEBUG: Processing order {OrderNo} (Katana ID: {KatanaId}), shouldSave={ShouldSave}", 
+                        order.OrderNo, order.Id, shouldSaveSalesOrder);
+                    
                     var localCustomerId = 0;
                     var katanaCustomerIdStr = order.CustomerId.ToString();
                     if (customerMapping.TryGetValue(katanaCustomerIdStr, out var mappedCustomerId))
@@ -788,7 +842,27 @@ public class SyncController : ControllerBase
                     // Müşteri bulunamadıysa Katana'dan çekip oluştur
                     if (localCustomerId == 0)
                     {
-                        var katanaCustomer = await katanaService.GetCustomerByIdAsync((int)order.CustomerId);
+                        // 🔍 DEBUG: Müşteri arama detayları
+                        _logger.LogWarning("🔍 DEBUG: Looking for customer - Order.CustomerId={OrderCustomerId} (Type: {Type}), " +
+                            "String Key='{StringKey}'",
+                            order.CustomerId,
+                            order.CustomerId.GetType().Name,
+                            katanaCustomerIdStr);
+                        
+                        KatanaCustomerDto? katanaCustomer = null;
+                        // ✅ FIX: long key ile direkt arama (string yerine)
+                        if (katanaCustomerCache.TryGetValue(order.CustomerId, out var cachedCustomer))
+                        {
+                            katanaCustomer = cachedCustomer;
+                            _logger.LogDebug("✅ Found customer in cache: {CustomerId}", order.CustomerId);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("❌ Customer NOT FOUND in cache! Key: {Key}, Cache Keys Sample: {Sample}",
+                                order.CustomerId,
+                                string.Join(", ", katanaCustomerCache.Keys.Take(3)));
+                        }
+                        
                         if (katanaCustomer != null)
                         {
                             // Adres bilgilerini Addresses listesinden al
@@ -899,6 +973,10 @@ public class SyncController : ControllerBase
                         _context.SalesOrders.Add(salesOrder);
                         existingKatanaOrderIds.Add(order.Id);
                         newOrdersCount++;
+                        
+                        // 📊 Debug: Status mapping kontrolü
+                        _logger.LogDebug("📊 Order {OrderNo}: Katana Status='{KatanaStatus}' → Stored Status='{StoredStatus}'",
+                            salesOrder.OrderNo, order.Status, salesOrder.Status);
                     }
 
                     // ✅ 2) Admin onayı için PendingStockAdjustment oluştur
@@ -970,6 +1048,183 @@ public class SyncController : ControllerBase
                 ProcessedRecords = 0,
                 SuccessfulRecords = 0,
                 FailedRecords = 0
+            });
+        }
+    }
+
+    /// <summary>
+    /// 🔍 DEBUG: Katana siparişini hem API'den hem veritabanından çekip karşılaştır
+    /// Kullanım: GET /api/sync/debug/katana-order/SO-56
+    /// </summary>
+    [HttpGet("debug/katana-order/{orderNo}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DebugKatanaOrder(string orderNo)
+    {
+        try
+        {
+            _logger.LogInformation("🔍 DEBUG: Analyzing order {OrderNo}", orderNo);
+
+            // 1. Katana'dan direkt çek (batched API kullan)
+            var katanaService = HttpContext.RequestServices.GetRequiredService<IKatanaService>();
+            SalesOrderDto? katanaOrder = null;
+            
+            await foreach (var batch in katanaService.GetSalesOrdersBatchedAsync(fromDate: null, batchSize: 100))
+            {
+                katanaOrder = batch.FirstOrDefault(o => o.OrderNo == orderNo);
+                if (katanaOrder != null)
+                    break;
+            }
+
+            // 2. Veritabanından çek
+            var dbOrder = await _context.SalesOrders
+                .Include(s => s.Customer)
+                .Include(s => s.Lines)
+                .FirstOrDefaultAsync(s => s.OrderNo == orderNo);
+
+            // 3. Customer mapping kontrolü
+            object? customerMapping = null;
+            if (katanaOrder != null)
+            {
+                var katanaCustomerIdStr = katanaOrder.CustomerId.ToString();
+                customerMapping = await _context.Customers
+                    .Where(c => c.ReferenceId == katanaCustomerIdStr)
+                    .Select(c => new { 
+                        c.Id, 
+                        c.Title, 
+                        c.ReferenceId,
+                        c.Email,
+                        c.Phone,
+                        c.IsActive
+                    })
+                    .FirstOrDefaultAsync();
+            }
+
+            // 4. Karşılaştırma sonucu
+            var result = new
+            {
+                orderNo,
+                found = new
+                {
+                    inKatana = katanaOrder != null,
+                    inDatabase = dbOrder != null
+                },
+                katanaOrder = katanaOrder != null ? new
+                {
+                    id = katanaOrder.Id,
+                    orderNo = katanaOrder.OrderNo,
+                    katanaCustomerId = katanaOrder.CustomerId,
+                    status = katanaOrder.Status,
+                    total = katanaOrder.Total,
+                    currency = katanaOrder.Currency,
+                    orderCreatedDate = katanaOrder.OrderCreatedDate,
+                    deliveryDate = katanaOrder.DeliveryDate,
+                    source = katanaOrder.Source,
+                    locationId = katanaOrder.LocationId,
+                    rowCount = katanaOrder.SalesOrderRows?.Count ?? 0,
+                    rows = katanaOrder.SalesOrderRows?.Select(r => new
+                    {
+                        id = r.Id,
+                        variantId = r.VariantId,
+                        quantity = r.Quantity,
+                        pricePerUnit = r.PricePerUnit,
+                        total = r.Total
+                    }).ToList()
+                } : null,
+                dbOrder = dbOrder != null ? new
+                {
+                    id = dbOrder.Id,
+                    katanaOrderId = dbOrder.KatanaOrderId,
+                    orderNo = dbOrder.OrderNo,
+                    localCustomerId = dbOrder.CustomerId,
+                    customerName = dbOrder.Customer?.Title,
+                    customerEmail = dbOrder.Customer?.Email,
+                    customerReferenceId = dbOrder.Customer?.ReferenceId,
+                    status = dbOrder.Status,
+                    total = dbOrder.Total,
+                    currency = dbOrder.Currency,
+                    orderCreatedDate = dbOrder.OrderCreatedDate,
+                    deliveryDate = dbOrder.DeliveryDate,
+                    source = dbOrder.Source,
+                    locationId = dbOrder.LocationId,
+                    isSyncedToLuca = dbOrder.IsSyncedToLuca,
+                    createdAt = dbOrder.CreatedAt,
+                    lineCount = dbOrder.Lines?.Count ?? 0,
+                    lines = dbOrder.Lines?.Select(l => new
+                    {
+                        id = l.Id,
+                        katanaRowId = l.KatanaRowId,
+                        variantId = l.VariantId,
+                        sku = l.SKU,
+                        productName = l.ProductName,
+                        quantity = l.Quantity,
+                        pricePerUnit = l.PricePerUnit,
+                        total = l.Total
+                    }).ToList()
+                } : null,
+                customerMapping = customerMapping,
+                analysis = new
+                {
+                    customerIdMatch = katanaOrder != null && dbOrder != null && customerMapping != null
+                        ? $"Katana Customer ID {katanaOrder.CustomerId} → Local Customer ID {((dynamic)customerMapping).Id}"
+                        : "N/A",
+                    statusMatch = katanaOrder != null && dbOrder != null
+                        ? katanaOrder.Status == dbOrder.Status
+                        : (bool?)null,
+                    totalMatch = katanaOrder != null && dbOrder != null
+                        ? katanaOrder.Total == dbOrder.Total
+                        : (bool?)null,
+                    issues = new List<string>()
+                }
+            };
+
+            // Sorun tespiti
+            var issues = (List<string>)result.analysis.issues;
+            
+            if (katanaOrder == null)
+                issues.Add("⚠️ Sipariş Katana API'de bulunamadı");
+            
+            if (dbOrder == null)
+                issues.Add("⚠️ Sipariş veritabanında bulunamadı");
+            
+            if (katanaOrder != null && dbOrder == null)
+                issues.Add("❌ Sipariş Katana'da var ama veritabanında yok - senkronizasyon çalışmamış");
+            
+            if (katanaOrder != null && customerMapping == null)
+                issues.Add($"❌ Müşteri mapping bulunamadı - Katana Customer ID: {katanaOrder.CustomerId}");
+            
+            if (katanaOrder != null && dbOrder != null)
+            {
+                if (katanaOrder.Status != dbOrder.Status)
+                    issues.Add($"⚠️ Status uyuşmazlığı - Katana: '{katanaOrder.Status}' vs DB: '{dbOrder.Status}'");
+                
+                if (katanaOrder.Total != dbOrder.Total)
+                    issues.Add($"⚠️ Total uyuşmazlığı - Katana: {katanaOrder.Total} vs DB: {dbOrder.Total}");
+                
+                if (dbOrder.CustomerId == 0)
+                    issues.Add("❌ Customer ID = 0 - Müşteri mapping başarısız");
+                
+                var katanaRowCount = katanaOrder.SalesOrderRows?.Count ?? 0;
+                var dbLineCount = dbOrder.Lines?.Count ?? 0;
+                if (katanaRowCount != dbLineCount)
+                    issues.Add($"⚠️ Satır sayısı uyuşmazlığı - Katana: {katanaRowCount} vs DB: {dbLineCount}");
+            }
+            
+            if (issues.Count == 0)
+                issues.Add("✅ Sorun tespit edilmedi - Sipariş doğru senkronize edilmiş");
+
+            _logger.LogInformation("🔍 DEBUG: Order {OrderNo} analysis completed. Issues: {IssueCount}", 
+                orderNo, issues.Count);
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ DEBUG: Error analyzing order {OrderNo}", orderNo);
+            return StatusCode(500, new
+            {
+                error = "Debug analizi başarısız",
+                message = ex.Message,
+                stackTrace = ex.StackTrace?.Split('\n').Take(5).ToArray()
             });
         }
     }

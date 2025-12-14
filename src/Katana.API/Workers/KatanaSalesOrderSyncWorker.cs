@@ -20,6 +20,33 @@ namespace Katana.API.Workers;
 /// <summary>
 /// Background service that periodically syncs sales orders from Katana API
 /// and creates pending stock adjustments for admin approval.
+/// 
+/// SYNC FLOW (runs every 5 minutes):
+/// 1. Fetch ONLY open orders from Katana (status=NOT_SHIPPED)
+///    - Uses GetSalesOrdersBatchedAsync with fromDate=null
+///    - This ensures old orders like SO-41, SO-47 are included
+/// 
+/// 2. For each order (SalesOrderDto):
+///    a. Customer Mapping: Resolve Katana customer ID to local database ID
+///    b. If customer not found: Fetch from Katana and create locally
+///    c. Create SalesOrder entity:
+///       - CustomerId = local database ID (1, 2, 3...) NOT Katana ID (91190794...)
+///       - Status = raw Katana status ("NOT_SHIPPED", "OPEN", etc.)
+///       - All fields mapped from Katana DTO
+///    d. Create SalesOrderLine entities with variant mapping
+///    e. Save to database (duplicate prevention via KatanaOrderId)
+/// 
+/// 3. Create PendingStockAdjustment for admin approval
+///    - Only for open orders (skips cancelled/shipped/delivered)
+///    - Duplicate prevention via composite key (OrderId|SKU|Quantity)
+/// 
+/// 4. Trigger downstream syncs:
+///    - Sync products to Luca (stock cards)
+///    - Sync approved orders to Luca (invoices)
+///    - Create notification for new orders
+/// 
+/// NOTE: Does NOT use KatanaApiClient.GetSalesOrdersAsync (legacy).
+///       Directly uses IKatanaService.GetSalesOrdersBatchedAsync.
 /// </summary>
 public class KatanaSalesOrderSyncWorker : BackgroundService
 {
@@ -86,8 +113,9 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
 
         try
         {
-            // Son 7 gündeki siparişleri çek
-            var fromDate = DateTime.UtcNow.AddDays(-7);
+            // ✅ Tüm "Open" siparişleri çek (Katana UI ile aynı mantık)
+            // fromDate = null → Katana API'den tüm açık siparişleri getirir
+            DateTime? fromDate = null;
             
             // ✅ Mevcut SalesOrders tablosundaki Katana Order ID'lerini al (duplicate prevention)
             var existingKatanaOrderIdsList = await context.SalesOrders
@@ -96,6 +124,13 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
             var existingKatanaOrderIds = new HashSet<long>(existingKatanaOrderIdsList);
             
             _logger.LogInformation("Found {Count} existing sales orders in database", existingKatanaOrderIds.Count);
+            
+            // 🔍 DEBUG: Mevcut siparişleri logla
+            if (existingKatanaOrderIds.Count > 0)
+            {
+                _logger.LogWarning("🔍 DEBUG: First 10 existing Katana Order IDs: {Ids}", 
+                    string.Join(", ", existingKatanaOrderIds.Take(10)));
+            }
             
             // ✅ Composite key kontrolü - Sipariş güncellemelerini yakala
             // ExternalOrderId + ProductId + Quantity ile duplicate prevention
@@ -140,6 +175,25 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                 .Where(c => c.ReferenceId != null)
                 .ToDictionaryAsync(c => c.ReferenceId!, c => c.Id, StringComparer.OrdinalIgnoreCase, cancellationToken);
 
+            // 🔥 Tüm Katana müşterilerini önceden çek ve cache'le
+            _logger.LogInformation("Fetching all customers from Katana for caching...");
+            var allKatanaCustomers = await katanaService.GetCustomersAsync();
+            
+            // ✅ FIX: Dictionary key'i long yap (string yerine) - direct comparison için
+            var katanaCustomerCache = allKatanaCustomers.ToDictionary(
+                c => c.Id,  // long key - NO ToString()!
+                c => c
+            );
+            _logger.LogInformation("Cached {Count} customers from Katana", katanaCustomerCache.Count);
+            
+            // 🔍 DEBUG: Cache içeriğini logla
+            _logger.LogWarning("🔍 DEBUG: Customer Cache Contents (first 5):");
+            foreach (var kvp in katanaCustomerCache.Take(5))
+            {
+                _logger.LogWarning("  Cache Key: {Key} (Type: {Type}) → Customer ID: {Id}, Name: '{Name}'",
+                    kvp.Key, kvp.Key.GetType().Name, kvp.Value.Id, kvp.Value.Name);
+            }
+
             var newOrdersCount = 0;
             var newItemsCount = 0;
             var skippedItemsCount = 0;
@@ -147,6 +201,7 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
 
             // ✅ Memory-efficient batched processing (1000+ orders)
             // Her batch ayrı işlensin, GC çalışabilsin
+            // fromDate = null → Tüm "Open" siparişleri çek (Katana UI ile aynı mantık)
             await foreach (var orderBatch in katanaService.GetSalesOrdersBatchedAsync(fromDate, batchSize: 100))
             {
                 _logger.LogInformation("Processing batch of {Count} orders", orderBatch.Count);
@@ -157,8 +212,10 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                     var orderId = !string.IsNullOrEmpty(order.OrderNo) ? order.OrderNo : order.Id.ToString();
 
                     // Sadece tamamlanmamış siparişleri işle (PendingStockAdjustment için)
+                    // NOT_SHIPPED/OPEN siparişler için pending adjustment oluştur
+                    // CANCELLED, DONE, SHIPPED, DELIVERED siparişler için pending adjustment oluşturma
                     var status = order.Status?.ToLower() ?? "";
-                    var skipPendingAdjustment = status == "cancelled" || status == "done" || status == "shipped";
+                    var skipPendingAdjustment = status == "cancelled" || status == "done" || status == "shipped" || status == "delivered" || status == "fully_shipped";
 
                     // ✅ SalesOrders tablosuna kaydet (tüm siparişler için - duplicate check ile)
                     if (!existingKatanaOrderIds.Contains(order.Id))
@@ -168,6 +225,81 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                         if (customerMapping.TryGetValue(katanaCustomerIdStr, out var mappedCustomerId))
                         {
                             localCustomerId = mappedCustomerId;
+                        }
+                        
+                        // Müşteri bulunamadıysa Katana'dan çekip oluştur
+                        if (localCustomerId == 0)
+                        {
+                            // 🔍 DEBUG: Müşteri arama detayları
+                            _logger.LogWarning("🔍 DEBUG: Looking for customer - Order.CustomerId={OrderCustomerId} (Type: {Type}), " +
+                                "String Key='{StringKey}'",
+                                order.CustomerId,
+                                order.CustomerId.GetType().Name,
+                                katanaCustomerIdStr);
+                            
+                            KatanaCustomerDto? katanaCustomer = null;
+                            // ✅ FIX: long key ile direkt arama (string yerine)
+                            if (katanaCustomerCache.TryGetValue(order.CustomerId, out var cachedCustomer))
+                            {
+                                katanaCustomer = cachedCustomer;
+                                _logger.LogDebug("✅ Found customer in cache: {CustomerId}", order.CustomerId);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("❌ Customer NOT FOUND in cache! Key: {Key}, Cache Keys Sample: {Sample}",
+                                    order.CustomerId,
+                                    string.Join(", ", katanaCustomerCache.Keys.Take(3)));
+                            }
+                            
+                            if (katanaCustomer != null)
+                            {
+                                // Adres bilgilerini Addresses listesinden al
+                                var defaultAddress = katanaCustomer.Addresses?.FirstOrDefault();
+                                
+                                var newCustomer = new Customer
+                                {
+                                    Title = katanaCustomer.Name ?? $"Customer-{order.CustomerId}",
+                                    ReferenceId = katanaCustomerIdStr,
+                                    Email = katanaCustomer.Email,
+                                    Phone = katanaCustomer.Phone,
+                                    Address = defaultAddress?.Line1,
+                                    City = defaultAddress?.City,
+                                    Country = defaultAddress?.Country,
+                                    TaxNo = GetMax11SafeTaxNo(order.CustomerId),
+                                    Currency = katanaCustomer.Currency ?? "TRY",
+                                    IsActive = true,
+                                    CreatedAt = DateTime.UtcNow
+                                };
+                                context.Customers.Add(newCustomer);
+                                await context.SaveChangesAsync(cancellationToken);
+                                
+                                localCustomerId = newCustomer.Id;
+                                customerMapping[katanaCustomerIdStr] = localCustomerId;
+                                _logger.LogInformation("✅ Yeni müşteri oluşturuldu: {CustomerName} (ID: {CustomerId})", newCustomer.Title, newCustomer.Id);
+                            }
+                            else
+                            {
+                                // Müşteri Katana'da bulunamadı - "Unknown Customer" olarak oluştur
+                                _logger.LogWarning("⚠️ Müşteri Katana'da bulunamadı (CustomerId: {CustomerId}), 'Unknown Customer' olarak oluşturuluyor", order.CustomerId);
+                                
+                                var unknownCustomer = new Customer
+                                {
+                                    Title = $"Unknown Customer (Katana ID: {order.CustomerId})",
+                                    ReferenceId = katanaCustomerIdStr,
+                                    Email = null,
+                                    Phone = null,
+                                    TaxNo = GetMax11SafeTaxNo(order.CustomerId),
+                                    Currency = order.Currency ?? "TRY",
+                                    IsActive = false, // Inactive olarak işaretle
+                                    CreatedAt = DateTime.UtcNow
+                                };
+                                context.Customers.Add(unknownCustomer);
+                                await context.SaveChangesAsync(cancellationToken);
+                                
+                                localCustomerId = unknownCustomer.Id;
+                                customerMapping[katanaCustomerIdStr] = localCustomerId;
+                                _logger.LogInformation("✅ Unknown customer oluşturuldu: {CustomerName} (ID: {CustomerId})", unknownCustomer.Title, unknownCustomer.Id);
+                            }
                         }
                         
                         var salesOrder = new SalesOrder
@@ -230,6 +362,10 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                         context.SalesOrders.Add(salesOrder);
                         existingKatanaOrderIds.Add(order.Id); // Duplicate prevention için ekle
                         savedSalesOrdersCount++;
+                        
+                        // 📊 Debug: Status mapping kontrolü
+                        _logger.LogDebug("📊 Order {OrderNo}: Katana Status='{KatanaStatus}' → Stored Status='{StoredStatus}'",
+                            salesOrder.OrderNo, order.Status, salesOrder.Status);
                         
                         _logger.LogDebug("Saved sales order to database: {OrderNo} (KatanaId: {KatanaId})", 
                             salesOrder.OrderNo, order.Id);
@@ -508,5 +644,12 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
         {
             _logger.LogWarning(ex, "Failed to create notification for new orders");
         }
+    }
+
+    private static string GetMax11SafeTaxNo(long customerId)
+    {
+        var id = customerId.ToString();
+        if (id.Length > 10) id = id.Substring(id.Length - 10);
+        return $"U{id}";
     }
 }
