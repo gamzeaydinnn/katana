@@ -40,6 +40,16 @@ public class KatanaService : IKatanaService
         };
     }
 
+    private static StringContent CreateKatanaJsonContent(string json)
+    {
+        var content = new StringContent(json, Encoding.UTF8);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
+        {
+            CharSet = null
+        };
+        return content;
+    }
+
     public async Task<List<KatanaStockDto>> GetStockChangesAsync(DateTime fromDate, DateTime toDate)
     {
         try
@@ -702,7 +712,7 @@ public class KatanaService : IKatanaService
             var json = JsonSerializer.Serialize(payload, _jsonOptions);
             _logger.LogDebug("CreateCustomerAsync payload: {Payload}", json);
 
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKatanaJsonContent(json);
             var response = await _httpClient.PostAsync(_settings.Endpoints.Customers, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
@@ -845,7 +855,7 @@ public class KatanaService : IKatanaService
             var json = JsonSerializer.Serialize(payload, _jsonOptions);
             _logger.LogDebug("UpdateCustomerAsync payload for CustomerId {CustomerId}: {Payload}", customerId, json);
 
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKatanaJsonContent(json);
             var updateUrl = $"{_settings.Endpoints.Customers}/{customerId}";
             var response = await _httpClient.PatchAsync(updateUrl, content);
             var responseContent = await response.Content.ReadAsStringAsync();
@@ -1452,7 +1462,7 @@ public class KatanaService : IKatanaService
             };
 
             var json = JsonSerializer.Serialize(updatePayload, _jsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKatanaJsonContent(json);
 
             var response = await _httpClient.PatchAsync($"{_settings.Endpoints.Products}/{katanaProductId}", content);
             
@@ -1560,7 +1570,7 @@ public class KatanaService : IKatanaService
             var json = JsonSerializer.Serialize(payload, _jsonOptions);
             _logger.LogDebug("CreateProductAsync payload: {Payload}", json);
 
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKatanaJsonContent(json);
             var response = await _httpClient.PostAsync(_settings.Endpoints.Products, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
@@ -1839,7 +1849,7 @@ public class KatanaService : IKatanaService
         {
             var request = new { purchase_order_id = id };
             var jsonContent = JsonSerializer.Serialize(request, _jsonOptions);
-            var httpContent = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            var httpContent = CreateKatanaJsonContent(jsonContent);
 
             var response = await _httpClient.PostAsync("/purchase-orders/receive", httpContent);
             
@@ -2062,7 +2072,7 @@ public class KatanaService : IKatanaService
             var json = JsonSerializer.Serialize(payload, _jsonOptions);
             _logger.LogDebug("CreateSupplierAsync payload: {Payload}", json);
 
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKatanaJsonContent(json);
             var response = await _httpClient.PostAsync(_settings.Endpoints.Suppliers, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
@@ -2170,7 +2180,7 @@ public class KatanaService : IKatanaService
             var json = JsonSerializer.Serialize(payload, _jsonOptions);
             _logger.LogDebug("UpdateSupplierAsync payload for SupplierId {SupplierId}: {Payload}", supplierId, json);
 
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKatanaJsonContent(json);
             var updateUrl = $"{_settings.Endpoints.Suppliers}/{supplierId}";
             var response = await _httpClient.PatchAsync(updateUrl, content);
             var responseContent = await response.Content.ReadAsStringAsync();
@@ -2431,7 +2441,7 @@ public class KatanaService : IKatanaService
             };
 
             var json = JsonSerializer.Serialize(payload, _jsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKatanaJsonContent(json);
             var response = await _httpClient.PostAsync("supplier-addresses", content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
@@ -2488,7 +2498,7 @@ public class KatanaService : IKatanaService
             payload["is_default"] = address.IsDefault;
 
             var json = JsonSerializer.Serialize(payload, _jsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKatanaJsonContent(json);
             var response = await _httpClient.PatchAsync($"supplier-addresses/{addressId}", content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
@@ -2673,7 +2683,7 @@ public class KatanaService : IKatanaService
         _logger.LogInformation("Creating stock adjustment via Katana API");
         var json = JsonSerializer.Serialize(request, _jsonOptions);
         _logger.LogDebug("CreateStockAdjustmentAsync payload: {Payload}", json);
-        var resp = await _httpClient.PostAsync(_settings.Endpoints.StockAdjustments, new StringContent(json, Encoding.UTF8, "application/json"));
+        var resp = await _httpClient.PostAsync(_settings.Endpoints.StockAdjustments, CreateKatanaJsonContent(json));
         var content = await resp.Content.ReadAsStringAsync();
 
         if (!resp.IsSuccessStatusCode)
@@ -2789,7 +2799,7 @@ public class KatanaService : IKatanaService
     {
         _logger.LogInformation("CreateSalesOrderAsync called for OrderNo: {OrderNo}", salesOrder?.OrderNo);
         var json = JsonSerializer.Serialize(salesOrder, _jsonOptions);
-        var resp = await _httpClient.PostAsync(_settings.Endpoints.SalesOrders, new StringContent(json, Encoding.UTF8, "application/json"));
+        var resp = await _httpClient.PostAsync(_settings.Endpoints.SalesOrders, CreateKatanaJsonContent(json));
         var content = await resp.Content.ReadAsStringAsync();
         if (!resp.IsSuccessStatusCode)
         {
@@ -2803,7 +2813,7 @@ public class KatanaService : IKatanaService
     {
         _logger.LogInformation("UpdateSalesOrderAsync called for OrderNo: {OrderNo}", salesOrder?.OrderNo);
         var json = JsonSerializer.Serialize(salesOrder, _jsonOptions);
-        var resp = await _httpClient.PutAsync($"{_settings.Endpoints.SalesOrders}/{salesOrder?.Id}", new StringContent(json, Encoding.UTF8, "application/json"));
+        var resp = await _httpClient.PutAsync($"{_settings.Endpoints.SalesOrders}/{salesOrder?.Id}", CreateKatanaJsonContent(json));
         var content = await resp.Content.ReadAsStringAsync();
         if (!resp.IsSuccessStatusCode)
         {
@@ -2850,7 +2860,7 @@ public class KatanaService : IKatanaService
             var json = JsonSerializer.Serialize(payload, _jsonOptions);
             _logger.LogDebug("CreateLocationAsync payload: {Payload}", json);
 
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKatanaJsonContent(json);
             var response = await _httpClient.PostAsync(_settings.Endpoints.Locations, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
@@ -2911,7 +2921,7 @@ public class KatanaService : IKatanaService
             var json = JsonSerializer.Serialize(payload, _jsonOptions);
             _logger.LogDebug("UpdateLocationAsync payload for LocationId {LocationId}: {Payload}", locationId, json);
 
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var content = CreateKatanaJsonContent(json);
             var updateUrl = $"{_settings.Endpoints.Locations}/{locationId}";
             var response = await _httpClient.PutAsync(updateUrl, content);
             var responseContent = await response.Content.ReadAsStringAsync();

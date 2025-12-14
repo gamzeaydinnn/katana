@@ -614,22 +614,33 @@ public class SalesOrdersController : ControllerBase
             }
 
             // Veritabanını güncelle
-            await using var tx = await _context.Database.BeginTransactionAsync();
             try
             {
-                var isSuccess = katanaOrderId.HasValue;
-                order.Status = isSuccess ? "APPROVED" : "APPROVED_WITH_ERRORS";
-                if (katanaOrderId.HasValue)
-                    order.KatanaOrderId = katanaOrderId.Value;
-                order.LastSyncError = isSuccess ? null : Truncate(katanaError ?? "Bilinmeyen hata", 1900);
-                order.UpdatedAt = DateTime.UtcNow;
+                var strategy = _context.Database.CreateExecutionStrategy();
+                await strategy.ExecuteAsync(async () =>
+                {
+                    await using var tx = await _context.Database.BeginTransactionAsync();
+                    try
+                    {
+                        var isSuccess = katanaOrderId.HasValue;
+                        order.Status = isSuccess ? "APPROVED" : "APPROVED_WITH_ERRORS";
+                        if (katanaOrderId.HasValue)
+                            order.KatanaOrderId = katanaOrderId.Value;
+                        order.LastSyncError = isSuccess ? null : Truncate(katanaError ?? "Bilinmeyen hata", 1900);
+                        order.UpdatedAt = DateTime.UtcNow;
 
-                await _context.SaveChangesAsync();
-                await tx.CommitAsync();
+                        await _context.SaveChangesAsync();
+                        await tx.CommitAsync();
+                    }
+                    catch
+                    {
+                        await tx.RollbackAsync();
+                        throw;
+                    }
+                });
             }
             catch (Exception ex)
             {
-                await tx.RollbackAsync();
                 _logger.LogError(ex, "SalesOrder approve failed while persisting result. OrderId={OrderId}", id);
                 _loggingService.LogError($"SalesOrder approve DB update failed: {id}", ex, User.Identity?.Name, null, LogCategory.Business);
                 return StatusCode(500, new { success = false, message = "Onay sonucu kaydedilirken hata oluştu." });

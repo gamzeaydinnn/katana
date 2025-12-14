@@ -493,6 +493,36 @@ public partial class LucaService
 
         return clone;
     }
+
+    private void LogHtmlResponse(string logTag, HttpResponseMessage response, string? responseContent, int attempt, int maxAttempts)
+    {
+        try
+        {
+            var content = responseContent ?? string.Empty;
+            var trimmed = content.TrimStart();
+            if (trimmed.Length == 0 || !trimmed.StartsWith("<", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            const int maxLogChars = 20000;
+            var logBody = trimmed.Length > maxLogChars ? trimmed.Substring(0, maxLogChars) + " ...(truncated)" : trimmed;
+
+            _logger.LogError(
+                "Luca API HTML Yanıtı Döndü! Tag={Tag} Url={Url} Status={Status} Attempt={Attempt}/{MaxAttempts} ContentType={ContentType} İçerik: {Content}",
+                logTag,
+                response.RequestMessage?.RequestUri?.ToString() ?? "(unknown)",
+                (int)response.StatusCode,
+                attempt,
+                maxAttempts,
+                response.Content?.Headers?.ContentType?.ToString() ?? "(unknown)",
+                logBody);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to log HTML response content for {Tag}", logTag);
+        }
+    }
     private async Task<HttpResponseMessage> SendWithAuthRetryAsync(HttpRequestMessage request, string logTag, int maxAttempts = 2)
     {
         var attempt = 0;
@@ -533,6 +563,7 @@ public partial class LucaService
             if (IsHtmlResponse(body))
             {
                 _logger.LogWarning("⚠️ {Tag}: HTML response alındı (session timeout). Attempt {Attempt}/{MaxAttempts}", logTag, attempt, maxAttempts);
+                LogHtmlResponse(logTag, response, body, attempt, maxAttempts);
 
                 if (attempt >= maxAttempts)
                 {
