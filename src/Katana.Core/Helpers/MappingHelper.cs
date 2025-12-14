@@ -423,7 +423,7 @@ public static class MappingHelper
             {
                 KartTuru = 1,
                 KartKodu = NormalizeSku(l.SKU),
-                KartAdi = NormalizeTurkishText(l.ProductName),
+                KartAdi = l.ProductName,
                 BirimFiyat = (double)(l.PricePerUnit ?? 0),
                 Miktar = (double)l.Quantity,
                 KdvOran = (double)(l.TaxRate ?? 20),
@@ -558,7 +558,7 @@ public static class MappingHelper
                 KartKodu = !string.IsNullOrWhiteSpace(item.LucaStockCode) 
                     ? item.LucaStockCode 
                     : NormalizeSku(item.Product?.SKU ?? string.Empty),
-                KartAdi = NormalizeTurkishText(item.Product?.Name),
+                KartAdi = item.Product?.Name,
                 DepoKodu = item.WarehouseCode ?? "01",
                 BirimKodu = item.UnitCode ?? "AD",
                 BirimFiyat = (double)item.UnitPrice,
@@ -612,7 +612,7 @@ public static class MappingHelper
                 KartKodu = !string.IsNullOrWhiteSpace(item.LucaStockCode) 
                     ? item.LucaStockCode 
                     : NormalizeSku(item.Product?.SKU ?? string.Empty),
-                KartAdi = NormalizeTurkishText(item.Product?.Name),
+                KartAdi = item.Product?.Name,
                 DepoKodu = item.WarehouseCode ?? "01",
                 BirimFiyat = (double)item.UnitPrice,
                 Miktar = item.Quantity,
@@ -921,9 +921,7 @@ public static class MappingHelper
             normalizedSku = $"KAT-{(product.Id > 0 ? product.Id : Guid.NewGuid().ToString("N")[..8])}";
         }
         var baseName = string.IsNullOrWhiteSpace(product.Name) ? normalizedSku : product.Name;
-        // Türkçe karakterleri normalize et (İ→I, Ş→S vb.)
-        var normalizedName = NormalizeTurkishText(baseName);
-        var kartAdi = TrimAndTruncate(normalizedName, 255) ?? normalizedSku;
+        var kartAdi = TrimAndTruncate(baseName, 255) ?? normalizedSku;
         // ✅ RAPOR UYUMLU: SADECE LUCA DOKÜMANTASYONUNDA OLAN ALANLAR!
         var barkod = normalizedSku;
         var startDate = (product.CreatedAt == default ? DateTime.UtcNow : product.CreatedAt).Date;
@@ -975,8 +973,6 @@ public static class MappingHelper
             sku = $"KAT-{(string.IsNullOrWhiteSpace(product.Id) ? Guid.NewGuid().ToString("N")[..8] : product.Id)}";
         }
         var name = !string.IsNullOrWhiteSpace(product.Name) ? product.Name : sku;
-        // Türkçe karakterleri normalize et (İ→I, Ş→S vb.)
-        var normalizedName = NormalizeTurkishText(name);
         var desc = TrimAndTruncate(product.Description, 1000) ?? string.Empty;
         var vatRate = product.VatRate.HasValue ? product.VatRate.Value / 100d : (defaultVat ?? 0.20);
         var startDate = DateTime.UtcNow.Date;
@@ -1004,7 +1000,7 @@ public static class MappingHelper
         return new LucaCreateStokKartiRequest
         {
             // Zorunlu alanlar
-            KartAdi = TrimAndTruncate(normalizedName, 255) ?? sku,
+            KartAdi = TrimAndTruncate(name, 255) ?? sku,
             KartKodu = sku,
             BaslangicTarihi = startDate.ToString("dd/MM/yyyy"),
             
@@ -1843,8 +1839,7 @@ public static class MappingHelper
     }
 
     /// <summary>
-    /// Türkçe metinleri normalize eder - Türkçe karakterleri İngilizce karşılıklarına çevirir.
-    /// Luca/Koza sisteminde Türkçe karakter encoding sorunlarını önlemek için kullanılır.
+    /// Türkçe karakterleri İngilizce'ye normalize eder
     /// </summary>
     private static string NormalizeTurkishText(string? text)
     {
@@ -1853,24 +1848,14 @@ public static class MappingHelper
             return string.Empty;
         }
 
-        var trimmed = text.Trim();
-        
-        // Türkçe karakterleri İngilizce'ye çevir
-        // Hem küçük hem büyük harfler için mapping
-        var normalized = trimmed
-            .Replace("İ", "I")  // Türkçe büyük İ → İngilizce I
-            .Replace("ı", "i")  // Türkçe küçük ı → İngilizce i
-            .Replace("Ş", "S")
-            .Replace("ş", "s")
-            .Replace("Ğ", "G")
-            .Replace("ğ", "g")
-            .Replace("Ö", "O")
-            .Replace("ö", "o")
-            .Replace("Ü", "U")
-            .Replace("ü", "u")
-            .Replace("Ç", "C")
-            .Replace("ç", "c");
-        
+        var normalized = text.Trim()
+            .Replace("ş", "s").Replace("Ş", "S")
+            .Replace("ğ", "g").Replace("Ğ", "G")
+            .Replace("ı", "i").Replace("İ", "I")
+            .Replace("ö", "o").Replace("Ö", "O")
+            .Replace("ü", "u").Replace("Ü", "U")
+            .Replace("ç", "c").Replace("Ç", "C");
+
         return normalized;
     }
 

@@ -43,24 +43,24 @@ public class KatanaApiEndpoints
     public string Products { get; set; } = "products";
     public string Variants { get; set; } = "variants";
     public string Locations { get; set; } = "locations";
-    public string BinLocations { get; set; } = "bin-locations";
+    public string BinLocations { get; set; } = "bin_locations";
     public string Contacts { get; set; } = "contacts";
-    public string ContactAddresses { get; set; } = "contact-addresses";
+    public string ContactAddresses { get; set; } = "contact_addresses";
     public string Customers { get; set; } = "customers";
-    public string SalesOrders { get; set; } = "sales-orders";
-    public string PurchaseOrders { get; set; } = "purchase-orders";
-    public string ManufacturingOrders { get; set; } = "manufacturing-orders";
-    public string StockAdjustments { get; set; } = "stock-adjustments";
+    public string SalesOrders { get; set; } = "sales_orders";
+    public string PurchaseOrders { get; set; } = "purchase_orders";
+    public string ManufacturingOrders { get; set; } = "manufacturing_orders";
+    public string StockAdjustments { get; set; } = "stock_adjustments";
     public string Batches { get; set; } = "batches";
     public string Stocktakes { get; set; } = "stocktakes";
-    public string StocktakeRows { get; set; } = "stocktake-rows";
+    public string StocktakeRows { get; set; } = "stocktake_rows";
 
-    public string BomRows { get; set; } = "bom-rows";
+    public string BomRows { get; set; } = "bom_rows";
     public string Materials { get; set; } = "materials";
     public string Recipes { get; set; } = "recipes";
 
-    public string PriceLists { get; set; } = "price-lists";
-    public string TaxRates { get; set; } = "tax-rates";
+    public string PriceLists { get; set; } = "price_lists";
+    public string TaxRates { get; set; } = "tax_rates";
     public string Suppliers { get; set; } = "suppliers";
 
     
