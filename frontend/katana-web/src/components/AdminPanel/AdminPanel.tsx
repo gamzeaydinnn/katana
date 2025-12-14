@@ -144,17 +144,18 @@ const AdminPanel: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const [statsRes, productsRes, logsRes, movementsRes, healthRes] = await Promise.all([
-        api.get("/adminpanel/statistics"),
-        api.get(
-          `/adminpanel/products?page=${page + 1}&pageSize=${rowsPerPage}`
-        ),
-        api.get(
-          `/adminpanel/sync-logs?page=${page + 1}&pageSize=${rowsPerPage}`
-        ),
-        api.get("/adminpanel/recent-stock-movements?take=10"),
-        api.get("/adminpanel/katana-health"),
-      ]);
+      const [statsRes, productsRes, logsRes, movementsRes, healthRes] =
+        await Promise.all([
+          api.get("/adminpanel/statistics"),
+          api.get(
+            `/adminpanel/products?page=${page + 1}&pageSize=${rowsPerPage}`
+          ),
+          api.get(
+            `/adminpanel/sync-logs?page=${page + 1}&pageSize=${rowsPerPage}`
+          ),
+          api.get("/adminpanel/recent-stock-movements?take=10"),
+          api.get("/adminpanel/katana-health"),
+        ]);
 
       setStatistics(statsRes.data as Statistics);
 
@@ -209,7 +210,8 @@ const AdminPanel: React.FC = () => {
         )
       );
 
-      const rawMovements = ((movementsRes as any).data?.movements ?? []) as any[];
+      const rawMovements = ((movementsRes as any).data?.movements ??
+        []) as any[];
       setStockMovements(
         (Array.isArray(rawMovements) ? rawMovements : []).map((m) => ({
           id: Number(m.id ?? 0),
@@ -803,10 +805,10 @@ const AdminPanel: React.FC = () => {
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: { 
-                xs: "1fr", 
-                md: "repeat(2, 1fr)", 
-                lg: "repeat(3, 1fr)" 
+              gridTemplateColumns: {
+                xs: "1fr",
+                md: "repeat(2, 1fr)",
+                lg: "repeat(3, 1fr)",
               },
               gap: 3,
             }}
@@ -914,9 +916,15 @@ const AdminPanel: React.FC = () => {
                     <TableHead>
                       <TableRow>
                         <TableCell sx={{ whiteSpace: "nowrap" }}>SKU</TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>Ürün Adı</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>Stok</TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>Durum</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Ürün Adı
+                        </TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                          Stok
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Durum
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -930,13 +938,19 @@ const AdminPanel: React.FC = () => {
                               : `product-${idx}`
                           }
                         >
-                          <TableCell sx={{ whiteSpace: "nowrap" }}>{product.sku}</TableCell>
-                          <TableCell sx={{ 
-                            maxWidth: "150px",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap"
-                          }}>{product.name}</TableCell>
+                          <TableCell sx={{ whiteSpace: "nowrap" }}>
+                            {product.sku}
+                          </TableCell>
+                          <TableCell
+                            sx={{
+                              maxWidth: "150px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {product.name}
+                          </TableCell>
                           <TableCell align="right">{product.stock}</TableCell>
                           <TableCell>
                             <Chip
@@ -968,54 +982,86 @@ const AdminPanel: React.FC = () => {
                 Son Stok Hareketleri
               </Typography>
               <Divider sx={{ mb: 2 }} />
-              
+
               {/* Summary Cards */}
-              <Box sx={{ 
-                display: "grid", 
-                gridTemplateColumns: { xs: "1fr 1fr", sm: "1fr 1fr", md: "repeat(2, 1fr)" },
-                gap: 1.5,
-                mb: 3
-              }}>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: {
+                    xs: "1fr 1fr",
+                    sm: "1fr 1fr",
+                    md: "repeat(2, 1fr)",
+                  },
+                  gap: 1.5,
+                  mb: 3,
+                }}
+              >
                 {/* Toplam Girdi */}
-                <Card sx={{ 
-                  background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                  color: "white",
-                  borderRadius: 2
-                }}>
+                <Card
+                  sx={{
+                    background:
+                      "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                    color: "white",
+                    borderRadius: 2,
+                  }}
+                >
                   <CardContent sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
-                    <Typography variant="caption" sx={{ opacity: 0.9, display: "block", mb: 0.5 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{ opacity: 0.9, display: "block", mb: 0.5 }}
+                    >
                       Toplam Girdi
                     </Typography>
-                    <Typography variant="h5" fontWeight={700} fontSize={{ xs: "1.5rem", sm: "1.75rem" }}>
+                    <Typography
+                      variant="h5"
+                      fontWeight={700}
+                      fontSize={{ xs: "1.5rem", sm: "1.75rem" }}
+                    >
                       {stockMovements
                         .filter((m) => m.quantity > 0)
                         .reduce((sum, m) => sum + m.quantity, 0)
                         .toLocaleString("tr-TR")}
                     </Typography>
-                    <Typography variant="caption" sx={{ opacity: 0.8, display: "block", mt: 0.5 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{ opacity: 0.8, display: "block", mt: 0.5 }}
+                    >
                       Son {stockMovements.length} hareket
                     </Typography>
                   </CardContent>
                 </Card>
 
                 {/* Toplam Stok */}
-                <Card sx={{ 
-                  background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                  color: "white",
-                  borderRadius: 2
-                }}>
+                <Card
+                  sx={{
+                    background:
+                      "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                    color: "white",
+                    borderRadius: 2,
+                  }}
+                >
                   <CardContent sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
-                    <Typography variant="caption" sx={{ opacity: 0.9, display: "block", mb: 0.5 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{ opacity: 0.9, display: "block", mb: 0.5 }}
+                    >
                       Toplam Çıktı
                     </Typography>
-                    <Typography variant="h5" fontWeight={700} fontSize={{ xs: "1.5rem", sm: "1.75rem" }}>
+                    <Typography
+                      variant="h5"
+                      fontWeight={700}
+                      fontSize={{ xs: "1.5rem", sm: "1.75rem" }}
+                    >
                       {Math.abs(
                         stockMovements
                           .filter((m) => m.quantity < 0)
                           .reduce((sum, m) => sum + m.quantity, 0)
                       ).toLocaleString("tr-TR")}
                     </Typography>
-                    <Typography variant="caption" sx={{ opacity: 0.8, display: "block", mt: 0.5 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{ opacity: 0.8, display: "block", mt: 0.5 }}
+                    >
                       Son {stockMovements.length} hareket
                     </Typography>
                   </CardContent>
@@ -1047,20 +1093,38 @@ const AdminPanel: React.FC = () => {
                         <Typography variant="subtitle1" fontWeight={600}>
                           {movement.productName}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mt: 0.25 }}
+                        >
                           SKU: <strong>{movement.sku}</strong>
                         </Typography>
                         <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
                           <Box>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
                               Miktar
                             </Typography>
-                            <Typography fontWeight={600} color={movement.quantity > 0 ? "success.main" : "error.main"}>
-                              {movement.quantity > 0 ? "+" : ""}{movement.quantity}
+                            <Typography
+                              fontWeight={600}
+                              color={
+                                movement.quantity > 0
+                                  ? "success.main"
+                                  : "error.main"
+                              }
+                            >
+                              {movement.quantity > 0 ? "+" : ""}
+                              {movement.quantity}
                             </Typography>
                           </Box>
                           <Box>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
                               Hareket
                             </Typography>
                             <Typography fontWeight={600}>
@@ -1068,16 +1132,25 @@ const AdminPanel: React.FC = () => {
                             </Typography>
                           </Box>
                           <Box sx={{ flex: 1 }}>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
                               Tarih
                             </Typography>
                             <Typography variant="body2">
-                              {new Date(movement.movementDate).toLocaleString("tr-TR")}
+                              {new Date(movement.movementDate).toLocaleString(
+                                "tr-TR"
+                              )}
                             </Typography>
                           </Box>
                         </Box>
                         {movement.reason && (
-                          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ mt: 1, display: "block" }}
+                          >
                             Sebep: {movement.reason}
                           </Typography>
                         )}
@@ -1090,50 +1163,78 @@ const AdminPanel: React.FC = () => {
                   <Table size="small" sx={{ minWidth: "auto" }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>Ürün</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Ürün
+                        </TableCell>
                         <TableCell sx={{ whiteSpace: "nowrap" }}>SKU</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>Miktar</TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>Hareket</TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>Tarih</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                          Miktar
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Hareket
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Tarih
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {stockMovements.map((movement, idx) => (
                         <TableRow key={movement.id || `movement-${idx}`}>
-                          <TableCell sx={{ 
-                            maxWidth: "120px",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap"
-                          }}>{movement.productName}</TableCell>
-                          <TableCell sx={{ whiteSpace: "nowrap" }}>{movement.sku}</TableCell>
+                          <TableCell
+                            sx={{
+                              maxWidth: "120px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {movement.productName}
+                          </TableCell>
+                          <TableCell sx={{ whiteSpace: "nowrap" }}>
+                            {movement.sku}
+                          </TableCell>
                           <TableCell align="right">
                             <Typography
                               component="span"
                               fontWeight={600}
                               fontSize="0.875rem"
-                              color={movement.quantity > 0 ? "success.main" : "error.main"}
+                              color={
+                                movement.quantity > 0
+                                  ? "success.main"
+                                  : "error.main"
+                              }
                             >
-                              {movement.quantity > 0 ? "+" : ""}{movement.quantity}
+                              {movement.quantity > 0 ? "+" : ""}
+                              {movement.quantity}
                             </Typography>
                           </TableCell>
-                          <TableCell sx={{ 
-                            maxWidth: "100px",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            fontSize: "0.875rem"
-                          }}>{movement.movementType}</TableCell>
-                          <TableCell sx={{ 
-                            whiteSpace: "nowrap",
-                            fontSize: "0.875rem"
-                          }}>
-                            {new Date(movement.movementDate).toLocaleString("tr-TR", {
-                              month: "2-digit",
-                              day: "2-digit",
-                              hour: "2-digit",
-                              minute: "2-digit"
-                            })}
+                          <TableCell
+                            sx={{
+                              maxWidth: "100px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              fontSize: "0.875rem",
+                            }}
+                          >
+                            {movement.movementType}
+                          </TableCell>
+                          <TableCell
+                            sx={{
+                              whiteSpace: "nowrap",
+                              fontSize: "0.875rem",
+                            }}
+                          >
+                            {new Date(movement.movementDate).toLocaleString(
+                              "tr-TR",
+                              {
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1212,17 +1313,41 @@ const AdminPanel: React.FC = () => {
                   <Table size="small" sx={{ minWidth: "auto" }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>Entegrasyon</TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>Tarih</TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>Durum</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Entegrasyon
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Tarih
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Durum
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {syncLogs.map((log, idx) => (
                         <TableRow key={log.id || `log-${idx}`}>
-                          <TableCell sx={{ fontSize: "0.875rem", maxWidth: "150px", overflow: "hidden", textOverflow: "ellipsis" }}>{log.integrationName}</TableCell>
-                          <TableCell sx={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}>
-                            {new Date(log.createdAt).toLocaleDateString("tr-TR", { month: "2-digit", day: "2-digit" })} {new Date(log.createdAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                          <TableCell
+                            sx={{
+                              fontSize: "0.875rem",
+                              maxWidth: "150px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {log.integrationName}
+                          </TableCell>
+                          <TableCell
+                            sx={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}
+                          >
+                            {new Date(log.createdAt).toLocaleDateString(
+                              "tr-TR",
+                              { month: "2-digit", day: "2-digit" }
+                            )}{" "}
+                            {new Date(log.createdAt).toLocaleTimeString(
+                              "tr-TR",
+                              { hour: "2-digit", minute: "2-digit" }
+                            )}
                           </TableCell>
                           <TableCell>
                             <Chip
