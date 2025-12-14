@@ -38,6 +38,10 @@ public class LucaApiSettings
     // Örnek: "1MAMUL" → "001", "3YARI MAMUL" → "220"
     public Dictionary<string, string> CategoryMapping { get; set; } = new();
     
+    // 🔥 Ölçü Birimi Mapping: Katana unit → Luca OlcumBirimiId
+    // Örnek: "pcs" → 5, "kg" → 2, "adet" → 5
+    public Dictionary<string, int> UnitMapping { get; set; } = new();
+    
     // No-Paging header'ı kullanılsın mı? (Performans için kapatılabilir)
     public bool UseNoPagingHeader { get; set; } = false;
 

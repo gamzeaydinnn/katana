@@ -214,7 +214,8 @@ public class SyncService : ISyncService
                     _lucaSettings,
                     productCategoryMappings,
                     _katanaMappingSettings,
-                    olcumBirimiIdOverride: olcumBirimiId);
+                    olcumBirimiIdOverride: olcumBirimiId,
+                    unitMappings: _lucaSettings.UnitMapping);
 
                 // If mapping was not found and we fell back to default, log that too
                 if (!mappingExists)
@@ -2158,7 +2159,8 @@ public class SyncService : ISyncService
             _lucaSettings,
             categoryMappings,
             _katanaMappingSettings,
-            olcumBirimiIdOverride: olcumBirimiId);
+            olcumBirimiIdOverride: olcumBirimiId,
+            unitMappings: _lucaSettings.UnitMapping);
 
         _logger.LogWarning("🔥 FORCE SYNC: Ürün bilgileri:");
         _logger.LogWarning("   SKU: {SKU}", dto.KartKodu);

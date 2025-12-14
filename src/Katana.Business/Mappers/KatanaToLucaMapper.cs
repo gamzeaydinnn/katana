@@ -382,7 +382,8 @@ public static class KatanaToLucaMapper
         LucaApiSettings lucaSettings,
         IReadOnlyDictionary<string, string>? productCategoryMappings = null,
         KatanaMappingSettings? mappingSettings = null,
-        long? olcumBirimiIdOverride = null)
+        long? olcumBirimiIdOverride = null,
+        IReadOnlyDictionary<string, int>? unitMappings = null)
     {
         if (product == null) throw new ArgumentNullException(nameof(product));
         if (lucaSettings == null) throw new ArgumentNullException(nameof(lucaSettings));
@@ -507,12 +508,35 @@ public static class KatanaToLucaMapper
             barcodeToSend = string.IsNullOrWhiteSpace(product.Barcode) ? sku : product.Barcode.Trim();
         }
         
+        // 🔥 ÖLÇÜ BİRİMİ MAPPING: Katana'dan gelen Unit'i Luca ID'sine çevir
+        long olcumBirimiId = lucaSettings.DefaultOlcumBirimiId;
+        
+        if (olcumBirimiIdOverride.HasValue)
+        {
+            // Override varsa onu kullan
+            olcumBirimiId = olcumBirimiIdOverride.Value;
+        }
+        else if (!string.IsNullOrWhiteSpace(product.Unit) && unitMappings != null)
+        {
+            // Katana'dan gelen Unit'i normalize et ve mapping'den bul
+            var normalizedUnit = product.Unit.Trim().ToLowerInvariant();
+            if (unitMappings.TryGetValue(normalizedUnit, out var mappedUnitId))
+            {
+                olcumBirimiId = mappedUnitId;
+                Console.WriteLine($"✅ ÖLÇÜ BİRİMİ MAPPING: '{product.Unit}' → Luca ID: {mappedUnitId}");
+            }
+            else
+            {
+                Console.WriteLine($"⚠️ ÖLÇÜ BİRİMİ MAPPING BULUNAMADI: '{product.Unit}' - Default kullanılıyor: {olcumBirimiId}");
+            }
+        }
+        
         var dto = new LucaCreateStokKartiRequest
         {
             KartAdi = name,
             KartTuru = 1, // 1=Stok, 2=Hizmet
             BaslangicTarihi = DateTime.UtcNow.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
-            OlcumBirimiId = olcumBirimiIdOverride ?? lucaSettings.DefaultOlcumBirimiId,
+            OlcumBirimiId = olcumBirimiId,
             KartKodu = sku,
             MaliyetHesaplanacakFlag = true,  // ✅ BOOLEAN - Luca dokümantasyonuna göre!
             KartTipi = lucaSettings.DefaultKartTipi,

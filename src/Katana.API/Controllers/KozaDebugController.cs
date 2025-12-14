@@ -105,7 +105,7 @@ public class KozaDebugController : ControllerBase
             var output = new System.Collections.Generic.List<object>();
             foreach (var p in selected)
             {
-                var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(p, _lucaSettings, mappings, _katanaMappingSettings);
+                var dto = KatanaToLucaMapper.MapKatanaProductToStockCard(p, _lucaSettings, mappings, _katanaMappingSettings, unitMappings: _lucaSettings.UnitMapping);
                 // Apply DefaultKategoriKodu override to preview so debug output matches actual send behavior
                 if (!string.IsNullOrWhiteSpace(_lucaSettings.DefaultKategoriKodu))
                 {
