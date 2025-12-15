@@ -216,7 +216,7 @@ public static class KatanaToLucaMapper
 
         var belge = new LucaCreateInvoiceHeaderRequest
         {
-            BelgeSeri = string.IsNullOrWhiteSpace(belgeSeri) ? "A" : belgeSeri.Trim(),
+            BelgeSeri = string.IsNullOrWhiteSpace(belgeSeri) ? "EFA2025" : belgeSeri.Trim(),
             BelgeNo = ParseDocumentNo(baseDto.DocumentNo),
             BelgeTarihi = belgeTarihi.ToString("dd/MM/yyyy"),
             VadeTarihi = vadeTarihi.ToString("dd/MM/yyyy"),
@@ -234,6 +234,8 @@ public static class KatanaToLucaMapper
             CariTip = ResolveCariTip(customer),
             CariKisaAd = Truncate(customer.Title, 50),
             CariYasalUnvan = customer.Title,
+            CariAd = customer.Title, // Koza API zorunlu alan
+            CariSoyad = customer.Title, // Koza API zorunlu alan
             VergiNo = NormalizeTaxNo(customer.TaxNo),
             VergiDairesi = customer.City,
             AdresSerbest = Truncate(customer.Address, 500),

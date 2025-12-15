@@ -18,7 +18,6 @@ public class CustomerMappingController : ControllerBase
         _customerMappingService = customerMappingService;
         _logger = logger;
     }
-
     /// <summary>
     /// Tüm customer mapping'leri getir
     /// </summary>

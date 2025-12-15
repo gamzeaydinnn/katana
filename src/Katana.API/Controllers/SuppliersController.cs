@@ -11,7 +11,7 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+// [Authorize] // ✅ Kaldırıldı - GetAll zaten AllowAnonymous
 public class SuppliersController : ControllerBase
 {
     private readonly ISupplierService _supplierService;

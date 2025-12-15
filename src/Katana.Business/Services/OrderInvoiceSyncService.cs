@@ -5,8 +5,10 @@ using Katana.Core.Entities;
 using Katana.Core.Enums;
 using Katana.Core.Events;
 using Katana.Data.Context;
+using Katana.Data.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Polly;
 using Polly.CircuitBreaker;
 using Polly.Retry;
@@ -39,6 +41,7 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
     private readonly ILogger<OrderInvoiceSyncService> _logger;
     private readonly IAuditService _auditService;
     private readonly IEventPublisher _eventPublisher;
+    private readonly LucaApiSettings _lucaSettings;
 
     // Circuit Breaker - Luca API down olduğunda cascade failure'ı önler
     // 5 ardışık hata sonrası 2 dakika devre kesilir
@@ -94,10 +97,12 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
         IOrderMappingRepository mappingRepo,
         ILogger<OrderInvoiceSyncService> logger,
         IAuditService auditService,
-        IEventPublisher eventPublisher)
+        IEventPublisher eventPublisher,
+        IOptions<LucaApiSettings> lucaSettings)
     {
         _context = context;
         _lucaService = lucaService;
+        _lucaSettings = lucaSettings.Value;
         _mappingRepo = mappingRepo;
         _logger = logger;
         _auditService = auditService;
@@ -115,17 +120,16 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
 
         try
         {
-            // 1. Order'ı getir
-            var order = await _context.Orders
+            // 1. SalesOrder'ı getir
+            var order = await _context.SalesOrders
                 .Include(o => o.Customer)
-                .Include(o => o.Items)
-                    .ThenInclude(i => i.Product)
+                .Include(o => o.Lines)
                 .FirstOrDefaultAsync(o => o.Id == orderId);
 
             if (order == null)
             {
                 result.Success = false;
-                result.Message = $"Order bulunamadı: {orderId}";
+                result.Message = $"Sales Order bulunamadı: {orderId}";
                 return result;
             }
 
@@ -140,7 +144,7 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
             }
 
             // 3. Luca request'i oluştur
-            var lucaRequest = await BuildSalesInvoiceRequestAsync(order);
+            var lucaRequest = await BuildSalesInvoiceRequestFromSalesOrderAsync(order);
             if (lucaRequest == null)
             {
                 result.Success = false;
@@ -202,8 +206,9 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                             belgeNo: lucaRequest.BelgeNo?.ToString(),
                             belgeTakipNo: lucaRequest.BelgeTakipNo ?? order.OrderNo);
 
-                        // 7. Order'ı synced olarak işaretle
-                        order.IsSynced = true;
+                        // 7. SalesOrder'ı synced olarak işaretle
+                        order.IsSyncedToLuca = true;
+                        order.LastSyncAt = DateTime.UtcNow;
                         order.UpdatedAt = DateTime.UtcNow;
                         await _context.SaveChangesAsync();
 
@@ -241,7 +246,7 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                         { 
                             InvoiceNo = order.OrderNo, 
                             CustomerId = order.CustomerId,
-                            Amount = order.TotalAmount,
+                            Amount = order.Total ?? 0m,
                             IsSynced = true
                         };
                     
@@ -283,7 +288,340 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
     }
 
     /// <summary>
-    /// Sales Order'ı Luca fatura formatına çevirir
+    /// SalesOrder'ı Luca fatura formatına çevirir
+    /// </summary>
+    private async Task<LucaCreateInvoiceHeaderRequest?> BuildSalesInvoiceRequestFromSalesOrderAsync(SalesOrder order)
+    {
+        var validationErrors = new List<string>();
+        const string entityType = "SalesOrder";
+
+        // 1) mapping info çek
+        var map = await _mappingRepo.GetMappingInfoAsync(order.Id, entityType);
+
+        // 2) Belge alanlarını mapping'den al; yoksa appsettings'den al
+        var belgeSeri = !string.IsNullOrWhiteSpace(map?.BelgeSeri) ? map!.BelgeSeri : 
+                        !string.IsNullOrWhiteSpace(order.BelgeSeri) ? order.BelgeSeri :
+                        _lucaSettings.DefaultBelgeSeri;
+
+        var belgeNo = !string.IsNullOrWhiteSpace(map?.BelgeNo) ? map!.BelgeNo! :
+                      !string.IsNullOrWhiteSpace(order.BelgeNo) ? order.BelgeNo :
+                      TryExtractDigitsLast9(order.OrderNo) ?? (1_000_000 + order.Id).ToString();
+
+        var belgeTakipNo = !string.IsNullOrWhiteSpace(map?.BelgeTakipNo) ? map!.BelgeTakipNo! :
+                          Left50(order.OrderNo ?? $"{entityType}-{order.Id}");
+
+        // 3) mapping eksikse (veya alanlar boşsa) DB'ye yaz ki retry'da aynı belge kullansın
+        if (map is null || string.IsNullOrWhiteSpace(map.BelgeSeri) || string.IsNullOrWhiteSpace(map.BelgeNo) || string.IsNullOrWhiteSpace(map.BelgeTakipNo))
+        {
+            await _mappingRepo.UpsertMappingInfoAsync(
+                orderId: order.Id,
+                entityType: entityType,
+                externalOrderId: order.OrderNo,
+                belgeSeri: belgeSeri,
+                belgeNo: belgeNo,
+                belgeTakipNo: belgeTakipNo,
+                ct: default
+            );
+        }
+
+        var cariKodu = await _mappingRepo.GetLucaCariKoduByCustomerIdAsync(order.CustomerId.ToString());
+
+        var cariValidation = Validators.LucaDataValidator.ValidateCariKodu(cariKodu, "Müşteri Kodu");
+        if (!cariValidation.IsValid)
+        {
+            _logger.LogWarning("Customer {CustomerId} validation failed: {Error}", order.CustomerId, cariValidation.ErrorMessage);
+            cariKodu = $"MUS-{order.CustomerId:D5}";
+            _logger.LogWarning("Fallback cari kodu kullanılıyor: {CariKodu}", cariKodu);
+        }
+
+        var currency = order.Currency ?? "TRY";
+        var currencyValidation = Validators.LucaDataValidator.ValidateCurrency(currency);
+        if (!currencyValidation.IsValid)
+        {
+            _logger.LogWarning("Order {OrderNo} currency validation failed: {Error}. Using fallback.", order.OrderNo, currencyValidation.ErrorMessage);
+            currency = "TRY";
+        }
+
+        var orderNo = order.OrderNo;
+        var docNoValidation = Validators.LucaDataValidator.ValidateDocumentNo(orderNo, "Sipariş No");
+        if (!docNoValidation.IsValid)
+        {
+            _logger.LogWarning("Order {OrderNo} document no validation failed: {Error}. Using fallback.", orderNo, docNoValidation.ErrorMessage);
+            orderNo = $"SO-{order.Id:D8}";
+        }
+
+        var orderDate = order.OrderCreatedDate ?? order.CreatedAt;
+        var dateValidation = Validators.LucaDataValidator.ValidateDate(orderDate, "Sipariş Tarihi", allowFuture: false);
+        if (!dateValidation.IsValid)
+        {
+            _logger.LogWarning("Order {OrderNo} date validation failed: {Error}. Using fallback.", orderNo, dateValidation.ErrorMessage);
+            orderDate = DateTime.UtcNow;
+        }
+
+        var belgeTurDetayId = await _mappingRepo.GetBelgeTurDetayIdAsync(isSalesOrder: true);
+
+        // Luca API artık string belgeNo kabul ediyor
+        var belgeNoStr = string.IsNullOrWhiteSpace(belgeNo) ? order.Id.ToString() : belgeNo.Trim();
+
+        // CariAd ve CariSoyad: ContactPerson veya Title'dan üret
+        // Öncelik: ContactPerson > Title
+        var rawNameSource = !string.IsNullOrWhiteSpace(order.Customer?.ContactPerson) 
+            ? order.Customer.ContactPerson 
+            : order.Customer?.Title;
+        
+        string cariAd;
+        string cariSoyad;
+        
+        if (!string.IsNullOrWhiteSpace(rawNameSource))
+        {
+            // Normalize: Trim + çoklu boşluğu teke indir
+            var normalizedName = System.Text.RegularExpressions.Regex.Replace(rawNameSource.Trim(), @"\s+", " ");
+            var nameParts = normalizedName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            
+            if (nameParts.Length >= 2)
+            {
+                // 2+ kelime: soyad = son kelime, ad = kalan kısım
+                cariSoyad = nameParts[^1]; // Son kelime
+                cariAd = string.Join(" ", nameParts[..^1]); // Son kelime hariç tümü
+            }
+            else
+            {
+                // Tek kelime: ad = o kelime, soyad = UNKNOWN
+                cariAd = nameParts.Length > 0 ? nameParts[0] : normalizedName;
+                cariSoyad = "UNKNOWN";
+                _logger.LogWarning("CariSoyad could not be extracted from single word name '{Name}' for Order {OrderId}, using UNKNOWN", 
+                    normalizedName, order.Id);
+            }
+        }
+        else
+        {
+            cariAd = $"Unknown Customer (Katana ID: {order.CustomerId})";
+            cariSoyad = "UNKNOWN";
+            _logger.LogWarning("CariAd/CariSoyad fallback used for order {OrderId}, Customer {CustomerId} has no Title or ContactPerson", 
+                order.Id, order.CustomerId);
+        }
+        
+        // Hard-guard: CariSoyad boşsa UNKNOWN ata
+        if (string.IsNullOrWhiteSpace(cariSoyad))
+        {
+            cariSoyad = "UNKNOWN";
+            _logger.LogWarning("Invoice CariSoyad was empty, fallback applied: {CariSoyad} for Order {OrderId}", cariSoyad, order.Id);
+        }
+
+        // CariTip hesaplama: VergiNo'dan sadece rakamları al
+        // 11 hane = TCKN (şahıs) → CariTip=2
+        // 10 hane = VKN (firma) → CariTip=1
+        // Diğer durumlar → CariTip=1 (firma varsayılan)
+        var vergiNoRaw = order.Customer?.TaxNo ?? "";
+        var vergiNoDigits = System.Text.RegularExpressions.Regex.Replace(vergiNoRaw, @"[^\d]", "");
+        int cariTip;
+        if (vergiNoDigits.Length == 11)
+        {
+            cariTip = 2; // Şahıs (TCKN)
+        }
+        else if (vergiNoDigits.Length == 10)
+        {
+            cariTip = 1; // Firma (VKN)
+        }
+        else
+        {
+            cariTip = 1; // Fallback: Firma varsay
+        }
+        _logger.LogDebug("Invoice CariTip={CariTip} computed from VergiNo={VergiNo} (digits={VergiNoDigits}, len={Len}) for Order {OrderId}", 
+            cariTip, vergiNoRaw, vergiNoDigits, vergiNoDigits.Length, order.Id);
+
+        // VergiNo ZORUNLU fallback: Luca API "[vergiNo] alanı zorunludur" hatası veriyor
+        // 1) VergiNo doluysa: sadece rakamları al
+        // 2) Boşsa: cariKodu'ndan rakamları türet
+        // 3) Hâlâ boşsa: "11111111111" dummy kullan (Luca accepted)
+        string vergiNo;
+        bool vergiNoFallbackUsed = false;
+        
+        if (!string.IsNullOrWhiteSpace(vergiNoDigits) && vergiNoDigits.Length >= 10)
+        {
+            // VergiNo geçerli, direkt kullan
+            vergiNo = vergiNoDigits;
+        }
+        else
+        {
+            // Fallback 1: cariKodu'ndan rakamları türet
+            var cariKoduDigits = System.Text.RegularExpressions.Regex.Replace(cariKodu ?? "", @"[^\d]", "");
+            if (!string.IsNullOrWhiteSpace(cariKoduDigits) && cariKoduDigits.Length >= 10)
+            {
+                vergiNo = cariKoduDigits.Length > 11 ? cariKoduDigits.Substring(0, 11) : cariKoduDigits;
+                vergiNoFallbackUsed = true;
+            }
+            else
+            {
+                // Fallback 2: Luca accepted dummy VKN
+                vergiNo = "11111111111";
+                vergiNoFallbackUsed = true;
+            }
+        }
+        
+        if (vergiNoFallbackUsed)
+        {
+            _logger.LogWarning("Invoice VergiNo was empty, fallback applied: {VergiNo} for Order {OrderId}, Customer {CustomerId}", 
+                vergiNo, order.Id, order.CustomerId);
+        }
+
+        var request = new LucaCreateInvoiceHeaderRequest
+        {
+            BelgeSeri = belgeSeri,
+            BelgeNo = belgeNoStr,
+            BelgeTarihi = orderDate.ToString("dd/MM/yyyy"),
+            VadeTarihi = orderDate.AddDays(30).ToString("dd/MM/yyyy"),
+            BelgeAciklama = $"Katana Sales Order #{orderNo}",
+            BelgeTurDetayId = belgeTurDetayId.ToString(),
+            BelgeTakipNo = belgeTakipNo,
+            FaturaTur = MAL_HIZMET.ToString(),
+            ParaBirimKod = currency,
+            KdvFlag = false,
+            MusteriTedarikci = MUSTERI.ToString(),
+            CariKodu = cariKodu,
+            CariAd = cariAd,
+            CariSoyad = cariSoyad, // Koza API zorunlu alan
+            CariKisaAd = Left50($"{cariAd} {cariSoyad}".Trim()),
+            CariYasalUnvan = order.Customer?.Title ?? $"{cariAd} {cariSoyad}".Trim(),
+            CariTanim = order.Customer?.Title,
+            CariTip = cariTip, // Hesaplanan CariTip
+            VergiNo = vergiNo, // ZORUNLU alan - fallback ile her zaman dolu
+            TcKimlikNo = cariTip == 2 ? vergiNoDigits : null, // TCKN sadece şahıs için
+            Il = order.Customer?.City ?? "ISTANBUL",
+            Ilce = order.Customer?.District ?? "MERKEZ",
+            GonderimTipi = "ELEKTRONIK",
+            OdemeTipi = "DIGER",
+            EfaturaTuru = 1,
+            SiparisNo = orderNo,
+            SiparisTarihi = orderDate,
+            DetayList = new List<LucaCreateInvoiceDetailRequest>()
+        };
+
+        // DepoKodu: LocationId'den mapping bul, yoksa default "001"
+        var depoKodu = "001";
+        if (order.LocationId.HasValue)
+        {
+            var warehouseMapping = await _context.MappingTables
+                .Where(m => m.MappingType == "LOCATION_WAREHOUSE"
+                    && m.SourceValue == order.LocationId.Value.ToString()
+                    && m.IsActive)
+                .Select(m => m.TargetValue)
+                .FirstOrDefaultAsync();
+
+            if (!string.IsNullOrWhiteSpace(warehouseMapping))
+            {
+                depoKodu = warehouseMapping;
+            }
+            else
+            {
+                _logger.LogWarning("LocationId {LocationId} için LOCATION_WAREHOUSE mapping bulunamadı, default '001' kullanılıyor",
+                    order.LocationId.Value);
+            }
+        }
+
+        // Satırları dönüştür
+        foreach (var line in order.Lines)
+        {
+            // VariantId'yi kullan
+            var productId = line.VariantId;
+            var kartKodu = await _mappingRepo.GetLucaStokKoduByProductIdAsync((int)productId);
+
+            // Validation: Stok kodu
+            var stokValidation = Validators.LucaDataValidator.ValidateStokKodu(kartKodu, line.ProductName);
+            if (!stokValidation.IsValid)
+            {
+                _logger.LogWarning("Product {ProductId} stok kodu validation failed: {Error}",
+                    productId, stokValidation.ErrorMessage);
+
+                // Fallback: SKU kullan
+                kartKodu = line.SKU ?? $"PRD-{productId:D5}";
+                _logger.LogWarning("Fallback stok kodu kullanılıyor: {KartKodu}", kartKodu);
+            }
+
+            // Validation: Miktar
+            var quantity = (int)line.Quantity;
+            var qtyValidation = Validators.LucaDataValidator.ValidateQuantity(quantity, "Miktar");
+            if (!qtyValidation.IsValid)
+            {
+                _logger.LogWarning("Product {ProductName} quantity validation failed: {Error}. Using fallback.", 
+                    line.ProductName, qtyValidation.ErrorMessage);
+                
+                // Fallback: Minimum 1 quantity
+                quantity = Math.Max(1, quantity);
+            }
+
+            // Validation: Birim fiyat
+            var unitPrice = (decimal)line.PricePerUnit;
+            var priceValidation = Validators.LucaDataValidator.ValidateDecimalPrecision(unitPrice, "Birim Fiyat");
+            if (!priceValidation.IsValid)
+            {
+                _logger.LogWarning("Product {ProductName} price validation failed: {Error}. Using fallback.", 
+                    line.ProductName, priceValidation.ErrorMessage);
+                
+                // Fallback: Round to 2 decimals
+                unitPrice = Math.Round(unitPrice, 2);
+            }
+
+            var taxRate = await _mappingRepo.GetTaxRateByIdAsync(null); // Default KDV
+
+            // Validation: KDV oranı
+            var taxValidation = Validators.LucaDataValidator.ValidateTaxRate((decimal)taxRate);
+            if (!taxValidation.IsValid)
+            {
+                _logger.LogWarning("Tax rate validation failed: {Error}. Using fallback.", 
+                    taxValidation.ErrorMessage);
+                
+                // Fallback: Default 20% KDV
+                taxRate = 20.0;
+            }
+
+            request.DetayList.Add(new LucaCreateInvoiceDetailRequest
+            {
+                KartTuru = STOK_KARTI,
+                KartKodu = kartKodu,
+                KartAdi = line.ProductName,
+                Miktar = quantity,
+                BirimFiyat = (double)unitPrice,
+                KdvOran = taxRate,
+                DepoKodu = depoKodu,
+                Aciklama = line.ProductName
+            });
+        }
+
+        // Son güvenlik kontrolü: Kritik alanları garanti altına al
+        if (string.IsNullOrWhiteSpace(request.CariAd))
+            validationErrors.Add("CariAd boş olamaz");
+        if (string.IsNullOrWhiteSpace(request.CariKodu))
+            validationErrors.Add("CariKodu boş olamaz");
+        if (request.DetayList == null || !request.DetayList.Any())
+            validationErrors.Add("DetayList boş olamaz");
+
+        // Eğer kritik validation hataları varsa null dön
+        if (validationErrors.Any())
+        {
+            _logger.LogError("Luca critical validation failed for Order {OrderNo}. Errors: {Errors}",
+                orderNo, string.Join("; ", validationErrors));
+
+            // Hataları audit log'a kaydet
+            _auditService.LogAction(
+                "OrderInvoiceSync",
+                "SalesOrder",
+                order.Id.ToString(),
+                "System",
+                $"Luca validation errors (critical): {string.Join("; ", validationErrors)}"
+            );
+
+            return null;
+        }
+
+        _logger.LogInformation("SalesOrder {OrderNo} converted to Luca invoice with fallback values where needed",
+            orderNo);
+
+        return request;
+    }
+
+    /// <summary>
+    /// Sales Order'ı Luca fatura formatına çevirir (DEPRECATED - Order entity için)
     /// </summary>
     private async Task<LucaCreateInvoiceHeaderRequest?> BuildSalesInvoiceRequestAsync(Order order)
     {
@@ -293,8 +631,8 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
         // 1) mapping info çek
         var map = await _mappingRepo.GetMappingInfoAsync(order.Id, entityType);
 
-        // 2) Belge alanlarını mapping'den al; yoksa deterministik üret
-        var belgeSeri = !string.IsNullOrWhiteSpace(map?.BelgeSeri) ? map!.BelgeSeri : "A";
+        // 2) Belge alanlarını mapping'den al; yoksa appsettings'den al
+        var belgeSeri = !string.IsNullOrWhiteSpace(map?.BelgeSeri) ? map!.BelgeSeri : _lucaSettings.DefaultBelgeSeri;
 
         var belgeNo = !string.IsNullOrWhiteSpace(map?.BelgeNo)
             ? map!.BelgeNo!
@@ -354,6 +692,61 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
         // Luca API artık string belgeNo kabul ediyor
         var belgeNoStr = string.IsNullOrWhiteSpace(belgeNo) ? order.Id.ToString() : belgeNo.Trim();
 
+        // CariAd ve CariSoyad: ContactPerson veya Title'dan üret (DEPRECATED method)
+        var rawNameSourceDep = !string.IsNullOrWhiteSpace(order.Customer?.ContactPerson) 
+            ? order.Customer.ContactPerson 
+            : order.Customer?.Title;
+        
+        string cariAdDep;
+        string cariSoyadDep;
+        
+        if (!string.IsNullOrWhiteSpace(rawNameSourceDep))
+        {
+            var normalizedNameDep = System.Text.RegularExpressions.Regex.Replace(rawNameSourceDep.Trim(), @"\s+", " ");
+            var namePartsDep = normalizedNameDep.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            
+            if (namePartsDep.Length >= 2)
+            {
+                cariSoyadDep = namePartsDep[^1];
+                cariAdDep = string.Join(" ", namePartsDep[..^1]);
+            }
+            else
+            {
+                cariAdDep = namePartsDep.Length > 0 ? namePartsDep[0] : normalizedNameDep;
+                cariSoyadDep = "UNKNOWN";
+            }
+        }
+        else
+        {
+            cariAdDep = $"Unknown Customer (Katana ID: {order.CustomerId})";
+            cariSoyadDep = "UNKNOWN";
+        }
+        
+        if (string.IsNullOrWhiteSpace(cariSoyadDep))
+        {
+            cariSoyadDep = "UNKNOWN";
+            _logger.LogWarning("Invoice CariSoyad was empty (DEPRECATED), fallback applied: {CariSoyad}", cariSoyadDep);
+        }
+
+        // CariTip hesaplama (DEPRECATED method)
+        var taxNoRawDep = order.Customer?.TaxNo ?? "";
+        var taxNoDigitsDep = System.Text.RegularExpressions.Regex.Replace(taxNoRawDep, @"[^\d]", "");
+        int cariTipDep;
+        if (taxNoDigitsDep.Length == 11)
+        {
+            cariTipDep = 2; // Şahıs (TCKN)
+        }
+        else if (taxNoDigitsDep.Length == 10)
+        {
+            cariTipDep = 1; // Firma (VKN)
+        }
+        else
+        {
+            cariTipDep = 1; // Fallback: Firma varsay
+        }
+        _logger.LogInformation("Invoice CariTip computed as {CariTip} from TaxNo='{TaxNoRaw}' digitsLen={Len} (DEPRECATED)", 
+            cariTipDep, taxNoRawDep, taxNoDigitsDep.Length);
+
         var request = new LucaCreateInvoiceHeaderRequest
         {
             BelgeSeri = belgeSeri,
@@ -369,7 +762,11 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
             MusteriTedarikci = MUSTERI.ToString(),
             CariKodu = cariKodu,
             CariTanim = order.Customer?.Title,
-            VergiNo = order.Customer?.TaxNo,
+            CariAd = cariAdDep, // Koza API zorunlu alan
+            CariSoyad = cariSoyadDep, // Koza API zorunlu alan
+            CariTip = cariTipDep, // Hesaplanan CariTip
+            VergiNo = cariTipDep == 1 ? taxNoDigitsDep : null, // VKN sadece firma için
+            TcKimlikNo = cariTipDep == 2 ? taxNoDigitsDep : null, // TCKN sadece şahıs için
             SiparisNo = order.OrderNo,
             SiparisTarihi = order.OrderDate,
             DetayList = new List<LucaCreateInvoiceDetailRequest>()
@@ -652,9 +1049,9 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
 
         try
         {
-            var pendingOrders = await _context.Orders
-                .Where(o => !o.IsSynced && o.Status == OrderStatus.Delivered)
-                .OrderBy(o => o.OrderDate)
+            var pendingOrders = await _context.SalesOrders
+                .Where(o => !o.IsSyncedToLuca && (o.Status == "DELIVERED" || o.Status == "APPROVED"))
+                .OrderBy(o => o.OrderCreatedDate ?? o.CreatedAt)
                 .Take(50) // Batch limit
                 .ToListAsync();
 

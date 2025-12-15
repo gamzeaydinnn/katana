@@ -14,9 +14,6 @@ using Microsoft.AspNetCore.Http;
 
 namespace Katana.API.Controllers;
 
-
-
-
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "Admin")]
@@ -82,9 +79,6 @@ public class TestController : ControllerBase
         }
     }
 
-    
-    
-    
     [HttpPost("sync-one-product")]
     public async Task<IActionResult> SyncOneProduct([FromQuery] string? sku = null)
     {
@@ -139,9 +133,6 @@ public class TestController : ControllerBase
         }
     }
 
-    
-    
-    
     [HttpPost("create-test-product")]
     public async Task<IActionResult> CreateTestProduct()
     {

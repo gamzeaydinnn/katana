@@ -931,7 +931,7 @@ public partial class LucaService
         if (string.IsNullOrWhiteSpace(belge.BelgeSeri))
         {
             belge.BelgeSeri = string.IsNullOrWhiteSpace(_settings.DefaultBelgeSeri)
-                ? "A"
+                ? "EFA2025"
                 : _settings.DefaultBelgeSeri;
         }
 
