@@ -359,8 +359,11 @@ const SalesOrders: React.FC = () => {
   const syncToLuca = async (orderId: number) => {
     try {
       setSyncing(orderId);
+      const body =
+        showDetail && selectedOrder?.id === orderId ? lucaFields : undefined;
       const response = await api.post<SyncResult>(
-        `/sales-orders/${orderId}/sync`
+        `/sales-orders/${orderId}/sync`,
+        body
       );
 
       if (response.data.isSuccess) {
@@ -479,13 +482,15 @@ const SalesOrders: React.FC = () => {
       <Box
         sx={{
           display: "flex",
-          justifyContent: "flex-end",
+          justifyContent: { xs: "flex-start", sm: "flex-end" },
           alignItems: "center",
-          gap: 2,
-          mb: 3,
+          flexWrap: "wrap",
+          gap: { xs: 1, sm: 2 },
+          mb: { xs: 2, sm: 3 },
         }}
       >
         <Button
+          size="small"
           variant="contained"
           color="primary"
           startIcon={
@@ -497,14 +502,17 @@ const SalesOrders: React.FC = () => {
           }
           onClick={syncFromKatana}
           disabled={syncingFromKatana || loading}
+          sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
         >
           {syncingFromKatana ? "Senkronize ediliyor..." : "Katana'dan Çek"}
         </Button>
         <Button
+          size="small"
           variant="outlined"
           startIcon={<RefreshIcon />}
           onClick={fetchOrders}
           disabled={loading}
+          sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
         >
           Yenile
         </Button>
@@ -549,7 +557,7 @@ const SalesOrders: React.FC = () => {
         component={Paper}
         sx={{ overflowX: "auto", maxWidth: "100%" }}
       >
-        <Table size="small" sx={{ minWidth: { xs: "100%", sm: "650px" } }}>
+        <Table size="small" sx={{ minWidth: 650, tableLayout: "auto" }}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>

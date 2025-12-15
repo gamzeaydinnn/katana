@@ -1089,11 +1089,11 @@ namespace Katana.API.Controllers
         }
 
         [HttpPost("invoices/create")]
-        public async Task<IActionResult> CreateInvoice([FromBody] LucaCreateInvoiceHeaderRequest request)
+        public async Task<IActionResult> CreateInvoice([FromBody] JsonElement request)
         {
             using var scope = _serviceScopeFactory.CreateScope();
             var lucaService = scope.ServiceProvider.GetRequiredService<ILucaService>();
-            var result = await lucaService.CreateInvoiceRawAsync(request);
+            var result = await lucaService.CreateInvoiceRawJsonAsync(request.GetRawText());
             return Ok(result);
         }
 

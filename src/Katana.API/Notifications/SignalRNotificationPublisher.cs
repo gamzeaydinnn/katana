@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.SignalR;
 using Katana.API.Hubs;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using Polly;
 using Polly.Retry;
 using System.Text.Json;
@@ -36,13 +37,31 @@ namespace Katana.API.Notifications
 
         private readonly IHubContext<NotificationHub> _hub;
         private readonly ILogger<SignalRNotificationPublisher> _logger;
-        private readonly Katana.Data.Context.IntegrationDbContext _db;
+        private readonly IServiceScopeFactory _scopeFactory;
 
-        public SignalRNotificationPublisher(IHubContext<NotificationHub> hub, ILogger<SignalRNotificationPublisher> logger, Katana.Data.Context.IntegrationDbContext db)
+        public SignalRNotificationPublisher(
+            IHubContext<NotificationHub> hub,
+            ILogger<SignalRNotificationPublisher> logger,
+            IServiceScopeFactory scopeFactory)
         {
             _hub = hub;
             _logger = logger;
-            _db = db;
+            _scopeFactory = scopeFactory;
+        }
+
+        private async Task PersistNotificationAsync(Katana.Core.Entities.Notification notif)
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<Katana.Data.Context.IntegrationDbContext>();
+                db.Notifications.Add(notif);
+                await db.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to persist notification: {Type}", notif.Type);
+            }
         }
 
         public async Task PublishPendingCreatedAsync(PendingStockAdjustmentCreatedEvent evt)
@@ -67,24 +86,15 @@ namespace Katana.API.Notifications
                 _logger?.LogInformation("Publishing PendingStockAdjustmentCreated for PendingId {PendingId}", evt.Id);
                 _logger?.LogInformation("Published PendingStockAdjustmentCreated for PendingId {PendingId}", evt.Id);
                 
-                try
+                await PersistNotificationAsync(new Katana.Core.Entities.Notification
                 {
-                    var notif = new Katana.Core.Entities.Notification
-                    {
-                        Type = "PendingStockAdjustmentCreated",
-                        Title = $"Yeni bekleyen stok #{evt.Id}",
-                        Payload = payloadJson,
-                        Link = $"/admin?focusPending={evt.Id}",
-                        RelatedPendingId = evt.Id,
-                        CreatedAt = evt.RequestedAt.UtcDateTime
-                    };
-                    _db.Notifications.Add(notif);
-                    await _db.SaveChangesAsync();
-                }
-                catch (Exception ex)
-                {
-                    _logger?.LogWarning(ex, "Failed to persist notification for PendingId {PendingId}", evt.Id);
-                }
+                    Type = "PendingStockAdjustmentCreated",
+                    Title = $"Yeni bekleyen stok #{evt.Id}",
+                    Payload = payloadJson,
+                    Link = $"/admin?focusPending={evt.Id}",
+                    RelatedPendingId = evt.Id,
+                    CreatedAt = evt.RequestedAt.UtcDateTime
+                });
             }
         }
 
@@ -110,24 +120,15 @@ namespace Katana.API.Notifications
                 _logger?.LogInformation("Publishing PendingStockAdjustmentApproved for PendingId {PendingId}", evt.Id);
                 _logger?.LogInformation("Published PendingStockAdjustmentApproved for PendingId {PendingId}", evt.Id);
                 
-                try
+                await PersistNotificationAsync(new Katana.Core.Entities.Notification
                 {
-                    var notif = new Katana.Core.Entities.Notification
-                    {
-                        Type = "PendingStockAdjustmentApproved",
-                        Title = $"Stok ayarlaması #{evt.Id} onaylandı",
-                        Payload = payloadJson,
-                        Link = $"/admin?focusPending={evt.Id}",
-                        RelatedPendingId = evt.Id,
-                        CreatedAt = evt.ApprovedAt.UtcDateTime
-                    };
-                    _db.Notifications.Add(notif);
-                    await _db.SaveChangesAsync();
-                }
-                catch (Exception ex)
-                {
-                    _logger?.LogWarning(ex, "Failed to persist approval notification for PendingId {PendingId}", evt.Id);
-                }
+                    Type = "PendingStockAdjustmentApproved",
+                    Title = $"Stok ayarlaması #{evt.Id} onaylandı",
+                    Payload = payloadJson,
+                    Link = $"/admin?focusPending={evt.Id}",
+                    RelatedPendingId = evt.Id,
+                    CreatedAt = evt.ApprovedAt.UtcDateTime
+                });
             }
         }
 
@@ -154,23 +155,14 @@ namespace Katana.API.Notifications
             {
                 _logger?.LogInformation("📦 Yeni ürün bildirimi gönderildi: {Sku} ({Source})", evt.Sku, evt.Source);
                 
-                try
+                await PersistNotificationAsync(new Katana.Core.Entities.Notification
                 {
-                    var notif = new Katana.Core.Entities.Notification
-                    {
-                        Type = "ProductCreated",
-                        Title = $"Yeni ürün: {evt.Sku ?? evt.Name}",
-                        Payload = payloadJson,
-                        Link = $"/stock?productId={evt.ProductId}",
-                        CreatedAt = evt.CreatedAt.UtcDateTime
-                    };
-                    _db.Notifications.Add(notif);
-                    await _db.SaveChangesAsync();
-                }
-                catch (Exception ex)
-                {
-                    _logger?.LogWarning(ex, "Ürün bildirimi kaydedilemedi: {ProductId}", evt.ProductId);
-                }
+                    Type = "ProductCreated",
+                    Title = $"Yeni ürün: {evt.Sku ?? evt.Name}",
+                    Payload = payloadJson,
+                    Link = $"/stock?productId={evt.ProductId}",
+                    CreatedAt = evt.CreatedAt.UtcDateTime
+                });
             }
         }
 
@@ -218,24 +210,15 @@ namespace Katana.API.Notifications
             if (published)
             {
                 _logger?.LogInformation("🔄 Stok transfer bildirimi gönderildi: {DocumentNo}", evt.DocumentNo);
-                
-                try
+
+                await PersistNotificationAsync(new Katana.Core.Entities.Notification
                 {
-                    var notif = new Katana.Core.Entities.Notification
-                    {
-                        Type = "StockTransferCreated",
-                        Title = $"Yeni transfer: {evt.DocumentNo}",
-                        Payload = payloadJson,
-                        Link = "/stock-movement-sync",
-                        CreatedAt = evt.CreatedAt.UtcDateTime
-                    };
-                    _db.Notifications.Add(notif);
-                    await _db.SaveChangesAsync();
-                }
-                catch (Exception ex)
-                {
-                    _logger?.LogWarning(ex, "Transfer bildirimi kaydedilemedi: {TransferId}", evt.TransferId);
-                }
+                    Type = "StockTransferCreated",
+                    Title = $"Yeni transfer: {evt.DocumentNo}",
+                    Payload = payloadJson,
+                    Link = "/stock-movement-sync",
+                    CreatedAt = evt.CreatedAt.UtcDateTime
+                });
             }
         }
 
@@ -260,24 +243,15 @@ namespace Katana.API.Notifications
             if (published)
             {
                 _logger?.LogInformation("📝 Stok düzeltme bildirimi gönderildi: {DocumentNo}", evt.DocumentNo);
-                
-                try
+
+                await PersistNotificationAsync(new Katana.Core.Entities.Notification
                 {
-                    var notif = new Katana.Core.Entities.Notification
-                    {
-                        Type = "StockAdjustmentCreated",
-                        Title = $"Yeni düzeltme: {evt.DocumentNo}",
-                        Payload = payloadJson,
-                        Link = "/stock-movement-sync",
-                        CreatedAt = evt.CreatedAt.UtcDateTime
-                    };
-                    _db.Notifications.Add(notif);
-                    await _db.SaveChangesAsync();
-                }
-                catch (Exception ex)
-                {
-                    _logger?.LogWarning(ex, "Düzeltme bildirimi kaydedilemedi: {AdjustmentId}", evt.AdjustmentId);
-                }
+                    Type = "StockAdjustmentCreated",
+                    Title = $"Yeni düzeltme: {evt.DocumentNo}",
+                    Payload = payloadJson,
+                    Link = "/stock-movement-sync",
+                    CreatedAt = evt.CreatedAt.UtcDateTime
+                });
             }
         }
 
@@ -301,24 +275,15 @@ namespace Katana.API.Notifications
             if (published)
             {
                 _logger?.LogInformation("✅ Stok hareketi Luca'ya aktarıldı: {DocumentNo} → Luca#{LucaId}", evt.DocumentNo, evt.LucaDocumentId);
-                
-                try
+
+                await PersistNotificationAsync(new Katana.Core.Entities.Notification
                 {
-                    var notif = new Katana.Core.Entities.Notification
-                    {
-                        Type = "StockMovementSynced",
-                        Title = $"Aktarıldı: {evt.DocumentNo}",
-                        Payload = payloadJson,
-                        Link = "/stock-movement-sync",
-                        CreatedAt = evt.SyncedAt.UtcDateTime
-                    };
-                    _db.Notifications.Add(notif);
-                    await _db.SaveChangesAsync();
-                }
-                catch (Exception ex)
-                {
-                    _logger?.LogWarning(ex, "Sync bildirimi kaydedilemedi: {MovementId}", evt.MovementId);
-                }
+                    Type = "StockMovementSynced",
+                    Title = $"Aktarıldı: {evt.DocumentNo}",
+                    Payload = payloadJson,
+                    Link = "/stock-movement-sync",
+                    CreatedAt = evt.SyncedAt.UtcDateTime
+                });
             }
         }
 
@@ -342,24 +307,15 @@ namespace Katana.API.Notifications
             if (published)
             {
                 _logger?.LogWarning("❌ Stok hareketi aktarım hatası: {DocumentNo} - {Error}", evt.DocumentNo, evt.ErrorMessage);
-                
-                try
+
+                await PersistNotificationAsync(new Katana.Core.Entities.Notification
                 {
-                    var notif = new Katana.Core.Entities.Notification
-                    {
-                        Type = "StockMovementFailed",
-                        Title = $"Hata: {evt.DocumentNo}",
-                        Payload = payloadJson,
-                        Link = "/stock-movement-sync",
-                        CreatedAt = evt.FailedAt.UtcDateTime
-                    };
-                    _db.Notifications.Add(notif);
-                    await _db.SaveChangesAsync();
-                }
-                catch (Exception ex)
-                {
-                    _logger?.LogWarning(ex, "Hata bildirimi kaydedilemedi: {MovementId}", evt.MovementId);
-                }
+                    Type = "StockMovementFailed",
+                    Title = $"Hata: {evt.DocumentNo}",
+                    Payload = payloadJson,
+                    Link = "/stock-movement-sync",
+                    CreatedAt = evt.FailedAt.UtcDateTime
+                });
             }
         }
 
@@ -391,14 +347,16 @@ namespace Katana.API.Notifications
 
                 try
                 {
-                    _db.FailedNotifications.Add(new Katana.Core.Entities.FailedNotification
+                    using var scope = _scopeFactory.CreateScope();
+                    var db = scope.ServiceProvider.GetRequiredService<Katana.Data.Context.IntegrationDbContext>();
+                    db.FailedNotifications.Add(new Katana.Core.Entities.FailedNotification
                     {
                         EventType = eventName,
                         Payload = payloadJson,
                         RetryCount = attempt,
                         CreatedAt = DateTime.UtcNow
                     });
-                    await _db.SaveChangesAsync();
+                    await db.SaveChangesAsync();
                 }
                 catch (Exception dbEx)
                 {

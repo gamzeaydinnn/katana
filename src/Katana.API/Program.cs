@@ -171,12 +171,20 @@ builder.Services.AddHttpClient<ILucaService, LucaService>((sp, client) =>
         client.DefaultRequestHeaders.Add("X-API-Key", s.ApiKey);
 })
     // Cookie-based auth relies on persistent cookies; attach a CookieContainer to preserve them.
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    .ConfigurePrimaryHttpMessageHandler(sp =>
     {
-        CookieContainer = new CookieContainer(),
-        UseCookies = true,
-        AllowAutoRedirect = false,
-        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+        var s = sp.GetRequiredService<IOptions<LucaApiSettings>>().Value;
+        var jar = sp.GetRequiredService<ILucaCookieJarStore>();
+        var baseUrlKey = string.IsNullOrWhiteSpace(s.BaseUrl) ? "default" : s.BaseUrl.Trim();
+        var cookieJarKey = $"LucaCookieJar:{baseUrlKey}";
+
+        return new HttpClientHandler
+        {
+            CookieContainer = jar.GetOrCreate(cookieJarKey),
+            UseCookies = true,
+            AllowAutoRedirect = false,
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+        };
     })
     .AddHttpMessageHandler<RateLimitHandler>()
     .AddHttpDebugLogging();

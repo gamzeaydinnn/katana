@@ -39,8 +39,10 @@ import {
   TableRow,
   TextField,
   Tooltip,
+  useMediaQuery,
   Typography,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import React, { useCallback, useEffect, useState } from "react";
 import api from "../../services/api";
 
@@ -87,6 +89,9 @@ interface SnackbarState {
 // ===== COMPONENT =====
 
 const Suppliers: React.FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
   // ===== STATES =====
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
@@ -335,9 +340,18 @@ const Suppliers: React.FC = () => {
   // ===== RENDER =====
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
       {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", sm: "center" },
+          flexDirection: { xs: "column", sm: "row" },
+          gap: { xs: 1.25, sm: 2 },
+          mb: 3,
+        }}
+      >
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
             Tedarikçi Yönetimi
@@ -346,23 +360,39 @@ const Suppliers: React.FC = () => {
             Tedarikçileri görüntüleyin, oluşturun ve yönetin
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
           <Button
+            size="small"
             variant="outlined"
             color="primary"
             startIcon={<CloudDownloadIcon />}
             onClick={importSuppliersFromKatana}
             disabled={loading}
+            sx={{
+              fontSize: { xs: "0.75rem", sm: "0.875rem" },
+              px: { xs: 1, sm: 1.5 },
+              py: { xs: 0.25, sm: 0.5 },
+              minWidth: "auto",
+              whiteSpace: "nowrap",
+            }}
           >
-            Katana'dan Çek
+            {isMobile ? "Çek" : "Katana'dan Çek"}
           </Button>
           <Button
+            size="small"
             variant="contained"
             color="primary"
             startIcon={<AddIcon />}
             onClick={handleOpenDialog}
+            sx={{
+              fontSize: { xs: "0.75rem", sm: "0.875rem" },
+              px: { xs: 1, sm: 1.5 },
+              py: { xs: 0.25, sm: 0.5 },
+              minWidth: "auto",
+              whiteSpace: "nowrap",
+            }}
           >
-            Yeni Tedarikçi
+            {isMobile ? "Yeni" : "Yeni Tedarikçi"}
           </Button>
         </Box>
       </Box>

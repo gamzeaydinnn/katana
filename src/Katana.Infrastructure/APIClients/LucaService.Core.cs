@@ -38,6 +38,82 @@ public partial class LucaService : ILucaService
     private string? _manualJSessionId;
     private string? _authToken;
     private DateTime? _tokenExpiry;
+
+    private void NormalizeInvoiceCreateRequest(LucaCreateInvoiceHeaderRequest request)
+    {
+        if (request == null) throw new ArgumentNullException(nameof(request));
+
+        var originalBelgeSeri = request.BelgeSeri;
+        request.BelgeSeri = string.IsNullOrWhiteSpace(request.BelgeSeri)
+            ? (_settings.DefaultBelgeSeri ?? "A")
+            : request.BelgeSeri.Trim();
+
+        if (!string.Equals(originalBelgeSeri ?? string.Empty, request.BelgeSeri ?? string.Empty, StringComparison.Ordinal))
+        {
+            _logger.LogInformation("📄 Invoice belgeSeri normalized: '{Original}' → '{Normalized}'", originalBelgeSeri, request.BelgeSeri);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.BelgeSeri) && request.BelgeSeri.Length > 3)
+        {
+            _logger.LogWarning("📄 Invoice belgeSeri length > 3 (len={Len}): '{BelgeSeri}'. Luca/Koza may require a 3-char series code.", request.BelgeSeri.Length, request.BelgeSeri);
+        }
+
+        request.BelgeTarihi = NormalizeKozaDateString(request.BelgeTarihi) ?? DateTime.UtcNow.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        request.VadeTarihi = NormalizeKozaDateString(request.VadeTarihi) ?? request.BelgeTarihi;
+
+        if (request.DetayList == null || request.DetayList.Count == 0)
+        {
+            throw new InvalidOperationException("detayList boş olamaz");
+        }
+
+        foreach (var detail in request.DetayList)
+        {
+            if (detail == null) continue;
+
+            detail.KartKodu = (detail.KartKodu ?? string.Empty).Trim();
+            detail.DepoKodu = string.IsNullOrWhiteSpace(detail.DepoKodu) ? detail.DepoKodu : detail.DepoKodu.Trim();
+
+            if (detail.KdvOran > 1.0)
+            {
+                detail.KdvOran = detail.KdvOran / 100.0;
+            }
+
+            if (detail.KartSatisKdvOran.HasValue && detail.KartSatisKdvOran.Value > 1.0)
+            {
+                detail.KartSatisKdvOran = detail.KartSatisKdvOran.Value / 100.0;
+            }
+
+            if (!detail.Tutar.HasValue)
+            {
+                var calculated = detail.Miktar * detail.BirimFiyat;
+                detail.Tutar = Math.Round(calculated, 2, MidpointRounding.AwayFromZero);
+            }
+        }
+    }
+
+    private static string? NormalizeKozaDateString(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        var trimmed = value.Trim();
+        if (DateTime.TryParseExact(trimmed, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var ddMMyyyy))
+        {
+            return ddMMyyyy.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        }
+
+        var formats = new[] { "d/M/yyyy", "dd.MM.yyyy", "d.M.yyyy", "yyyy-MM-dd", "yyyy/MM/dd" };
+        if (DateTime.TryParseExact(trimmed, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+        {
+            return parsed.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        }
+
+        if (DateTime.TryParse(trimmed, CultureInfo.GetCultureInfo("tr-TR"), DateTimeStyles.None, out var trParsed))
+        {
+            return trParsed.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        }
+
+        return trimmed;
+    }
     private DateTime? _cookieExpiresAt;
     private static readonly SemaphoreSlim _branchSemaphore = new SemaphoreSlim(1, 1);
     private System.Net.CookieContainer? _cookieContainer;

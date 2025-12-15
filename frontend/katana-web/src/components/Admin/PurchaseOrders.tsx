@@ -41,8 +41,10 @@ import {
   TableRow,
   TextField,
   Tooltip,
+  useMediaQuery,
   Typography,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import React, { useCallback, useEffect, useState } from "react";
 import api from "../../services/api";
 import KatanaSyncStatus, {
@@ -259,6 +261,9 @@ const emptyItem: CreatePurchaseOrderItemForm = {
 // ===== MAIN COMPONENT =====
 
 const PurchaseOrders: React.FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
   // View state
   const [view, setView] = useState<"list" | "detail" | "create">("list");
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
@@ -825,8 +830,9 @@ const PurchaseOrders: React.FC = () => {
       <Box
         sx={{
           display: "flex",
-          justifyContent: "flex-end",
-          alignItems: "center",
+          flexDirection: { xs: "column", sm: "row" },
+          justifyContent: { xs: "flex-start", sm: "space-between" },
+          alignItems: { xs: "stretch", sm: "center" },
           flexWrap: "wrap",
           gap: 1,
           mb: 2,
@@ -835,11 +841,18 @@ const PurchaseOrders: React.FC = () => {
       >
         <Typography
           variant="h6"
-          sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+          sx={{ fontSize: { xs: "1rem", sm: "1.25rem" }, whiteSpace: "nowrap" }}
         >
           Satınalma Siparişleri
         </Typography>
-        <Box sx={{ display: "flex", gap: 0.5 }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 0.5,
+            flexWrap: "wrap",
+            justifyContent: { xs: "flex-start", sm: "flex-end" },
+          }}
+        >
           <Tooltip title="Katana'dan Siparişleri Çek">
             <Button
               size="small"
@@ -847,9 +860,21 @@ const PurchaseOrders: React.FC = () => {
               startIcon={<CloudUploadIcon />}
               onClick={handleSyncFromKatana}
               disabled={syncing || loading}
-              sx={{ fontSize: "0.75rem", px: 1.5, py: 0.5, minWidth: "auto" }}
+              sx={{
+                fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                px: { xs: 1, sm: 1.5 },
+                py: { xs: 0.25, sm: 0.5 },
+                minWidth: "auto",
+                whiteSpace: "nowrap",
+              }}
             >
-              {syncing ? "Çekiliyor..." : "Katana'dan Çek"}
+              {syncing
+                ? isMobile
+                  ? "Çekiliyor"
+                  : "Çekiliyor..."
+                : isMobile
+                  ? "Çek"
+                  : "Katana'dan Çek"}
             </Button>
           </Tooltip>
           <IconButton
@@ -880,9 +905,15 @@ const PurchaseOrders: React.FC = () => {
               resetForm();
               setView("create");
             }}
-            sx={{ fontSize: "0.75rem", px: 1.5, py: 0.5, minWidth: "auto" }}
+            sx={{
+              fontSize: { xs: "0.7rem", sm: "0.75rem" },
+              px: { xs: 1, sm: 1.5 },
+              py: { xs: 0.25, sm: 0.5 },
+              minWidth: "auto",
+              whiteSpace: "nowrap",
+            }}
           >
-            Yeni Tedarik Siparişi
+            {isMobile ? "Yeni Sipariş" : "Yeni Tedarik Siparişi"}
           </Button>
         </Box>
       </Box>
@@ -958,8 +989,8 @@ const PurchaseOrders: React.FC = () => {
         <Table
           size="small"
           sx={{
-            minWidth: { xs: 0, sm: 650 },
-            tableLayout: { xs: "fixed", sm: "auto" },
+            minWidth: 720,
+            tableLayout: "auto",
             "& .MuiTableCell-root": {
               px: { xs: 0.75, sm: 2 },
               py: { xs: 0.75, sm: 1 },
