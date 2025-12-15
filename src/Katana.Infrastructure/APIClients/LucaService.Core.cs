@@ -45,7 +45,7 @@ public partial class LucaService : ILucaService
 
         var originalBelgeSeri = request.BelgeSeri;
         request.BelgeSeri = string.IsNullOrWhiteSpace(request.BelgeSeri)
-            ? (_settings.DefaultBelgeSeri ?? "A")
+            ? (_settings.DefaultBelgeSeri ?? "EFA2025")
             : request.BelgeSeri.Trim();
 
         if (!string.Equals(originalBelgeSeri ?? string.Empty, request.BelgeSeri ?? string.Empty, StringComparison.Ordinal))
@@ -56,6 +56,42 @@ public partial class LucaService : ILucaService
         if (!string.IsNullOrWhiteSpace(request.BelgeSeri) && request.BelgeSeri.Length > 3)
         {
             _logger.LogWarning("📄 Invoice belgeSeri length > 3 (len={Len}): '{BelgeSeri}'. Luca/Koza may require a 3-char series code.", request.BelgeSeri.Length, request.BelgeSeri);
+        }
+
+        // 🔥 KRİTİK FIX: CariAd alanı ASLA null/empty olmamalı
+        if (string.IsNullOrWhiteSpace(request.CariAd))
+        {
+            request.CariAd =
+                !string.IsNullOrWhiteSpace(request.CariTanim)
+                    ? request.CariTanim
+                    : request.CariYasalUnvan
+                      ?? "UNKNOWN CUSTOMER";
+            _logger.LogWarning("📄 Invoice required field missing: CariAd, fallback used");
+        }
+
+        // 🔥 KRİTİK FIX: CariSoyad alanı Koza API için zorunlu
+        if (string.IsNullOrWhiteSpace(request.CariSoyad))
+        {
+            request.CariSoyad = request.CariAd ?? "UNKNOWN";
+            _logger.LogWarning("📄 Invoice required field missing: CariSoyad, fallback used");
+        }
+
+        // 🔥 KRİTİK FIX: VergiNo alanı Koza API için zorunlu
+        if (string.IsNullOrWhiteSpace(request.VergiNo))
+        {
+            // Fallback: 11111111111 (11 haneli geçici vergi no)
+            request.VergiNo = "11111111111";
+            _logger.LogWarning("📄 Invoice required field missing: VergiNo, fallback used");
+        }
+
+        // 🔥 KRİTİK FIX: CariKodu alanı Koza API için zorunlu
+        if (string.IsNullOrWhiteSpace(request.CariKodu))
+        {
+            // Fallback: CariAd'dan türet veya UNKNOWN
+            request.CariKodu = !string.IsNullOrWhiteSpace(request.CariAd) 
+                ? request.CariAd.Replace(" ", "_").ToUpperInvariant()
+                : "UNKNOWN_CARI";
+            _logger.LogWarning("📄 Invoice required field missing: CariKodu, fallback used");
         }
 
         request.BelgeTarihi = NormalizeKozaDateString(request.BelgeTarihi) ?? DateTime.UtcNow.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);

@@ -533,7 +533,7 @@ public static class MappingHelper
         
         return new LucaCreatePurchaseOrderRequest
         {
-            BelgeSeri = po.DocumentSeries ?? "A",
+            BelgeSeri = po.DocumentSeries ?? "EFA2025",
             BelgeNo = int.TryParse(po.LucaDocumentNo ?? belgeTakipNo, out var belgeNoInt) ? belgeNoInt : null,
             BelgeTakipNo = belgeTakipNo,
             BelgeTarihi = po.OrderDate == default ? DateTime.UtcNow : po.OrderDate,
@@ -586,7 +586,7 @@ public static class MappingHelper
 
         return new LucaCreateInvoiceHeaderRequest
         {
-            BelgeSeri = po.DocumentSeries ?? "A",
+            BelgeSeri = po.DocumentSeries ?? "EFA2025",
             BelgeNo = po.LucaDocumentNo ?? belgeTakipNo,
             BelgeTakipNo = belgeTakipNo,
             BelgeTarihi = belgeTarihi.ToString("dd/MM/yyyy"),
@@ -601,6 +601,8 @@ public static class MappingHelper
             CariTip = 2, // Tedarikçi
             CariKisaAd = supplier.Name.Length > 50 ? supplier.Name.Substring(0, 50) : supplier.Name,
             CariYasalUnvan = supplier.Name,
+            CariAd = supplier.Name, // Koza API zorunlu alan
+            CariSoyad = supplier.Name, // Koza API zorunlu alan
             VergiNo = supplier.TaxNo,
             AdresSerbest = supplier.Address,
             KdvFlag = po.VatIncluded,
@@ -628,66 +630,108 @@ public static class MappingHelper
     /// </summary>
     public static LucaCreateInvoiceHeaderRequest MapToLucaInvoiceFromSalesOrder(Entities.SalesOrder order, Customer customer, string? depoKodu = null)
     {
+        // Müşteri kodu: LucaCode varsa kullan, yoksa TaxNo'dan üret
         var cariKod = !string.IsNullOrWhiteSpace(customer.LucaCode)
             ? customer.LucaCode
-            : GenerateCustomerCode(customer.TaxNo);
+            : !string.IsNullOrWhiteSpace(customer.TaxNo)
+                ? customer.TaxNo
+                : $"CUST{customer.Id:D6}";
 
-        var belgeTakipNo = string.IsNullOrWhiteSpace(order.OrderNo) ? order.Id.ToString() : order.OrderNo;
+        var belgeTakipNo = string.IsNullOrWhiteSpace(order.OrderNo) ? $"KAT-{order.Id}" : order.OrderNo;
         var belgeTarihi = order.OrderCreatedDate ?? DateTime.UtcNow;
         var vadeTarihi = belgeTarihi.AddDays(30);
-        var resolvedDepoKodu = string.IsNullOrWhiteSpace(depoKodu) ? "001" : depoKodu;
+        
+        // Depo kodu formatı: "001.0001" (Luca formatı)
+        var resolvedDepoKodu = string.IsNullOrWhiteSpace(depoKodu) ? "001.0001" : depoKodu;
+        if (!resolvedDepoKodu.Contains(".") && resolvedDepoKodu.Length == 3)
+        {
+            resolvedDepoKodu = $"{resolvedDepoKodu}.0001";
+        }
 
+        // KDV oranı normalize et (0.18 formatında olmalı)
         static double NormalizeKdvOran(decimal? taxRatePercentOrDecimal)
         {
-            var rate = (double)(taxRatePercentOrDecimal ?? 20m);
+            var rate = (double)(taxRatePercentOrDecimal ?? 18m);
             if (rate > 1.0) rate /= 100.0;
-            return rate;
+            return Math.Round(rate, 2);
         }
+
+        // Müşteri adı ve soyadı ayır
+        var customerTitle = !string.IsNullOrWhiteSpace(customer.Title) ? customer.Title.Trim() : "Müşteri";
+        var nameParts = customerTitle.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        string cariAd, cariSoyad;
+        if (nameParts.Length >= 2)
+        {
+            cariSoyad = nameParts[^1];
+            cariAd = string.Join(" ", nameParts[..^1]);
+        }
+        else
+        {
+            cariAd = customerTitle;
+            cariSoyad = customerTitle;
+        }
+
+        // CariTip: VKN (10 hane) = 1 (Tüzel), TCKN (11 hane) = 2 (Gerçek)
+        var taxNoDigits = string.IsNullOrWhiteSpace(customer.TaxNo) 
+            ? "" 
+            : new string(customer.TaxNo.Where(char.IsDigit).ToArray());
+        var cariTip = taxNoDigits.Length == 11 ? 2 : 1;
+
+        // BelgeSeri - Luca örneğine göre "EFA2025" kabul ediliyor
+        var belgeSeri = order.BelgeSeri ?? "EFA2025";
 
         return new LucaCreateInvoiceHeaderRequest
         {
-            BelgeSeri = order.BelgeSeri ?? "A",
-            BelgeNo = null, // Satış faturasında Luca belge numarasını kendisi üretir; gönderme
-            BelgeTakipNo = belgeTakipNo,
+            BelgeSeri = belgeSeri,
+            BelgeNo = null, // Luca otomatik üretir
             BelgeTarihi = belgeTarihi.ToString("dd/MM/yyyy"),
-            DuzenlemeSaati = order.DuzenlemeSaati ?? DateTime.Now.ToString("HH:mm"),
+            DuzenlemeSaati = null, // Luca örneğinde null
             VadeTarihi = vadeTarihi.ToString("dd/MM/yyyy"),
+            BelgeTakipNo = null, // Luca örneğinde null
             BelgeAciklama = !string.IsNullOrWhiteSpace(order.AdditionalInfo)
                 ? order.AdditionalInfo
-                : !string.IsNullOrWhiteSpace(order.OrderNo)
-                    ? $"{order.OrderNo} nolu sipariş"
-                    : $"Katana Sipariş: {order.Id}",
+                : $"Katana Sipariş: {order.OrderNo ?? order.Id.ToString()}",
             BelgeTurDetayId = "76", // Satış faturası
             FaturaTur = "1",
             ParaBirimKod = string.IsNullOrWhiteSpace(order.Currency) ? "TRY" : order.Currency,
             KurBedeli = 1.0,
+            KdvFlag = true,
+            ReferansNo = order.CustomerRef ?? belgeTakipNo,
             MusteriTedarikci = "1",
             CariKodu = cariKod,
-            CariTanim = customer.Title,
-            CariYasalUnvan = customer.Title,
-            CariKisaAd = customer.Title.Length > 50 ? customer.Title.Substring(0, 50) : customer.Title,
-            VergiNo = customer.Type == 1 ? customer.TaxNo : null,
-            TcKimlikNo = customer.Type == 2 ? customer.TaxNo : null,
-            VergiDairesi = customer.TaxOffice,
-            CariTip = customer.Type == 1 ? 2 : 1, // 1=Kurumsal->2(Tüzel), 2=Bireysel->1(Gerçek), 0/null->1(Varsayılan)
-	            Il = !string.IsNullOrWhiteSpace(customer.City) ? NormalizeTurkishText(customer.City).ToUpperInvariant() : "ISTANBUL",
-	            Ilce = !string.IsNullOrWhiteSpace(customer.District) ? NormalizeTurkishText(customer.District).ToUpperInvariant() : "MERKEZ",
-            ReferansNo = order.CustomerRef,
-            KdvFlag = true,
-            OdemeTipi = "DIGER",
-            GonderimTipi = "ELEKTRONIK",
+            CariTanim = customerTitle,
+            CariTip = cariTip,
+            CariKisaAd = customerTitle.Length > 50 ? customerTitle.Substring(0, 50) : customerTitle,
+            CariYasalUnvan = customerTitle,
+            VergiNo = taxNoDigits.Length == 10 ? taxNoDigits : null,
+            TcKimlikNo = taxNoDigits.Length == 11 ? taxNoDigits : null,
+            VergiDairesi = customer.TaxOffice ?? "Vergi Dairesi",
+            Il = !string.IsNullOrWhiteSpace(customer.City) ? NormalizeTurkishText(customer.City) : "İstanbul",
+            Ilce = !string.IsNullOrWhiteSpace(customer.District) ? NormalizeTurkishText(customer.District) : "Merkez",
+            AdresSerbest = customer.Address ?? "Adres",
+            Telefon = customer.Phone,
+            Email = customer.Email,
             EfaturaTuru = 1,
-            IrsaliyeBilgisiList = null, // Boş liste yerine null gönder
+            IrsaliyeBilgisiList = null,
             DetayList = order.Lines.Select(l => new LucaCreateInvoiceDetailRequest
             {
                 KartTuru = 1,
                 KartKodu = NormalizeSku(l.SKU),
-                KartAdi = NormalizeTurkishText(l.ProductName),
+                HesapKod = null,
+                KartAdi = !string.IsNullOrWhiteSpace(l.ProductName) ? NormalizeTurkishText(l.ProductName) : NormalizeSku(l.SKU),
+                KartTipi = 1,
+                Barkod = null,
+                OlcuBirimi = 1, // Adet
+                KdvOran = NormalizeKdvOran(l.TaxRate),
+                KartSatisKdvOran = NormalizeKdvOran(l.TaxRate),
+                KartAlisKdvOran = NormalizeKdvOran(l.TaxRate),
                 DepoKodu = resolvedDepoKodu,
                 BirimFiyat = (double)(l.PricePerUnit ?? 0),
                 Miktar = (double)l.Quantity,
-                KdvOran = NormalizeKdvOran(l.TaxRate),
-                Tutar = l.Total.HasValue ? (double)l.Total.Value : null
+                Tutar = null, // Luca hesaplar
+                IskontoOran1 = 0.0,
+                Aciklama = l.ProductName,
+                LotNo = null
             }).ToList()
         };
     }

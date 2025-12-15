@@ -48,7 +48,7 @@ public static class LucaRequestFactory
     public static LucaCreateInvoiceHeaderRequest CreateSampleInvoiceHeader(
         DateTime? belgeTarihi = null,
         long belgeTurDetayId = KozaBelgeTurleri.MalSatisFaturasi,
-        string belgeSeri = "A",
+        string belgeSeri = "EFA2025",
         int? belgeNo = null,
         string? belgeTakipNo = null,
 	        string? belgeAciklama = null,

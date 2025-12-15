@@ -282,7 +282,6 @@ public sealed class KozaDepotsController : ControllerBase
                 return BadRequest(new { error = "Depo adı (tanim) zorunludur" });
             }
 
-            // ✅ KategoriKod kontrolü ve normalizasyon: numeric kod sisDepoKategoriAgacKodu ile hizalanır
             var originalKategoriKod = request.StkDepo.KategoriKod;
             if (!string.IsNullOrWhiteSpace(request.StkDepo.SisDepoKategoriAgacKodu) &&
                 !string.Equals(request.StkDepo.KategoriKod, request.StkDepo.SisDepoKategoriAgacKodu, StringComparison.OrdinalIgnoreCase))
@@ -298,32 +297,31 @@ public sealed class KozaDepotsController : ControllerBase
             if (string.IsNullOrWhiteSpace(request.StkDepo.KategoriKod) || 
                 request.StkDepo.KategoriKod.Equals("MERKEZ", StringComparison.OrdinalIgnoreCase))
             {
-                request.StkDepo.KategoriKod = request.StkDepo.SisDepoKategoriAgacKodu ?? "002"; // Varsayılan: 002 - MERKEZ DEPO
+                request.StkDepo.KategoriKod = request.StkDepo.SisDepoKategoriAgacKodu ?? "002"; 
                 _logger.LogWarning("KategoriKod TRANSFORMED: '{Original}' -> '{New}'", 
                     originalKategoriKod ?? "NULL", request.StkDepo.KategoriKod);
             }
 
-            // DÜZELTME: Luca depo kategori ağacı varsayılan değerleri ekle
-            // Eğer frontend göndermemişse, MERKEZ DEPO için varsayılan değerleri kullan
+            
             if (!request.StkDepo.DepoKategoriAgacId.HasValue)
             {
-                request.StkDepo.DepoKategoriAgacId = 11356; // Luca MERKEZ DEPO kategori ağacı ID
+                request.StkDepo.DepoKategoriAgacId = 11356; 
                 _logger.LogWarning("DepoKategoriAgacId set to default: 11356");
             }
             if (string.IsNullOrWhiteSpace(request.StkDepo.SisDepoKategoriAgacKodu))
             {
-                request.StkDepo.SisDepoKategoriAgacKodu = "002"; // Luca MERKEZ DEPO kodu
+                request.StkDepo.SisDepoKategoriAgacKodu = "002"; 
                 _logger.LogWarning("SisDepoKategoriAgacKodu set to default: 002");
             }
 
-            // ✅ FIX 3: Yeni depo oluşturulurken depoId null olmalı
+           
             if (request.StkDepo.DepoId.HasValue && request.StkDepo.DepoId.Value == 0)
             {
-                request.StkDepo.DepoId = null; // 0 değerini null'a çevir
+                request.StkDepo.DepoId = null; 
                 _logger.LogWarning("DepoId was 0, set to null for new depot creation");
             }
 
-            // DEBUG 2: Normalizasyon sonrası veriyi logla
+            
             _logger.LogWarning("=== DEPOT CREATE - AFTER NORMALIZATION ===");
             _logger.LogWarning("NORMALIZED Kod: {Kod}", request.StkDepo.Kod);
             _logger.LogWarning("NORMALIZED Tanim: {Tanim}", request.StkDepo.Tanim);
@@ -334,13 +332,12 @@ public sealed class KozaDepotsController : ControllerBase
             _logger.LogInformation("Creating Koza depot: {Kod} - {Tanim} - {KategoriKod}", 
                 request.StkDepo.Kod, request.StkDepo.Tanim, request.StkDepo.KategoriKod);
 
-            // Location Existence Check (EF Core default transaction kullanılıyor)
-            // Manuel transaction kaldırıldı - SqlServerRetryingExecutionStrategy ile uyumlu değildi
+           
             var existingDepot = await _context.KozaDepots
                 .AsNoTracking()
                 .FirstOrDefaultAsync(d => d.Kod == request.StkDepo.Kod, ct);
             
-            // Eğer zaten varsa
+            
             if (existingDepot != null)
             {
                 _logger.LogWarning("Location existence check - Depot found: {Kod} (ID: {ExistingId}, Name: {ExistingName})", 
@@ -365,13 +362,11 @@ public sealed class KozaDepotsController : ControllerBase
             
             _logger.LogInformation("Location existence check passed - No existing depot found for code: {Kod}", request.StkDepo.Kod);
 
-            // DEBUG 3: LucaService'e gönderilmeden HEMEN ÖNCE son kontrol
             _logger.LogWarning("=== SENDING TO LUCA SERVICE ===");
             _logger.LogWarning("FINAL REQUEST (will send StkDepo only): {Json}", System.Text.Json.JsonSerializer.Serialize(request.StkDepo));
 
             var result = await _lucaService.CreateDepotAsync(request, ct);
             
-            // DEBUG 4: Koza'dan dönen sonucu logla
             _logger.LogWarning("=== KOZA RESPONSE ===");
             _logger.LogWarning("Success: {Success}", result.Success);
             _logger.LogWarning("Message: {Message}", result.Message ?? "NULL");

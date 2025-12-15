@@ -27,7 +27,7 @@ public class LucaApiSettings
     
     public long? DefaultBranchId { get; set; }
     public long? ForcedBranchId { get; set; } = null;
-    public string DefaultBelgeSeri { get; set; } = "A";
+    public string DefaultBelgeSeri { get; set; } = "EFA2025";
     public double DefaultKdvOran { get; set; } = 0.20;
     public long DefaultOlcumBirimiId { get; set; } = 5;
     public long DefaultKartTipi { get; set; } = 4;

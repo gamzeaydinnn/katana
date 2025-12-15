@@ -127,7 +127,7 @@ public class LoaderService : ILoaderService
 
         var accountMappings = await ResolveMappingsAsync(skuAccountMappings, "SKU_ACCOUNT", ct);
         var belgeSeri = string.IsNullOrWhiteSpace(_lucaSettings.DefaultBelgeSeri)
-            ? "A"
+            ? "EFA2025"
             : _lucaSettings.DefaultBelgeSeri.Trim();
         var defaultWarehouseCode = ResolveWarehouseCode();
 

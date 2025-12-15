@@ -248,6 +248,29 @@ public partial class LucaService
             var label = ResolveInvoiceLabel(invoice);
             try
             {
+                // 🚨 HARD GUARD: Kritik alanları Luca'ya göndermeden ÖNCE kontrol et
+                if (string.IsNullOrWhiteSpace(invoice.CariAd))
+                {
+                    _logger.LogError(
+                        "🚨 BLOCKED invoice send: CariAd is EMPTY. BelgeTakipNo={BelgeTakipNo}",
+                        invoice.BelgeTakipNo);
+                    throw new InvalidOperationException("CariAd zorunlu alan ve boş olamaz");
+                }
+                if (string.IsNullOrWhiteSpace(invoice.CariKodu))
+                {
+                    _logger.LogError(
+                        "🚨 BLOCKED invoice send: CariKodu is EMPTY. BelgeTakipNo={BelgeTakipNo}",
+                        invoice.BelgeTakipNo);
+                    throw new InvalidOperationException("CariKodu zorunlu alan ve boş olamaz");
+                }
+                if (invoice.DetayList == null || invoice.DetayList.Count == 0)
+                {
+                    _logger.LogError(
+                        "🚨 BLOCKED invoice send: DetayList is EMPTY. BelgeTakipNo={BelgeTakipNo}",
+                        invoice.BelgeTakipNo);
+                    throw new InvalidOperationException("DetayList zorunlu alan ve boş olamaz");
+                }
+
                 NormalizeInvoiceCreateRequest(invoice);
                 var payload = JsonSerializer.Serialize(invoice, _jsonOptions);
                 var content = new ByteArrayContent(encoder.GetBytes(payload));
@@ -343,7 +366,7 @@ public partial class LucaService
                 {
                     GnlOrgSsBelge = new LucaBelgeDto
                     {
-                        BelgeSeri = invoice.BelgeSeri ?? _settings.DefaultBelgeSeri ?? "A",
+                        BelgeSeri = invoice.BelgeSeri ?? _settings.DefaultBelgeSeri ?? "EFA2025",
                         BelgeNo = int.TryParse(invoice.BelgeNo, out var belgeNoInt) ? belgeNoInt : (int?)null,
                         BelgeTarihi = ParseDateOrDefault(invoice.BelgeTarihi),
                         VadeTarihi = ParseDateOrDefault(invoice.VadeTarihi),
@@ -369,7 +392,7 @@ public partial class LucaService
                 dto.DocumentDate = belgeDate == default ? DateTime.UtcNow : belgeDate;
                 var dueDate = ParseDateOrDefault(invoice.VadeTarihi);
                 dto.DueDate = dueDate == default ? DateTime.UtcNow : dueDate;
-                dto.CustomerTitle = invoice.CariTanim ?? string.Empty;
+                dto.CustomerTitle = invoice.CariAd ?? invoice.CariTanim ?? invoice.CariYasalUnvan ?? string.Empty;
                 dto.CustomerCode = invoice.CariKodu ?? string.Empty;
                 dto.CustomerTaxNo = invoice.VergiNo ?? string.Empty;
                 dto.Lines = invoice.DetayList?.Select(ConvertToLegacyInvoiceLine).ToList() ?? new List<LucaInvoiceItemDto>();
@@ -433,7 +456,7 @@ public partial class LucaService
 
         if (!string.IsNullOrWhiteSpace(invoice.BelgeNo))
         {
-            return $"{invoice.BelgeSeri ?? "A"}-{invoice.BelgeNo}";
+            return $"{invoice.BelgeSeri ?? "EFA2025"}-{invoice.BelgeNo}";
         }
 
         return "INVOICE";
@@ -804,7 +827,7 @@ public partial class LucaService
                         {
                             if (!payload.Contains("\"belgeSeri\"", StringComparison.OrdinalIgnoreCase))
                             {
-                                var defaultSeri = string.IsNullOrWhiteSpace(_settings.DefaultBelgeSeri) ? "A" : _settings.DefaultBelgeSeri.Trim();
+                                var defaultSeri = string.IsNullOrWhiteSpace(_settings.DefaultBelgeSeri) ? "EFA2025" : _settings.DefaultBelgeSeri.Trim();
                                 var quoted = JsonSerializer.Serialize(defaultSeri);
                                 // Build new JSON by inserting belgeSeri after opening brace
                                 var bodyWithoutOpen = payload.TrimStart();
@@ -2368,12 +2391,12 @@ public partial class LucaService
             url,
             responseContent?.Length ?? 0);
 
-        var trimmed = responseContent.TrimStart();
+        var trimmed = responseContent?.TrimStart() ?? "";
         if (trimmed.StartsWith("<", StringComparison.Ordinal))
         {
-            var preview = responseContent.Length > 200
-                ? responseContent.Substring(0, 200) + "..."
-                : responseContent;
+            var preview = (responseContent?.Length ?? 0) > 200
+                ? responseContent!.Substring(0, 200) + "..."
+                : responseContent ?? "";
             _logger.LogError("ListStockCardsLightAsync HTML response. Status={Status}; BodyPreview={Preview}",
                 response.StatusCode, preview);
             _logger.LogWarning("Koza HTML returned (likely invalid/missing q or session redirect). URL={Url}", url);

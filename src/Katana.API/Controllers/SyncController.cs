@@ -3,14 +3,13 @@ using Katana.Core.DTOs;
 using Katana.Core.Enums;
 using Katana.Core.Entities;
 using Katana.Data.Context;
+using Katana.Data.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Katana.API.Controllers;
-
-
-
 
 [ApiController]
 [Route("api/[controller]")]
@@ -22,15 +21,17 @@ public class SyncController : ControllerBase
     private readonly ILogger<SyncController> _logger;
     private readonly ILoggingService _loggingService;
     private readonly IAuditService _auditService;
+    private readonly LucaApiSettings _lucaSettings;
 
     public SyncController(ISyncService syncService, IntegrationDbContext context, ILogger<SyncController> logger, 
-        ILoggingService loggingService, IAuditService auditService)
+        ILoggingService loggingService, IAuditService auditService, IOptions<LucaApiSettings> lucaSettings)
     {
         _syncService = syncService;
         _context = context;
         _logger = logger;
         _loggingService = loggingService;
         _auditService = auditService;
+        _lucaSettings = lucaSettings.Value;
     }
 
     
@@ -645,7 +646,7 @@ public class SyncController : ControllerBase
             
             if (string.IsNullOrEmpty(request.BelgeSeri))
             {
-                request.BelgeSeri = "A";
+                request.BelgeSeri = _lucaSettings.DefaultBelgeSeri;
             }
             
             if (string.IsNullOrEmpty(request.ParaBirimKod))

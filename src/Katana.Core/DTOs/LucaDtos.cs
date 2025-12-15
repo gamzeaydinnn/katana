@@ -1338,6 +1338,9 @@ public class LucaCreateInvoiceDetailRequest
     [JsonPropertyName("kartSatisKdvOran")]
     public double? KartSatisKdvOran { get; set; }
 
+    [JsonPropertyName("kartAlisKdvOran")]
+    public double? KartAlisKdvOran { get; set; }
+
     [JsonPropertyName("depoKodu")]
     public string? DepoKodu { get; set; }
 
