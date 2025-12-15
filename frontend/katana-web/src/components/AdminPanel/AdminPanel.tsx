@@ -388,6 +388,7 @@ const AdminPanel: React.FC = () => {
             onClick={() => setActiveTab(9)}
             color="primary"
             title="Logları Aç"
+            size="small"
             sx={{
               bgcolor: (theme) =>
                 theme.palette.mode === "dark"
@@ -398,6 +399,7 @@ const AdminPanel: React.FC = () => {
                 theme.palette.mode === "dark"
                   ? "0 0 0 1px rgba(129,140,248,0.4)"
                   : "0 0 0 1px rgba(129,140,248,0.3)",
+              p: { xs: 0.75, md: 1 },
               "&:hover": {
                 bgcolor: (theme) =>
                   theme.palette.mode === "dark"
@@ -415,11 +417,14 @@ const AdminPanel: React.FC = () => {
                 katanaHealth ? "Katana API Bağlı" : "Katana API Bağlı Değil"
               }
               color={katanaHealth ? "success" : "error"}
+              size={isMobile ? "small" : "medium"}
+              sx={{ maxWidth: { xs: "100%", md: "none" } }}
             />
           )}
           <IconButton
             onClick={loadData}
             title="Admin verilerini yenile"
+            size="small"
             sx={{
               ml: "auto",
               bgcolor: "#ffffff",
@@ -427,7 +432,7 @@ const AdminPanel: React.FC = () => {
               boxShadow:
                 "0 2px 12px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05)",
               borderRadius: 2,
-              p: { xs: 1, md: 1.25 },
+              p: { xs: 0.75, md: 1.25 },
               transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
               "&:hover": {
                 bgcolor: "#ffffff",
@@ -469,13 +474,13 @@ const AdminPanel: React.FC = () => {
               alignItems: "center",
               flexDirection: "row",
               textTransform: "none",
-              fontSize: { xs: "0.85rem", sm: "0.9375rem" },
+              fontSize: { xs: "0.75rem", sm: "0.9375rem" },
               fontWeight: 500,
               minWidth: "auto",
-              minHeight: { xs: 48, sm: 56 },
+              minHeight: { xs: 44, sm: 56 },
               whiteSpace: "nowrap",
-              px: { xs: 1.5, sm: 2.5 },
-              py: 1.5,
+              px: { xs: 1.25, sm: 2.5 },
+              py: { xs: 1, sm: 1.5 },
               fontFamily: '"Inter", "Poppins", sans-serif',
               letterSpacing: "-0.2px",
             },

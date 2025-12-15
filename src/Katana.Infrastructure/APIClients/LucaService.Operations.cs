@@ -248,6 +248,7 @@ public partial class LucaService
             var label = ResolveInvoiceLabel(invoice);
             try
             {
+                NormalizeInvoiceCreateRequest(invoice);
                 var payload = JsonSerializer.Serialize(invoice, _jsonOptions);
                 var content = new ByteArrayContent(encoder.GetBytes(payload));
                 content.Headers.ContentType = new MediaTypeHeaderValue("application/json")

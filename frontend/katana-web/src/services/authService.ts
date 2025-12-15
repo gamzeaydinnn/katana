@@ -24,14 +24,14 @@ lucaProxyClient.interceptors.response.use(
 export const loginToLuca = async () => {
   try {
     console.log("Adım 1: Giriş yapılıyor (Backend Proxy üzerinden)...");
-    
+
     const response = await lucaProxyClient.post("/luca-proxy/login", {});
 
     const data: any = response?.data ?? null;
     console.log("Raw login response:", data);
 
     const raw = data?.raw ?? data;
-    
+
     const sessionId =
       data?.sessionId ??
       data?.SessionId ??
@@ -42,11 +42,10 @@ export const loginToLuca = async () => {
       try {
         localStorage.setItem("lucaSessionId", sessionId);
       } catch (e) {
-        
         console.warn("Could not persist lucaSessionId to localStorage:", e);
       }
     }
-    
+
     const codeOk =
       data?.code === 0 ||
       raw?.code === 0 ||
@@ -94,14 +93,21 @@ export const getBranchList = async () => {
     let payload: any = response.data;
     console.log("Raw branch response:", payload);
     console.log("Branch response type:", typeof payload);
-    console.log("Branch response keys:", payload ? Object.keys(payload) : "null");
+    console.log(
+      "Branch response keys:",
+      payload ? Object.keys(payload) : "null"
+    );
 
     if (!payload) {
       console.error("Yetkili şirket/şube bulunamadı: boş cevap.");
       return null;
     }
-    
-    if (typeof payload === "object" && payload !== null && (payload.code ?? payload.Code)) {
+
+    if (
+      typeof payload === "object" &&
+      payload !== null &&
+      (payload.code ?? payload.Code)
+    ) {
       console.error(
         `Şube listesi alınamadı (code=${payload.code ?? payload.Code}): ${
           payload.message ?? payload.Message ?? "Bilinmeyen hata"
@@ -114,34 +120,29 @@ export const getBranchList = async () => {
 
     if (Array.isArray(payload)) {
       branches = payload;
-    }
-    
-    else if (payload.data && Array.isArray(payload.data)) {
+    } else if (payload.data && Array.isArray(payload.data)) {
       branches = payload.data;
-    }
-    
-    else if (Array.isArray(payload.list)) {
+    } else if (Array.isArray(payload.list)) {
       branches = payload.list;
-    }
-    
-    else if (Array.isArray(payload.items)) {
+    } else if (Array.isArray(payload.items)) {
       branches = payload.items;
-    }
-    
-    else if (Array.isArray(payload.branches)) {
+    } else if (Array.isArray(payload.branches)) {
       branches = payload.branches;
-    }
-    
-    else if (payload.raw) {
+    } else if (payload.raw) {
       try {
         const raw =
-          typeof payload.raw === "string" ? JSON.parse(payload.raw) : payload.raw;
+          typeof payload.raw === "string"
+            ? JSON.parse(payload.raw)
+            : payload.raw;
         if (Array.isArray(raw)) branches = raw;
         else if (raw && Array.isArray(raw.data)) branches = raw.data;
         else if (raw && Array.isArray(raw.list)) branches = raw.list;
 
-        
-        if (raw && typeof raw === "object" && (raw.code ?? raw.Code) !== undefined) {
+        if (
+          raw &&
+          typeof raw === "object" &&
+          (raw.code ?? raw.Code) !== undefined
+        ) {
           const rawCode = raw.code ?? raw.Code;
           const rawMessage = raw.message ?? raw.Message ?? "";
           console.error(
@@ -163,7 +164,6 @@ export const getBranchList = async () => {
         "Yetkili şirket/şube bulunamadı: beklenen biçimde dizi dönülmedi."
       );
 
-      
       if (payload && typeof payload.raw === "string") {
         try {
           const parsedRaw = JSON.parse(payload.raw);
@@ -177,7 +177,11 @@ export const getBranchList = async () => {
         }
       }
 
-      if (payload && typeof payload === "object" && (payload.id ?? payload.Id)) {
+      if (
+        payload &&
+        typeof payload === "object" &&
+        (payload.id ?? payload.Id)
+      ) {
         console.log("Tek şube objesi tespit edildi, array'e çeviriliyor");
         branches = [payload];
       } else {
@@ -196,7 +200,10 @@ export const getBranchList = async () => {
     return branches;
   } catch (error: any) {
     if (error.response) {
-      console.error("Şube listesi hata cevabı (status):", error.response.status);
+      console.error(
+        "Şube listesi hata cevabı (status):",
+        error.response.status
+      );
       console.error("Backend error payload:", error.response.data);
       if (error.response.data && error.response.data.raw) {
         console.error("Luca raw response:", error.response.data.raw);
@@ -209,7 +216,6 @@ export const getBranchList = async () => {
 
 export const selectBranch = async (branchOrId: any) => {
   try {
-    
     let branchId: any = branchOrId;
     if (branchOrId && typeof branchOrId === "object") {
       branchId =
@@ -247,13 +253,13 @@ export const selectBranch = async (branchOrId: any) => {
     console.log("Raw select response:", response.data);
 
     const data: any = response.data;
-    
+
     const message =
       typeof data?.message === "string" ? data.message : data?.Message ?? null;
     const codeOk = data?.code === 0;
     const successFlag = data?.success === true || data?.isSuccess === true;
     const messageOk =
-      typeof message === "string" && message.toLowerCase().includes("başar"); 
+      typeof message === "string" && message.toLowerCase().includes("başar");
 
     const ok = codeOk || successFlag || messageOk || response.status === 200;
 

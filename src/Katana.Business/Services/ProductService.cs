@@ -326,6 +326,7 @@ public class ProductService : IProductService
         var updatedCount = 0;
         var skippedCount = 0;
         var errors = new List<string>();
+        var createdEntities = new List<Product>();
 
         
         var categoryExists = await _context.Categories.AnyAsync(c => c.Id == defaultCategoryId);
@@ -388,22 +389,7 @@ public class ProductService : IProductService
                     };
                     _context.Products.Add(newProduct);
                     createdCount++;
-                    
-                    // Katana'dan gelen yeni ürün bildirimi
-                    if (_notificationPublisher != null)
-                    {
-                        try
-                        {
-                            _ = _notificationPublisher.PublishProductCreatedAsync(new ProductCreatedEvent(
-                                newProduct.Id,
-                                newProduct.SKU,
-                                newProduct.Name,
-                                "Katana",
-                                DateTimeOffset.UtcNow
-                            ));
-                        }
-                        catch { /* Bildirim hatası sync'i engellemez */ }
-                    }
+                    createdEntities.Add(newProduct);
                 }
             }
             catch (Exception ex)
@@ -426,6 +412,29 @@ public class ProductService : IProductService
             if (innerMessage.Contains("FK_Products_Categories_CategoryId"))
             {
                 errors.Add("Foreign key constraint violation on CategoryId. Some products have invalid category references.");
+            }
+        }
+
+        // Publish notifications only after SaveChanges so ProductId is available, and do it synchronously
+        // to avoid DbContext concurrency issues from fire-and-forget tasks in the same request scope.
+        if (_notificationPublisher != null && createdEntities.Count > 0)
+        {
+            foreach (var p in createdEntities)
+            {
+                try
+                {
+                    await _notificationPublisher.PublishProductCreatedAsync(new ProductCreatedEvent(
+                        p.Id,
+                        p.SKU,
+                        p.Name,
+                        "Katana",
+                        DateTimeOffset.UtcNow
+                    ));
+                }
+                catch
+                {
+                    // Notification failures must not fail product sync
+                }
             }
         }
 

@@ -93,6 +93,8 @@ public partial class LucaService
     {
         await EnsureAuthenticatedAsync();
 
+        NormalizeInvoiceCreateRequest(request);
+
         var json = JsonSerializer.Serialize(request, _jsonOptions);
         _logger.LogInformation("📄 CreateInvoice - Sending JSON: {Json}", json);
 
@@ -157,6 +159,74 @@ public partial class LucaService
             throw new HttpRequestException($"Luca API Error ({response.StatusCode}): {responseContent}");
         }
         
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+    }
+
+    public async Task<JsonElement> CreateInvoiceRawJsonAsync(string rawJson)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var json = rawJson ?? string.Empty;
+        _logger.LogInformation("📄 CreateInvoice (passthrough) - Sending JSON: {Json}", json);
+
+        if (_settings.UseTokenAuth)
+        {
+            var content = CreateKozaContent(json);
+            var tokenResponse = await _httpClient.PostAsync(_settings.Endpoints.Invoices, content);
+            var tokenResponseContent = await tokenResponse.Content.ReadAsStringAsync();
+
+            _logger.LogInformation("📄 CreateInvoice (passthrough/token) - Response Status: {Status}, Body: {Body}",
+                tokenResponse.StatusCode, tokenResponseContent);
+
+            if (IsHtmlResponse(tokenResponseContent))
+            {
+                LogHtmlResponse("CREATE_INVOICE_RAW_PASSTHROUGH_TOKEN", tokenResponse, tokenResponseContent, attempt: 1, maxAttempts: 1);
+                throw new InvalidOperationException($"Luca API returned HTML content for invoice create (token mode). Status={(int)tokenResponse.StatusCode}");
+            }
+
+            if (!tokenResponse.IsSuccessStatusCode)
+            {
+                _logger.LogError("❌ CreateInvoice (passthrough/token) FAILED - Status: {Status}, Body: {Body}", tokenResponse.StatusCode, tokenResponseContent);
+                throw new HttpRequestException($"Luca API Error ({tokenResponse.StatusCode}): {tokenResponseContent}");
+            }
+
+            return JsonSerializer.Deserialize<JsonElement>(tokenResponseContent);
+        }
+
+        await EnsureBranchSelectedAsync();
+        await VerifyBranchSelectionAsync();
+        await WarmupInvoiceEndpointAsync();
+
+        var endpoint = _settings.Endpoints.InvoiceCreate;
+        var contentBytes = new ByteArrayContent(_encoding.GetBytes(json));
+        contentBytes.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = _encoding.WebName };
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = contentBytes
+        };
+        ApplyManualSessionCookie(httpRequest);
+
+        var response = await SendWithAuthRetryAsync(httpRequest, "CREATE_INVOICE_RAW_PASSTHROUGH", 3);
+        var responseContent = await ReadResponseContentAsync(response);
+        await AppendRawLogAsync("CREATE_INVOICE_RAW_PASSTHROUGH", endpoint, json, response.StatusCode, responseContent);
+
+        _logger.LogInformation("📄 CreateInvoice (passthrough) - Response Status: {Status}, Body: {Body}",
+            response.StatusCode, responseContent);
+
+        if (IsHtmlResponse(responseContent))
+        {
+            LogHtmlResponse("CREATE_INVOICE_RAW_PASSTHROUGH", response, responseContent, attempt: 1, maxAttempts: 1);
+            throw new InvalidOperationException($"Luca API returned HTML content for invoice create. Status={(int)response.StatusCode}");
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("❌ CreateInvoice (passthrough) FAILED - Status: {Status}, Body: {Body}", response.StatusCode, responseContent);
+            throw new HttpRequestException($"Luca API Error ({response.StatusCode}): {responseContent}");
+        }
+
         response.EnsureSuccessStatusCode();
         return JsonSerializer.Deserialize<JsonElement>(responseContent);
     }

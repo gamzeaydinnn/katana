@@ -156,33 +156,14 @@ public class LucaInvoicesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> CreateInvoice([FromBody] LucaCreateInvoiceHeaderRequest request)
+    public async Task<IActionResult> CreateInvoice([FromBody] JsonElement request)
     {
         try
         {
-            _logger.LogInformation("🧾 Creating invoice for CariKodu={CariKodu}, DetailCount={DetailCount}", 
-                request.CariKodu, request.DetayList?.Count ?? 0);
+            var rawJson = request.GetRawText();
+            _logger.LogInformation("🧾 Creating invoice (passthrough) - payload length={Length}", rawJson?.Length ?? 0);
 
-            // Validation
-            if (string.IsNullOrWhiteSpace(request.CariKodu))
-            {
-                return BadRequest(new
-                {
-                    success = false,
-                    error = "CariKodu is required"
-                });
-            }
-
-            if (request.DetayList == null || !request.DetayList.Any())
-            {
-                return BadRequest(new
-                {
-                    success = false,
-                    error = "DetailList cannot be empty"
-                });
-            }
-
-            var response = await _lucaService.CreateInvoiceRawAsync(request);
+            var response = await _lucaService.CreateInvoiceRawJsonAsync(rawJson);
             
             // HTML response kontrolü
             if (response.ValueKind == JsonValueKind.String)
@@ -208,7 +189,7 @@ public class LucaInvoicesController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Failed to create invoice for CariKodu={CariKodu}", request.CariKodu);
+            _logger.LogError(ex, "❌ Failed to create invoice (passthrough)");
             return StatusCode(500, new
             {
                 success = false,

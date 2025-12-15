@@ -156,7 +156,9 @@ public class SalesOrdersController : ControllerBase
     /// </summary>
     [HttpPost("{id}/sync")]
     [Authorize(Roles = "Admin")]
-    public async Task<ActionResult<SalesOrderSyncResultDto>> SyncToLuca(int id)
+    public async Task<ActionResult<SalesOrderSyncResultDto>> SyncToLuca(
+        int id,
+        [FromBody] UpdateSalesOrderLucaFieldsDto? lucaFields = null)
     {
         var order = await _context.SalesOrders
             .Include(s => s.Customer)
@@ -185,6 +187,31 @@ public class SalesOrdersController : ControllerBase
         if (order.IsSyncedToLuca && string.IsNullOrEmpty(order.LastSyncError))
         {
             return BadRequest(new { message = "Order already synced to Luca", lucaOrderId = order.LucaOrderId });
+        }
+
+        // If UI sends Luca fields together with the sync request, apply them first so the outgoing payload matches UI.
+        if (lucaFields != null)
+        {
+            if (!string.IsNullOrWhiteSpace(lucaFields.BelgeSeri))
+            {
+                order.BelgeSeri = lucaFields.BelgeSeri.Trim();
+            }
+            if (lucaFields.BelgeNo != null)
+            {
+                order.BelgeNo = string.IsNullOrWhiteSpace(lucaFields.BelgeNo) ? null : lucaFields.BelgeNo.Trim();
+            }
+            if (lucaFields.DuzenlemeSaati != null)
+            {
+                order.DuzenlemeSaati = string.IsNullOrWhiteSpace(lucaFields.DuzenlemeSaati) ? null : lucaFields.DuzenlemeSaati.Trim();
+            }
+            if (lucaFields.BelgeTurDetayId.HasValue) order.BelgeTurDetayId = lucaFields.BelgeTurDetayId;
+            if (lucaFields.NakliyeBedeliTuru.HasValue) order.NakliyeBedeliTuru = lucaFields.NakliyeBedeliTuru;
+            if (lucaFields.TeklifSiparisTur.HasValue) order.TeklifSiparisTur = lucaFields.TeklifSiparisTur;
+            if (lucaFields.OnayFlag.HasValue) order.OnayFlag = lucaFields.OnayFlag.Value;
+            if (lucaFields.BelgeAciklama != null) order.AdditionalInfo = lucaFields.BelgeAciklama;
+
+            order.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
         }
 
         // Dış entegrasyon çağrısı (Luca) retry stratejisinin içine sokulmaz: transient DB retry durumunda Luca'ya duplicate gitmesin.

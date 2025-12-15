@@ -77,6 +77,7 @@ public interface ILucaService
         bool detayliListe = false,
         CancellationToken ct = default);
     Task<System.Text.Json.JsonElement> CreateInvoiceRawAsync(LucaCreateInvoiceHeaderRequest request);
+    Task<System.Text.Json.JsonElement> CreateInvoiceRawJsonAsync(string rawJson);
     Task<System.Text.Json.JsonElement> CloseInvoiceAsync(LucaCloseInvoiceRequest request);
     Task<System.Text.Json.JsonElement> DeleteInvoiceAsync(LucaDeleteInvoiceRequest request);
     Task<System.Text.Json.JsonElement> GetInvoicePdfLinkAsync(LucaInvoicePdfLinkRequest request);
