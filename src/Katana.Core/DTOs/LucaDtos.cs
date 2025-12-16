@@ -2013,7 +2013,133 @@ public class LucaCreateStokKartiRequest
     public double? Miktar { get; set; }
 }
 
+/// <summary>
+/// Luca/Koza Stok Kartı Güncelleme İsteği
+/// Endpoint: /GuncelleStkWsSkart.do
+/// </summary>
+public class LucaUpdateStokKartiRequest
+{
+    /// <summary>
+    /// Güncellenecek stok kartının Luca ID'si (ZORUNLU)
+    /// </summary>
+    [JsonPropertyName("skartId")]
+    public long SkartId { get; set; }
 
+    /// <summary>
+    /// Hiyerarşik kod (opsiyonel)
+    /// </summary>
+    [JsonPropertyName("hiyerarsikKod")]
+    public string? HiyerarsikKod { get; set; }
+
+    /// <summary>
+    /// Stok Kart Kodu (SKU)
+    /// </summary>
+    [JsonPropertyName("kartKodu")]
+    public string KartKodu { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Stok Kart Adı
+    /// </summary>
+    [JsonPropertyName("kartAdi")]
+    public string KartAdi { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Uzun Ad/Açıklama
+    /// </summary>
+    [JsonPropertyName("uzunAdi")]
+    public string? UzunAdi { get; set; }
+
+    /// <summary>
+    /// Barkod
+    /// </summary>
+    [JsonPropertyName("barkod")]
+    public string? Barkod { get; set; }
+
+    /// <summary>
+    /// Kategori Ağaç Kodu
+    /// </summary>
+    [JsonPropertyName("kategoriAgacKod")]
+    public string? KategoriAgacKod { get; set; }
+
+    /// <summary>
+    /// Perakende Alış Birim Fiyat
+    /// </summary>
+    [JsonPropertyName("perakendeAlisBirimFiyat")]
+    public decimal? PerakendeAlisBirimFiyat { get; set; }
+
+    /// <summary>
+    /// Perakende Satış Birim Fiyat
+    /// </summary>
+    [JsonPropertyName("perakendeSatisBirimFiyat")]
+    public decimal? PerakendeSatisBirimFiyat { get; set; }
+
+    /// <summary>
+    /// GTIP Kodu (Gümrük Tarife İstatistik Pozisyonu)
+    /// </summary>
+    [JsonPropertyName("gtipKodu")]
+    public string? GtipKodu { get; set; }
+
+    /// <summary>
+    /// Kart Tipi (1=Stok)
+    /// </summary>
+    [JsonPropertyName("kartTipi")]
+    public long? KartTipi { get; set; }
+
+    /// <summary>
+    /// Kart Türü (1=Stok Kartı)
+    /// </summary>
+    [JsonPropertyName("kartTuru")]
+    public long? KartTuru { get; set; }
+
+    /// <summary>
+    /// Ölçü Birimi ID
+    /// </summary>
+    [JsonPropertyName("olcumBirimiId")]
+    public long? OlcumBirimiId { get; set; }
+
+    /// <summary>
+    /// Alış KDV Oranı
+    /// </summary>
+    [JsonPropertyName("kartAlisKdvOran")]
+    public double? KartAlisKdvOran { get; set; }
+
+    /// <summary>
+    /// Satış KDV Oranı
+    /// </summary>
+    [JsonPropertyName("kartSatisKdvOran")]
+    public double? KartSatisKdvOran { get; set; }
+
+    /// <summary>
+    /// Satılabilir Flag (1=Evet)
+    /// </summary>
+    [JsonPropertyName("satilabilirFlag")]
+    public int? SatilabilirFlag { get; set; }
+
+    /// <summary>
+    /// Satın Alınabilir Flag (1=Evet)
+    /// </summary>
+    [JsonPropertyName("satinAlinabilirFlag")]
+    public int? SatinAlinabilirFlag { get; set; }
+
+    /// <summary>
+    /// Maliyet Hesaplanacak Flag
+    /// </summary>
+    [JsonPropertyName("maliyetHesaplanacakFlag")]
+    public bool? MaliyetHesaplanacakFlag { get; set; }
+}
+
+/// <summary>
+/// Luca/Koza Stok Kartı Silme İsteği
+/// Endpoint: /SilStkSkart.do
+/// </summary>
+public class LucaDeleteStokKartiRequest
+{
+    /// <summary>
+    /// Silinecek stok kartının Luca ID'si (ZORUNLU)
+    /// </summary>
+    [JsonPropertyName("skartId")]
+    public long SkartId { get; set; }
+}
 
 
 public class LucaStockCardDto

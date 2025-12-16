@@ -81,6 +81,8 @@ public class LucaApiSettings
     public string StockCards { get; set; } = "ListeleStkSkart.do";
     
     public string StockCardCreate { get; set; } = "EkleStkWsSkart.do";
+    public string StockCardUpdate { get; set; } = "GuncelleStkWsSkart.do";
+    public string StockCardDelete { get; set; } = "SilStkSkart.do";
     public string StockCardPriceLists { get; set; } = "ListeleStkSkartFiyatListeleri.do";
     public string StockCardAltUnits { get; set; } = "ListeleStkSkartAlternatifOb.do";
     public string StockCardAltStocks { get; set; } = "ListeleStkSkartAlternatif.do";

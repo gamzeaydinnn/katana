@@ -1,11 +1,10 @@
+import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
-import InfoIcon from "@mui/icons-material/Info";
 import {
   Alert,
-  AlertTitle,
   Box,
   Button,
   Card,
@@ -31,7 +30,7 @@ import {
   Typography,
   useMediaQuery,
 } from "@mui/material";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import api, { stockAPI } from "../../services/api";
 import { decodeJwtPayload, getJwtRoles } from "../../utils/jwt";
 
@@ -72,6 +71,9 @@ const LucaProducts: React.FC = () => {
     null
   );
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<LucaProduct | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [syncing, setSyncing] = useState(false);
   const isMobile = useMediaQuery("(max-width:900px)");
@@ -180,84 +182,70 @@ const LucaProducts: React.FC = () => {
     setSelectedProduct(null);
   };
 
+  const handleDeleteClick = (product: LucaProduct) => {
+    setProductToDelete(product);
+    setConfirmDeleteOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
+    setDeleting(true);
+    setError(null);
+
+    try {
+      const sku = productToDelete.productCode || productToDelete.ProductCode;
+      if (!sku) {
+        setError("Silinecek ürün kodu bulunamadı.");
+        setDeleting(false);
+        return;
+      }
+
+      await api.post(`/adminpanel/test-delete-product?sku=${encodeURIComponent(sku)}`);
+      setConfirmDeleteOpen(false);
+      setProductToDelete(null);
+      
+      // Local state'den kaldır
+      setProducts(prev => prev.filter(p => (p.productCode || p.ProductCode) !== sku));
+      setFilteredProducts(prev => prev.filter(p => (p.productCode || p.ProductCode) !== sku));
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Ürün silinemedi");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleSaveProduct = async () => {
     if (!selectedProduct) return;
     setSaving(true);
     setError(null);
 
     try {
-      const productCode =
-        selectedProduct.productCode || selectedProduct.ProductCode || "";
-
+      const productCode = selectedProduct.productCode || selectedProduct.ProductCode || "";
       if (!productCode) {
         setError("Ürün kodu bulunamadı.");
         setSaving(false);
         return;
       }
 
-      // Önce ürünün local DB'deki ID'sini bul
-      let productId = selectedProduct.id;
-
-      // Eğer ID sayısal değilse veya yoksa, SKU ile ara
-      if (!productId || typeof productId !== "number") {
-        try {
-          const localResp: any = await api.get(
-            `/Products/by-sku/${encodeURIComponent(productCode)}`
-          );
-          productId = localResp?.data?.id || localResp?.data?.Id;
-        } catch (resolveErr) {
-          console.warn("Local product lookup by SKU failed", resolveErr);
-        }
-      }
-
-      if (!productId) {
-        setError(
-          "Güncellenecek yerel ürün ID'si bulunamadı. Bu ürün henüz veritabanında olmayabilir."
-        );
-        setSaving(false);
-        return;
-      }
-
-      const updateDto = {
-        productCode: productCode,
-        productName:
-          selectedProduct.productName || selectedProduct.ProductName || "",
-        unit:
-          selectedProduct.unit ||
-          selectedProduct.Unit ||
-          selectedProduct.measurementUnit ||
-          "Adet",
-        quantity: Number(
-          selectedProduct.quantity ?? selectedProduct.Quantity ?? 0
-        ),
-        unitPrice: Number(
-          selectedProduct.unitPrice ?? selectedProduct.UnitPrice ?? 0
-        ),
-        vatRate: Number(
-          selectedProduct.vatRate ?? selectedProduct.VatRate ?? 20
-        ),
+      const updateRequest = {
+        kartKodu: productCode,
+        kartAdi: selectedProduct.productName || selectedProduct.ProductName || "",
+        kdvOrani: Number(selectedProduct.vatRate ?? selectedProduct.VatRate ?? 20),
       };
 
-      await api.put(`/Products/luca/${productId}`, updateDto);
+      await api.post("/adminpanel/test-update-product", updateRequest);
       handleCloseModal();
-      fetchProducts();
+      
+      // Local state güncelle
+      const updated = { ...selectedProduct };
+      setProducts(prev => prev.map(p => 
+        (p.productCode || p.ProductCode) === productCode ? updated : p
+      ));
+      setFilteredProducts(prev => prev.map(p => 
+        (p.productCode || p.ProductCode) === productCode ? updated : p
+      ));
     } catch (err: any) {
-      let errorMsg = "Ürün güncellenemedi";
-      const data = err?.response?.data;
-      if (data) {
-        if (typeof data === "string") errorMsg = data;
-        else if (data.error) errorMsg = data.error;
-        else if (data.title) errorMsg = data.title;
-        else if (Array.isArray(data.errors)) errorMsg = data.errors.join(", ");
-        else if (typeof data.errors === "object") {
-          const msgs = Object.values(data.errors).flat();
-          errorMsg = msgs.join(", ");
-        }
-      } else {
-        errorMsg = err?.message || errorMsg;
-      }
-      setError(errorMsg);
-      console.error("Ürün güncelleme hatası:", err?.response?.data || err);
+      setError(err?.response?.data?.message || "Ürün güncellenemedi");
     } finally {
       setSaving(false);
     }
@@ -283,43 +271,6 @@ const LucaProducts: React.FC = () => {
 
   return (
     <Box>
-      {/* Luca API Uyarısı */}
-      <Alert
-        severity="info"
-        icon={<InfoIcon />}
-        sx={{
-          mb: 3,
-          borderRadius: 2,
-          backgroundColor: (theme) =>
-            theme.palette.mode === "dark"
-              ? "rgba(33, 150, 243, 0.12)"
-              : "rgba(33, 150, 243, 0.08)",
-          border: (theme) =>
-            `1px solid ${
-              theme.palette.mode === "dark"
-                ? "rgba(33, 150, 243, 0.3)"
-                : "rgba(33, 150, 243, 0.2)"
-            }`,
-          "& .MuiAlert-icon": {
-            color: "#2196f3",
-          },
-        }}
-      >
-        <AlertTitle sx={{ fontWeight: 600 }}>
-          Luca/Koza API Kısıtlaması
-        </AlertTitle>
-        <Typography variant="body2" component="div">
-          Luca sisteminde{" "}
-          <strong>
-            stok kartı silme ve güncelleme işlemleri desteklenmemektedir
-          </strong>
-          . Katana'dan gelen ürün bilgilerinde değişiklik tespit edildiğinde
-          (isim, miktar, fiyat, kategori), sistem otomatik olarak{" "}
-          <strong>yeni bir stok kartı oluşturur</strong>. Aynı SKU'ya sahip
-          ürünlerin farklı versiyonları Luca'da ayrı kartlar olarak görünebilir.
-        </Typography>
-      </Alert>
-
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Stack
@@ -521,18 +472,14 @@ const LucaProducts: React.FC = () => {
                   </Box>
                 </Box>
                 {canEdit && (
-                  <Box
-                    sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}
-                  >
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<EditIcon fontSize="small" />}
-                      onClick={() => handleEditProduct(product)}
-                    >
+                  <Stack direction="row" spacing={1} justifyContent="flex-end" mt={1}>
+                    <Button size="small" variant="outlined" startIcon={<EditIcon fontSize="small" />} onClick={() => handleEditProduct(product)}>
                       Düzenle
                     </Button>
-                  </Box>
+                    <Button size="small" variant="outlined" color="error" startIcon={<DeleteIcon fontSize="small" />} onClick={() => handleDeleteClick(product)}>
+                      Sil
+                    </Button>
+                  </Stack>
                 )}
               </Paper>
             );
@@ -641,19 +588,20 @@ const LucaProducts: React.FC = () => {
                       <TableCell>{lastUpdated || "-"}</TableCell>
                       <TableCell align="center">
                         {canEdit ? (
-                          <Tooltip title="Düzenle">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleEditProduct(product)}
-                              color="primary"
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                          <Stack direction="row" spacing={0.5} justifyContent="center">
+                            <Tooltip title="Düzenle">
+                              <IconButton size="small" onClick={() => handleEditProduct(product)} color="primary">
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Sil">
+                              <IconButton size="small" onClick={() => handleDeleteClick(product)} color="error">
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
                         ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            -
-                          </Typography>
+                          <Typography variant="body2" color="text.secondary">-</Typography>
                         )}
                       </TableCell>
                     </TableRow>
@@ -684,10 +632,9 @@ const LucaProducts: React.FC = () => {
                   ""
                 }
                 onChange={(e) =>
-                  setSelectedProduct({
-                    ...selectedProduct,
-                    productCode: e.target.value,
-                  })
+                  setSelectedProduct((prev) =>
+                    prev ? ({ ...prev, productCode: e.target.value } as LucaProduct) : prev
+                  )
                 }
                 size="small"
               />
@@ -700,10 +647,9 @@ const LucaProducts: React.FC = () => {
                   ""
                 }
                 onChange={(e) =>
-                  setSelectedProduct({
-                    ...selectedProduct,
-                    productName: e.target.value,
-                  })
+                  setSelectedProduct((prev) =>
+                    prev ? ({ ...prev, productName: e.target.value } as LucaProduct) : prev
+                  )
                 }
                 size="small"
               />
@@ -712,10 +658,9 @@ const LucaProducts: React.FC = () => {
                 label="Birim"
                 value={selectedProduct.unit || selectedProduct.Unit || ""}
                 onChange={(e) =>
-                  setSelectedProduct({
-                    ...selectedProduct,
-                    unit: e.target.value,
-                  })
+                  setSelectedProduct((prev) =>
+                    prev ? ({ ...prev, unit: e.target.value } as LucaProduct) : prev
+                  )
                 }
                 size="small"
               />
@@ -727,10 +672,9 @@ const LucaProducts: React.FC = () => {
                   selectedProduct.quantity ?? selectedProduct.Quantity ?? 0
                 }
                 onChange={(e) =>
-                  setSelectedProduct({
-                    ...selectedProduct,
-                    quantity: parseInt(e.target.value, 10),
-                  })
+                  setSelectedProduct((prev) =>
+                    prev ? ({ ...prev, quantity: parseInt(e.target.value, 10) } as LucaProduct) : prev
+                  )
                 }
                 size="small"
               />
@@ -743,10 +687,9 @@ const LucaProducts: React.FC = () => {
                   selectedProduct.unitPrice ?? selectedProduct.UnitPrice ?? 0
                 }
                 onChange={(e) =>
-                  setSelectedProduct({
-                    ...selectedProduct,
-                    unitPrice: parseFloat(e.target.value),
-                  })
+                  setSelectedProduct((prev) =>
+                    prev ? ({ ...prev, unitPrice: parseFloat(e.target.value) } as LucaProduct) : prev
+                  )
                 }
                 size="small"
               />
@@ -756,10 +699,9 @@ const LucaProducts: React.FC = () => {
                 type="number"
                 value={selectedProduct.vatRate ?? selectedProduct.VatRate ?? 0}
                 onChange={(e) =>
-                  setSelectedProduct({
-                    ...selectedProduct,
-                    vatRate: parseInt(e.target.value, 10),
-                  })
+                  setSelectedProduct((prev) =>
+                    prev ? ({ ...prev, vatRate: parseInt(e.target.value, 10) } as LucaProduct) : prev
+                  )
                 }
                 size="small"
               />
@@ -796,6 +738,22 @@ const LucaProducts: React.FC = () => {
             }}
           >
             {saving ? "Kaydediliyor..." : "Kaydet"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Silme Onay Dialog */}
+      <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Ürünü Sil</DialogTitle>
+        <DialogContent>
+          <Typography>
+            <strong>{productToDelete?.productCode || productToDelete?.ProductCode}</strong> kodlu ürünü silmek istediğinize emin misiniz?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDeleteOpen(false)} variant="outlined" disabled={deleting}>İptal</Button>
+          <Button onClick={handleConfirmDelete} variant="contained" color="error" disabled={deleting}>
+            {deleting ? "Siliniyor..." : "Sil"}
           </Button>
         </DialogActions>
       </Dialog>

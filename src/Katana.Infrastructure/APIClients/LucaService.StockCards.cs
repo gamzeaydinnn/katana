@@ -707,4 +707,154 @@ public partial class LucaService
             Message = responseBody
         };
     }
+
+    // ====================================================================
+    // STOK KARTI GÜNCELLEME VE SİLME İŞLEMLERİ
+    // ====================================================================
+
+    /// <summary>
+    /// Mevcut bir stok kartını günceller.
+    /// Endpoint: /GuncelleStkWsSkart.do
+    /// </summary>
+    public async Task<bool> UpdateStockCardAsync(LucaUpdateStokKartiRequest request)
+    {
+        await EnsureAuthenticatedAsync();
+        await EnsureBranchSelectedAsync();
+
+        // Endpoint - appsettings'den al veya sabit kullan
+        var endpoint = _settings.Endpoints.StockCardUpdate ?? "GuncelleStkWsSkart.do";
+        
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = null,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        };
+
+        // ATTEMPT 1: Direct JSON serialization
+        try
+        {
+            _logger.LogInformation("📝 Stok Kartı Güncelleme ATTEMPT 1: Direct JSON. ID={Id}, SKU={Sku}", 
+                request.SkartId, request.KartKodu);
+            
+            var json = JsonSerializer.Serialize(request, jsonOptions);
+            var content = CreateKozaContent(json);
+            
+            using var req = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content };
+            ApplyManualSessionCookie(req);
+            
+            var response = await SendWithAuthRetryAsync(req, "UPDATE_STOCK_ATTEMPT1", 2);
+            var body = await ReadResponseContentAsync(response);
+            
+            await AppendRawLogAsync("UPDATE_STOCK_ATTEMPT1", endpoint, json, response.StatusCode, body);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var parsed = ParseKozaOperationResponse(body);
+                if (parsed.IsSuccess)
+                {
+                    _logger.LogInformation("✅ Stok kartı güncellendi: ID={Id}, SKU={Sku}", request.SkartId, request.KartKodu);
+                    return true;
+                }
+            }
+            
+            _logger.LogWarning("Stok kartı güncelleme ATTEMPT 1 başarısız: {Response}", body?.Substring(0, Math.Min(300, body?.Length ?? 0)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "UpdateStockCard ATTEMPT 1 exception for ID: {Id}", request.SkartId);
+        }
+
+        // ATTEMPT 2: Wrapped object (stkSkart)
+        try
+        {
+            _logger.LogInformation("📝 Stok Kartı Güncelleme ATTEMPT 2: Wrapped object. ID={Id}", request.SkartId);
+            
+            var wrapped = new { stkSkart = request };
+            var json = JsonSerializer.Serialize(wrapped, jsonOptions);
+            var content = CreateKozaContent(json);
+            
+            using var req = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content };
+            ApplyManualSessionCookie(req);
+            
+            var response = await SendWithAuthRetryAsync(req, "UPDATE_STOCK_ATTEMPT2", 2);
+            var body = await ReadResponseContentAsync(response);
+            
+            await AppendRawLogAsync("UPDATE_STOCK_ATTEMPT2", endpoint, json, response.StatusCode, body);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var parsed = ParseKozaOperationResponse(body);
+                if (parsed.IsSuccess)
+                {
+                    _logger.LogInformation("✅ Stok kartı güncellendi (ATTEMPT 2): ID={Id}, SKU={Sku}", request.SkartId, request.KartKodu);
+                    return true;
+                }
+            }
+            
+            _logger.LogWarning("Stok kartı güncelleme ATTEMPT 2 başarısız: {Response}", body?.Substring(0, Math.Min(300, body?.Length ?? 0)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "UpdateStockCard ATTEMPT 2 exception for ID: {Id}", request.SkartId);
+        }
+
+        _logger.LogError("❌ Stok kartı güncelleme başarısız - tüm denemeler tükendi. ID={Id}, SKU={Sku}", 
+            request.SkartId, request.KartKodu);
+        return false;
+    }
+
+    /// <summary>
+    /// Bir stok kartını ID ile siler.
+    /// Endpoint: /SilStkSkart.do
+    /// </summary>
+    public async Task<bool> DeleteStockCardAsync(long skartId)
+    {
+        await EnsureAuthenticatedAsync();
+        await EnsureBranchSelectedAsync();
+
+        // Endpoint
+        var endpoint = _settings.Endpoints.StockCardDelete ?? "SilStkSkart.do";
+        
+        var requestObj = new LucaDeleteStokKartiRequest { SkartId = skartId };
+        
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = null,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never
+        };
+
+        try
+        {
+            _logger.LogInformation("🗑️ Stok Kartı Silme başlatıldı. ID={Id}", skartId);
+            
+            var json = JsonSerializer.Serialize(requestObj, jsonOptions);
+            var content = CreateKozaContent(json);
+            
+            using var req = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content };
+            ApplyManualSessionCookie(req);
+            
+            var response = await SendWithAuthRetryAsync(req, "DELETE_STOCK", 2);
+            var body = await ReadResponseContentAsync(response);
+            
+            await AppendRawLogAsync("DELETE_STOCK", endpoint, json, response.StatusCode, body);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var parsed = ParseKozaOperationResponse(body);
+                if (parsed.IsSuccess)
+                {
+                    _logger.LogInformation("✅ Stok kartı silindi. ID={Id}", skartId);
+                    return true;
+                }
+            }
+            
+            _logger.LogWarning("Stok kartı silme başarısız: {Response}", body?.Substring(0, Math.Min(300, body?.Length ?? 0)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Stok silme hatası ID={Id}", skartId);
+        }
+
+        return false;
+    }
 }

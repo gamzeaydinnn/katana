@@ -32,7 +32,7 @@ import {
   Typography,
   useMediaQuery,
 } from "@mui/material";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import api from "../../services/api";
 import { showGlobalToast } from "../../providers/FeedbackProvider";
 import { decodeJwtPayload, getJwtRoles } from "../../utils/jwt";
@@ -175,36 +175,11 @@ const KatanaProducts: React.FC = () => {
     try {
       const productId = parseInt(selectedProduct.id);
 
-      // Try to read existing product to obtain a valid CategoryId
-      let categoryId = 0;
-      try {
-        const existing = await api.get(`/Products/${productId}`);
-        // explicit any to avoid TS errors for dynamic API responses
-        const existingData: any = existing?.data || {};
-        categoryId = existingData?.categoryId ?? existingData?.CategoryId ?? 0;
-      } catch (err) {
-        // ignore - we'll try to pick first available category next
-      }
-
-      // If we still don't have a categoryId, fall back to the first category in DB
-      if (!categoryId) {
-        try {
-          const cats = await api.get(`/Categories`);
-          const list = cats?.data || [];
-          if (Array.isArray(list) && list.length > 0) {
-            categoryId = list[0]?.id ?? list[0]?.Id ?? 0;
-          }
-        } catch (err) {
-          // ignore - we'll use 0 and let backend handle validation
-        }
-      }
-
       const updateDto = {
         Name: selectedProduct.name || selectedProduct.Name || "",
         SKU: selectedProduct.sku || selectedProduct.SKU || "",
         Price: selectedProduct.salesPrice || selectedProduct.SalesPrice || 0,
         Stock: selectedProduct.onHand || selectedProduct.OnHand || 0,
-        CategoryId: categoryId,
         IsActive: selectedProduct.isActive ?? selectedProduct.IsActive ?? true,
       };
 
@@ -214,23 +189,26 @@ const KatanaProducts: React.FC = () => {
       setTimeout(() => setSuccessMessage(null), 3000);
 
       handleCloseModal();
-      fetchProducts();
+      // Sadece listeyi güncelle, tam sync yapmadan
+      setProducts(prev => prev.map(p => 
+        p.id === selectedProduct.id ? { ...p, ...selectedProduct } : p
+      ));
+      setFilteredProducts(prev => prev.map(p => 
+        p.id === selectedProduct.id ? { ...p, ...selectedProduct } : p
+      ));
     } catch (err: any) {
-      setError(
-        err.response?.data?.error ||
-          err.response?.data?.errors?.[0] ||
-          "Ürün güncellenemedi"
-      );
-      console.error("Ürün güncelleme hatası:", err);
+      setError(err.response?.data?.error || "Ürün güncellenemedi");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleProductChange = (field: keyof KatanaProduct, value: any) => {
-    if (!selectedProduct) return;
-    setSelectedProduct({ ...selectedProduct, [field]: value });
-  };
+  const handleProductChange = useCallback((field: keyof KatanaProduct, value: any) => {
+    setSelectedProduct((prev) => {
+      if (!prev) return prev;
+      return { ...prev, [field]: value };
+    });
+  }, []);
 
   const _token =
     typeof window !== "undefined"
