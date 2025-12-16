@@ -806,6 +806,8 @@ const Header: React.FC<HeaderProps> = ({
           open={Boolean(anchorEl)}
           onClose={handleMenuClose}
           onClick={handleMenuClose}
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+          transformOrigin={{ vertical: "top", horizontal: "right" }}
           slotProps={{
             paper: {
               sx: {
@@ -813,6 +815,7 @@ const Header: React.FC<HeaderProps> = ({
                 border: "1px solid rgba(0,0,0,0.05)",
                 borderRadius: 3,
                 boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+                mt: 1,
               },
             },
           }}

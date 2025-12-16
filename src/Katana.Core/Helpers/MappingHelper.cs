@@ -1125,6 +1125,93 @@ public static class MappingHelper
         };
     }
 
+    /// <summary>
+    /// Katana ürününü Luca güncelleme formatına dönüştürür.
+    /// Güncelleme için mevcut Luca ID'si şarttır.
+    /// </summary>
+    public static LucaUpdateStokKartiRequest MapToLucaUpdateStockCard(
+        KatanaProductDto product, 
+        long existingLucaId, 
+        double? defaultVat = null)
+    {
+        // SKU Normalizasyonu (Mevcut mantık)
+        var skuRaw = string.IsNullOrWhiteSpace(product.SKU) ? product.GetProductCode() : product.SKU;
+        var sku = NormalizeSkuPreserve(skuRaw);
+
+        // Versiyonlu SKU kontrolü (Mevcut mantık - Duplicate barcode önleme)
+        bool isVersionedSku = System.Text.RegularExpressions.Regex.IsMatch(
+            sku ?? string.Empty, 
+            @"-V\d+$", 
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        return new LucaUpdateStokKartiRequest
+        {
+            SkartId = existingLucaId,
+            KartKodu = sku ?? string.Empty,
+            KartAdi = TrimAndTruncate(product.Name, 255) ?? sku ?? string.Empty,
+            UzunAdi = TrimAndTruncate(product.Description, 500),
+            Barkod = isVersionedSku ? null : (product.Barcode ?? sku),
+            PerakendeSatisBirimFiyat = (decimal)product.Price,
+            KategoriAgacKod = null,
+            KartTipi = 1,
+            KartTuru = 1,
+            OlcumBirimiId = 1, // ADET
+            SatilabilirFlag = 1,
+            SatinAlinabilirFlag = 1,
+            MaliyetHesaplanacakFlag = true
+        };
+    }
+
+    /// <summary>
+    /// Product entity'sini Luca güncelleme formatına dönüştürür.
+    /// </summary>
+    public static LucaUpdateStokKartiRequest MapToLucaUpdateStockCard(
+        Product product, 
+        long existingLucaId)
+    {
+        var normalizedSku = NormalizeSkuPreserve(product.SKU);
+        
+        bool isVersionedSku = System.Text.RegularExpressions.Regex.IsMatch(
+            normalizedSku ?? string.Empty, 
+            @"-V\d+$", 
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        return new LucaUpdateStokKartiRequest
+        {
+            SkartId = existingLucaId,
+            KartKodu = normalizedSku ?? string.Empty,
+            KartAdi = TrimAndTruncate(product.Name, 255) ?? normalizedSku ?? string.Empty,
+            UzunAdi = TrimAndTruncate(product.Description, 500),
+            Barkod = isVersionedSku ? null : normalizedSku,
+            PerakendeSatisBirimFiyat = product.Price,
+            KategoriAgacKod = product.CategoryId > 0 ? product.CategoryId.ToString() : null,
+            KartTipi = 1,
+            KartTuru = 1,
+            OlcumBirimiId = 1,
+            SatilabilirFlag = 1,
+            SatinAlinabilirFlag = 1,
+            MaliyetHesaplanacakFlag = true
+        };
+    }
+
+    /// <summary>
+    /// Luca stok kartı güncelleme isteği için validasyon kontrolü.
+    /// </summary>
+    public static (bool IsValid, List<string> Errors) ValidateLucaUpdateStockCard(LucaUpdateStokKartiRequest stockCard)
+    {
+        var errors = new List<string>();
+
+        // Zorunlu alanlar
+        if (stockCard.SkartId <= 0)
+            errors.Add("skartId zorunlu ve pozitif olmalı");
+        if (string.IsNullOrWhiteSpace(stockCard.KartAdi))
+            errors.Add("kartAdi zorunlu");
+        if (string.IsNullOrWhiteSpace(stockCard.KartKodu))
+            errors.Add("kartKodu (SKU) zorunlu");
+
+        return (!errors.Any(), errors);
+    }
+
     public static LucaUpdateInvoiceRequest MapToLucaInvoiceUpdate(Invoice invoice, long faturaId)
     {
         return new LucaUpdateInvoiceRequest

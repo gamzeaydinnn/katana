@@ -985,4 +985,100 @@ public class AdminController : ControllerBase
             return StatusCode(500, new { error = "Failed to retry record" });
         }
     }
+
+    // ====================================================================
+    // STOK KARTI TEST ENDPOİNTLERİ (Update & Delete)
+    // ====================================================================
+
+    /// <summary>
+    /// Stok kartı güncelleme - SKU ile Luca'dan gerçek ID bulunup güncellenir
+    /// </summary>
+    [HttpPost("test-update-product")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> TestUpdateProduct([FromBody] LucaUpdateStokKartiRequest request)
+    {
+        try
+        {
+            var lucaService = HttpContext.RequestServices.GetRequiredService<Katana.Business.Interfaces.ILucaService>();
+            
+            // 1. SKU ile Luca'dan gerçek ID'yi bul
+            var lucaCards = await lucaService.ListStockCardsSimpleAsync();
+            var targetSku = (request.KartKodu ?? "").Trim().ToUpperInvariant().Replace(" ", "");
+            
+            var existingCard = lucaCards.FirstOrDefault(x => 
+                (x.KartKodu ?? "").Trim().ToUpperInvariant().Replace(" ", "") == targetSku);
+
+            if (existingCard?.StokKartId == null)
+            {
+                return BadRequest(new { 
+                    success = false, 
+                    message = $"SKU '{request.KartKodu}' Luca'da bulunamadı. Önce ürünü oluşturun." 
+                });
+            }
+
+            // 2. Gerçek Luca ID'yi set et
+            var realLucaId = existingCard.StokKartId.Value;
+            request.SkartId = realLucaId;
+            
+            _logger.LogInformation("✅ SKU eşleşti: {Sku} -> Luca ID: {LucaId}", request.KartKodu, realLucaId);
+
+            // 3. Güncelle
+            var result = await lucaService.UpdateStockCardAsync(request);
+            
+            return result 
+                ? Ok(new { success = true, message = "Güncelleme başarılı", lucaId = realLucaId })
+                : BadRequest(new { success = false, message = "Luca güncelleme reddetti" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Update hatası");
+            return StatusCode(500, new { success = false, error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Stok kartı silme - SKU ile Luca'dan gerçek ID bulunup silinir
+    /// </summary>
+    [HttpPost("test-delete-product")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> TestDeleteProduct([FromQuery] string sku)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(sku))
+                return BadRequest(new { success = false, message = "SKU gerekli" });
+
+            var lucaService = HttpContext.RequestServices.GetRequiredService<Katana.Business.Interfaces.ILucaService>();
+            
+            // 1. SKU ile Luca'dan gerçek ID'yi bul
+            var lucaCards = await lucaService.ListStockCardsSimpleAsync();
+            var targetSku = sku.Trim().ToUpperInvariant().Replace(" ", "");
+            
+            var existingCard = lucaCards.FirstOrDefault(x => 
+                (x.KartKodu ?? "").Trim().ToUpperInvariant().Replace(" ", "") == targetSku);
+
+            if (existingCard?.StokKartId == null)
+            {
+                return BadRequest(new { 
+                    success = false, 
+                    message = $"SKU '{sku}' Luca'da bulunamadı." 
+                });
+            }
+
+            var realLucaId = existingCard.StokKartId.Value;
+            _logger.LogInformation("🗑️ Silme: {Sku} -> Luca ID: {LucaId}", sku, realLucaId);
+
+            // 2. Sil
+            var result = await lucaService.DeleteStockCardAsync(realLucaId);
+            
+            return result 
+                ? Ok(new { success = true, message = "Silme başarılı", lucaId = realLucaId })
+                : BadRequest(new { success = false, message = "Luca silme reddetti" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Delete hatası");
+            return StatusCode(500, new { success = false, error = ex.Message });
+        }
+    }
 }

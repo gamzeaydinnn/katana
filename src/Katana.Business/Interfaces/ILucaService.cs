@@ -24,6 +24,18 @@ public interface ILucaService
     Task<bool> UpdateStockCardAsync(long stockCardId, Product product);
     Task<long?> CreateStockCardAsync(Product product);
     
+    /// <summary>
+    /// Mevcut bir stok kartını DTO ile günceller.
+    /// Endpoint: /GuncelleStkWsSkart.do
+    /// </summary>
+    Task<bool> UpdateStockCardAsync(LucaUpdateStokKartiRequest request);
+    
+    /// <summary>
+    /// Bir stok kartını ID ile siler.
+    /// Endpoint: /SilStkSkart.do
+    /// </summary>
+    Task<bool> DeleteStockCardAsync(long skartId);
+    
     Task<bool> TestConnectionAsync();
     
     Task<SyncResultDto> SendInvoicesAsync(List<LucaCreateInvoiceHeaderRequest> invoices);
