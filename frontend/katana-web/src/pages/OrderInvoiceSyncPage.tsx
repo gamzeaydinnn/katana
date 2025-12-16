@@ -374,6 +374,7 @@ const OrderInvoiceSyncPage: React.FC = () => {
     if (isMobile) {
       return (
         <Box sx={{ p: 1, display: "flex", flexDirection: "column", gap: 1.5 }}>
+          {/* Üst kısım: Checkbox + "Tümünü seç" text */}
           <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
             <Checkbox
               size="small"
@@ -381,11 +382,11 @@ const OrderInvoiceSyncPage: React.FC = () => {
               checked={
                 selectedOrders.length > 0 &&
                 selectedOrders.length ===
-                  orders.filter((o) => o.status !== "SYNCED").length
+                  orders.filter((o) => o.status !== "SYNCED" && o.status !== "CANCELLED").length
               }
             />
             <Typography variant="body2" color="textSecondary">
-              Bekleyen / hatalı siparişlerin tümünü seç
+              Tümünü seç
             </Typography>
           </Box>
 
@@ -413,24 +414,27 @@ const OrderInvoiceSyncPage: React.FC = () => {
                     boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
                     borderColor:
                       order.status === "ERROR" ? "error.light" : "divider",
+                    borderWidth: order.status === "ERROR" ? 2 : 1,
                   }}
                 >
                   <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                    {/* Header: Sipariş No + itemCount (caption) | Status Chip */}
                     <Box
                       sx={{
                         display: "flex",
-                        alignItems: "center",
+                        alignItems: "flex-start",
                         justifyContent: "space-between",
                         mb: 1,
                         gap: 1,
                       }}
                     >
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
                         {selectable && (
                           <Checkbox
                             size="small"
                             checked={isSelected}
                             onChange={() => handleSelectOrder(order.id)}
+                            sx={{ mt: -0.5 }}
                           />
                         )}
                         <Box>
@@ -448,16 +452,20 @@ const OrderInvoiceSyncPage: React.FC = () => {
                       {getStatusChip(order)}
                     </Box>
 
+                    {/* Grid (2x2): Müşteri + Tarih | Tutar (bold, right aligned) */}
                     <Box
                       sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        mb: 1,
-                        gap: 1,
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 1.5,
+                        mb: 1.5,
                       }}
                     >
-                      <Box sx={{ minWidth: 0 }}>
+                      {/* Müşteri */}
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Müşteri
+                        </Typography>
                         <Typography
                           variant="body2"
                           sx={{
@@ -468,26 +476,38 @@ const OrderInvoiceSyncPage: React.FC = () => {
                         >
                           {order.customer}
                         </Typography>
-                        <Typography variant="caption" color="textSecondary">
-                          {order.date}
-                        </Typography>
                       </Box>
+
+                      {/* Tutar (bold, right aligned) */}
                       <Box sx={{ textAlign: "right" }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Tutar
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                           {order.total.toLocaleString("tr-TR", {
                             minimumFractionDigits: 2,
                           })}{" "}
                           {order.currency}
                         </Typography>
                       </Box>
+
+                      {/* Tarih */}
+                      <Box sx={{ gridColumn: "1 / -1" }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Tarih
+                        </Typography>
+                        <Typography variant="body2">
+                          {order.date}
+                        </Typography>
+                      </Box>
                     </Box>
 
+                    {/* Footer: Action IconButtons (gap: 1) */}
                     <Box
                       sx={{
                         display: "flex",
                         justifyContent: "flex-end",
                         gap: 1,
-                        mt: 0.5,
                       }}
                     >
                       <Tooltip title="Detay">

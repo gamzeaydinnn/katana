@@ -1,48 +1,50 @@
 import {
-  ArrowBack as ArrowBackIcon,
-  CheckCircle as CheckCircleIcon,
-  CloudUpload as CloudUploadIcon,
-  Error as ErrorIcon,
-  HourglassEmpty as PendingIcon,
-  Refresh as RefreshIcon,
-  Sync as SyncIcon,
-  Visibility as ViewIcon,
-  ThumbUp as ApproveIcon,
-  Inventory as StockIcon,
+    ThumbUp as ApproveIcon,
+    ArrowBack as ArrowBackIcon,
+    CheckCircle as CheckCircleIcon,
+    CloudUpload as CloudUploadIcon,
+    Error as ErrorIcon,
+    HourglassEmpty as PendingIcon,
+    Refresh as RefreshIcon,
+    Inventory as StockIcon,
+    Sync as SyncIcon,
+    Visibility as ViewIcon,
 } from "@mui/icons-material";
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Divider,
-  FormControl,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Snackbar,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  TextField,
-  Tooltip,
-  Typography,
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    CardHeader,
+    Chip,
+    CircularProgress,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
+    Divider,
+    FormControl,
+    IconButton,
+    InputLabel,
+    MenuItem,
+    Paper,
+    Select,
+    Snackbar,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TablePagination,
+    TableRow,
+    TextField,
+    Tooltip,
+    Typography,
+    useMediaQuery,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
 
@@ -180,6 +182,9 @@ const gridStyles = {
 };
 
 const SalesOrders: React.FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
   // List state
   const [orders, setOrders] = useState<SalesOrderSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -520,8 +525,14 @@ const SalesOrders: React.FC = () => {
 
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 2 }}>
-        <Box sx={gridStyles.threeCol}>
-          <FormControl size="small">
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
+            gap: 2,
+          }}
+        >
+          <FormControl size="small" sx={{ flex: 1 }}>
             <InputLabel>Sipariş Durumu</InputLabel>
             <Select
               value={statusFilter}
@@ -536,7 +547,7 @@ const SalesOrders: React.FC = () => {
             </Select>
           </FormControl>
 
-          <FormControl size="small">
+          <FormControl size="small" sx={{ flex: 1 }}>
             <InputLabel>Koza Durumu</InputLabel>
             <Select
               value={syncStatusFilter}
@@ -552,186 +563,319 @@ const SalesOrders: React.FC = () => {
         </Box>
       </Paper>
 
-      {/* Table */}
-      <TableContainer
-        component={Paper}
-        sx={{ overflowX: "auto", maxWidth: "100%" }}
-      >
-        <Table size="small" sx={{ minWidth: 650, tableLayout: "auto" }}>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
-                Sipariş No
-              </TableCell>
-              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
-                Müşteri
-              </TableCell>
-              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
-                Tarih
-              </TableCell>
-              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
-                Durum
-              </TableCell>
-              <TableCell
-                align="right"
-                sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}
-              >
-                Tutar
-              </TableCell>
-              <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
-                Koza
-              </TableCell>
-              <TableCell
-                align="center"
+      {/* Table / Card List */}
+      {isMobile ? (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+          {loading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : orders.length === 0 ? (
+            <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 3 }}>
+              Sipariş bulunamadı
+            </Typography>
+          ) : (
+            orders.map((order) => (
+              <Card
+                key={order.id}
+                variant="outlined"
                 sx={{
-                  whiteSpace: "nowrap",
-                  fontSize: "0.875rem",
-                  minWidth: "140px",
+                  borderRadius: 2,
+                  p: 1.5,
+                  gap: 1,
                 }}
               >
-                İşlemler
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} align="center">
-                  <CircularProgress size={24} />
-                </TableCell>
-              </TableRow>
-            ) : orders.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} align="center">
-                  <Typography color="textSecondary">
-                    Sipariş bulunamadı
+                {/* Header row: Sipariş No + Koza Status Badge */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 1,
+                  }}
+                >
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    {order.orderNo}
                   </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              orders.map((order) => (
-                <TableRow key={order.id} hover>
-                  <TableCell sx={{ fontSize: "0.875rem" }}>
-                    <Typography fontWeight="medium" fontSize="0.875rem">
-                      {order.orderNo}
+                  <LucaStatusBadge
+                    status={order.lucaSyncStatus}
+                    error={order.lastSyncError}
+                  />
+                </Box>
+
+                {/* 2x2 Grid */}
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 1.5,
+                  }}
+                >
+                  {/* Müşteri adı */}
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Müşteri
                     </Typography>
-                  </TableCell>
-                  <TableCell
+                    <Typography variant="body2">
+                      {order.customerName || "-"}
+                    </Typography>
+                  </Box>
+
+                  {/* Tutar (bold) */}
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Tutar
+                    </Typography>
+                    <Typography variant="body2" fontWeight="bold">
+                      {formatCurrency(order.total, order.currency)}
+                    </Typography>
+                  </Box>
+
+                  {/* Tarih */}
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Tarih
+                    </Typography>
+                    <Typography variant="body2">
+                      {formatDate(order.orderCreatedDate)}
+                    </Typography>
+                  </Box>
+
+                  {/* Action buttons row */}
+                  <Box
                     sx={{
-                      fontSize: "0.875rem",
-                      maxWidth: "120px",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                      display: "flex",
+                      gap: 0.5,
+                      justifyContent: "flex-end",
+                      alignItems: "flex-end",
                     }}
                   >
-                    {order.customerName || "-"}
-                  </TableCell>
-                  <TableCell
-                    sx={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}
-                  >
-                    {formatDate(order.orderCreatedDate)}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={order.status}
+                    <IconButton
                       size="small"
-                      sx={{ fontSize: "0.75rem" }}
-                      color={
-                        order.status === "SHIPPED"
-                          ? "success"
-                          : order.status === "CANCELLED"
-                          ? "error"
-                          : "default"
-                      }
-                    />
+                      onClick={() => fetchOrderDetail(order.id)}
+                      disabled={detailLoading}
+                      sx={{ padding: "4px" }}
+                    >
+                      <ViewIcon fontSize="small" />
+                    </IconButton>
+                    {(order.status === "PENDING" ||
+                      order.status === "NOT_SHIPPED") && (
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          openApprovalDialog(order.id, order.orderNo)
+                        }
+                        disabled={approving === order.id}
+                        color="success"
+                        sx={{ padding: "4px" }}
+                      >
+                        {approving === order.id ? (
+                          <CircularProgress size={16} />
+                        ) : (
+                          <ApproveIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    )}
+                    <IconButton
+                      size="small"
+                      onClick={() => syncToLuca(order.id)}
+                      disabled={syncing === order.id}
+                      color="primary"
+                      sx={{ padding: "4px" }}
+                    >
+                      {syncing === order.id ? (
+                        <CircularProgress size={16} />
+                      ) : (
+                        <SyncIcon fontSize="small" />
+                      )}
+                    </IconButton>
+                  </Box>
+                </Box>
+              </Card>
+            ))
+          )}
+        </Box>
+      ) : (
+        <TableContainer
+          component={Paper}
+          sx={{ overflowX: "auto", maxWidth: "100%" }}
+        >
+          <Table size="small" sx={{ minWidth: 650, tableLayout: "auto" }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                  Sipariş No
+                </TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                  Müşteri
+                </TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                  Tarih
+                </TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                  Durum
+                </TableCell>
+                <TableCell
+                  align="right"
+                  sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}
+                >
+                  Tutar
+                </TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                  Koza
+                </TableCell>
+                <TableCell
+                  align="center"
+                  sx={{
+                    whiteSpace: "nowrap",
+                    fontSize: "0.875rem",
+                    minWidth: "140px",
+                  }}
+                >
+                  İşlemler
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center">
+                    <CircularProgress size={24} />
                   </TableCell>
-                  <TableCell
-                    align="right"
-                    sx={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}
-                  >
-                    {formatCurrency(order.total, order.currency)}
+                </TableRow>
+              ) : orders.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center">
+                    <Typography color="textSecondary">
+                      Sipariş bulunamadı
+                    </Typography>
                   </TableCell>
-                  <TableCell>
-                    <LucaStatusBadge
-                      status={order.lucaSyncStatus}
-                      error={order.lastSyncError}
-                    />
-                  </TableCell>
-                  <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
-                    <Box
+                </TableRow>
+              ) : (
+                orders.map((order) => (
+                  <TableRow key={order.id} hover>
+                    <TableCell sx={{ fontSize: "0.875rem" }}>
+                      <Typography fontWeight="medium" fontSize="0.875rem">
+                        {order.orderNo}
+                      </Typography>
+                    </TableCell>
+                    <TableCell
                       sx={{
-                        display: "flex",
-                        gap: 0.5,
-                        justifyContent: "center",
-                        flexWrap: "nowrap",
+                        fontSize: "0.875rem",
+                        maxWidth: "120px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
                       }}
                     >
-                      <Tooltip title="Detay">
-                        <IconButton
-                          size="small"
-                          onClick={() => fetchOrderDetail(order.id)}
-                          disabled={detailLoading}
-                          sx={{ padding: "4px" }}
-                        >
-                          <ViewIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {/* Admin Onay Butonu - PENDING durumundaki siparişler için */}
-                      {(order.status === "PENDING" ||
-                        order.status === "NOT_SHIPPED") && (
-                        <Tooltip title="Onayla">
+                      {order.customerName || "-"}
+                    </TableCell>
+                    <TableCell
+                      sx={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}
+                    >
+                      {formatDate(order.orderCreatedDate)}
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={order.status}
+                        size="small"
+                        sx={{ fontSize: "0.75rem" }}
+                        color={
+                          order.status === "SHIPPED"
+                            ? "success"
+                            : order.status === "CANCELLED"
+                            ? "error"
+                            : "default"
+                        }
+                      />
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}
+                    >
+                      {formatCurrency(order.total, order.currency)}
+                    </TableCell>
+                    <TableCell>
+                      <LucaStatusBadge
+                        status={order.lucaSyncStatus}
+                        error={order.lastSyncError}
+                      />
+                    </TableCell>
+                    <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          gap: 0.5,
+                          justifyContent: "center",
+                          flexWrap: "nowrap",
+                        }}
+                      >
+                        <Tooltip title="Detay">
                           <IconButton
                             size="small"
-                            onClick={() =>
-                              openApprovalDialog(order.id, order.orderNo)
-                            }
-                            disabled={approving === order.id}
-                            color="success"
+                            onClick={() => fetchOrderDetail(order.id)}
+                            disabled={detailLoading}
                             sx={{ padding: "4px" }}
                           >
-                            {approving === order.id ? (
+                            <ViewIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {/* Admin Onay Butonu - PENDING durumundaki siparişler için */}
+                        {(order.status === "PENDING" ||
+                          order.status === "NOT_SHIPPED") && (
+                          <Tooltip title="Onayla">
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                openApprovalDialog(order.id, order.orderNo)
+                              }
+                              disabled={approving === order.id}
+                              color="success"
+                              sx={{ padding: "4px" }}
+                            >
+                              {approving === order.id ? (
+                                <CircularProgress size={16} />
+                              ) : (
+                                <ApproveIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        <Tooltip title="Koza">
+                          <IconButton
+                            size="small"
+                            onClick={() => syncToLuca(order.id)}
+                            disabled={syncing === order.id}
+                            color="primary"
+                            sx={{ padding: "4px" }}
+                          >
+                            {syncing === order.id ? (
                               <CircularProgress size={16} />
                             ) : (
-                              <ApproveIcon fontSize="small" />
+                              <SyncIcon fontSize="small" />
                             )}
                           </IconButton>
                         </Tooltip>
-                      )}
-                      <Tooltip title="Koza">
-                        <IconButton
-                          size="small"
-                          onClick={() => syncToLuca(order.id)}
-                          disabled={syncing === order.id}
-                          color="primary"
-                          sx={{ padding: "4px" }}
-                        >
-                          {syncing === order.id ? (
-                            <CircularProgress size={16} />
-                          ) : (
-                            <SyncIcon fontSize="small" />
-                          )}
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          component="div"
-          count={-1}
-          page={page}
-          onPageChange={(_, newPage) => setPage(newPage)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-          labelRowsPerPage="Sayfa başına"
-        />
-      </TableContainer>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+          <TablePagination
+            component="div"
+            count={-1}
+            page={page}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            labelRowsPerPage="Sayfa başına"
+          />
+        </TableContainer>
+      )}
     </Box>
   );
 

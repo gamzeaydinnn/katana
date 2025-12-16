@@ -1,46 +1,37 @@
 import {
-  Add as AddIcon,
-  CloudDownload as CloudDownloadIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  Visibility as ViewIcon,
-  ArrowBack as BackIcon,
-  Save as SaveIcon,
-  Cancel as CancelIcon,
+    Add as AddIcon,
+    CloudDownload as CloudDownloadIcon,
+    Delete as DeleteIcon,
+    Edit as EditIcon,
+    Save as SaveIcon
 } from "@mui/icons-material";
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  FormControl,
-  FormHelperText,
-  Grid,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
-  Snackbar,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  TextField,
-  Tooltip,
-  useMediaQuery,
-  Typography,
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    Divider,
+    Grid,
+    IconButton,
+    Snackbar,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TablePagination,
+    TableRow,
+    TextField,
+    Tooltip,
+    Typography,
+    useMediaQuery
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import React, { useCallback, useEffect, useState } from "react";
@@ -397,14 +388,202 @@ const Suppliers: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Suppliers Table */}
-      <Card>
-        <CardContent>
-          {loading && <CircularProgress />}
-
-          {!loading && suppliers.length === 0 ? (
+      {/* Suppliers Table/Cards */}
+      {loading ? (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : suppliers.length === 0 ? (
+        <Card>
+          <CardContent>
             <Alert severity="info">Tedarikçi bulunamadı</Alert>
-          ) : (
+          </CardContent>
+        </Card>
+      ) : isMobile ? (
+        // Mobile Card View
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+          {suppliers.map((supplier) => (
+            <Card key={supplier.id} variant="outlined">
+              <CardContent sx={{ pb: "16px !important" }}>
+                {/* Header: Name and Status */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    mb: 2,
+                  }}
+                >
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>
+                    {supplier.name}
+                  </Typography>
+                  <Chip
+                    label={supplier.isActive ? "Aktif" : "Pasif"}
+                    size="small"
+                    color={supplier.isActive ? "success" : "default"}
+                    variant="outlined"
+                  />
+                </Box>
+
+                {/* Two Column Grid for Details */}
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                  {/* Left Column */}
+                  <Grid item xs={6}>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                      {/* Kod */}
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          color="textSecondary"
+                          sx={{ display: "block", mb: 0.5 }}
+                        >
+                          Kod
+                        </Typography>
+                        {supplier.code ? (
+                          <Chip label={supplier.code} size="small" />
+                        ) : (
+                          <Typography variant="body2" color="textSecondary">
+                            -
+                          </Typography>
+                        )}
+                      </Box>
+
+                      {/* Koza Kodu */}
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          color="textSecondary"
+                          sx={{ display: "block", mb: 0.5 }}
+                        >
+                          Koza Kodu
+                        </Typography>
+                        {supplier.lucaCode ? (
+                          <Chip
+                            label={supplier.lucaCode}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        ) : (
+                          <Typography variant="body2" color="textSecondary">
+                            -
+                          </Typography>
+                        )}
+                      </Box>
+
+                      {/* Vergi No */}
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          color="textSecondary"
+                          sx={{ display: "block", mb: 0.5 }}
+                        >
+                          Vergi No
+                        </Typography>
+                        <Typography variant="body2">
+                          {supplier.taxNo || "-"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+
+                  {/* Right Column */}
+                  <Grid item xs={6}>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                      {/* Email */}
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          color="textSecondary"
+                          sx={{ display: "block", mb: 0.5 }}
+                        >
+                          Email
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            wordBreak: "break-word",
+                            fontSize: "0.8rem",
+                          }}
+                        >
+                          {supplier.email || "-"}
+                        </Typography>
+                      </Box>
+
+                      {/* Telefon */}
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          color="textSecondary"
+                          sx={{ display: "block", mb: 0.5 }}
+                        >
+                          Telefon
+                        </Typography>
+                        <Typography variant="body2">
+                          {supplier.phone || "-"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                </Grid>
+
+                {/* Action Buttons */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: 0.5,
+                    pt: 1,
+                    borderTop: "1px solid",
+                    borderColor: "divider",
+                  }}
+                >
+                  <Tooltip title="Düzenle">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleEditSupplier(supplier)}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Sil">
+                    <IconButton
+                      size="small"
+                      onClick={() =>
+                        setDeleteConfirm({ open: true, id: supplier.id })
+                      }
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* Mobile Pagination */}
+          <Card variant="outlined">
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              component="div"
+              count={totalCount}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={(_, newPage) => setPage(newPage)}
+              onRowsPerPageChange={(e) =>
+                setRowsPerPage(parseInt(e.target.value, 10))
+              }
+              labelRowsPerPage="Satır:"
+              labelDisplayedRows={({ from, to, count }) =>
+                `${from}-${to} / ${count}`
+              }
+            />
+          </Card>
+        </Box>
+      ) : (
+        // Desktop Table View
+        <Card>
+          <CardContent>
             <TableContainer>
               <Table>
                 <TableHead>
@@ -484,9 +663,7 @@ const Suppliers: React.FC = () => {
                 </TableBody>
               </Table>
             </TableContainer>
-          )}
 
-          {!loading && suppliers.length > 0 && (
             <TablePagination
               rowsPerPageOptions={[5, 10, 25, 50]}
               component="div"
@@ -502,9 +679,9 @@ const Suppliers: React.FC = () => {
                 `${from}-${to} / ${count}`
               }
             />
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Create/Edit Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>

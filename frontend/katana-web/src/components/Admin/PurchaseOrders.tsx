@@ -1,60 +1,58 @@
 import {
-  Add as AddIcon,
-  ArrowBack as BackIcon,
-  CheckCircle as CheckCircleIcon,
-  CloudDownload as CloudDownloadIcon,
-  CloudUpload as CloudUploadIcon,
-  Delete as DeleteIcon,
-  Error as ErrorIcon,
-  HourglassEmpty as PendingIcon,
-  Refresh as RefreshIcon,
-  Save as SaveIcon,
-  Visibility as ViewIcon,
-  Warning as WarningIcon,
+    Add as AddIcon,
+    ArrowBack as BackIcon,
+    CheckCircle as CheckCircleIcon,
+    CloudDownload as CloudDownloadIcon,
+    CloudUpload as CloudUploadIcon,
+    Delete as DeleteIcon,
+    Error as ErrorIcon,
+    HourglassEmpty as PendingIcon,
+    Refresh as RefreshIcon,
+    Save as SaveIcon,
+    Visibility as ViewIcon,
+    Warning as WarningIcon,
 } from "@mui/icons-material";
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  Checkbox,
-  Chip,
-  CircularProgress,
-  Divider,
-  FormControl,
-  FormControlLabel,
-  FormHelperText,
-  Grid,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Snackbar,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Tooltip,
-  useMediaQuery,
-  Typography,
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    CardHeader,
+    Checkbox,
+    Chip,
+    CircularProgress,
+    Divider,
+    FormControl,
+    FormControlLabel,
+    FormHelperText,
+    Grid,
+    IconButton,
+    InputLabel,
+    MenuItem,
+    Paper,
+    Select,
+    Snackbar,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    TextField,
+    Tooltip,
+    Typography,
+    useMediaQuery,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import React, { useCallback, useEffect, useState } from "react";
 import api from "../../services/api";
 import KatanaSyncStatus, {
-  KatanaSyncResult,
+    KatanaSyncResult,
 } from "./PurchaseOrders/KatanaSyncStatus";
 import StatusActions from "./PurchaseOrders/StatusActions";
 import StatusBadge, { OrderStatus } from "./PurchaseOrders/StatusBadge";
-import StatusFilter, {
-  OrderStats as StatusFilterStats,
-} from "./PurchaseOrders/StatusFilter";
+import StatusFilter from "./PurchaseOrders/StatusFilter";
 
 // ===== TYPES =====
 
@@ -922,16 +920,14 @@ const PurchaseOrders: React.FC = () => {
       {renderStats()}
 
       {/* Filters */}
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: { xs: "column", sm: "row" },
-          gap: 1,
-          mb: 2,
-          px: { xs: 1, sm: 0 },
-          flexWrap: "wrap",
-        }}
-      >
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
+            gap: 1,
+          }}
+        >
         {stats && (
           <StatusFilter
             value={filterStatus}
@@ -939,200 +935,342 @@ const PurchaseOrders: React.FC = () => {
             stats={stats}
           />
         )}
-        <FormControl
-          size="small"
-          sx={{ minWidth: 120, flex: { xs: 1, sm: "none" } }}
-        >
-          <InputLabel sx={{ fontSize: "0.8rem" }}>Sync Durumu</InputLabel>
-          <Select
-            value={filterSyncStatus}
-            label="Sync Durumu"
-            onChange={(e) => setFilterSyncStatus(e.target.value)}
-            sx={{ fontSize: "0.8rem" }}
+          <FormControl
+            size="small"
+            sx={{ minWidth: 120, flex: { xs: 1, sm: "none" } }}
           >
-            <MenuItem value="all">Tümü</MenuItem>
-            <MenuItem value="synced">Senkronize</MenuItem>
-            <MenuItem value="not_synced">Gönderilmedi</MenuItem>
-            <MenuItem value="error">Hatalı</MenuItem>
-          </Select>
-        </FormControl>
-        <FormControl
-          size="small"
-          sx={{ minWidth: 120, flex: { xs: 1, sm: "none" } }}
-        >
-          <InputLabel sx={{ fontSize: "0.8rem" }}>Tedarikçi</InputLabel>
-          <Select
-            value={filterSupplierId}
-            label="Tedarikçi"
-            onChange={(e) => setFilterSupplierId(e.target.value as number)}
-            sx={{ fontSize: "0.8rem" }}
+            <InputLabel sx={{ fontSize: "0.8rem" }}>Sync Durumu</InputLabel>
+            <Select
+              value={filterSyncStatus}
+              label="Sync Durumu"
+              onChange={(e) => setFilterSyncStatus(e.target.value)}
+              sx={{ fontSize: "0.8rem" }}
+            >
+              <MenuItem value="all">Tümü</MenuItem>
+              <MenuItem value="synced">Senkronize</MenuItem>
+              <MenuItem value="not_synced">Gönderilmedi</MenuItem>
+              <MenuItem value="error">Hatalı</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl
+            size="small"
+            sx={{ minWidth: 120, flex: { xs: 1, sm: "none" } }}
           >
-            <MenuItem value={0}>Tümü</MenuItem>
-            {suppliers.map((s) => (
-              <MenuItem key={s.id} value={s.id}>
-                {s.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Box>
+            <InputLabel sx={{ fontSize: "0.8rem" }}>Tedarikçi</InputLabel>
+            <Select
+              value={filterSupplierId}
+              label="Tedarikçi"
+              onChange={(e) => setFilterSupplierId(e.target.value as number)}
+              sx={{ fontSize: "0.8rem" }}
+            >
+              <MenuItem value={0}>Tümü</MenuItem>
+              {suppliers.map((s) => (
+                <MenuItem key={s.id} value={s.id}>
+                  {s.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+      </Paper>
 
-      {/* Table */}
-      <TableContainer
-        component={Paper}
-        sx={{
-          width: "100%",
-          overflowX: "auto",
-          mx: { xs: 0, sm: 0 },
-        }}
-      >
-        <Table
-          size="small"
+      {/* Table / Card List */}
+      {isMobile ? (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+          {loading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : orders.length === 0 ? (
+            <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 3 }}>
+              Sipariş bulunamadı
+            </Typography>
+          ) : (
+            orders.map((order) => (
+              <Card
+                key={order.id}
+                variant="outlined"
+                sx={{
+                  borderRadius: 2,
+                  padding: 1.5,
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+                }}
+              >
+                {/* Header: Sipariş No + Luca Durumu Badge */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 1,
+                  }}
+                >
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    {order.orderNo}
+                  </Typography>
+                  <LucaStatusBadge
+                    status={getSyncStatus(order)}
+                    error={order.lastSyncError}
+                    lucaId={order.lucaPurchaseOrderId}
+                  />
+                </Box>
+
+                {/* Info Grid (2 sütun) */}
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 1.5,
+                    mb: 1.5,
+                  }}
+                >
+                  {/* Tedarikçi */}
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Tedarikçi
+                    </Typography>
+                    <Typography variant="body2">
+                      {order.supplierName || "-"}
+                    </Typography>
+                  </Box>
+
+                  {/* Tutar */}
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Tutar
+                    </Typography>
+                    <Typography variant="body2" fontWeight="bold">
+                      {formatCurrency(order.totalAmount)}
+                    </Typography>
+                  </Box>
+
+                  {/* Tarih */}
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Tarih
+                    </Typography>
+                    <Typography variant="body2">
+                      {formatDate(order.orderDate)}
+                    </Typography>
+                  </Box>
+
+                  {/* Teslim Tarihi */}
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Teslim Tarihi
+                    </Typography>
+                    <Typography variant="body2">
+                      {formatDate(order.expectedDate)}
+                    </Typography>
+                  </Box>
+
+                  {/* Durum Badge (full width) */}
+                  <Box sx={{ gridColumn: "1 / -1" }}>
+                    <StatusBadge status={order.status as OrderStatus} />
+                  </Box>
+                </Box>
+
+                {/* Footer: İşlem butonları */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    gap: 0.5,
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      setSelectedOrderId(order.id);
+                      setView("detail");
+                    }}
+                  >
+                    <ViewIcon fontSize="small" />
+                  </IconButton>
+                  {!order.isSyncedToLuca && (
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={() => handleSyncOrder(order.id)}
+                      disabled={syncing}
+                    >
+                      <CloudUploadIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => handleDelete(order.id)}
+                    disabled={deleting === order.id || order.isSyncedToLuca}
+                  >
+                    {deleting === order.id ? (
+                      <CircularProgress size={16} />
+                    ) : (
+                      <DeleteIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                </Box>
+              </Card>
+            ))
+          )}
+        </Box>
+      ) : (
+        <TableContainer
+          component={Paper}
           sx={{
-            minWidth: 720,
-            tableLayout: "auto",
-            "& .MuiTableCell-root": {
-              px: { xs: 0.75, sm: 2 },
-              py: { xs: 0.75, sm: 1 },
-              fontSize: { xs: "0.7rem", sm: "0.875rem" },
-            },
+            width: "100%",
+            overflowX: "auto",
+            mx: { xs: 0, sm: 0 },
           }}
         >
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ whiteSpace: "nowrap" }}>Sipariş No</TableCell>
-              <TableCell sx={{ whiteSpace: "nowrap" }}>Tedarikçi</TableCell>
-              <TableCell
-                sx={{
-                  whiteSpace: "nowrap",
-                  display: { xs: "none", sm: "table-cell" },
-                }}
-              >
-                Tarih
-              </TableCell>
-              <TableCell
-                sx={{
-                  whiteSpace: "nowrap",
-                  display: { xs: "none", sm: "table-cell" },
-                }}
-              >
-                Teslim Tarihi
-              </TableCell>
-              <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
-                Toplam
-              </TableCell>
-              <TableCell sx={{ whiteSpace: "nowrap" }}>Durum</TableCell>
-              <TableCell sx={{ whiteSpace: "nowrap" }}>Luca Durumu</TableCell>
-              <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
-                İşlemler
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
+          <Table
+            size="small"
+            sx={{
+              minWidth: 720,
+              tableLayout: "auto",
+              "& .MuiTableCell-root": {
+                px: { xs: 0.75, sm: 2 },
+                py: { xs: 0.75, sm: 1 },
+                fontSize: { xs: "0.7rem", sm: "0.875rem" },
+              },
+            }}
+          >
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={8} align="center">
-                  <CircularProgress size={24} />
+                <TableCell sx={{ whiteSpace: "nowrap" }}>Sipariş No</TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap" }}>Tedarikçi</TableCell>
+                <TableCell
+                  sx={{
+                    whiteSpace: "nowrap",
+                    display: { xs: "none", sm: "table-cell" },
+                  }}
+                >
+                  Tarih
+                </TableCell>
+                <TableCell
+                  sx={{
+                    whiteSpace: "nowrap",
+                    display: { xs: "none", sm: "table-cell" },
+                  }}
+                >
+                  Teslim Tarihi
+                </TableCell>
+                <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                  Toplam
+                </TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap" }}>Durum</TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap" }}>Luca Durumu</TableCell>
+                <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                  İşlemler
                 </TableCell>
               </TableRow>
-            ) : orders.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} align="center">
-                  <Typography color="textSecondary">
-                    Sipariş bulunamadı
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              orders.map((order) => (
-                <TableRow key={order.id} hover>
-                  <TableCell>
-                    <Typography fontWeight="medium">{order.orderNo}</Typography>
-                    {order.lucaDocumentNo && (
-                      <Typography variant="caption" color="textSecondary">
-                        Koza: {order.lucaDocumentNo}
-                      </Typography>
-                    )}
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    <CircularProgress size={24} />
                   </TableCell>
-                  <TableCell>{order.supplierName || "-"}</TableCell>
-                  <TableCell
-                    sx={{
-                      display: { xs: "none", sm: "table-cell" },
-                    }}
-                  >
-                    {formatDate(order.orderDate)}
+                </TableRow>
+              ) : orders.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    <Typography color="textSecondary">
+                      Sipariş bulunamadı
+                    </Typography>
                   </TableCell>
-                  <TableCell
-                    sx={{
-                      display: { xs: "none", sm: "table-cell" },
-                    }}
-                  >
-                    {formatDate(order.expectedDate)}
-                  </TableCell>
-                  <TableCell align="right">
-                    {formatCurrency(order.totalAmount)}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={order.status as OrderStatus} />
-                  </TableCell>
-                  <TableCell>
-                    <LucaStatusBadge
-                      status={getSyncStatus(order)}
-                      error={order.lastSyncError}
-                      lucaId={order.lucaPurchaseOrderId}
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <Tooltip title="Görüntüle">
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          setSelectedOrderId(order.id);
-                          setView("detail");
-                        }}
-                      >
-                        <ViewIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    {!order.isSyncedToLuca && (
-                      <Tooltip title="Koza'ya Gönder">
+                </TableRow>
+              ) : (
+                orders.map((order) => (
+                  <TableRow key={order.id} hover>
+                    <TableCell>
+                      <Typography fontWeight="medium">{order.orderNo}</Typography>
+                      {order.lucaDocumentNo && (
+                        <Typography variant="caption" color="textSecondary">
+                          Koza: {order.lucaDocumentNo}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>{order.supplierName || "-"}</TableCell>
+                    <TableCell
+                      sx={{
+                        display: { xs: "none", sm: "table-cell" },
+                      }}
+                    >
+                      {formatDate(order.orderDate)}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        display: { xs: "none", sm: "table-cell" },
+                      }}
+                    >
+                      {formatDate(order.expectedDate)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(order.totalAmount)}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={order.status as OrderStatus} />
+                    </TableCell>
+                    <TableCell>
+                      <LucaStatusBadge
+                        status={getSyncStatus(order)}
+                        error={order.lastSyncError}
+                        lucaId={order.lucaPurchaseOrderId}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Tooltip title="Görüntüle">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setSelectedOrderId(order.id);
+                            setView("detail");
+                          }}
+                        >
+                          <ViewIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      {!order.isSyncedToLuca && (
+                        <Tooltip title="Koza'ya Gönder">
+                          <span>
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => handleSyncOrder(order.id)}
+                              disabled={syncing}
+                            >
+                              <CloudUploadIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Sil">
                         <span>
                           <IconButton
                             size="small"
-                            color="primary"
-                            onClick={() => handleSyncOrder(order.id)}
-                            disabled={syncing}
+                            color="error"
+                            onClick={() => handleDelete(order.id)}
+                            disabled={
+                              deleting === order.id || order.isSyncedToLuca
+                            }
                           >
-                            <CloudUploadIcon fontSize="small" />
+                            {deleting === order.id ? (
+                              <CircularProgress size={16} />
+                            ) : (
+                              <DeleteIcon fontSize="small" />
+                            )}
                           </IconButton>
                         </span>
                       </Tooltip>
-                    )}
-                    <Tooltip title="Sil">
-                      <span>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDelete(order.id)}
-                          disabled={
-                            deleting === order.id || order.isSyncedToLuca
-                          }
-                        >
-                          {deleting === order.id ? (
-                            <CircularProgress size={16} />
-                          ) : (
-                            <DeleteIcon fontSize="small" />
-                          )}
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
     </Box>
   );
 
