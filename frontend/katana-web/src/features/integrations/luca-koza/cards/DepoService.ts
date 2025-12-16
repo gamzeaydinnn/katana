@@ -2,9 +2,9 @@
 
 import { kozaAPI } from "../../../../services/api";
 import {
-    DepoEkleRequest,
-    DepoEkleResponse,
-    KozaStkDepo
+  DepoEkleRequest,
+  DepoEkleResponse,
+  KozaStkDepo
 } from "./DepoKarti";
 
 /**
@@ -44,7 +44,7 @@ export class DepoService {
   async sync(batchSize = 50): Promise<{ success: boolean; message: string; stats?: any }> {
     try {
       console.log(`[Depot Sync] Starting batch sync with batch size: ${batchSize}`);
-      const response = await kozaAPI.depots.sync(batchSize);
+      const response = await kozaAPI.depots.sync(batchSize) as { success?: boolean; message?: string; stats?: any };
       
       if (response?.success) {
         console.log('[Depot Sync] Sync completed successfully', {
@@ -55,7 +55,11 @@ export class DepoService {
         console.warn('[Depot Sync] Sync returned with non-success status', response);
       }
       
-      return response as { success: boolean; message: string; stats?: any };
+      return {
+        success: response?.success ?? false,
+        message: response?.message ?? "Bilinmeyen hata",
+        stats: response?.stats
+      };
     } catch (error) {
       console.error('[Depot Sync] Batch sync failed:', {
         error: error instanceof Error ? error.message : String(error),
@@ -106,7 +110,7 @@ export class DepoService {
         payload: JSON.stringify(req, null, 2)
       });
       
-      const response = await kozaAPI.depots.create(req);
+      const response = await kozaAPI.depots.create(req) as DepoEkleResponse;
       
       if (response && !response.error) {
         console.log('[Depot Sync] Success:', {
