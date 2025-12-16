@@ -2,9 +2,9 @@
 
 import { kozaAPI } from "../../../../services/api";
 import {
-    KozaStokKarti,
-    StokKartiEkleRequest,
-    StokKartiEkleResponse
+  KozaStokKarti,
+  StokKartiEkleRequest,
+  StokKartiEkleResponse
 } from "./StokKarti";
 
 /**
@@ -19,7 +19,14 @@ export class StokService {
    */
   async listele(): Promise<KozaStokKarti[]> {
     try {
-      const response = await kozaAPI.stockCards.list();
+      const response = await kozaAPI.stockCards.list() as KozaStokKarti[] | { data: KozaStokKarti[] };
+      
+      // Response format: { data: [] } veya doğrudan array
+      if (response && typeof response === "object" && "data" in response) {
+        const data = (response as any).data;
+        return Array.isArray(data) ? data : [];
+      }
+      
       return Array.isArray(response) ? response : [];
     } catch (error) {
       console.error("Stok kartı listeleme hatası:", error);
@@ -57,7 +64,7 @@ export class StokService {
    */
   async ekle(req: StokKartiEkleRequest): Promise<StokKartiEkleResponse> {
     try {
-      const response = await kozaAPI.stockCards.create(req);
+      const response = await kozaAPI.stockCards.create(req) as StokKartiEkleResponse;
       return response ?? { error: true, message: "Bilinmeyen hata" };
     } catch (error) {
       console.error("Stok kartı ekleme hatası:", error);

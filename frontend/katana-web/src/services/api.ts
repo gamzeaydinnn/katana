@@ -425,7 +425,18 @@ export const kozaAPI = {
       api.post("/admin/koza/depots/create", payload).then((res) => res.data),
   },
 
-
+  // Stok Kartı İşlemleri
+  stockCards: {
+    list: (params?: { page?: number; pageSize?: number }) =>
+      api
+        .get("/admin/koza/stocks", {
+          params: { page: params?.page ?? 1, pageSize: params?.pageSize ?? 100 },
+          timeout: 30000,
+        })
+        .then((res) => res.data),
+    create: (payload: any) =>
+      api.post("/admin/koza/stocks/create", payload).then((res) => res.data),
+  },
 };
 
 /**

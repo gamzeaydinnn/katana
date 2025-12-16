@@ -1,54 +1,54 @@
 import {
-    Add as AddIcon,
-    ArrowBack as BackIcon,
-    CheckCircle as CheckCircleIcon,
-    CloudDownload as CloudDownloadIcon,
-    CloudUpload as CloudUploadIcon,
-    Delete as DeleteIcon,
-    Error as ErrorIcon,
-    HourglassEmpty as PendingIcon,
-    Refresh as RefreshIcon,
-    Save as SaveIcon,
-    Visibility as ViewIcon,
-    Warning as WarningIcon,
+  Add as AddIcon,
+  ArrowBack as BackIcon,
+  CheckCircle as CheckCircleIcon,
+  CloudDownload as CloudDownloadIcon,
+  CloudUpload as CloudUploadIcon,
+  Delete as DeleteIcon,
+  Error as ErrorIcon,
+  HourglassEmpty as PendingIcon,
+  Refresh as RefreshIcon,
+  Save as SaveIcon,
+  Visibility as ViewIcon,
+  Warning as WarningIcon,
 } from "@mui/icons-material";
 import {
-    Alert,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    CardHeader,
-    Checkbox,
-    Chip,
-    CircularProgress,
-    Divider,
-    FormControl,
-    FormControlLabel,
-    FormHelperText,
-    Grid,
-    IconButton,
-    InputLabel,
-    MenuItem,
-    Paper,
-    Select,
-    Snackbar,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TextField,
-    Tooltip,
-    Typography,
-    useMediaQuery,
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Checkbox,
+  Chip,
+  CircularProgress,
+  Divider,
+  FormControl,
+  FormControlLabel,
+  FormHelperText,
+  Grid,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Tooltip,
+  Typography,
+  useMediaQuery,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import React, { useCallback, useEffect, useState } from "react";
 import api from "../../services/api";
 import KatanaSyncStatus, {
-    KatanaSyncResult,
+  KatanaSyncResult,
 } from "./PurchaseOrders/KatanaSyncStatus";
 import StatusActions from "./PurchaseOrders/StatusActions";
 import StatusBadge, { OrderStatus } from "./PurchaseOrders/StatusBadge";
@@ -393,7 +393,7 @@ const PurchaseOrders: React.FC = () => {
 
     try {
       setStatusUpdating(true);
-      const response = await api.patch(
+      const response = await api.patch<{ message?: string }>(
         `/purchase-orders/${orderDetail.id}/status`,
         { newStatus }
       );
@@ -435,7 +435,7 @@ const PurchaseOrders: React.FC = () => {
 
   const importSuppliersFromKatana = async () => {
     try {
-      await api.post("/suppliers/import-from-katana");
+      await api.post<void>("/suppliers/import-from-katana");
       await fetchSuppliers();
     } catch (err) {
       console.error("Failed to import suppliers from Katana:", err);
@@ -554,7 +554,7 @@ const PurchaseOrders: React.FC = () => {
           })),
       };
 
-      await api.post("/purchase-orders", payload);
+      await api.post<void>("/purchase-orders", payload);
       setSnackbar({
         open: true,
         message: "Tedarik siparişi oluşturuldu",
@@ -723,7 +723,7 @@ const PurchaseOrders: React.FC = () => {
 
     try {
       setDeleting(id);
-      await api.delete(`/purchase-orders/${id}`);
+      await api.delete<void>(`/purchase-orders/${id}`);
       setSnackbar({
         open: true,
         message: "Sipariş silindi",
