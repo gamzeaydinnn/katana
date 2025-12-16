@@ -1,22 +1,22 @@
 import { Refresh } from "@mui/icons-material";
 import {
-  Alert,
-  Box,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  IconButton,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  Typography,
-  useMediaQuery,
+    Alert,
+    Box,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    IconButton,
+    Paper,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TablePagination,
+    TableRow,
+    Typography,
+    useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
@@ -151,87 +151,119 @@ const Orders: React.FC = () => {
             {orders
               .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
               .map((order) => (
-                <Paper
+                <Card
                   key={order.id}
                   variant="outlined"
-                  sx={{ p: 1.5, borderRadius: 2 }}
+                  sx={{
+                    borderRadius: 2,
+                    padding: 1.5,
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+                  }}
                 >
+                  {/* Üst satır: Sipariş No + Durum Chip */}
                   <Box
                     sx={{
                       display: "flex",
                       justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      gap: 1,
+                      alignItems: "center",
+                      mb: 1,
                     }}
                   >
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight={600}>
-                        Sipariş #{order.id}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {new Date(order.orderCreatedDate || order.createdAt || new Date()).toLocaleString("tr-TR", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </Typography>
-                    </Box>
+                    <Typography variant="subtitle1" fontWeight="bold">
+                      {order.orderNo || `#${order.id}`}
+                    </Typography>
                     <Chip
                       label={getStatusLabel(order.status)}
                       color={getStatusColor(order.status)}
                       size="small"
                     />
                   </Box>
+
+                  {/* İkinci satır: Müşteri adı + Tarih */}
+                  <Box sx={{ mb: 1.5 }}>
+                    <Typography variant="body2" fontWeight={500}>
+                      {order.customerName ||
+                        order.customer?.title ||
+                        `Müşteri #${order.customerId}`}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(
+                        order.orderCreatedDate || order.createdAt || new Date()
+                      ).toLocaleString("tr-TR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </Typography>
+                  </Box>
+
+                  {/* Üçüncü satır: 2 sütunlu bilgi grid */}
                   <Box
                     sx={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                      columnGap: 1,
-                      rowGap: 1,
-                      mt: 1,
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 1.5,
                     }}
                   >
+                    {/* Sol üst: Müşteri */}
                     <Box>
                       <Typography variant="caption" color="text.secondary">
                         Müşteri
                       </Typography>
-                      <Typography fontWeight={600}>
+                      <Typography variant="body2">
                         {order.customerName ||
                           order.customer?.title ||
-                          `Müşteri #${order.customerId}`}
+                          `#${order.customerId}`}
                       </Typography>
                     </Box>
+
+                    {/* Sağ üst: Tutar */}
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        Ürün Sayısı
+                        Tutar
                       </Typography>
-                      <Typography fontWeight={600}>
-                        {order.items?.length || 0}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        Toplam Tutar
-                      </Typography>
-                      <Typography fontWeight={700}>
+                      <Typography variant="body2" fontWeight="bold">
                         ₺
                         {(order.total || 0).toLocaleString("tr-TR", {
                           minimumFractionDigits: 2,
                         })}
                       </Typography>
                     </Box>
+
+                    {/* Sol alt: Tarih */}
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        Vergi / Müşteri No
+                        Tarih
                       </Typography>
-                      <Typography fontWeight={500}>
-                        {order.customer?.taxNo || "-"}
+                      <Typography variant="body2">
+                        {new Date(
+                          order.orderCreatedDate ||
+                            order.createdAt ||
+                            new Date()
+                        ).toLocaleDateString("tr-TR")}
                       </Typography>
                     </Box>
+
+                    {/* Sağ alt: İşlem butonları */}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        alignItems: "flex-end",
+                      }}
+                    >
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        sx={{ padding: "4px" }}
+                      >
+                        <Refresh fontSize="small" />
+                      </IconButton>
+                    </Box>
                   </Box>
-                </Paper>
+                </Card>
               ))}
           </Box>
         ) : (
