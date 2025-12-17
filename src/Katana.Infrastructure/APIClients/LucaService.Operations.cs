@@ -28,6 +28,96 @@ namespace Katana.Infrastructure.APIClients;
 /// </summary>
 public partial class LucaService
 {
+    /// <summary>
+    /// ZOMBİ OPERASYONU: Kartı pasife çeker ve ismini/kodunu değiştirir
+    /// Hareket görmüş kartları silmek yerine görünmez yapar
+    /// </summary>
+    public async Task<bool> DeleteStockCardZombieAsync(long skartId)
+    {
+        _logger.LogInformation("🧟 ZOMBİ OPERASYONU BAŞLATILDI: Kart Pasife Çekiliyor... ID: {Id}", skartId);
+
+        try
+        {
+            await EnsureAuthenticatedAsync();
+            await EnsureBranchSelectedAsync();
+
+            // 1. Kartın mevcut verilerini çek (İsim ve Kod bozulmasın diye)
+            var existingCards = await ListStockCardsSimpleAsync(); 
+            var targetCard = existingCards.FirstOrDefault(x => x.StokKartId == skartId);
+
+            if (targetCard == null)
+            {
+                _logger.LogError("❌ Hedef kart bulunamadı! ID: {Id}", skartId);
+                return false;
+            }
+
+            // 2. Yeni İsim ve Kod Belirle (Zombileştirme)
+            // HIZ01 -> SIL_HIZ01_20251217 gibi yapıyoruz ki kod boşa çıksın.
+            string timestamp = DateTime.Now.ToString("yyyyMMddHHmm");
+            string newCode = $"SIL_{targetCard.KartKodu}_{timestamp}"; 
+            if (newCode.Length > 30) newCode = newCode.Substring(0, 30); // Uzunluk önlemi
+
+            string newName = $"!!! SİLİNDİ !!! - {targetCard.KartAdi}";
+            if (newName.Length > 50) newName = newName.Substring(0, 50);
+
+            // 3. MANUEL JSON OLUŞTURMA (En Garanti Yöntem)
+            // DTO kullanmıyoruz, direkt Dictionary kullanıyoruz.
+            // Böylece "Aktif" mi "aktif" mi derdi olmuyor, küçük harf gönderiyoruz.
+            var payload = new Dictionary<string, object>
+            {
+                { "skartId", targetCard.StokKartId ?? 0 },
+                { "kartKodu", newCode },
+                { "kartAdi", newName },
+                { "aktif", 0 },           // <--- KRİTİK NOKTA: 0 (Pasif)
+                { "kartTipi", 1 },        // 1: Stok
+                { "kartTuru", 1 },        // 1: Ticari Mal
+                { "anaBirimId", 1 },      // Genellikle 1 (Adet)
+                { "olcumBirimiId", 1 },   // Genellikle 1 (Adet)
+                { "kdvOrani", 0 }         // Hata vermemesi için
+            };
+
+            // JSON'a çevir
+            var json = JsonSerializer.Serialize(payload);
+            
+            // Logla ki ne gönderdiğimizi görelim
+            _logger.LogInformation("📤 Zombi Payload: {Json}", json);
+
+            // 4. Güncelleme Servisine Gönder
+            string endpoint = "GuncelleStkWsSkart.do";
+            string url = $"{_settings.BaseUrl}{endpoint}";
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            
+            var response = await _httpClient.PostAsync(url, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            _logger.LogInformation("📥 Luca Yanıtı: {Content}", responseContent);
+
+            // Başarılı mı?
+            if (response.IsSuccessStatusCode)
+            {
+                // Luca bazen hata olsa bile 200 döner, içeriğe bakalım:
+                if (responseContent.Contains("error") || responseContent.Contains("hata"))
+                {
+                    _logger.LogError("❌ Luca hata mesajı döndü: {Msg}", responseContent);
+                    return false;
+                }
+
+                _logger.LogInformation("✅ ZOMBİ OPERASYONU BAŞARILI! Kart pasife çekildi. Yeni Kod: {Code}", newCode);
+                return true;
+            }
+            else
+            {
+                _logger.LogError("❌ HTTP Hatası alındı: {Code}", response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Zombi operasyonu patladı. ID: {Id}", skartId);
+        }
+
+        return false;
+    }
+
     public async Task<SalesOrderSyncResultDto> CreateSalesOrderInvoiceAsync(SalesOrder order, string? depoKodu = null, CancellationToken ct = default)
     {
         if (order == null) throw new ArgumentNullException(nameof(order));

@@ -804,57 +804,61 @@ public partial class LucaService
     }
 
     /// <summary>
-    /// Bir stok kartını ID ile siler.
-    /// Endpoint: /SilStkSkart.do
+    /// Stok kartını siler (HARD DELETE - JSON Formatı ile)
+    /// Luca'ya { "skartId": ... } formatında silme isteği gönderir
     /// </summary>
     public async Task<bool> DeleteStockCardAsync(long skartId)
     {
-        await EnsureAuthenticatedAsync();
-        await EnsureBranchSelectedAsync();
-
-        // Endpoint
-        var endpoint = _settings.Endpoints.StockCardDelete ?? "SilStkSkart.do";
-        
-        var requestObj = new LucaDeleteStokKartiRequest { SkartId = skartId };
-        
-        var jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = null,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never
-        };
+        _logger.LogInformation("🔥 HARD DELETE (JSON): Kart silme isteği hazırlanıyor... ID: {Id}", skartId);
 
         try
         {
-            _logger.LogInformation("🗑️ Stok Kartı Silme başlatıldı. ID={Id}", skartId);
-            
-            var json = JsonSerializer.Serialize(requestObj, jsonOptions);
-            var content = CreateKozaContent(json);
-            
-            using var req = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content };
-            ApplyManualSessionCookie(req);
-            
-            var response = await SendWithAuthRetryAsync(req, "DELETE_STOCK", 2);
-            var body = await ReadResponseContentAsync(response);
-            
-            await AppendRawLogAsync("DELETE_STOCK", endpoint, json, response.StatusCode, body);
+            // 1. Oturum ve Şube Kontrolleri
+            await EnsureAuthenticatedAsync();
+            await EnsureBranchSelectedAsync();
 
+            // 2. Endpoint Tanımı
+            // Teknik ekibin verdiği adres: {{API_URL}}/SilStkSkart.do
+            string endpoint = "SilStkSkart.do";
+            string url = $"{_settings.BaseUrl}{endpoint}";
+
+            // 3. Request Body Hazırlama (İstenen Format: {"skartId": 79909})
+            var requestData = new { skartId = skartId };
+            
+            // JSON'a çevir
+            string jsonContent = JsonSerializer.Serialize(requestData);
+
+            // 4. İsteği Gönder (Content-Type: application/json)
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            // Log: Ne gönderdiğimizi görelim
+            _logger.LogInformation("📤 Gönderilen JSON: {Json}", jsonContent);
+
+            var response = await _httpClient.PostAsync(url, content);
+            var responseString = await response.Content.ReadAsStringAsync();
+
+            _logger.LogInformation("📥 Luca Yanıtı ({Code}): {Response}", response.StatusCode, responseString);
+
+            // 5. Başarı Kontrolü
+            // Luca başarılı işlemde genellikle 200 OK döner.
+            // Yanıt boş {} gelebilir veya {"@message":"Silindi"} gelebilir.
             if (response.IsSuccessStatusCode)
             {
-                var parsed = ParseKozaOperationResponse(body);
-                if (parsed.IsSuccess)
+                // Hata mesajı içermiyorsa başarılıdır
+                if (!responseString.Contains("hata") && !responseString.Contains("error") && !responseString.Contains("Exception"))
                 {
-                    _logger.LogInformation("✅ Stok kartı silindi. ID={Id}", skartId);
+                    _logger.LogInformation("✅ İŞLEM TAMAM: Kart Luca'dan silindi.");
                     return true;
                 }
             }
             
-            _logger.LogWarning("Stok kartı silme başarısız: {Response}", body?.Substring(0, Math.Min(300, body?.Length ?? 0)));
+            _logger.LogError("❌ Luca silme işlemine izin vermedi veya hata döndü.");
+            return false;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Stok silme hatası ID={Id}", skartId);
+            _logger.LogError(ex, "❌ Silme isteği sırasında teknik hata oluştu. ID: {Id}", skartId);
+            return false;
         }
-
-        return false;
     }
 }

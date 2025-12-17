@@ -1038,42 +1038,103 @@ public class AdminController : ControllerBase
 
     /// <summary>
     /// Stok kartı silme - SKU ile Luca'dan gerçek ID bulunup silinir
+    /// Önce local DB'den LucaId kontrol edilir (hızlı), yoksa Luca'dan çekilir (yavaş)
     /// </summary>
     [HttpPost("test-delete-product")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> TestDeleteProduct([FromQuery] string sku)
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             if (string.IsNullOrWhiteSpace(sku))
                 return BadRequest(new { success = false, message = "SKU gerekli" });
 
             var lucaService = HttpContext.RequestServices.GetRequiredService<Katana.Business.Interfaces.ILucaService>();
-            
-            // 1. SKU ile Luca'dan gerçek ID'yi bul
-            var lucaCards = await lucaService.ListStockCardsSimpleAsync();
             var targetSku = sku.Trim().ToUpperInvariant().Replace(" ", "");
-            
-            var existingCard = lucaCards.FirstOrDefault(x => 
-                (x.KartKodu ?? "").Trim().ToUpperInvariant().Replace(" ", "") == targetSku);
+            long? realLucaId = null;
+            string lookupMethod = "";
 
-            if (existingCard?.StokKartId == null)
+            // 1. ÖNCE LOCAL DB'DEN BAK (HIZLI - 0.1 saniye)
+            var localProduct = await _context.Products
+                .FirstOrDefaultAsync(p => p.SKU.ToUpper().Replace(" ", "") == targetSku);
+
+            if (localProduct?.LucaId != null && localProduct.LucaId > 0)
+            {
+                realLucaId = localProduct.LucaId;
+                lookupMethod = "LocalDB (Hızlı)";
+                _logger.LogInformation("⚡ Hızlı Lookup: {Sku} -> LucaId: {LucaId} (Local DB)", sku, realLucaId);
+            }
+            else
+            {
+                // 2. LOCAL'DA YOKSA LUCA'DAN ÇEK (YAVAŞ - 90 saniye)
+                _logger.LogWarning("⏳ Yavaş Lookup başlatılıyor: {Sku} - Local DB'de LucaId yok", sku);
+                var lucaCards = await lucaService.ListStockCardsSimpleAsync();
+                
+                var existingCard = lucaCards.FirstOrDefault(x => 
+                    (x.KartKodu ?? "").Trim().ToUpperInvariant().Replace(" ", "") == targetSku);
+
+                if (existingCard?.StokKartId != null)
+                {
+                    realLucaId = existingCard.StokKartId.Value;
+                    lookupMethod = "Luca API (Yavaş)";
+                    
+                    // Gelecek seferler için local DB'ye kaydet
+                    if (localProduct != null)
+                    {
+                        localProduct.LucaId = realLucaId;
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation("💾 LucaId local DB'ye kaydedildi: {Sku} -> {LucaId}", sku, realLucaId);
+                    }
+                }
+            }
+
+            if (realLucaId == null)
             {
                 return BadRequest(new { 
                     success = false, 
-                    message = $"SKU '{sku}' Luca'da bulunamadı." 
+                    message = $"SKU '{sku}' Luca'da bulunamadı.",
+                    elapsed = sw.ElapsedMilliseconds + "ms"
                 });
             }
 
-            var realLucaId = existingCard.StokKartId.Value;
-            _logger.LogInformation("🗑️ Silme: {Sku} -> Luca ID: {LucaId}", sku, realLucaId);
+            _logger.LogInformation("🗑️ Silme: {Sku} -> Luca ID: {LucaId} ({Method})", sku, realLucaId, lookupMethod);
 
-            // 2. Sil
-            var result = await lucaService.DeleteStockCardAsync(realLucaId);
+            // 3. SİL
+            var result = await lucaService.DeleteStockCardAsync(realLucaId.Value);
+            sw.Stop();
             
-            return result 
-                ? Ok(new { success = true, message = "Silme başarılı", lucaId = realLucaId })
-                : BadRequest(new { success = false, message = "Luca silme reddetti" });
+            if (result)
+            {
+                // Local DB'den de sil (opsiyonel)
+                if (localProduct != null)
+                {
+                    _context.Products.Remove(localProduct);
+                    await _context.SaveChangesAsync();
+                }
+                
+                return Ok(new { 
+                    success = true, 
+                    message = "Kart silindi (Hard Delete)", 
+                    sku = sku, 
+                    lucaId = realLucaId,
+                    lookupMethod = lookupMethod,
+                    elapsed = sw.ElapsedMilliseconds + "ms"
+                });
+            }
+            else
+            {
+                // 400 dönerken detay verelim
+                return BadRequest(new { 
+                    error = true,
+                    success = false, 
+                    message = "Silme/Pasife çekme başarısız oldu. Logları kontrol edin.",
+                    sku = sku,
+                    lucaId = realLucaId,
+                    lookupMethod = lookupMethod,
+                    elapsed = sw.ElapsedMilliseconds + "ms"
+                });
+            }
         }
         catch (Exception ex)
         {
