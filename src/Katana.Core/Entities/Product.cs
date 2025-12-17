@@ -93,6 +93,12 @@ public class Product
     [MaxLength(1000)]
     public string? Description { get; set; }
     
+    /// <summary>
+    /// Luca/Koza sistemindeki stok kartı ID'si (skartId)
+    /// Sync işleminde doldurulur, silme işlemlerinde hızlı lookup için kullanılır
+    /// </summary>
+    public long? LucaId { get; set; }
+    
     public bool IsActive { get; set; } = true;
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

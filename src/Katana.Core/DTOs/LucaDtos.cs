@@ -2126,6 +2126,13 @@ public class LucaUpdateStokKartiRequest
     /// </summary>
     [JsonPropertyName("maliyetHesaplanacakFlag")]
     public bool? MaliyetHesaplanacakFlag { get; set; }
+
+    /// <summary>
+    /// Aktif durumu (1=Aktif, 0=Pasif/Kullanım Dışı)
+    /// Soft delete için kullanılır
+    /// </summary>
+    [JsonPropertyName("aktif")]
+    public int Aktif { get; set; } = 1;
 }
 
 /// <summary>
