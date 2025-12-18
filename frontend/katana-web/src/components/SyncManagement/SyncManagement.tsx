@@ -114,6 +114,7 @@ const SyncManagement: React.FC = () => {
             startIcon={<Refresh />}
             onClick={loadHistory}
             disabled={loading}
+            sx={{ fontWeight: 600 }}
           >
             Yenile
           </Button>
@@ -121,6 +122,7 @@ const SyncManagement: React.FC = () => {
             variant="contained"
             startIcon={<PlayArrow />}
             onClick={() => setOpenDialog(true)}
+            sx={{ fontWeight: 600 }}
           >
             Senkronizasyon Başlat
           </Button>
@@ -242,12 +244,15 @@ const SyncManagement: React.FC = () => {
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>İptal</Button>
+          <Button onClick={() => setOpenDialog(false)} sx={{ fontWeight: 600 }}>
+            İptal
+          </Button>
           <Button
             variant="contained"
             onClick={handleStartSync}
             disabled={syncing}
             startIcon={syncing ? <CircularProgress size={16} /> : <PlayArrow />}
+            sx={{ fontWeight: 600 }}
           >
             Başlat
           </Button>

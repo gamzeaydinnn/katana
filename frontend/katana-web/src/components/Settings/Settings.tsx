@@ -64,7 +64,7 @@ const Settings: React.FC = () => {
           variant="contained"
           startIcon={<SaveIcon />}
           onClick={handleSave}
-          sx={{ px: 3 }}
+          sx={{ px: 3, fontWeight: 600 }}
         >
           Kaydet
         </Button>

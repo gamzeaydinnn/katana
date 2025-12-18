@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System;
+using System.Net;
 using System.Text.Json;
 using Katana.Business.Interfaces;
 
@@ -8,6 +9,9 @@ public class ErrorHandlingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ErrorHandlingMiddleware> _logger;
+    private const string CorsAllowHeader = "Access-Control-Allow-Origin";
+    private static readonly string[] AllowedOriginPrefixes =
+        new[] { "http://localhost", "https://localhost", "http://bfmmrp.com", "https://bfmmrp.com" };
 
     public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger)
     {
@@ -47,6 +51,8 @@ public class ErrorHandlingMiddleware
         {
             return;
         }
+
+        EnsureCorsHeaders(context);
 
         context.Response.ContentType = "application/json";
         
@@ -96,6 +102,43 @@ public class ErrorHandlingMiddleware
         });
 
         await context.Response.WriteAsync(jsonResponse);
+    }
+
+    private static void EnsureCorsHeaders(HttpContext context)
+    {
+        if (context.Response.Headers.ContainsKey(CorsAllowHeader))
+        {
+            return;
+        }
+
+        if (!context.Request.Headers.TryGetValue("Origin", out var originValues))
+        {
+            return;
+        }
+
+        var origin = originValues.Count > 0 ? originValues[0] : string.Empty;
+        if (string.IsNullOrWhiteSpace(origin) || !IsAllowedOrigin(origin))
+        {
+            return;
+        }
+
+        context.Response.Headers[CorsAllowHeader] = origin;
+        context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+        context.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
+        context.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization";
+    }
+
+    private static bool IsAllowedOrigin(string origin)
+    {
+        foreach (var prefix in AllowedOriginPrefixes)
+        {
+            if (origin.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

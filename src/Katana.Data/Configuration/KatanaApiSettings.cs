@@ -27,8 +27,8 @@ namespace Katana.Data.Configuration;
     public class KatanaApiEndpoints
     {
         public string Products { get; set; } = "products";
-        public string Stock { get; set; } = "stock-movements";
-        public string Invoices { get; set; } = "sales-orders";
+        public string Stock { get; set; } = "stock_movements";
+        public string Invoices { get; set; } = "sales_orders";
         public string Health { get; set; } = "health";
         public string Customers { get; set; } = "customers";
     }

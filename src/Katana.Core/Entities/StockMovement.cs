@@ -45,6 +45,18 @@ public class StockMovement
     public MovementType MovementType { get; set; }
 
     /// <summary>
+    /// Hareketin nedeni / açıklama
+    /// </summary>
+    [MaxLength(200)]
+    public string Reason { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Ürün SKU'su
+    /// </summary>
+    [MaxLength(50)]
+    public string SKU { get; set; } = string.Empty;
+
+    /// <summary>
     /// Kaynak belge numarası (örnek: Fatura No, Sipariş No, Transfer No)
     /// </summary>
     [MaxLength(100)]
@@ -54,6 +66,16 @@ public class StockMovement
     /// Hareketin oluştuğu tarih/zaman
     /// </summary>
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Hareketin tarihi
+    /// </summary>
+    public DateTime MovementDate { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Kaydın oluşturulduğu tarih
+    /// </summary>
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
     /// Hareketin hangi lokasyonda/depo’da gerçekleştiği

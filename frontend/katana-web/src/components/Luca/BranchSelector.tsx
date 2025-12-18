@@ -80,7 +80,9 @@ const BranchSelector: React.FC<Props> = ({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Kapat</Button>
+        <Button onClick={onClose} variant="contained" sx={{ fontWeight: 600 }}>
+          Kapat
+        </Button>
       </DialogActions>
     </Dialog>
   );

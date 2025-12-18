@@ -126,12 +126,17 @@ class ErrorBoundary extends Component<Props, State> {
             )}
 
             <Box sx={{ mt: 3, display: "flex", gap: 2 }}>
-              <Button variant="contained" onClick={this.handleReset}>
+              <Button
+                variant="contained"
+                onClick={this.handleReset}
+                sx={{ fontWeight: 600 }}
+              >
                 Try Again
               </Button>
               <Button
                 variant="outlined"
                 onClick={() => (window.location.href = "/")}
+                sx={{ fontWeight: 600 }}
               >
                 Go Home
               </Button>
