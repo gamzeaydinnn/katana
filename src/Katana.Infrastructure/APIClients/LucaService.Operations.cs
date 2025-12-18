@@ -31,6 +31,7 @@ public partial class LucaService
     /// <summary>
     /// ZOMBİ OPERASYONU: Kartı pasife çeker ve ismini/kodunu değiştirir
     /// Hareket görmüş kartları silmek yerine görünmez yapar
+    /// 🔥 MİMARİ RAPOR UYUMLU: Session + Branch + Cookie yönetimi
     /// </summary>
     public async Task<bool> DeleteStockCardZombieAsync(long skartId)
     {
@@ -38,8 +39,14 @@ public partial class LucaService
 
         try
         {
+            // 🔥 MİMARİ RAPOR UYUMLU: Session kontrolü
             await EnsureAuthenticatedAsync();
-            await EnsureBranchSelectedAsync();
+            
+            // 🔥 KRİTİK: Branch seçimi ZORUNLU
+            if (!_settings.UseTokenAuth)
+            {
+                await EnsureBranchSelectedAsync();
+            }
 
             // 1. Kartın mevcut verilerini çek (İsim ve Kod bozulmasın diye)
             var existingCards = await ListStockCardsSimpleAsync(); 
@@ -52,54 +59,83 @@ public partial class LucaService
             }
 
             // 2. Yeni İsim ve Kod Belirle (Zombileştirme)
-            // HIZ01 -> SIL_HIZ01_20251217 gibi yapıyoruz ki kod boşa çıksın.
             string timestamp = DateTime.Now.ToString("yyyyMMddHHmm");
             string newCode = $"SIL_{targetCard.KartKodu}_{timestamp}"; 
-            if (newCode.Length > 30) newCode = newCode.Substring(0, 30); // Uzunluk önlemi
+            if (newCode.Length > 30) newCode = newCode.Substring(0, 30);
 
             string newName = $"!!! SİLİNDİ !!! - {targetCard.KartAdi}";
             if (newName.Length > 50) newName = newName.Substring(0, 50);
 
-            // 3. MANUEL JSON OLUŞTURMA (En Garanti Yöntem)
-            // DTO kullanmıyoruz, direkt Dictionary kullanıyoruz.
-            // Böylece "Aktif" mi "aktif" mi derdi olmuyor, küçük harf gönderiyoruz.
+            // 3. MANUEL JSON OLUŞTURMA
             var payload = new Dictionary<string, object>
             {
                 { "skartId", targetCard.StokKartId ?? 0 },
                 { "kartKodu", newCode },
                 { "kartAdi", newName },
                 { "aktif", 0 },           // <--- KRİTİK NOKTA: 0 (Pasif)
-                { "kartTipi", 1 },        // 1: Stok
-                { "kartTuru", 1 },        // 1: Ticari Mal
-                { "anaBirimId", 1 },      // Genellikle 1 (Adet)
-                { "olcumBirimiId", 1 },   // Genellikle 1 (Adet)
-                { "kdvOrani", 0 }         // Hata vermemesi için
+                { "kartTipi", 1 },
+                { "kartTuru", 1 },
+                { "anaBirimId", 1 },
+                { "olcumBirimiId", 1 },
+                { "kdvOrani", 0 }
             };
 
-            // JSON'a çevir
             var json = JsonSerializer.Serialize(payload);
-            
-            // Logla ki ne gönderdiğimizi görelim
             _logger.LogInformation("📤 Zombi Payload: {Json}", json);
 
-            // 4. Güncelleme Servisine Gönder
-            string endpoint = "GuncelleStkWsSkart.do";
-            string url = $"{_settings.BaseUrl}{endpoint}";
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            // 🔥 MİMARİ RAPOR UYUMLU: CreateKozaContent + HttpRequestMessage + Cookie
+            string endpoint = _settings.Endpoints.StockCardUpdate;
+            var content = CreateKozaContent(json);
             
-            var response = await _httpClient.PostAsync(url, content);
-            var responseContent = await response.Content.ReadAsStringAsync();
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+            {
+                Content = content
+            };
+            
+            // 🔥 KRİTİK: Session cookie'yi manuel ekle
+            ApplyManualSessionCookie(request);
+
+            // 🔥 MİMARİ RAPOR UYUMLU: SendWithAuthRetryAsync kullan
+            var response = await SendWithAuthRetryAsync(request, "ZOMBIE_UPDATE", 2);
+            var responseContent = await ReadResponseContentAsync(response);
 
             _logger.LogInformation("📥 Luca Yanıtı: {Content}", responseContent);
+            
+            // Raw log kaydet
+            await AppendRawLogAsync("ZOMBIE_UPDATE", endpoint, json, response.StatusCode, responseContent);
 
-            // Başarılı mı?
+            // Başarı kontrolü
             if (response.IsSuccessStatusCode)
             {
-                // Luca bazen hata olsa bile 200 döner, içeriğe bakalım:
-                if (responseContent.Contains("error") || responseContent.Contains("hata"))
+                // HTML response = session expired
+                if (responseContent.TrimStart().StartsWith("<"))
                 {
-                    _logger.LogError("❌ Luca hata mesajı döndü: {Msg}", responseContent);
+                    _logger.LogError("❌ Luca HTML döndü (session expired)");
                     return false;
+                }
+                
+                // JSON parse et
+                try
+                {
+                    using var doc = JsonDocument.Parse(responseContent);
+                    var root = doc.RootElement;
+                    
+                    if (root.TryGetProperty("error", out var errorProp) && errorProp.GetBoolean())
+                    {
+                        var errorMsg = root.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : "Unknown error";
+                        _logger.LogError("❌ Luca hata mesajı döndü: {Msg}", errorMsg);
+                        return false;
+                    }
+                }
+                catch (JsonException)
+                {
+                    // JSON değilse text kontrol et
+                    if (responseContent.Contains("hata", StringComparison.OrdinalIgnoreCase) ||
+                        responseContent.Contains("error", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogError("❌ Luca hata mesajı döndü: {Msg}", responseContent);
+                        return false;
+                    }
                 }
 
                 _logger.LogInformation("✅ ZOMBİ OPERASYONU BAŞARILI! Kart pasife çekildi. Yeni Kod: {Code}", newCode);

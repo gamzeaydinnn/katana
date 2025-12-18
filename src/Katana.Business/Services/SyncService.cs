@@ -1498,6 +1498,7 @@ public class SyncService : ISyncService
 
             var successful = 0;
             var errors = new List<string>();
+            var ignoredBaseSkus = await GetIgnoredBaseSkusAsync();
 
             foreach (var lucaDto in lucaProducts)
             {
@@ -1509,7 +1510,12 @@ public class SyncService : ISyncService
                         continue;
                     }
 
-                    var sku = lucaDto.ProductCode;
+                    var sku = lucaDto.ProductCode.Trim();
+                    if (ignoredBaseSkus.Contains(NormalizeSku(sku)))
+                    {
+                        continue;
+                    }
+
                     var existing = await _dbContext.Products.FirstOrDefaultAsync(p => p.SKU == sku);
 
                     if (existing == null)
@@ -1521,7 +1527,6 @@ public class SyncService : ISyncService
                     {
                         existing.Name = lucaDto.ProductName;
                         existing.UpdatedAt = DateTime.UtcNow;
-                        existing.IsActive = true;
                     }
 
                     successful++;
@@ -1564,6 +1569,33 @@ public class SyncService : ISyncService
             };
         }
     }
+
+    private async Task<HashSet<string>> GetIgnoredBaseSkusAsync()
+    {
+        var deletedSkus = await _dbContext.Products
+            .AsNoTracking()
+            .Where(p => !p.IsActive && p.SKU.Contains("_DELETED_"))
+            .Select(p => p.SKU)
+            .ToListAsync();
+
+        var ignored = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var sku in deletedSkus)
+        {
+            if (string.IsNullOrWhiteSpace(sku))
+                continue;
+
+            var idx = sku.IndexOf("_DELETED_", StringComparison.OrdinalIgnoreCase);
+            if (idx <= 0)
+                continue;
+
+            ignored.Add(NormalizeSku(sku.Substring(0, idx)));
+        }
+
+        return ignored;
+    }
+
+    private static string NormalizeSku(string sku) =>
+        (sku ?? string.Empty).Trim().ToUpperInvariant().Replace(" ", string.Empty);
 
     #region Koza Cari Sync Methods
 

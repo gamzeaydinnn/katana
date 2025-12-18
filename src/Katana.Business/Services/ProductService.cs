@@ -2,6 +2,7 @@ using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Core.Events;
 using Katana.Core.Interfaces;
+using Katana.Business.Interfaces;
 using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
@@ -12,6 +13,7 @@ public class ProductService : IProductService
 {
     private readonly IntegrationDbContext _context;
     private readonly IPendingNotificationPublisher? _notificationPublisher;
+    private readonly ILucaService _lucaService;
     
     private static readonly Expression<Func<Product, ProductDto>> ProductProjection = p => new ProductDto
     {
@@ -28,9 +30,10 @@ public class ProductService : IProductService
         UpdatedAt = p.UpdatedAt
     };
 
-    public ProductService(IntegrationDbContext context, IPendingNotificationPublisher? notificationPublisher = null)
+    public ProductService(IntegrationDbContext context, ILucaService lucaService, IPendingNotificationPublisher? notificationPublisher = null)
     {
         _context = context;
+        _lucaService = lucaService;
         _notificationPublisher = notificationPublisher;
     }
 
@@ -259,22 +262,77 @@ public class ProductService : IProductService
         return true;
     }
 
-    public async Task<bool> DeleteProductAsync(int id)
+    public async Task<bool> DeleteProductAsync(int id, bool force = false)
     {
-        var product = await _context.Products.FindAsync(id);
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id);
         if (product == null)
             return false;
 
-        var hasStockActivity =
-            await _context.Stocks.AnyAsync(s => s.ProductId == id)
-         || await _context.StockMovements.AnyAsync(m => m.ProductId == id);
+        var oldSku = (product.SKU ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(oldSku))
+            throw new InvalidOperationException("Ürün SKU boş olduğu için silme işlemi yapılamadı.");
 
-        if (hasStockActivity)
-            throw new InvalidOperationException("Stok hareketi olan ürün silinemez. Önce ürünü pasif yapın.");
+        if (product.LucaId is > 0)
+        {
+            try
+            {
+                var lucaDeleted = await _lucaService.DeleteStockCardAsync(product.LucaId.Value);
+                if (!lucaDeleted)
+                {
+                    product.IsActive = false;
+                    product.UpdatedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
 
-        _context.Products.Remove(product);
-        await _context.SaveChangesAsync();
-        return true;
+                    throw new InvalidOperationException("Bu ürün Luca'da işlem gördüğü için silinemez, sadece pasife alınabilir.");
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch (Exception ex) when (!force)
+            {
+                throw new InvalidOperationException($"Luca ile bağlantı kurulamadığı için silme tamamlanamadı: {ex.Message} (force=true ile sadece yerelde silebilirsiniz)", ex);
+            }
+        }
+
+        await using var tx = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var deletedSku = BuildDeletedSku(oldSku, timestamp);
+
+            var suffixAttempt = 2;
+            while (await _context.Products.AnyAsync(p => p.SKU == deletedSku))
+            {
+                deletedSku = BuildDeletedSku(oldSku, timestamp, suffixAttempt++);
+            }
+
+            product.SKU = deletedSku;
+            product.Name = $"{product.Name} (SİLİNDİ)";
+            product.IsActive = false;
+            product.LucaId = null;
+            product.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            await tx.CommitAsync();
+            return true;
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
+    }
+
+    private static string BuildDeletedSku(string oldSku, string timestamp, int? attempt = null)
+    {
+        const int maxLen = 50;
+        var attemptSuffix = attempt.HasValue ? $"_{attempt.Value}" : string.Empty;
+        var suffix = $"_DELETED_{timestamp}{attemptSuffix}";
+        var allowedPrefixLen = Math.Max(1, maxLen - suffix.Length);
+        var prefix = oldSku.Length > allowedPrefixLen ? oldSku.Substring(0, allowedPrefixLen) : oldSku;
+        return $"{prefix}{suffix}";
     }
 
     public async Task<bool> ActivateProductAsync(int id)
