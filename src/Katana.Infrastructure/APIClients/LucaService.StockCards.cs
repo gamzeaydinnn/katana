@@ -806,6 +806,7 @@ public partial class LucaService
     /// <summary>
     /// Stok kartını siler (HARD DELETE - JSON Formatı ile)
     /// Luca'ya { "skartId": ... } formatında silme isteği gönderir
+    /// 🔥 MİMARİ RAPOR UYUMLU: Session + Branch + Cookie yönetimi
     /// </summary>
     public async Task<bool> DeleteStockCardAsync(long skartId)
     {
@@ -813,46 +814,107 @@ public partial class LucaService
 
         try
         {
-            // 1. Oturum ve Şube Kontrolleri
+            // 🔥 MİMARİ RAPOR UYUMLU: Session kontrolü (Bölüm 4.1)
             await EnsureAuthenticatedAsync();
-            await EnsureBranchSelectedAsync();
-
-            // 2. Endpoint Tanımı
-            // Teknik ekibin verdiği adres: {{API_URL}}/SilStkSkart.do
-            string endpoint = "SilStkSkart.do";
-            string url = $"{_settings.BaseUrl}{endpoint}";
-
-            // 3. Request Body Hazırlama (İstenen Format: {"skartId": 79909})
-            var requestData = new { skartId = skartId };
             
-            // JSON'a çevir
+            // 🔥 KRİTİK: Branch seçimi ZORUNLU - Mimari rapor bölüm 2.4.3
+            if (!_settings.UseTokenAuth)
+            {
+                await EnsureBranchSelectedAsync();
+            }
+
+            // 🔥 MİMARİ RAPOR UYUMLU: Doğru client seçimi
+            var client = _settings.UseTokenAuth ? _httpClient : _cookieHttpClient ?? _httpClient;
+            
+            // Endpoint - settings'ten al
+            string endpoint = _settings.Endpoints.StockCardDelete;
+
+            // Request Body (İstenen Format: {"skartId": 79909})
+            var requestData = new { skartId = skartId };
             string jsonContent = JsonSerializer.Serialize(requestData);
 
-            // 4. İsteği Gönder (Content-Type: application/json)
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            // Log: Ne gönderdiğimizi görelim
             _logger.LogInformation("📤 Gönderilen JSON: {Json}", jsonContent);
 
-            var response = await _httpClient.PostAsync(url, content);
-            var responseString = await response.Content.ReadAsStringAsync();
+            // 🔥 MİMARİ RAPOR UYUMLU: CreateKozaContent kullan (ISO-8859-9 encoding)
+            var content = CreateKozaContent(jsonContent);
+
+            // 🔥 MİMARİ RAPOR UYUMLU: HttpRequestMessage ile cookie ekle
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+            {
+                Content = content
+            };
+            
+            // 🔥 KRİTİK: Session cookie'yi manuel ekle
+            ApplyManualSessionCookie(request);
+
+            // 🔥 MİMARİ RAPOR UYUMLU: SendWithAuthRetryAsync kullan (retry mekanizması)
+            var response = await SendWithAuthRetryAsync(request, "DELETE_STOCK_CARD", 2);
+            var responseString = await ReadResponseContentAsync(response);
 
             _logger.LogInformation("📥 Luca Yanıtı ({Code}): {Response}", response.StatusCode, responseString);
 
-            // 5. Başarı Kontrolü
-            // Luca başarılı işlemde genellikle 200 OK döner.
-            // Yanıt boş {} gelebilir veya {"@message":"Silindi"} gelebilir.
+            // Raw log kaydet
+            await AppendRawLogAsync("DELETE_STOCK_CARD", endpoint, jsonContent, response.StatusCode, responseString);
+
+            // Başarı Kontrolü
             if (response.IsSuccessStatusCode)
             {
-                // Hata mesajı içermiyorsa başarılıdır
-                if (!responseString.Contains("hata") && !responseString.Contains("error") && !responseString.Contains("Exception"))
+                // HTML response = session expired
+                if (responseString.TrimStart().StartsWith("<"))
                 {
-                    _logger.LogInformation("✅ İŞLEM TAMAM: Kart Luca'dan silindi.");
+                    _logger.LogError("❌ Luca HTML döndü (session expired). Retry gerekli.");
+                    return false;
+                }
+                
+                // JSON parse et
+                try
+                {
+                    using var doc = JsonDocument.Parse(responseString);
+                    var root = doc.RootElement;
+                    
+                    // error: true kontrolü
+                    if (root.TryGetProperty("error", out var errorProp) && errorProp.GetBoolean())
+                    {
+                        var errorMsg = root.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : "Unknown error";
+                        _logger.LogError("❌ Luca silme hatası: {Message}", errorMsg);
+                        return false;
+                    }
+                    
+                    // Başarılı - error: false veya error yok
+                    _logger.LogInformation("✅ İŞLEM TAMAM: Kart Luca'dan silindi. ID: {Id}", skartId);
                     return true;
+                }
+                catch (JsonException)
+                {
+                    // JSON değilse text kontrol et
+                    if (!responseString.Contains("hata", StringComparison.OrdinalIgnoreCase) && 
+                        !responseString.Contains("error", StringComparison.OrdinalIgnoreCase) &&
+                        !responseString.Contains("Beklenmedik", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogInformation("✅ İŞLEM TAMAM: Kart Luca'dan silindi (text response). ID: {Id}", skartId);
+                        return true;
+                    }
                 }
             }
             
-            _logger.LogError("❌ Luca silme işlemine izin vermedi veya hata döndü.");
+            // 🔥 FALLBACK: Hard delete başarısız oldu, Zombie operasyonu dene
+            _logger.LogWarning("⚠️ Hard delete başarısız. Zombie operasyonu deneniyor... ID: {Id}", skartId);
+            
+            try
+            {
+                var zombieResult = await DeleteStockCardZombieAsync(skartId);
+                if (zombieResult)
+                {
+                    _logger.LogInformation("✅ Zombie operasyonu başarılı! Kart pasife çekildi. ID: {Id}", skartId);
+                    return true;
+                }
+            }
+            catch (Exception zombieEx)
+            {
+                _logger.LogError(zombieEx, "❌ Zombie operasyonu da başarısız. ID: {Id}", skartId);
+            }
+            
+            _logger.LogError("❌ Luca silme işlemine izin vermedi ve zombie operasyonu da başarısız oldu.");
             return false;
         }
         catch (Exception ex)

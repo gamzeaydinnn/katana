@@ -840,11 +840,11 @@ public class ProductsController : ControllerBase
 
     [HttpDelete("{id}")]
     [Authorize(Roles = "Admin")]
-    public async Task<ActionResult> Delete(int id)
+    public async Task<ActionResult> Delete(int id, [FromQuery] bool force = false)
     {
         try
         {
-            var result = await _productService.DeleteProductAsync(id);
+            var result = await _productService.DeleteProductAsync(id, force);
             if (!result)
                 return NotFound($"Ürün bulunamadı: {id}");
 
