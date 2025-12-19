@@ -518,19 +518,33 @@ public static class KatanaToLucaMapper
             // Override varsa onu kullan
             olcumBirimiId = olcumBirimiIdOverride.Value;
         }
-        else if (!string.IsNullOrWhiteSpace(product.Unit) && unitMappings != null)
+        else if (!string.IsNullOrWhiteSpace(product.Unit))
         {
             // Katana'dan gelen Unit'i normalize et ve mapping'den bul
             var normalizedUnit = product.Unit.Trim().ToLowerInvariant();
-            if (unitMappings.TryGetValue(normalizedUnit, out var mappedUnitId))
+            
+            // 1. Önce appsettings.json UnitMapping'den ara
+            if (unitMappings != null && unitMappings.TryGetValue(normalizedUnit, out var mappedUnitId))
             {
                 olcumBirimiId = mappedUnitId;
-                Console.WriteLine($"✅ ÖLÇÜ BİRİMİ MAPPING: '{product.Unit}' → Luca ID: {mappedUnitId}");
+                Console.WriteLine($"✅ ÖLÇÜ BİRİMİ MAPPING (config): '{product.Unit}' → Luca ID: {mappedUnitId}");
             }
+            // 2. Config'de yoksa LucaApiSettings.UnitMapping'den ara
+            else if (lucaSettings.UnitMapping != null && lucaSettings.UnitMapping.TryGetValue(normalizedUnit, out var settingsMappedId))
+            {
+                olcumBirimiId = settingsMappedId;
+                Console.WriteLine($"✅ ÖLÇÜ BİRİMİ MAPPING (LucaApi): '{product.Unit}' → Luca ID: {settingsMappedId}");
+            }
+            // 3. Hiçbirinde yoksa AutoMapUnit fallback kullan
             else
             {
-                Console.WriteLine($"⚠️ ÖLÇÜ BİRİMİ MAPPING BULUNAMADI: '{product.Unit}' - Default kullanılıyor: {olcumBirimiId}");
+                olcumBirimiId = AutoMapUnit(product.Unit);
+                Console.WriteLine($"⚠️ ÖLÇÜ BİRİMİ MAPPING BULUNAMADI: '{product.Unit}' - AutoMap kullanılıyor: {olcumBirimiId}");
             }
+        }
+        else
+        {
+            Console.WriteLine($"⚠️ Katana'dan ölçü birimi gelmedi, default kullanılıyor: ID:{olcumBirimiId}");
         }
         
         var dto = new LucaCreateStokKartiRequest
@@ -560,6 +574,23 @@ public static class KatanaToLucaMapper
             PerakendeAlisBirimFiyat = ConvertToDouble(product.CostPrice ?? product.PurchasePrice ?? 0),
             PerakendeSatisBirimFiyat = ConvertToDouble(product.SalesPrice ?? product.Price)
         };
+        
+        // 🔥 FİYAT KONTROLÜ VE UYARI
+        if (dto.PerakendeAlisBirimFiyat == 0)
+        {
+            Console.WriteLine($"⚠️ UYARI: Alış fiyatı sıfır - SKU: {sku}");
+        }
+        if (dto.PerakendeSatisBirimFiyat == 0)
+        {
+            Console.WriteLine($"⚠️ UYARI: Satış fiyatı sıfır - SKU: {sku}");
+        }
+        
+        // 🔥 MAPPING ÖZET LOG
+        Console.WriteLine($"✅ Mapping tamamlandı: {sku}");
+        Console.WriteLine($"   - Kategori: {dto.KategoriAgacKod ?? "NULL"}");
+        Console.WriteLine($"   - Ölçü Birimi ID: {dto.OlcumBirimiId}");
+        Console.WriteLine($"   - Alış Fiyat: {dto.PerakendeAlisBirimFiyat:N2}");
+        Console.WriteLine($"   - Satış Fiyat: {dto.PerakendeSatisBirimFiyat:N2}");
 
         dto.KartAdi = EncodingHelper.ConvertToIso88599(dto.KartAdi);
         dto.UzunAdi = EncodingHelper.ConvertToIso88599(dto.UzunAdi);
@@ -597,6 +628,33 @@ public static class KatanaToLucaMapper
     {
         if (string.IsNullOrWhiteSpace(input)) return false;
         return System.Text.RegularExpressions.Regex.IsMatch(input.Trim(), "^\\d+$");
+    }
+    
+    /// <summary>
+    /// Yaygın ölçü birimlerini otomatik olarak Luca ID'sine çevirir (fallback)
+    /// appsettings.json'daki UnitMapping bulunamazsa bu metod kullanılır
+    /// </summary>
+    public static long AutoMapUnit(string? unit)
+    {
+        if (string.IsNullOrWhiteSpace(unit)) return 5; // Default: ADET
+        
+        var unitLower = unit.Trim().ToLowerInvariant();
+        
+        return unitLower switch
+        {
+            "pcs" or "adet" or "ad" or "piece" or "unit" or "each" or "ea" => 5,  // ADET
+            "kg" or "kilogram" or "kilo" => 1,                                      // KİLOGRAM
+            "m" or "metre" or "meter" or "mt" => 2,                                 // METRE
+            "l" or "lt" or "litre" or "liter" => 3,                                 // LİTRE
+            "m2" or "metrekare" or "sqm" => 6,                                      // METREKARE
+            "m3" or "metrekup" or "cbm" => 7,                                       // METREKÜP
+            "ton" => 8,                                                              // TON
+            "box" or "kutu" => 9,                                                    // KUTU
+            "pack" or "paket" => 10,                                                 // PAKET
+            "set" or "takim" => 11,                                                  // SET
+            "pair" or "cift" => 12,                                                  // ÇİFT
+            _ => 5 // Default: ADET
+        };
     }
     
     /// <summary>

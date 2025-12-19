@@ -4,7 +4,12 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.fast
+      # ⚡ BuildKit optimizations
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+    image: katana-api:fast
+    container_name: katana-api-fast
     ports:
       - "5055:8080"
       - "8080:8080"
@@ -17,13 +22,8 @@ services:
       - katana-network
     volumes:
       - ./logs:/app/logs
-
-  # DB servisleri kaldırıldı - host SQL Server kullanılıyor
+    restart: unless-stopped
 
 networks:
   katana-network:
     driver: bridge
-
-volumes:
-  sqlserver-data:
-    driver: local
