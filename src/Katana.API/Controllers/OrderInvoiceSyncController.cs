@@ -2,6 +2,7 @@ using Katana.Business.Interfaces;
 using Katana.Business.Services;
 using Katana.Core.Enums;
 using Katana.Data.Context;
+using Katana.Data.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -70,38 +71,60 @@ public class OrderInvoiceSyncController : ControllerBase
 
             var totalCount = await query.CountAsync();
 
-            var orders = await query
+            // Önce siparişleri çek
+            var ordersList = await query
                 .OrderByDescending(o => o.OrderCreatedDate ?? o.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .GroupJoin(
-                    _context.OrderMappings,
-                    o => o.Id,
-                    om => om.OrderId,
-                    (o, mappings) => new { Order = o, Mappings = mappings })
-                .SelectMany(
-                    x => x.Mappings.DefaultIfEmpty(),
-                    (x, mapping) => new OrderListItemDto
-                    {
-                        Id = x.Order.Id,
-                        OrderNo = x.Order.OrderNo,
-                        Customer = x.Order.Customer != null ? x.Order.Customer.Title : "Bilinmeyen",
-                        CustomerId = x.Order.CustomerId,
-                        Date = (x.Order.OrderCreatedDate ?? x.Order.CreatedAt).ToString("yyyy-MM-dd"),
-                        Total = x.Order.Total ?? 0,
-                        Currency = x.Order.Currency ?? "TRY",
-                        Status = x.Order.IsSyncedToLuca ? "SYNCED" : 
-                                 x.Order.Status == "CANCELLED" ? "CANCELLED" : 
-                                 !string.IsNullOrEmpty(x.Order.LastSyncError) ? "ERROR" : "PENDING",
-                        OrderStatus = x.Order.Status,
-                        LucaId = mapping != null ? (long?)mapping.LucaInvoiceId : null,
-                        BelgeSeri = mapping != null ? mapping.BelgeSeri : x.Order.BelgeSeri,
-                        BelgeNo = mapping != null ? mapping.BelgeNo : x.Order.BelgeNo,
-                        BelgeTakipNo = mapping != null ? mapping.BelgeTakipNo : x.Order.OrderNo,
-                        ErrorMessage = x.Order.LastSyncError,
-                        ItemCount = x.Order.Lines.Count
-                    })
                 .ToListAsync();
+
+            // Sipariş ID'lerini al
+            var orderIds = ordersList.Select(o => o.Id).ToList();
+
+            // İlgili mapping'leri çek
+            var mappingDict = new Dictionary<int, OrderMapping>();
+            try
+            {
+                var mappings = await _context.OrderMappings
+                    .Where(om => orderIds.Contains(om.OrderId))
+                    .ToListAsync();
+
+                // Mapping'leri dictionary'ye çevir (her order için ilk mapping'i al)
+                mappingDict = mappings
+                    .GroupBy(m => m.OrderId)
+                    .ToDictionary(g => g.Key, g => g.First());
+            }
+            catch (Exception ex)
+            {
+                // Mapping tablosu veya schema eksikse sipariş listesini yine göster.
+                _logger.LogWarning(ex, "OrderMappings lookup failed; continuing without mapping data.");
+            }
+
+            // DTO'ları oluştur
+            var orders = ordersList.Select(o =>
+            {
+                mappingDict.TryGetValue(o.Id, out var mapping);
+                return new OrderListItemDto
+                {
+                    Id = o.Id,
+                    OrderNo = o.OrderNo,
+                    Customer = o.Customer != null ? o.Customer.Title : "Bilinmeyen",
+                    CustomerId = o.CustomerId,
+                    Date = (o.OrderCreatedDate ?? o.CreatedAt).ToString("yyyy-MM-dd"),
+                    Total = o.Total ?? 0,
+                    Currency = o.Currency ?? "TRY",
+                    Status = o.IsSyncedToLuca ? "SYNCED" : 
+                             o.Status == "CANCELLED" ? "CANCELLED" : 
+                             !string.IsNullOrEmpty(o.LastSyncError) ? "ERROR" : "PENDING",
+                    OrderStatus = o.Status,
+                    LucaId = mapping != null ? (long?)mapping.LucaInvoiceId : null,
+                    BelgeSeri = mapping != null ? mapping.BelgeSeri : o.BelgeSeri,
+                    BelgeNo = mapping != null ? mapping.BelgeNo : o.BelgeNo,
+                    BelgeTakipNo = mapping != null ? mapping.BelgeTakipNo : o.OrderNo,
+                    ErrorMessage = o.LastSyncError,
+                    ItemCount = o.Lines.Count
+                };
+            }).ToList();
 
             return Ok(new
             {
