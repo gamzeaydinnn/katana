@@ -5,6 +5,7 @@ using Katana.Core.Entities;
 using Katana.Core.Enums;
 using Katana.Core.Events;
 using Katana.Data.Context;
+using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
