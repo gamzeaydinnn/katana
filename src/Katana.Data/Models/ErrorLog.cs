@@ -20,32 +20,32 @@ public class ErrorLog
     [MaxLength(200)]
     public string? Operation { get; set; }
 
-    /// <summary>
-    /// Hata türü (örneğin Validation, API, Database, Sync)
-    /// </summary>
+    
+    
+    
     public ErrorType ErrorType { get; set; } = ErrorType.Unknown;
 
-    /// <summary>
-    /// Log seviyesi: Info, Warning, Error
-    /// </summary>
+    
+    
+    
     [MaxLength(20)]
     public string Level { get; set; } = "Error";
     
-    /// <summary>
-    /// Log kategorisi: Authentication, Sync, ExternalAPI, vb.
-    /// </summary>
+    
+    
+    
     [MaxLength(50)]
     public string? Category { get; set; }
     
-    /// <summary>
-    /// İşlemi yapan kullanıcı
-    /// </summary>
+    
+    
+    
     [MaxLength(100)]
     public string? User { get; set; }
     
-    /// <summary>
-    /// Ek context bilgisi
-    /// </summary>
+    
+    
+    
     [MaxLength(1000)]
     public string? ContextData { get; set; }
 

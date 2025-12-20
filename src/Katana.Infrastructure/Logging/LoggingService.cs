@@ -1,4 +1,5 @@
 using Katana.Business.Interfaces;
+using Katana.Core.Entities;
 using Katana.Core.Enums;
 using Katana.Data.Context;
 using Katana.Data.Models;
@@ -20,14 +21,14 @@ public class LoggingService : ILoggingService
         _config = config;
         _context = context;
 
-        // Yapılandırma anahtarını oku (varsayılan: true)
-        // Not: appsettings uses "LoggingOptions" section
+        
+        
         _persistToDb = _config.GetValue<bool>("LoggingOptions:PersistToDatabase", true);
     }
 
     public void LogInfo(string message, string? user = null, string? contextData = null, LogCategory? category = null)
     {
-        // Türkçe log mesajı
+        
         _logger.LogInformation("[{Category}] [{User}] {Message} | Bağlam: {Context}", 
             category?.ToString() ?? "Sistem", user ?? "Sistem", message, contextData ?? "Yok");
         TryLogToDatabase("Info", message, null, user, contextData, category);
@@ -35,7 +36,7 @@ public class LoggingService : ILoggingService
 
     public void LogWarning(string message, string? user = null, string? contextData = null, LogCategory? category = null)
     {
-        // Türkçe log mesajı
+        
         _logger.LogWarning("[{Category}] [{User}] {Message} | Bağlam: {Context}", 
             category?.ToString() ?? "Sistem", user ?? "Sistem", message, contextData ?? "Yok");
         TryLogToDatabase("Warning", message, null, user, contextData, category);
@@ -43,18 +44,49 @@ public class LoggingService : ILoggingService
 
     public void LogError(string message, Exception? ex = null, string? user = null, string? contextData = null, LogCategory? category = null)
     {
-        // Türkçe log mesajı
+        
         _logger.LogError(ex, "[{Category}] [{User}] {Message} | Bağlam: {Context}", 
             category?.ToString() ?? "Sistem", user ?? "Sistem", message, contextData ?? "Yok");
         TryLogToDatabase("Error", message, ex, user, contextData, category);
     }
 
+    public async Task LogAuditAsync(string user, string action, string entityType, string entityId, string? oldValue = null, string? newValue = null)
+    {
+        _logger.LogInformation("[Audit] User: {User}, Action: {Action}, Entity: {EntityType}/{EntityId}", 
+            user, action, entityType, entityId);
+
+        if (_context != null && _persistToDb)
+        {
+            try
+            {
+                var changes = oldValue != null || newValue != null 
+                    ? System.Text.Json.JsonSerializer.Serialize(new { oldValue, newValue })
+                    : null;
+
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    PerformedBy = user,
+                    ActionType = action,
+                    EntityName = entityType,
+                    EntityId = entityId,
+                    Changes = changes,
+                    Timestamp = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to persist audit log");
+            }
+        }
+    }
+
     private void TryLogToDatabase(string level, string message, Exception? ex, string? user, string? contextData, LogCategory? category)
     {
-        if (!_persistToDb) return; // toggle disabled
+        if (!_persistToDb) return; 
         if (_context == null) return;
 
-        // Only persist Warning and Error to DB to reduce volume
+        
         if (!string.Equals(level, "Warning", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(level, "Error", StringComparison.OrdinalIgnoreCase))
         {
@@ -78,7 +110,7 @@ public class LoggingService : ILoggingService
         }
         catch
         {
-            // If DB is not available, just continue
+            
         }
     }
 }

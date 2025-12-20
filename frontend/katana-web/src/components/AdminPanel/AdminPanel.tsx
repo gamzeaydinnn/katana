@@ -1,42 +1,69 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  Paper,
-  Chip,
-  IconButton,
-  Alert,
-  CircularProgress,
-  Divider,
-} from "@mui/material";
-import {
-  Inventory,
-  TrendingUp,
-  CheckCircle,
-  Error as ErrorIcon,
-  Refresh,
-  Article as LogsIcon,
+    CheckCircle,
+    CompareArrows as CompareArrowsIcon,
+    Error as ErrorIcon,
+    Inventory,
+    Article as LogsIcon,
+    MoreVert as MoreVertIcon,
+    Receipt,
+    Refresh,
+    ReportProblem,
+    Settings as SettingsIcon,
+    ShoppingCart,
+    SwapHoriz as SwapHorizIcon,
+    TrendingUp,
+    Group as UsersIcon,
+    Warehouse
 } from "@mui/icons-material";
-import LogsViewer from "./LogsViewer";
-import Settings from "../Settings/Settings";
+import {
+    Alert,
+    Box,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    Container,
+    Divider,
+    IconButton,
+    Menu,
+    MenuItem,
+    Paper,
+    Tab,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Tabs,
+    Typography,
+    useMediaQuery
+} from "@mui/material";
+import { useTheme } from "@mui/material/styles";
+import React, { useEffect, useState } from "react";
 import api from "../../services/api";
+import DataCorrectionPanel from "../Admin/DataCorrectionPanel";
+import FailedRecords from "../Admin/FailedRecords";
+import KatanaProducts from "../Admin/KatanaProducts";
+import LucaProducts from "../Admin/LucaProducts";
+import OrderIntegrationPage from "../Admin/OrderIntegrationPage";
 import PendingAdjustments from "../Admin/PendingAdjustments";
+import SalesOrders from "../Admin/SalesOrders";
+import StockManagement from "../Admin/StockManagement";
+import StockMovements from "../Admin/StockMovements";
+import Suppliers from "../Admin/Suppliers";
+import Settings from "../Settings/Settings";
+import LogsViewer from "./LogsViewer";
+import StatsCards from "./StatsCards";
+import UsersManagement from "./UsersManagement";
 
 interface Statistics {
   totalProducts: number;
   totalStock: number;
   successfulSyncs: number;
   failedSyncs: number;
+  criticalProducts?: number;
+  totalValue?: number;
 }
 
 interface AdminProduct {
@@ -54,39 +81,81 @@ interface AdminSyncLog {
   isSuccess: boolean;
 }
 
+interface StockMovement {
+  id: number;
+  productName: string;
+  sku: string;
+  quantity: number;
+  movementType: string;
+  movementDate: string;
+  reason?: string;
+  createdAt: string;
+}
+
 const AdminPanel: React.FC = () => {
-  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState(0);
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [syncLogs, setSyncLogs] = useState<AdminSyncLog[]>([]);
   const [products, setProducts] = useState<AdminProduct[]>([]);
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalSyncLogs, setTotalSyncLogs] = useState(0);
-  // null = unknown / not loaded yet, true/false = explicit health state
+
   const [katanaHealth, setKatanaHealth] = useState<boolean | null>(null);
+  const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(
+    null
+  );
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const moreTabIndex = isMobile ? 2 : 5;
+  const visibleTabThreshold = moreTabIndex - 1;
+  const overflowTabActive = activeTab > visibleTabThreshold;
+  const tabBarValue = overflowTabActive ? moreTabIndex : activeTab;
+
+  const tabLabel = (text: string) => (
+    <Box component="span" translate="no" sx={{ display: "inline-flex" }}>
+      {text}
+    </Box>
+  );
+
+  const overflowMenuItemSx = {
+    py: 1.2,
+    px: 2,
+    gap: 1.2,
+    alignItems: "center",
+    borderRadius: 1.5,
+    "&:hover": { backgroundColor: "rgba(102, 126, 234, 0.12)" },
+  };
+
+  const overflowMenuTextSx = {
+    fontWeight: 600,
+    letterSpacing: "0.01em",
+    color: "text.primary",
+  };
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      // Backend'ten gerçek verileri çek
-      const [statsRes, productsRes, logsRes, healthRes] = await Promise.all([
-        api.get("/adminpanel/statistics"),
-        api.get(
-          `/adminpanel/products?page=${page + 1}&pageSize=${rowsPerPage}`
-        ),
-        api.get(
-          `/adminpanel/sync-logs?page=${page + 1}&pageSize=${rowsPerPage}`
-        ),
-        api.get("/adminpanel/katana-health"),
-      ]);
 
-      // İstatistikler
+      const [statsRes, productsRes, logsRes, movementsRes, healthRes] =
+        await Promise.all([
+          api.get("/adminpanel/statistics"),
+          api.get(
+            `/adminpanel/products?page=${page + 1}&pageSize=${rowsPerPage}`
+          ),
+          api.get(
+            `/adminpanel/sync-logs?page=${page + 1}&pageSize=${rowsPerPage}`
+          ),
+          api.get("/adminpanel/recent-stock-movements?take=10"),
+          api.get("/adminpanel/katana-health"),
+        ]);
+
       setStatistics(statsRes.data as Statistics);
 
-      // Ürünler - normalize farklı response şekillerine toleranslı olarak
       const productsData = ((productsRes as any).data?.data ??
         (productsRes as any).data?.products ??
         (productsRes as any).data ??
@@ -98,14 +167,13 @@ const AdminPanel: React.FC = () => {
           name: String(p.name ?? p.Name ?? ""),
           stock: Number(p.stock ?? p.stockQuantity ?? p.quantity ?? 0),
           isActive: Boolean(p.isActive ?? p.IsActive ?? true),
-          // createdAt is optional for the small table; provide a fallback
+
           createdAt: String(
             p.createdAt ?? p.createdAt ?? new Date().toISOString()
           ),
         }))
       );
 
-      // Senkronizasyon logları - normalize ve boolean/string durumlarını destekle
       const rawLogs = ((logsRes as any).data?.data ??
         (logsRes as any).data?.logs ??
         (logsRes as any).data ??
@@ -139,8 +207,21 @@ const AdminPanel: React.FC = () => {
         )
       );
 
-      // Katana API health (harici Katana servisi)
-      // If the endpoint returned no data, keep it as `null` so the UI can hide the chip
+      const rawMovements = ((movementsRes as any).data?.movements ??
+        []) as any[];
+      setStockMovements(
+        (Array.isArray(rawMovements) ? rawMovements : []).map((m) => ({
+          id: Number(m.id ?? 0),
+          productName: String(m.productName ?? "Bilinmeyen Ürün"),
+          sku: String(m.sku ?? ""),
+          quantity: Number(m.quantity ?? 0),
+          movementType: String(m.movementType ?? ""),
+          movementDate: String(m.movementDate ?? m.createdAt ?? ""),
+          reason: m.reason ? String(m.reason) : undefined,
+          createdAt: String(m.createdAt ?? ""),
+        }))
+      );
+
       if (healthRes && typeof (healthRes as any).data !== "undefined") {
         setKatanaHealth(Boolean((healthRes as any).data?.isHealthy ?? false));
       } else {
@@ -158,7 +239,6 @@ const AdminPanel: React.FC = () => {
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, rowsPerPage]);
 
   const StatCard: React.FC<{
@@ -167,18 +247,77 @@ const AdminPanel: React.FC = () => {
     icon: React.ReactNode;
     color: string;
   }> = ({ title, value, icon, color }) => (
-    <Card>
-      <CardContent>
+    <Card
+      sx={{
+        borderRadius: { xs: 2, md: 3 },
+        boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        background: (theme) =>
+          theme.palette.mode === "dark"
+            ? `linear-gradient(135deg, rgba(30,41,59,0.95) 0%, rgba(15,23,42,0.95) 100%)`
+            : `linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 100%)`,
+        border: (theme) =>
+          `1px solid ${
+            theme.palette.mode === "dark"
+              ? "rgba(255,255,255,0.08)"
+              : "rgba(0,0,0,0.04)"
+          }`,
+        "&:hover": {
+          transform: { xs: "none", md: "translateY(-6px) scale(1.02)" },
+          boxShadow: "0 12px 40px rgba(0,0,0,0.15)",
+        },
+        minHeight: { xs: 100, md: 120 },
+      }}
+    >
+      <CardContent sx={{ p: { xs: 2, md: 3 } }}>
         <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box>
-            <Typography color="textSecondary" gutterBottom variant="body2">
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              color="textSecondary"
+              gutterBottom
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+                fontSize: { xs: "0.75rem", md: "0.875rem" },
+                letterSpacing: "0.3px",
+                mb: { xs: 0.5, md: 1 },
+                textTransform: "uppercase",
+                opacity: 0.8,
+              }}
+            >
               {title}
             </Typography>
-            <Typography variant="h4" fontWeight="bold">
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 800,
+                fontFamily: '"Poppins", "Inter", sans-serif',
+                letterSpacing: "-0.5px",
+                fontSize: { xs: "1.5rem", sm: "1.75rem", md: "2rem" },
+                background: `linear-gradient(135deg, ${color} 0%, ${color}99 100%)`,
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
               {value}
             </Typography>
           </Box>
-          <Box sx={{ color, fontSize: 48 }}>{icon}</Box>
+          <Box
+            sx={{
+              background: `linear-gradient(135deg, ${color}20 0%, ${color}10 100%)`,
+              borderRadius: { xs: 2, md: 3 },
+              p: { xs: 1, md: 1.5 },
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              "& svg": {
+                fontSize: { xs: 28, md: 40 },
+                color: color,
+              },
+            }}
+          >
+            {icon}
+          </Box>
         </Box>
       </CardContent>
     </Card>
@@ -198,22 +337,73 @@ const AdminPanel: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Header */}
+    <Container
+      maxWidth="xl"
+      disableGutters
+      sx={{
+        py: { xs: 2, md: 4 },
+        px: { xs: 1.5, sm: 2, md: 3 },
+      }}
+    >
+      {}
       <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={3}
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: { xs: "flex-start", md: "center" },
+          flexDirection: { xs: "column", md: "row" },
+          gap: { xs: 1.5, md: 2 },
+          mb: { xs: 3, md: 4 },
+          mt: { xs: 1, md: 2 },
+        }}
       >
-        <Typography variant="h4" fontWeight="bold">
+        <Typography
+          variant="h4"
+          fontWeight={700}
+          translate="no"
+          sx={{
+            fontFamily: '"Poppins", "Inter", sans-serif',
+            letterSpacing: "-0.5px",
+            color: "text.primary",
+            background: (theme) =>
+              `linear-gradient(120deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            display: "inline-block",
+            flexShrink: 0,
+          }}
+        >
           Admin Paneli
         </Typography>
-        <Box display="flex" gap={2} alignItems="center">
+        <Box
+          display="flex"
+          gap={1}
+          alignItems="center"
+          sx={{ flexShrink: 0, width: { xs: "100%", md: "auto" } }}
+        >
           <IconButton
-            onClick={() => navigate("/admin/logs")}
+            onClick={() => setActiveTab(9)}
             color="primary"
-            title="System Logs"
+            title="Logları Aç"
+            size="small"
+            sx={{
+              bgcolor: (theme) =>
+                theme.palette.mode === "dark"
+                  ? "rgba(129, 140, 248, 0.16)"
+                  : "rgba(129, 140, 248, 0.14)",
+              color: (theme) => theme.palette.primary.main,
+              boxShadow: (theme) =>
+                theme.palette.mode === "dark"
+                  ? "0 0 0 1px rgba(129,140,248,0.4)"
+                  : "0 0 0 1px rgba(129,140,248,0.3)",
+              p: { xs: 0.75, md: 1 },
+              "&:hover": {
+                bgcolor: (theme) =>
+                  theme.palette.mode === "dark"
+                    ? "rgba(129, 140, 248, 0.28)"
+                    : "rgba(129, 140, 248, 0.24)",
+              },
+            }}
           >
             <LogsIcon />
           </IconButton>
@@ -224,18 +414,315 @@ const AdminPanel: React.FC = () => {
                 katanaHealth ? "Katana API Bağlı" : "Katana API Bağlı Değil"
               }
               color={katanaHealth ? "success" : "error"}
+              size={isMobile ? "small" : "medium"}
+              sx={{ maxWidth: { xs: "100%", md: "none" } }}
             />
           )}
-          <IconButton onClick={loadData} color="primary">
+          <IconButton
+            onClick={loadData}
+            title="Admin verilerini yenile"
+            size="small"
+            sx={{
+              ml: "auto",
+              bgcolor: "#ffffff",
+              color: (theme) => theme.palette.primary.main,
+              boxShadow:
+                "0 2px 12px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05)",
+              borderRadius: 2,
+              p: { xs: 0.75, md: 1.25 },
+              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+              "&:hover": {
+                bgcolor: "#ffffff",
+                transform: "rotate(180deg)",
+                boxShadow:
+                  "0 4px 20px rgba(79,70,229,0.25), 0 0 0 2px rgba(79,70,229,0.2)",
+              },
+              "&:active": {
+                transform: "rotate(180deg) scale(0.95)",
+              },
+            }}
+          >
             <Refresh />
           </IconButton>
         </Box>
       </Box>
 
-      {/* Pending adjustments - put high so admin can approve quickly */}
-      <Box sx={{ mb: 3 }}>
-        <PendingAdjustments />
-      </Box>
+      {}
+      <Paper
+        sx={{
+          mb: 4,
+          borderRadius: 2,
+          overflow: "hidden",
+        }}
+      >
+        <Tabs
+          value={tabBarValue}
+          onChange={(_, v) => {
+            if (v !== moreTabIndex) {
+              setActiveTab(v);
+              setMoreMenuAnchor(null);
+            }
+          }}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{
+            "& .MuiTab-root": {
+              display: "flex",
+              alignItems: "center",
+              flexDirection: "row",
+              textTransform: "none",
+              fontSize: { xs: "0.75rem", sm: "0.9375rem" },
+              fontWeight: 500,
+              minWidth: "auto",
+              minHeight: { xs: 44, sm: 56 },
+              whiteSpace: "nowrap",
+              px: { xs: 1.25, sm: 2.5 },
+              py: { xs: 1, sm: 1.5 },
+              fontFamily: '"Inter", "Poppins", sans-serif',
+              letterSpacing: "-0.2px",
+            },
+            "& .MuiTab-iconWrapper": {
+              marginRight: 1,
+              marginBottom: "0 !important",
+              display: "flex",
+              alignItems: "center",
+            },
+            "& .MuiTabs-indicator": {
+              height: 3,
+              borderRadius: "3px 3px 0 0",
+              backgroundColor: "#667eea",
+            },
+          }}
+        >
+          <Tab
+            icon={<TrendingUp />}
+            label={tabLabel("Genel Bakış")}
+            iconPosition="start"
+          />
+          <Tab
+            icon={<Receipt />}
+            label={tabLabel("Siparişler")}
+            iconPosition="start"
+          />
+          {!isMobile && [
+            <Tab
+              key="katana-products"
+              icon={<ShoppingCart />}
+              label={tabLabel("Katana Ürünleri")}
+              iconPosition="start"
+            />,
+            <Tab
+              key="luca-products"
+              icon={<Inventory />}
+              label={tabLabel("Luca Ürünleri")}
+              iconPosition="start"
+            />,
+            <Tab
+              key="stock-management"
+              icon={<Warehouse />}
+              label={tabLabel("Stok Yönetimi")}
+              iconPosition="start"
+            />,
+          ]}
+          <Tab
+            icon={<MoreVertIcon />}
+            label={tabLabel("Diğer")}
+            iconPosition="start"
+            onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+              e.stopPropagation();
+              setMoreMenuAnchor(e.currentTarget);
+            }}
+            sx={{
+              backgroundColor: overflowTabActive
+                ? "rgba(102, 126, 234, 0.08)"
+                : "transparent",
+              "&:hover": {
+                backgroundColor: "rgba(102, 126, 234, 0.12)",
+              },
+            }}
+          />
+        </Tabs>
+
+        {}
+        <Menu
+          anchorEl={moreMenuAnchor}
+          open={Boolean(moreMenuAnchor)}
+          onClose={() => setMoreMenuAnchor(null)}
+          anchorOrigin={{
+            vertical: "bottom",
+            horizontal: "left",
+          }}
+          transformOrigin={{
+            vertical: "top",
+            horizontal: "left",
+          }}
+          PaperProps={{
+            sx: {
+              mt: 1,
+              minWidth: 200,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+              borderRadius: 2,
+              backgroundColor: "rgba(255,255,255,0.98)",
+              backdropFilter: "blur(10px)",
+            },
+          }}
+        >
+          {isMobile && [
+            <MenuItem
+              key="menu-katana"
+              onClick={() => {
+                setActiveTab(2);
+                setMoreMenuAnchor(null);
+              }}
+              sx={overflowMenuItemSx}
+            >
+              <ShoppingCart sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
+              <Typography
+                variant="body2"
+                translate="no"
+                sx={overflowMenuTextSx}
+              >
+                Katana Ürünleri
+              </Typography>
+            </MenuItem>,
+            <MenuItem
+              key="menu-luca"
+              onClick={() => {
+                setActiveTab(3);
+                setMoreMenuAnchor(null);
+              }}
+              sx={overflowMenuItemSx}
+            >
+              <Inventory sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
+              <Typography
+                variant="body2"
+                translate="no"
+                sx={overflowMenuTextSx}
+              >
+                Luca Ürünleri
+              </Typography>
+            </MenuItem>,
+            <MenuItem
+              key="menu-stock"
+              onClick={() => {
+                setActiveTab(4);
+                setMoreMenuAnchor(null);
+              }}
+              sx={overflowMenuItemSx}
+            >
+              <Warehouse sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
+              <Typography
+                variant="body2"
+                translate="no"
+                sx={overflowMenuTextSx}
+              >
+                Stok Yönetimi
+              </Typography>
+            </MenuItem>,
+            <Divider key="menu-divider" sx={{ my: 1 }} />,
+          ]}
+          <MenuItem
+            onClick={() => {
+              setActiveTab(5);
+              setMoreMenuAnchor(null);
+            }}
+            sx={overflowMenuItemSx}
+          >
+            <SwapHorizIcon sx={{ mr: 1.5, fontSize: 20, color: "#8b5cf6" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
+              Stok Hareketleri
+            </Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setActiveTab(6);
+              setMoreMenuAnchor(null);
+            }}
+            sx={overflowMenuItemSx}
+          >
+            <ReportProblem sx={{ mr: 1.5, fontSize: 20, color: "#f59e0b" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
+              Hatalı Kayıtlar
+            </Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setActiveTab(7);
+              setMoreMenuAnchor(null);
+            }}
+            sx={overflowMenuItemSx}
+          >
+            <CompareArrowsIcon
+              sx={{ mr: 1.5, fontSize: 20, color: "#10b981" }}
+            />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
+              Veri Düzeltme
+            </Typography>
+          </MenuItem>
+          <Divider sx={{ my: 1 }} />
+          <MenuItem
+            onClick={() => {
+              setActiveTab(8);
+              setMoreMenuAnchor(null);
+            }}
+            sx={overflowMenuItemSx}
+          >
+            <UsersIcon sx={{ mr: 1.5, fontSize: 20, color: "#3b82f6" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
+              Kullanıcılar
+            </Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setActiveTab(9);
+              setMoreMenuAnchor(null);
+            }}
+            sx={overflowMenuItemSx}
+          >
+            <LogsIcon sx={{ mr: 1.5, fontSize: 20, color: "#64748b" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
+              Loglar
+            </Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setActiveTab(10);
+              setMoreMenuAnchor(null);
+            }}
+            sx={overflowMenuItemSx}
+          >
+            <SettingsIcon sx={{ mr: 1.5, fontSize: 20, color: "#0ea5e9" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
+              Ayarlar
+            </Typography>
+          </MenuItem>
+          <Divider sx={{ my: 1 }} />
+          <MenuItem
+            onClick={() => {
+              setActiveTab(12);
+              setMoreMenuAnchor(null);
+            }}
+            sx={overflowMenuItemSx}
+          >
+            <ShoppingCart sx={{ mr: 1.5, fontSize: 20, color: "#22c55e" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
+              Sipariş Entegrasyonu
+            </Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setActiveTab(13);
+              setMoreMenuAnchor(null);
+            }}
+            sx={overflowMenuItemSx}
+          >
+            <ShoppingCart sx={{ mr: 1.5, fontSize: 20, color: "#ec4899" }} />
+            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
+              Tedarikçi Yönetimi
+            </Typography>
+          </MenuItem>
+        </Menu>
+      </Paper>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -243,163 +730,669 @@ const AdminPanel: React.FC = () => {
         </Alert>
       )}
 
-      {/* Statistics Cards */}
-      {statistics && (
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: {
-              xs: "1fr",
-              sm: "1fr 1fr",
-              md: "1fr 1fr 1fr 1fr",
-            },
-            gap: 3,
-            mb: 3,
-          }}
-        >
-          <StatCard
-            title="Toplam Ürün"
-            value={statistics.totalProducts}
-            icon={<Inventory />}
-            color="#1976d2"
-          />
-          <StatCard
-            title="Toplam Stok"
-            value={statistics.totalStock.toLocaleString("tr-TR")}
-            icon={<TrendingUp />}
-            color="#2e7d32"
-          />
-          <StatCard
-            title="Başarılı Sync"
-            value={statistics.successfulSyncs}
-            icon={<CheckCircle />}
-            color="#388e3c"
-          />
-          <StatCard
-            title="Başarısız Sync"
-            value={statistics.failedSyncs}
-            icon={<ErrorIcon />}
-            color="#d32f2f"
-          />
+      {}
+      {activeTab === 0 && (
+        <Box>
+          {}
+          <Box sx={{ mb: 4 }}>
+            <PendingAdjustments />
+          </Box>
+
+          {statistics && (
+            <Box sx={{ mb: 4 }}>
+              <StatsCards
+                items={[
+                  {
+                    id: "total-products",
+                    label: "Toplam Ürün",
+                    value: statistics.totalProducts,
+                    icon: <Inventory />,
+                    tone: "primary",
+                  },
+                  {
+                    id: "total-stock",
+                    label: "Toplam Stok",
+                    value: statistics.totalStock.toLocaleString("tr-TR"),
+                    icon: <TrendingUp />,
+                    tone: "success",
+                  },
+                  {
+                    id: "critical-products",
+                    label: "Kritik Ürünler",
+                    value: statistics.criticalProducts ?? 0,
+                    icon: <ReportProblem />,
+                    tone: "warning",
+                  },
+                  {
+                    id: "total-value",
+                    label: "Toplam Değer",
+                    value: `₺${(statistics.totalValue ?? 0).toLocaleString(
+                      "tr-TR",
+                      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                    )}`,
+                    icon: <Receipt />,
+                    tone: "info",
+                  },
+                  {
+                    id: "successful-syncs",
+                    label: "Başarılı Sync",
+                    value: statistics.successfulSyncs,
+                    icon: <CheckCircle />,
+                    tone: "success",
+                  },
+                  {
+                    id: "failed-syncs",
+                    label: "Başarısız Sync",
+                    value: statistics.failedSyncs,
+                    icon: <ErrorIcon />,
+                    tone: "error",
+                  },
+                ]}
+              />
+            </Box>
+          )}
+
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: {
+                xs: "1fr",
+                md: "repeat(2, 1fr)",
+                lg: "repeat(3, 1fr)",
+              },
+              gap: 3,
+            }}
+          >
+            {/* Son Eklenen Ürünler */}
+            <Paper sx={{ p: { xs: 1.5, md: 3 }, borderRadius: 2 }}>
+              <Typography
+                variant="h6"
+                gutterBottom
+                sx={{
+                  fontWeight: 600,
+                  fontFamily: '"Poppins", "Inter", sans-serif',
+                  letterSpacing: "-0.3px",
+                  mb: 2,
+                }}
+              >
+                Son Eklenen Ürünler
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              {isMobile ? (
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 1.5,
+                  }}
+                >
+                  {products.length === 0 ? (
+                    <Typography
+                      color="text.secondary"
+                      align="center"
+                      sx={{ py: 2 }}
+                    >
+                      Ürün bulunamadı
+                    </Typography>
+                  ) : (
+                    products.map((product, idx) => (
+                      <Paper
+                        key={
+                          product.id && product.id !== ""
+                            ? product.id
+                            : product.sku && product.sku !== ""
+                            ? product.sku
+                            : `product-${idx}`
+                        }
+                        sx={{
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: 2,
+                          p: 1.5,
+                        }}
+                      >
+                        <Typography variant="subtitle1" fontWeight={600}>
+                          {product.name}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mt: 0.25 }}
+                        >
+                          SKU: <strong>{product.sku}</strong>
+                        </Typography>
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                            columnGap: 1,
+                            rowGap: 1,
+                            mt: 1,
+                          }}
+                        >
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Stok
+                            </Typography>
+                            <Typography fontWeight={600}>
+                              {product.stock}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Durum
+                            </Typography>
+                            <Chip
+                              label={product.isActive ? "Aktif" : "Pasif"}
+                              color={product.isActive ? "success" : "default"}
+                              size="small"
+                              sx={{ mt: 0.25 }}
+                            />
+                          </Box>
+                        </Box>
+                      </Paper>
+                    ))
+                  )}
+                </Box>
+              ) : (
+                <TableContainer sx={{ overflowX: "auto", maxWidth: "100%" }}>
+                  <Table size="small" sx={{ minWidth: "auto" }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>SKU</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Ürün Adı
+                        </TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                          Stok
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Durum
+                        </TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {products.map((product, idx) => (
+                        <TableRow
+                          key={
+                            product.id && product.id !== ""
+                              ? product.id
+                              : product.sku && product.sku !== ""
+                              ? product.sku
+                              : `product-${idx}`
+                          }
+                        >
+                          <TableCell sx={{ whiteSpace: "nowrap" }}>
+                            {product.sku}
+                          </TableCell>
+                          <TableCell
+                            sx={{
+                              maxWidth: "150px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {product.name}
+                          </TableCell>
+                          <TableCell align="right">{product.stock}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={product.isActive ? "Aktif" : "Pasif"}
+                              color={product.isActive ? "success" : "default"}
+                              size="small"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Paper>
+
+            {/* Son Stok Hareketleri */}
+            <Paper sx={{ p: { xs: 1.5, md: 3 }, borderRadius: 2 }}>
+              <Typography
+                variant="h6"
+                gutterBottom
+                sx={{
+                  fontWeight: 600,
+                  fontFamily: '"Poppins", "Inter", sans-serif',
+                  letterSpacing: "-0.3px",
+                  mb: 2,
+                }}
+              >
+                Son Stok Hareketleri
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+
+              {/* Summary Cards */}
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: {
+                    xs: "1fr 1fr",
+                    sm: "1fr 1fr",
+                    md: "repeat(2, 1fr)",
+                  },
+                  gap: 1.5,
+                  mb: 3,
+                }}
+              >
+                {/* Toplam Girdi */}
+                <Card
+                  sx={{
+                    background:
+                      "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                    color: "white",
+                    borderRadius: 2,
+                  }}
+                >
+                  <CardContent sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+                    <Typography
+                      variant="caption"
+                      sx={{ opacity: 0.9, display: "block", mb: 0.5 }}
+                    >
+                      Toplam Girdi
+                    </Typography>
+                    <Typography
+                      variant="h5"
+                      fontWeight={700}
+                      fontSize={{ xs: "1.5rem", sm: "1.75rem" }}
+                    >
+                      {stockMovements
+                        .filter((m) => m.quantity > 0)
+                        .reduce((sum, m) => sum + m.quantity, 0)
+                        .toLocaleString("tr-TR")}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{ opacity: 0.8, display: "block", mt: 0.5 }}
+                    >
+                      Son {stockMovements.length} hareket
+                    </Typography>
+                  </CardContent>
+                </Card>
+
+                {/* Toplam Stok */}
+                <Card
+                  sx={{
+                    background:
+                      "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                    color: "white",
+                    borderRadius: 2,
+                  }}
+                >
+                  <CardContent sx={{ p: { xs: 1, sm: 1.5, md: 2 } }}>
+                    <Typography
+                      variant="caption"
+                      sx={{ opacity: 0.9, display: "block", mb: 0.5 }}
+                    >
+                      Toplam Çıktı
+                    </Typography>
+                    <Typography
+                      variant="h5"
+                      fontWeight={700}
+                      fontSize={{ xs: "1.5rem", sm: "1.75rem" }}
+                    >
+                      {Math.abs(
+                        stockMovements
+                          .filter((m) => m.quantity < 0)
+                          .reduce((sum, m) => sum + m.quantity, 0)
+                      ).toLocaleString("tr-TR")}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{ opacity: 0.8, display: "block", mt: 0.5 }}
+                    >
+                      Son {stockMovements.length} hareket
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Box>
+              {isMobile ? (
+                <Box
+                  sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}
+                >
+                  {stockMovements.length === 0 ? (
+                    <Typography
+                      color="text.secondary"
+                      align="center"
+                      sx={{ py: 2 }}
+                    >
+                      Stok hareketi bulunamadı
+                    </Typography>
+                  ) : (
+                    stockMovements.map((movement, idx) => (
+                      <Paper
+                        key={movement.id || `movement-${idx}`}
+                        sx={{
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: 2,
+                          p: 1.5,
+                        }}
+                      >
+                        <Typography variant="subtitle1" fontWeight={600}>
+                          {movement.productName}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mt: 0.25 }}
+                        >
+                          SKU: <strong>{movement.sku}</strong>
+                        </Typography>
+                        <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Miktar
+                            </Typography>
+                            <Typography
+                              fontWeight={600}
+                              color={
+                                movement.quantity > 0
+                                  ? "success.main"
+                                  : "error.main"
+                              }
+                            >
+                              {movement.quantity > 0 ? "+" : ""}
+                              {movement.quantity}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Hareket
+                            </Typography>
+                            <Typography fontWeight={600}>
+                              {movement.movementType}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Tarih
+                            </Typography>
+                            <Typography variant="body2">
+                              {new Date(movement.movementDate).toLocaleString(
+                                "tr-TR"
+                              )}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        {movement.reason && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ mt: 1, display: "block" }}
+                          >
+                            Sebep: {movement.reason}
+                          </Typography>
+                        )}
+                      </Paper>
+                    ))
+                  )}
+                </Box>
+              ) : (
+                <TableContainer sx={{ overflowX: "auto", maxWidth: "100%" }}>
+                  <Table size="small" sx={{ minWidth: "auto" }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Ürün
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>SKU</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                          Miktar
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Hareket
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Tarih
+                        </TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {stockMovements.map((movement, idx) => (
+                        <TableRow key={movement.id || `movement-${idx}`}>
+                          <TableCell
+                            sx={{
+                              maxWidth: "120px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {movement.productName}
+                          </TableCell>
+                          <TableCell sx={{ whiteSpace: "nowrap" }}>
+                            {movement.sku}
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography
+                              component="span"
+                              fontWeight={600}
+                              fontSize="0.875rem"
+                              color={
+                                movement.quantity > 0
+                                  ? "success.main"
+                                  : "error.main"
+                              }
+                            >
+                              {movement.quantity > 0 ? "+" : ""}
+                              {movement.quantity}
+                            </Typography>
+                          </TableCell>
+                          <TableCell
+                            sx={{
+                              maxWidth: "100px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              fontSize: "0.875rem",
+                            }}
+                          >
+                            {movement.movementType}
+                          </TableCell>
+                          <TableCell
+                            sx={{
+                              whiteSpace: "nowrap",
+                              fontSize: "0.875rem",
+                            }}
+                          >
+                            {new Date(movement.movementDate).toLocaleString(
+                              "tr-TR",
+                              {
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Paper>
+
+            {/* Son Sync Logları */}
+            <Paper sx={{ p: { xs: 1.5, md: 3 }, borderRadius: 2 }}>
+              <Typography
+                variant="h6"
+                gutterBottom
+                sx={{
+                  fontWeight: 600,
+                  fontFamily: '"Poppins", "Inter", sans-serif',
+                  letterSpacing: "-0.3px",
+                  mb: 2,
+                }}
+              >
+                Son Sync Logları
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              {isMobile ? (
+                <Box
+                  sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}
+                >
+                  {syncLogs.length === 0 ? (
+                    <Typography
+                      color="text.secondary"
+                      align="center"
+                      sx={{ py: 2 }}
+                    >
+                      Sync logu bulunamadı
+                    </Typography>
+                  ) : (
+                    syncLogs.map((log, idx) => (
+                      <Paper
+                        key={log.id || `log-${idx}`}
+                        sx={{
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: 2,
+                          p: 1.5,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 1,
+                            alignItems: "flex-start",
+                          }}
+                        >
+                          <Box>
+                            <Typography variant="subtitle1" fontWeight={600}>
+                              {log.integrationName}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {new Date(log.createdAt).toLocaleString("tr-TR")}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={log.isSuccess ? "Başarılı" : "Başarısız"}
+                            color={log.isSuccess ? "success" : "error"}
+                            size="small"
+                          />
+                        </Box>
+                      </Paper>
+                    ))
+                  )}
+                </Box>
+              ) : (
+                <TableContainer sx={{ overflowX: "auto", maxWidth: "100%" }}>
+                  <Table size="small" sx={{ minWidth: "auto" }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Entegrasyon
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Tarih
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          Durum
+                        </TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {syncLogs.map((log, idx) => (
+                        <TableRow key={log.id || `log-${idx}`}>
+                          <TableCell
+                            sx={{
+                              fontSize: "0.875rem",
+                              maxWidth: "150px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {log.integrationName}
+                          </TableCell>
+                          <TableCell
+                            sx={{ fontSize: "0.875rem", whiteSpace: "nowrap" }}
+                          >
+                            {new Date(log.createdAt).toLocaleDateString(
+                              "tr-TR",
+                              { month: "2-digit", day: "2-digit" }
+                            )}{" "}
+                            {new Date(log.createdAt).toLocaleTimeString(
+                              "tr-TR",
+                              { hour: "2-digit", minute: "2-digit" }
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={log.isSuccess ? "Başarılı" : "Başarısız"}
+                              color={log.isSuccess ? "success" : "error"}
+                              size="small"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Paper>
+          </Box>
         </Box>
       )}
 
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-          gap: 3,
-        }}
-      >
-        {/* Recent Products */}
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Son Eklenen Ürünler
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>SKU</TableCell>
-                  <TableCell>Ürün Adı</TableCell>
-                  <TableCell align="right">Stok</TableCell>
-                  <TableCell>Durum</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {products.map((product, idx) => (
-                  <TableRow
-                    key={
-                      product.id && product.id !== ""
-                        ? product.id
-                        : product.sku && product.sku !== ""
-                        ? product.sku
-                        : `product-${idx}`
-                    }
-                  >
-                    <TableCell>{product.sku}</TableCell>
-                    <TableCell>{product.name}</TableCell>
-                    <TableCell align="right">{product.stock}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={product.isActive ? "Aktif" : "Pasif"}
-                        color={product.isActive ? "success" : "default"}
-                        size="small"
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+      {}
+      {activeTab === 1 && <SalesOrders />}
 
-        {/* Sync Logs */}
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Senkronizasyon Logları
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Entegrasyon</TableCell>
-                  <TableCell>Tarih</TableCell>
-                  <TableCell>Durum</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {syncLogs.map((log, idx) => (
-                  <TableRow
-                    key={
-                      log.id && String(log.id) !== "0" ? log.id : `log-${idx}`
-                    }
-                  >
-                    <TableCell>{log.integrationName}</TableCell>
-                    <TableCell>
-                      {new Date(log.createdAt).toLocaleString("tr-TR")}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={log.isSuccess ? "Başarılı" : "Başarısız"}
-                        color={log.isSuccess ? "success" : "error"}
-                        size="small"
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            component="div"
-            count={totalSyncLogs}
-            page={page}
-            onPageChange={(_, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(e) => {
-              setRowsPerPage(parseInt(e.target.value, 10));
-              setPage(0);
-            }}
-            rowsPerPageOptions={[5, 10, 25]}
-            labelRowsPerPage="Sayfa başına:"
-          />
-        </Paper>
-      </Box>
+      {}
+      {activeTab === 2 && <KatanaProducts />}
 
-      {/* System Logs */}
-      <Box mt={4}>
-        <Divider sx={{ mb: 3 }} />
-        <LogsViewer />
-      </Box>
-      {/* Settings embedded inside AdminPanel */}
-      <Box mt={4}>
-        <Divider sx={{ mb: 3 }} />
-        <Settings />
-      </Box>
-    </Box>
+      {}
+      {activeTab === 3 && <LucaProducts />}
+
+      {}
+      {activeTab === 4 && <StockManagement />}
+
+      {/* Stok Hareketleri Tab */}
+      {activeTab === 5 && <StockMovements />}
+
+      {}
+      {activeTab === 6 && <FailedRecords />}
+
+      {}
+      {activeTab === 7 && <DataCorrectionPanel />}
+
+      {}
+      {activeTab === 8 && <UsersManagement />}
+
+      {}
+      {activeTab === 9 && <LogsViewer />}
+
+      {}
+      {activeTab === 10 && <Settings />}
+
+      {/* Sipariş Entegrasyonu (Sales + Purchase Orders) */}
+      {activeTab === 12 && <OrderIntegrationPage />}
+
+      {/* Tedarikçi Yönetimi */}
+      {activeTab === 13 && <Suppliers />}
+    </Container>
   );
 };
 

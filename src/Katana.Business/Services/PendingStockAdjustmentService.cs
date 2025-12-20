@@ -1,5 +1,6 @@
 using Katana.Business.Interfaces;
 using Katana.Core.Entities;
+using Katana.Core.DTOs;
 using Katana.Data.Context;
 using Katana.Data.Models;
 using Microsoft.EntityFrameworkCore;
@@ -16,12 +17,24 @@ namespace Katana.Business.Services
         private readonly IntegrationDbContext _context;
         private readonly ILogger<PendingStockAdjustmentService> _logger;
         private readonly Katana.Core.Interfaces.IPendingNotificationPublisher? _publisher;
+        private readonly ISyncService? _syncService;
+        private readonly IKatanaService? _katanaService;
+        private readonly ILucaService? _lucaService;
 
-        public PendingStockAdjustmentService(IntegrationDbContext context, ILogger<PendingStockAdjustmentService> logger, Katana.Core.Interfaces.IPendingNotificationPublisher? publisher = null)
+        public PendingStockAdjustmentService(
+            IntegrationDbContext context, 
+            ILogger<PendingStockAdjustmentService> logger, 
+            Katana.Core.Interfaces.IPendingNotificationPublisher? publisher = null,
+            ISyncService? syncService = null,
+            IKatanaService? katanaService = null,
+            ILucaService? lucaService = null)
         {
             _context = context;
             _logger = logger;
             _publisher = publisher;
+            _syncService = syncService;
+            _katanaService = katanaService;
+            _lucaService = lucaService;
         }
 
         public async Task<PendingStockAdjustment> CreateAsync(PendingStockAdjustment creation)
@@ -33,7 +46,7 @@ namespace Katana.Business.Services
 
             _logger.LogInformation("Pending stock adjustment created (Id: {Id}, ProductId: {ProductId}, Quantity: {Qty})", creation.Id, creation.ProductId, creation.Quantity);
 
-            // Publish lightweight pending-created notification if a publisher is available
+            
             try
             {
                 if (_publisher != null)
@@ -62,8 +75,8 @@ namespace Katana.Business.Services
 
         public async Task<bool> ApproveAsync(long id, string approvedBy)
         {
-            // If the provider is non-relational (e.g., InMemory for tests),
-            // fallback to a simpler, transaction-less path that preserves semantics.
+            
+            
             if (!_context.Database.IsRelational())
             {
                 try
@@ -86,9 +99,21 @@ namespace Katana.Business.Services
                         return false;
                     }
 
-                    product.Stock += item.Quantity;
-                    product.UpdatedAt = DateTime.UtcNow;
+                    
+                    var movement = new Katana.Core.Entities.StockMovement
+                    {
+                        ProductId = item.ProductId,
+                        ProductSku = item.Sku ?? string.Empty,
+                        ChangeQuantity = item.Quantity,
+                        MovementType = item.Quantity == 0 ? Katana.Core.Enums.MovementType.Adjustment : (item.Quantity > 0 ? Katana.Core.Enums.MovementType.In : Katana.Core.Enums.MovementType.Out),
+                        SourceDocument = item.ExternalOrderId ?? "PendingAdjustment",
+                        Timestamp = DateTime.UtcNow,
+                        WarehouseCode = "MAIN",
+                        IsSynced = false
+                    };
+                    _context.StockMovements.Add(movement);
 
+                    
                     var stockEntry = new Stock
                     {
                         ProductId = item.ProductId,
@@ -110,6 +135,9 @@ namespace Katana.Business.Services
                     await _context.SaveChangesAsync();
 
                     _logger.LogInformation("Pending stock adjustment {Id} approved by {User} (non-relational)", id, approvedBy);
+
+                    // Luca'ya stok kartı senkronizasyonu tetikle
+                    await TriggerLucaSyncAsync(item.Sku, "approve-non-relational");
 
                     try
                     {
@@ -148,18 +176,18 @@ namespace Katana.Business.Services
 
                 await strategy.ExecuteAsync(async () =>
                 {
-                    // First, attempt an atomic state transition from Pending -> Approving
+                    
                     var rows = await _context.Database.ExecuteSqlInterpolatedAsync($"UPDATE PendingStockAdjustments SET Status = {"Approving"} WHERE Id = {id} AND Status = {"Pending"}");
                     if (rows == 0)
                     {
-                        // Nothing to do (already processed or not pending)
+                        
                         failureReason = "Adjustment not in pending state or already processed";
                         return;
                     }
 
                     await using var tx = await _context.Database.BeginTransactionAsync();
 
-                    // Reload the item now that we have claimed it
+                    
                     var item = await _context.PendingStockAdjustments.FindAsync(id);
                     if (item == null)
                     {
@@ -181,11 +209,23 @@ namespace Katana.Business.Services
                         return;
                     }
 
-                    // Apply adjustment. Quantity may be negative for sales.
-                    product.Stock += item.Quantity;
-                    product.UpdatedAt = DateTime.UtcNow;
+                    
+                    var movementRel = new Katana.Core.Entities.StockMovement
+                    {
+                        ProductId = item.ProductId,
+                        ProductSku = item.Sku ?? string.Empty,
+                        ChangeQuantity = item.Quantity,
+                        MovementType = item.Quantity == 0
+                            ? Katana.Core.Enums.MovementType.Adjustment
+                            : item.Quantity > 0 ? Katana.Core.Enums.MovementType.In : Katana.Core.Enums.MovementType.Out,
+                        SourceDocument = item.ExternalOrderId ?? "PendingAdjustment",
+                        Timestamp = DateTime.UtcNow,
+                        WarehouseCode = "MAIN",
+                        IsSynced = false
+                    };
+                    _context.StockMovements.Add(movementRel);
 
-                    // Mirror the adjustment into the Stocks table so admin stock movement reports stay accurate
+                    
                     var stockEntryRel = new Stock
                     {
                         ProductId = item.ProductId,
@@ -214,7 +254,9 @@ namespace Katana.Business.Services
                     _logger.LogInformation("Pending stock adjustment {Id} approved by {User}", id, approvedBy);
                     success = true;
 
-                    // Publish approved event (best-effort)
+                    // Luca'ya stok kartı senkronizasyonu tetikle
+                    await TriggerLucaSyncAsync(item.Sku, "approve-relational");
+
                     try
                     {
                         if (_publisher != null)
@@ -239,7 +281,7 @@ namespace Katana.Business.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to approve pending stock adjustment {Id}", id);
-                // Try to mark as failed if possible
+                
                 var item = await _context.PendingStockAdjustments.FindAsync(id);
                 if (item != null)
                 {
@@ -263,6 +305,203 @@ namespace Katana.Business.Services
             await _context.SaveChangesAsync();
             _logger.LogInformation("Pending stock adjustment {Id} rejected by {User}: {Reason}", id, rejectedBy, reason);
             return true;
+        }
+
+        /// <summary>
+        /// Onay sonrası tüm senkronizasyonları tetikler:
+        /// 1. Luca'ya stok kartı oluşturma/güncelleme
+        /// 2. Luca'ya stok hareketi gönderme
+        /// 3. Katana'ya stok güncelleme
+        /// </summary>
+        private async Task TriggerLucaSyncAsync(string? sku, string source)
+        {
+            _logger.LogInformation("Starting full sync after pending approval. SKU: {SKU}, Source: {Source}", sku, source);
+
+            // 1. Luca'ya stok kartı senkronizasyonu
+            await SyncStockCardToLucaAsync(sku);
+
+            // 2. Luca'ya stok hareketi gönder
+            await SyncStockMovementToLucaAsync(sku);
+
+            // 3. Katana'ya stok güncelleme
+            await SyncStockToKatanaAsync(sku);
+
+            // 4. IsSynced flag'lerini güncelle
+            await MarkMovementsAsSyncedAsync(sku);
+        }
+
+        /// <summary>
+        /// Luca'ya stok kartı senkronizasyonu - değişen ürünler yeni kart olarak oluşturulur
+        /// </summary>
+        private async Task SyncStockCardToLucaAsync(string? sku)
+        {
+            if (_syncService == null)
+            {
+                _logger.LogDebug("SyncService not available, skipping Luca stock card sync for SKU: {SKU}", sku);
+                return;
+            }
+
+            try
+            {
+                var result = await _syncService.SyncProductsToLucaAsync(new SyncOptionsDto
+                {
+                    DryRun = false,
+                    ForceSendDuplicates = false,
+                    PreferBarcodeMatch = true
+                });
+
+                if (result.IsSuccess)
+                {
+                    _logger.LogInformation("Luca stock card sync completed. New: {New}, Sent: {Sent}", 
+                        result.NewCreated, result.SentRecords);
+                }
+                else
+                {
+                    _logger.LogWarning("Luca stock card sync completed with issues: {Message}", result.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to sync stock card to Luca for SKU: {SKU}", sku);
+            }
+        }
+
+        /// <summary>
+        /// Luca'ya stok hareketi gönderir
+        /// </summary>
+        private async Task SyncStockMovementToLucaAsync(string? sku)
+        {
+            if (_lucaService == null || string.IsNullOrEmpty(sku))
+            {
+                _logger.LogDebug("LucaService not available or SKU empty, skipping stock movement sync");
+                return;
+            }
+
+            try
+            {
+                // Senkronize edilmemiş stok hareketlerini al
+                var unsyncedMovements = await _context.Stocks
+                    .Where(s => !s.IsSynced && (string.IsNullOrEmpty(sku) || (s.Reference != null && s.Reference.Contains(sku))))
+                    .OrderByDescending(s => s.Timestamp)
+                    .Take(50) // Son 50 hareket
+                    .ToListAsync();
+
+                if (!unsyncedMovements.Any())
+                {
+                    _logger.LogDebug("No unsynced stock movements found for SKU: {SKU}", sku);
+                    return;
+                }
+
+                // Luca formatına dönüştür - LucaStockDto [JsonIgnore] properties kullanılır
+                var lucaStocks = unsyncedMovements.Select(s => new LucaStockDto
+                {
+                    ProductCode = s.Reference ?? string.Empty,
+                    Quantity = s.Quantity,
+                    MovementType = s.Type ?? "ADJUSTMENT",
+                    MovementDate = s.Timestamp
+                }).ToList();
+
+                var result = await _lucaService.SendStockMovementsAsync(lucaStocks);
+
+                if (result.IsSuccess)
+                {
+                    _logger.LogInformation("Sent {Count} stock movements to Luca", result.SuccessfulRecords);
+                    
+                    // Başarılı olanları işaretle
+                    foreach (var movement in unsyncedMovements)
+                    {
+                        movement.IsSynced = true;
+                    }
+                    await _context.SaveChangesAsync();
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to send stock movements to Luca: {Message}", result.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to sync stock movements to Luca for SKU: {SKU}", sku);
+            }
+        }
+
+        /// <summary>
+        /// Katana'ya stok güncelleme gönderir
+        /// </summary>
+        private async Task SyncStockToKatanaAsync(string? sku)
+        {
+            if (_katanaService == null || string.IsNullOrEmpty(sku))
+            {
+                _logger.LogDebug("KatanaService not available or SKU empty, skipping Katana sync");
+                return;
+            }
+
+            try
+            {
+                // SKU ile ürünü bul
+                var product = await _context.Products
+                    .FirstOrDefaultAsync(p => p.SKU == sku);
+
+                if (product == null)
+                {
+                    _logger.LogDebug("Product not found for SKU: {SKU}, skipping Katana sync", sku);
+                    return;
+                }
+
+                // Toplam stok miktarını hesapla
+                var totalStock = await _context.Stocks
+                    .Where(s => s.ProductId == product.Id)
+                    .SumAsync(s => s.Type == "IN" ? s.Quantity : (s.Type == "OUT" ? -s.Quantity : 0));
+
+                // Katana'ya gönder
+                var success = await _katanaService.UpdateProductAsync(
+                    product.Id,
+                    product.Name ?? sku,
+                    product.SalesPrice,
+                    (int)totalStock
+                );
+
+                if (success)
+                {
+                    _logger.LogInformation("Successfully updated stock in Katana for SKU: {SKU}, Stock: {Stock}", sku, totalStock);
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to update stock in Katana for SKU: {SKU}", sku);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to sync stock to Katana for SKU: {SKU}", sku);
+            }
+        }
+
+        /// <summary>
+        /// StockMovement kayıtlarını senkronize edilmiş olarak işaretler
+        /// </summary>
+        private async Task MarkMovementsAsSyncedAsync(string? sku)
+        {
+            try
+            {
+                var unsyncedMovements = await _context.StockMovements
+                    .Where(m => !m.IsSynced && (string.IsNullOrEmpty(sku) || m.ProductSku == sku))
+                    .ToListAsync();
+
+                foreach (var movement in unsyncedMovements)
+                {
+                    movement.IsSynced = true;
+                }
+
+                if (unsyncedMovements.Any())
+                {
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Marked {Count} stock movements as synced for SKU: {SKU}", unsyncedMovements.Count, sku);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to mark movements as synced for SKU: {SKU}", sku);
+            }
         }
     }
 }

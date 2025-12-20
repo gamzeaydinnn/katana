@@ -5,16 +5,14 @@ public enum TransactionType
     Income,
     Expense
 }
-
 public enum AccountingCategory
 {
-    // Income Categories
+    
     Sale,
     ServiceRevenue,
     Interest,
     OtherIncome,
     
-    // Expense Categories
     Purchase,
     Salary,
     Rent,

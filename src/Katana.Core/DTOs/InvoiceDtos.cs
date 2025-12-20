@@ -1,8 +1,5 @@
 namespace Katana.Core.DTOs;
 
-/// <summary>
-/// Fatura detay DTO - Tam bilgi
-/// </summary>
 public class InvoiceDto
 {
     public int Id { get; set; }
@@ -25,9 +22,9 @@ public class InvoiceDto
     public List<InvoiceItemDto> Items { get; set; } = new();
 }
 
-/// <summary>
-/// Fatura kalemi DTO
-/// </summary>
+
+
+
 public class InvoiceItemDto
 {
     public int Id { get; set; }
@@ -42,9 +39,9 @@ public class InvoiceItemDto
     public string Unit { get; set; } = "ADET";
 }
 
-/// <summary>
-/// Fatura oluşturma DTO
-/// </summary>
+
+
+
 public class CreateInvoiceDto
 {
     public string InvoiceNo { get; set; } = string.Empty;
@@ -56,9 +53,9 @@ public class CreateInvoiceDto
     public List<CreateInvoiceItemDto> Items { get; set; } = new();
 }
 
-/// <summary>
-/// Fatura kalemi oluşturma DTO
-/// </summary>
+
+
+
 public class CreateInvoiceItemDto
 {
     public int ProductId { get; set; }
@@ -67,26 +64,26 @@ public class CreateInvoiceItemDto
     public decimal TaxRate { get; set; } = 0.18m;
 }
 
-/// <summary>
-/// Fatura güncelleme DTO
-/// </summary>
+
+
+
 public class UpdateInvoiceDto
 {
     public string? Notes { get; set; }
     public DateTime? DueDate { get; set; }
 }
 
-/// <summary>
-/// Fatura durum değiştirme DTO
-/// </summary>
+
+
+
 public class UpdateInvoiceStatusDto
 {
     public string Status { get; set; } = string.Empty;
 }
 
-/// <summary>
-/// Fatura özet DTO - Liste görünümü için
-/// </summary>
+
+
+
 public class InvoiceSummaryDto
 {
     public int Id { get; set; }
@@ -100,9 +97,9 @@ public class InvoiceSummaryDto
     public int ItemCount { get; set; }
 }
 
-/// <summary>
-/// Fatura istatistik DTO
-/// </summary>
+
+
+
 public class InvoiceStatisticsDto
 {
     public int TotalInvoices { get; set; }

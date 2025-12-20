@@ -46,6 +46,38 @@ export const isJwtExpired = (payload: JwtPayload | null): boolean => {
   return payload.exp <= nowSeconds;
 };
 
+
+
+export const isJwtTokenExpired = (token?: string | null): boolean => {
+  const payload = decodeJwtPayload(token ?? undefined);
+  if (!payload) return true;
+  return isJwtExpired(payload);
+};
+
+
+
+export const getJwtRoles = (payload: JwtPayload | null): string[] => {
+  if (!payload) return [];
+  const candidateKeys = [
+    "role",
+    "roles",
+    "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
+  ];
+  const roles: string[] = [];
+  for (const key of candidateKeys) {
+    const value = payload[key];
+    if (Array.isArray(value)) {
+      for (const v of value) {
+        if (typeof v === "string" && v.trim() !== "") roles.push(v);
+      }
+    } else if (typeof value === "string" && value.trim() !== "") {
+      roles.push(value);
+    }
+  }
+  
+  return Array.from(new Set(roles.map((r) => r.toLowerCase())));
+};
+
 export const tryGetJwtUsername = (
   payload: JwtPayload | null
 ): string | null => {

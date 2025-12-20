@@ -1,0 +1,13 @@
+{
+  "name": "katana-e2e",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "codegen": "playwright codegen"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  }
+}

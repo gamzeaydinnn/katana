@@ -1,6 +1,6 @@
 ﻿using System;
 using Katana.Business.Interfaces;
-using Katana.Business.UseCases.Sync;
+using Katana.Business.Services;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Data.Context;
@@ -18,6 +18,7 @@ public class SyncServiceTests : IDisposable
     private readonly Mock<IExtractorService> _mockExtractor;
     private readonly Mock<ITransformerService> _mockTransformer;
     private readonly Mock<ILoaderService> _mockLoader;
+    private readonly Mock<ILucaService> _mockLucaService;
     private readonly IntegrationDbContext _context;
     private readonly SyncService _syncService;
 
@@ -27,13 +28,14 @@ public class SyncServiceTests : IDisposable
         _mockExtractor = new Mock<IExtractorService>();
         _mockTransformer = new Mock<ITransformerService>();
         _mockLoader = new Mock<ILoaderService>();
+        _mockLucaService = new Mock<ILucaService>();
 
         var options = new DbContextOptionsBuilder<IntegrationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
         _context = new IntegrationDbContext(options);
 
-        // Default mocks: one item per sync path returning success
+        
         _mockExtractor.Setup(e => e.ExtractProductsAsync(It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ProductDto> { new() { SKU = "PRD-1", Name = "Prod", Price = 10m, CategoryId = 1, IsActive = true } });
         _mockExtractor.Setup(e => e.ExtractInvoicesAsync(It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
@@ -48,26 +50,26 @@ public class SyncServiceTests : IDisposable
         _mockTransformer.Setup(t => t.ToCustomersAsync(It.IsAny<IEnumerable<CustomerDto>>()))
             .ReturnsAsync((IEnumerable<CustomerDto> dtos) => dtos.Select(d => new Customer { Id = d.Id, TaxNo = d.TaxNo, Title = d.Title, IsActive = d.IsActive }).ToList());
 
-        _mockLoader.Setup(l => l.LoadProductsAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((IEnumerable<Product> products, int _, CancellationToken __) => products.Count());
-        _mockLoader.Setup(l => l.LoadInvoicesAsync(It.IsAny<IEnumerable<Invoice>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((IEnumerable<Invoice> invoices, int _, CancellationToken __) => invoices.Count());
-        _mockLoader.Setup(l => l.LoadCustomersAsync(It.IsAny<IEnumerable<Customer>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((IEnumerable<Customer> customers, int _, CancellationToken __) => customers.Count());
+        _mockLoader.Setup(l => l.LoadProductsAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IEnumerable<Product> products, IReadOnlyDictionary<string, string> _, int __, CancellationToken ___) => products.Count());
+        _mockLoader.Setup(l => l.LoadInvoicesAsync(It.IsAny<IEnumerable<Invoice>>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IEnumerable<Invoice> invoices, IReadOnlyDictionary<string, string> _, int __, CancellationToken ___) => invoices.Count());
+        _mockLoader.Setup(l => l.LoadCustomersAsync(It.IsAny<IEnumerable<Customer>>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IEnumerable<Customer> customers, IReadOnlyDictionary<string, string> _, int __, CancellationToken ___) => customers.Count());
 
-        _syncService = new SyncService(_mockExtractor.Object, _mockTransformer.Object, _mockLoader.Object, _context, _mockLogger.Object);
+        _syncService = new SyncService(_mockExtractor.Object, _mockTransformer.Object, _mockLoader.Object, _mockLucaService.Object, _context, _mockLogger.Object);
     }
 
     [Fact]
     public async Task SyncStockAsync_WhenCalled_ShouldReturnMockResult()
     {
-        // Arrange
+        
         var fromDate = DateTime.UtcNow.AddDays(-7);
 
-        // Act
+        
         var result = await _syncService.SyncStockAsync(fromDate);
 
-        // Assert
+        
         result.Should().NotBeNull();
         result.IsSuccess.Should().BeTrue();
         result.SyncType.Should().Be("STOCK");
@@ -76,13 +78,13 @@ public class SyncServiceTests : IDisposable
     [Fact]
     public async Task SyncInvoicesAsync_WhenCalled_ShouldReturnMockResult()
     {
-        // Arrange
+        
         var fromDate = DateTime.UtcNow.AddDays(-7);
 
-        // Act
+        
         var result = await _syncService.SyncInvoicesAsync(fromDate);
 
-        // Assert
+        
         result.Should().NotBeNull();
         result.IsSuccess.Should().BeTrue();
         result.SyncType.Should().Be("INVOICE");
@@ -91,13 +93,13 @@ public class SyncServiceTests : IDisposable
     [Fact]
     public async Task SyncCustomersAsync_WhenCalled_ShouldReturnMockResult()
     {
-        // Arrange
+        
         var fromDate = DateTime.UtcNow.AddDays(-7);
 
-        // Act
+        
         var result = await _syncService.SyncCustomersAsync(fromDate);
 
-        // Assert
+        
         result.Should().NotBeNull();
         result.IsSuccess.Should().BeTrue();
         result.SyncType.Should().Be("CUSTOMER");
@@ -106,15 +108,15 @@ public class SyncServiceTests : IDisposable
     [Fact]
     public async Task SyncAllAsync_WhenCalled_ShouldReturnBatchResult()
     {
-        // Arrange
+        
         var fromDate = DateTime.UtcNow.AddDays(-7);
 
-        // Act
+        
         var result = await _syncService.SyncAllAsync(fromDate);
 
-        // Assert
+        
         result.Should().NotBeNull();
-        result.Results.Should().HaveCount(3);
+        result.Results.Should().HaveCount(4);
         result.OverallSuccess.Should().BeTrue();
     }
 

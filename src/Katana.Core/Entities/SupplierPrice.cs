@@ -14,7 +14,7 @@ public class SupplierPrice
 
     public DateTime EffectiveDate { get; set; } = DateTime.UtcNow;
 
-    // Navigation
+    
     public virtual Supplier? Supplier { get; set; }
     public virtual Product? Product { get; set; }
 }

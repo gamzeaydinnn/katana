@@ -39,7 +39,7 @@ class ErrorBoundary extends Component<Props, State> {
       errorInfo,
     });
 
-    // Log to backend
+    
     this.logErrorToBackend(error, errorInfo);
   }
 

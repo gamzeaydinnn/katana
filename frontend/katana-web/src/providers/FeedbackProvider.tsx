@@ -1,4 +1,11 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Backdrop, CircularProgress, Snackbar, Alert, AlertColor } from "@mui/material";
 
 type ToastOptions = {
@@ -13,6 +20,17 @@ type FeedbackContextType = {
 };
 
 const FeedbackContext = createContext<FeedbackContextType | undefined>(undefined);
+
+
+
+
+export let showGlobalToast: (opts: ToastOptions | string) => void = () => {};
+
+export const __registerGlobalToast = (
+  impl: (opts: ToastOptions | string) => void
+) => {
+  showGlobalToast = impl;
+};
 
 export const useFeedback = (): FeedbackContextType => {
   const ctx = useContext(FeedbackContext);
@@ -37,6 +55,11 @@ export const FeedbackProvider: React.FC<React.PropsWithChildren<{}>> = ({ childr
 
   const value = useMemo(() => ({ showToast, setLoading }), [showToast]);
 
+  
+  useEffect(() => {
+    __registerGlobalToast(showToast);
+  }, [showToast]);
+
   return (
     <FeedbackContext.Provider value={value}>
       {children}
@@ -56,4 +79,3 @@ export const FeedbackProvider: React.FC<React.PropsWithChildren<{}>> = ({ childr
     </FeedbackContext.Provider>
   );
 };
-

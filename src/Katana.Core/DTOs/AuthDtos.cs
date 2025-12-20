@@ -1,16 +1,21 @@
-
 using System;
+using System.Text.Json.Serialization;
 
-namespace Katana.Business.DTOs
-{
-    /// <summary>
-    /// Kullanıcı giriş isteği (login request) için gerekli bilgileri temsil eder.
-    /// </summary>
-    public record LoginRequest(string Username, string Password);
+namespace Katana.Core.DTOs;
 
-    /// <summary>
-    /// Başarılı bir oturum açma işlemi sonrasında dönen yanıtı temsil eder.
-    /// JWT (JSON Web Token) bilgisini içerir.
-    /// </summary>
-    public record LoginResponse(string Token);
-}
+/// <summary>
+/// Login request DTO
+/// </summary>
+public record LoginRequest(string Username, string Password);
+
+/// <summary>
+/// Login response DTO
+/// </summary>
+public record LoginResponse(
+    [property: JsonPropertyName("token")] string Token
+);
+
+/// <summary>
+/// Change password request DTO
+/// </summary>
+public record ChangePasswordRequest(string CurrentPassword, string NewPassword);

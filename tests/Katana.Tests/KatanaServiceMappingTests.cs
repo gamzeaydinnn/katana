@@ -88,7 +88,7 @@ namespace Katana.Tests
     [Fact]
     public async Task GetProductsAsync_Should_Map_Variant_Sku_And_Price()
     {
-      // Arrange
+      
       var handler = new FakeHttpMessageHandler(SampleProductsJson, HttpStatusCode.OK);
       var httpClient = new HttpClient(handler)
       {
@@ -109,10 +109,10 @@ namespace Katana.Tests
 
   var service = new KatanaService(httpClient, options, loggerMock.Object, loggingServiceMock.Object, memoryCache);
 
-      // Act
+      
       var products = await service.GetProductsAsync();
 
-      // Assert
+      
       products.Should().NotBeNull();
       products.Count.Should().Be(2);
       products[0].SKU.Should().Be("6250681");
@@ -126,7 +126,7 @@ namespace Katana.Tests
     [Fact]
     public async Task GetProductBySkuAsync_Should_Find_Variant_Then_Product()
     {
-      // Arrange: create handler that returns variants for /variants and product for /products/{id}
+      
       var variantsJson = @"{ ""data"": [ { ""id"": 36840230, ""product_id"": 15526484, ""sku"": ""6250681"" } ] }";
       var productJson = @"{ ""id"": 15526484, ""name"": ""093-58064-083"", ""variants"": [ { ""id"": 36840230, ""sku"": ""6250681"", ""sales_price"": 0 } ] }";
 
@@ -150,10 +150,10 @@ namespace Katana.Tests
 
     var service = new KatanaService(httpClient, options, loggerMock.Object, loggingServiceMock.Object, memoryCache);
 
-      // Act
+      
       var product = await service.GetProductBySkuAsync("6250681");
 
-      // Assert
+      
       product.Should().NotBeNull();
       product!.SKU.Should().Be("6250681");
       product.Name.Should().Be("093-58064-083");
@@ -162,7 +162,7 @@ namespace Katana.Tests
     [Fact]
     public async Task GetInvoicesAsync_Should_Map_SalesOrders_To_Invoices()
     {
-      // Arrange
+      
       var invoicesJson = @"{ ""data"": [ { ""id"": 35450823, ""order_no"": ""SO-22"", ""order_created_date"": ""2025-10-28T14:36:54.561Z"", ""currency"": ""USD"", ""total"": 123.45, ""sales_order_rows"": [ { ""id"": 87053276, ""quantity"": 1, ""variant_id"": 36731430, ""price_per_unit"": ""123.45"", ""total"": 123.45 } ] } ] }";
 
       var handler = new FakeHttpMessageHandler(invoicesJson, HttpStatusCode.OK);
@@ -176,10 +176,10 @@ namespace Katana.Tests
 
     var service = new KatanaService(httpClient, options, loggerMock.Object, loggingServiceMock.Object, memoryCache);
 
-      // Act
+      
       var invs = await service.GetInvoicesAsync(System.DateTime.UtcNow.AddDays(-1), System.DateTime.UtcNow);
 
-      // Assert
+      
       invs.Should().NotBeNull();
       invs.Count.Should().Be(1);
       invs[0].InvoiceNo.Should().Be("SO-22");

@@ -1,0 +1,16 @@
+﻿{
+    "dto":  {
+                "uzunAdi":  "Test Ürün Uzun Adı",
+                "unitPrice":  99.9,
+                "olcumBirimiId":  5,
+                "kategoriAgacKod":  "0000",
+                "productCode":  "TEST-001",
+                "kartTuru":  1,
+                "kartKodu":  "TEST-001",
+                "quantity":  10,
+                "kartAdi":  "Test Ürün",
+                "vatRate":  18,
+                "productName":  "Test Ürün",
+                "unit":  "ADET"
+            }
+}

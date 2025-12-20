@@ -1,0 +1,9 @@
+Id,MappingType,SourceValue,TargetValue,Description,IsActive,CreatedAt,UpdatedAt,CreatedBy,UpdatedBy
+--,-----------,-----------,-----------,-----------,--------,---------,---------,---------,---------
+1,SKU_ACCOUNT,DEFAULT,600.01,Default account code for unmapped products,1,2025-11-27 17:31:06.4715450,2025-11-27 17:31:06.4715713,NULL,NULL
+2,LOCATION_WAREHOUSE,DEFAULT,0001-0001,Default warehouse code for unmapped locations,1,2025-11-27 17:31:06.4715844,2025-11-27 17:31:06.4715845,NULL,NULL
+1007,CATEGORY,001,001,Seed mapping for default 001,1,2025-11-28 20:32:44.8428552,2025-11-28 20:32:44.8428552,migration,NULL
+1008,CATEGORY,01,001,Seed mapping: 01 -> 001,1,2025-11-28 20:32:44.8428552,2025-11-28 20:32:44.8428552,migration,NULL
+1009,CATEGORY,1,001,Seed mapping: 1 -> 001 (numeric legacy),1,2025-11-28 20:32:44.8428552,2025-11-28 20:32:44.8428552,migration,NULL
+1010,CATEGORY,1MAMUL,001,Seed mapping: 1MAMUL -> 001,1,2025-11-28 20:32:44.8428552,2025-11-28 20:32:44.8428552,migration,NULL
+1011,CATEGORY,3YARI MAMUL,001,Seed mapping: 3YARI MAMUL -> 001,1,2025-11-28 20:32:44.8428552,2025-11-28 20:32:44.8428552,migration,NULL

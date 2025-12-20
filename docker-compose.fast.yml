@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.fast
+      # ⚡ BuildKit optimizations
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+    image: katana-api:fast
+    container_name: katana-api-fast
+    ports:
+      - "5055:8080"
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__SqlServerConnection=Server=host.docker.internal,1433;Database=KatanaDB;User Id=sa;Password=Admin00!S;TrustServerCertificate=True;
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - katana-network
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+networks:
+  katana-network:
+    driver: bridge

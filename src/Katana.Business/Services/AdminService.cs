@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Katana.Business.DTOs;
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
 using Katana.Data.Context;
@@ -16,17 +15,20 @@ public class AdminService : IAdminService
     private readonly IntegrationDbContext _context;
     private readonly IKatanaService _katanaService;
     private readonly ILucaService _lucaService;
+    private readonly ISyncService _syncService;
     private readonly ILogger<AdminService> _logger;
 
     public AdminService(
         IntegrationDbContext context,
         IKatanaService katanaService,
         ILucaService lucaService,
+        ISyncService syncService,
         ILogger<AdminService> logger)
     {
         _context = context;
         _katanaService = katanaService;
         _lucaService = lucaService;
+        _syncService = syncService;
         _logger = logger;
     }
     public async Task<List<AdminSyncStatusDto>> GetSyncStatusesAsync()
@@ -34,7 +36,7 @@ public class AdminService : IAdminService
         var statuses = new List<AdminSyncStatusDto>();
         try
         {
-            // STOCK / INVOICE / CUSTOMER için son durumları getir
+            
             foreach (var type in new[] { "STOCK", "INVOICE", "CUSTOMER" })
             {
                 var lastTime = await _context.SyncOperationLogs
@@ -51,7 +53,7 @@ public class AdminService : IAdminService
 
                 statuses.Add(new AdminSyncStatusDto
                 {
-                    IntegrationName = type,               // burada integration yerine syncType gösteriyoruz
+                    IntegrationName = type,               
                     LastSyncDate = lastTime,
                     Status = lastStatus ?? "Unknown"
                 });
@@ -80,7 +82,7 @@ public class AdminService : IAdminService
             .ToListAsync();
     }
 
-    // integrationName parametresi yerine syncType beklediğimizi dökümante edebilirsin: "STOCK" | "INVOICE" | "CUSTOMER"
+    
     public async Task<SyncReportDto> GetSyncReportAsync(string integrationName)
     {
         var syncType = integrationName?.ToUpperInvariant();
@@ -102,7 +104,7 @@ public class AdminService : IAdminService
     {
         try
         {
-            // Bu metodu gerçek senaryoya göre zenginleştirebilirsin.
+            
             if (request.IntegrationName.Equals("Katana", StringComparison.OrdinalIgnoreCase))
             {
                 var products = await _katanaService.GetProductsAsync();
@@ -110,8 +112,16 @@ public class AdminService : IAdminService
             }
             else if (request.IntegrationName.Equals("Luca", StringComparison.OrdinalIgnoreCase))
             {
-                // Luca manuel sync örnek stub
-                return true;
+                
+                
+                
+                var pushRes = await _syncService.SyncProductsAsync();
+                var pullRes = await _syncService.SyncStockFromLucaAsync();
+
+                var pushed = pushRes != null && pushRes.SuccessfulRecords > 0;
+                var pulled = pullRes != null && pullRes.SuccessfulRecords > 0;
+
+                return pushed || pulled;
             }
             return false;
         }

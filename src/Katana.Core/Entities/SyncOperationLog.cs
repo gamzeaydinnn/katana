@@ -1,15 +1,11 @@
 
 using System.ComponentModel.DataAnnotations;
 namespace Katana.Core.Entities;
-
-/// <summary>
-/// Her senkronizasyon işleminin kaydını tutar.
-/// </summary>
 public class SyncOperationLog
 {
     public int Id { get; set; }
-    public string SyncType { get; set; } = string.Empty; // STOCK, INVOICE, CUSTOMER
-    public string Status { get; set; } = "PENDING"; // RUNNING, SUCCESS, FAILED
+    public string SyncType { get; set; } = string.Empty; 
+    public string Status { get; set; } = "PENDING"; 
     public string? ErrorMessage { get; set; }
     public int ProcessedRecords { get; set; }
     public int SuccessfulRecords { get; set; }

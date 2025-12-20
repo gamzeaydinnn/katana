@@ -1,0 +1,98 @@
+﻿
+
+openapi    : 3.0.1
+info       : @{title=Katana-Luca Integration API; description=API for managi
+             ng integration between Katana MRP/ERP and Luca Accounting syste
+             ms; version=v1}
+paths      : @{/api/Accounting=; /api/Accounting/{id}=; /api/Accounting/by-t
+             ransaction/{transactionNo}=; /api/Accounting/type/{type}=; /api
+             /Accounting/category/{category}=; /api/Accounting/customer/{cus
+             tomerId}=; /api/Accounting/invoice/{invoiceId}=; /api/Accountin
+             g/range=; /api/Accounting/unsynced=; /api/Accounting/{id}/sync=
+             ; /api/Accounting/statistics=; /api/Accounting/statistics/range
+             =; /api/Accounting/report=; /api/adminpanel/debug/roles=; /api/
+             adminpanel/pending-adjustments=; /api/adminpanel/pending-adjust
+             ments/{id}/approve=; /api/adminpanel/pending-adjustments/{id}/r
+             eject=; /api/adminpanel/statistics=; /api/adminpanel/products=;
+              /api/adminpanel/products/{id}=; /api/adminpanel/sync-logs=; /a
+             pi/adminpanel/sync-logs-anon=; /api/adminpanel/mapping-table-an
+             on=; /api/adminpanel/mapping-table-anon/set-default=; /api/admi
+             npanel/db-check=; /api/adminpanel/migrations=; /api/adminpanel/
+             db-table-info=; /api/adminpanel/pending-adjustments/test-create
+             =; /api/adminpanel/pending-adjustments/test-create-anon=; /api/
+             adminpanel/product-stock/{id}=; /api/adminpanel/katana-health=;
+              /api/adminpanel/manual-sync=; /api/adminpanel/failed-records=;
+              /api/adminpanel/failed-records-anon=; /api/adminpanel/test-pus
+             h-products-anon=; /api/adminpanel/failed-records/{id}=; /api/ad
+             minpanel/failed-records/{id}/resolve=; /api/adminpanel/failed-r
+             ecords/{id}/ignore=; /api/adminpanel/failed-records/{id}/retry=
+             ; /api/Auth/login=; /api/Auth/change-password=; /api/Categories
+             =; /api/Categories/{id}=; /api/Categories/{id}/activate=; /api/
+             Categories/{id}/deactivate=; /api/Customers=; /api/Customers/ac
+             tive=; /api/Customers/{id}=; /api/Customers/by-taxno/{taxNo}=; 
+             /api/Customers/search=; /api/Customers/{id}/activate=; /api/Cus
+             tomers/{id}/deactivate=; /api/Customers/statistics=; /api/Custo
+             mers/{id}/balance=; /api/DataCorrection/compare/products=; /api
+             /DataCorrection/pending=; /api/DataCorrection=; /api/DataCorrec
+             tion/{id}/approve=; /api/DataCorrection/{id}=; /api/DataCorrect
+             ion/{id}/apply-to-luca=; /api/DataCorrection/{id}/apply-to-kata
+             na=; /api/debug/katana/test-connection=; /api/debug/katana/prod
+             ucts=; /api/debug/katana/katana-invoices=; /api/adminpanel/diag
+             nostics/katana-luca-issues=; /api/health=; /api/IntegrationTest
+             /stock-flow=; /api/IntegrationTest/invoice-flow=; /api/Integrat
+             ionTest/mapping-consistency=; /api/IntegrationTest/uat-suite=; 
+             /api/Invoices=; /api/Invoices/{id}=; /api/Invoices/by-number/{i
+             nvoiceNo}=; /api/Invoices/customer/{customerId}=; /api/Invoices
+             /status/{status}=; /api/Invoices/range=; /api/Invoices/overdue=
+             ; /api/Invoices/unsynced=; /api/Invoices/{id}/status=; /api/Inv
+             oices/{id}/sync=; /api/Invoices/statistics=; /api/Invoices/stat
+             istics/range=; /api/webhook/katana/stock-change=; /api/webhook/
+             katana/test=; /api/koza-debug/stock-card=; /api/koza-debug/dry-
+             payload=; /api/Logs/errors=; /api/Logs/audits=; /api/Logs/stats
+             =; /api/Logs/frontend-error=; /api/Logs/clear-old-errors=; /api
+             /luca-compat/sync-products=; /api/luca/send-product-from-excel=
+             ; /api/luca-proxy/login=; /api/luca/login=; /api/luca-proxy/bra
+             nches=; /api/luca/branches=; /api/luca-proxy/select-branch=; /a
+             pi/luca/select-branch=; /api/luca-proxy/sync-products=; /api/lu
+             ca/sync-products=; /api/Mapping=; /api/Mapping/sku-accounts=; /
+             api/Mapping/locations=; /api/Mapping/{id}=; /api/Notifications=
+             ; /api/Notifications/{id}=; /api/Notifications/{id}/mark-read=;
+              /api/Orders=; /api/Orders/{id}=; /api/Orders/{id}/status=; /ap
+             i/Products/katana=; /api/Products/luca=; /api/Luca/products=; /
+             api/Products/sync-products=; /api/Luca/stock-cards=; /api/Sync/
+             comparison=; /api/Products/katana/{sku}=; /api/Products=; /api/
+             Products/catalog=; /api/Products/active=; /api/Products/{id}=; 
+             /api/Products/by-sku/{sku}=; /api/Products/category/{categoryId
+             }=; /api/Products/search=; /api/Products/low-stock=; /api/Produ
+             cts/out-of-stock=; /api/Products/{id}/stock=; /api/Products/luc
+             a/{id}=; /api/Products/luca/{id}/push=; /api/Products/{id}/acti
+             vate=; /api/Products/{id}/deactivate=; /api/Products/statistics
+             =; /api/Reports/logs=; /api/Reports/last=; /api/Reports/failed=
+             ; /api/Reports/statistics=; /api/Reports/stock=; /api/Analytics
+             /stock=; /api/Reports/sync=; /api/Analytics/sync=; /api/Reports
+             /summary=; /api/Analytics/summary=; /api/Reports/dashboard=; /a
+             pi/Dashboard=; /api/Reports/dashboard/sync-stats=; /api/Dashboa
+             rd/sync-stats=; /api/Reports/dashboard/stats=; /api/Dashboard/s
+             tats=; /api/Reports/dashboard/activities=; /api/Dashboard/activ
+             ities=; /api/Settings=; /api/Stock/movements=; /api/Stock/statu
+             s=; /api/Stock/local/movements=; /api/Stock/local/movements/pro
+             duct/{productId}=; /api/Stock/local/movements/location/{locatio
+             n}=; /api/Stock/local/movements/range=; /api/Stock/local/moveme
+             nts/{id}=; /api/Stock/local/summary=; /api/Stock/local/summary/
+             {productId}=; /api/Stock/local/movements/unsynced=; /api/Stock/
+             local/movements/{id}/sync=; /api/Suppliers=; /api/Suppliers/{id
+             }=; /api/Suppliers/{id}/activate=; /api/Suppliers/{id}/deactiva
+             te=; /api/Sync/history=; /api/Sync/start=; /api/Sync/run=; /api
+             /Sync/stock=; /api/Sync/invoices=; /api/Sync/customers=; /api/S
+             ync/to-luca/stock-cards=; /api/Sync/status=; /api/Sync/status/{
+             syncType}=; /api/Sync/from-luca/stock=; /api/Sync/from-luca/inv
+             oices=; /api/Sync/from-luca/customers=; /api/Sync/from-luca/des
+             patch=; /api/Sync/from-luca/all=; /api/Test/katana-config=; /ap
+             i/Test/katana-direct=; /api/Test/sync-one-product=; /api/Test/c
+             reate-test-product=; /api/Users=; /api/Users/{id}=; /api/Users/
+             {id}/role=}
+components : @{schemas=; securitySchemes=}
+security   : {@{ApiKey=System.Object[]; Bearer=System.Object[]}}
+
+
+

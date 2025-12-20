@@ -10,7 +10,7 @@ public class MappingHelperTests
     [Fact]
     public void MapToProduct_Should_MapCorrectly()
     {
-        // Arrange
+        
         var katanaDto = new KatanaProductDto
         {
             SKU = "PRD-123",
@@ -20,10 +20,10 @@ public class MappingHelperTests
             IsActive = true
         };
 
-        // Act
+        
         var result = MappingHelper.MapToProduct(katanaDto);
 
-        // Assert
+        
         result.Should().NotBeNull();
         result.SKU.Should().Be("PRD-123");
         result.Name.Should().Be("Test Product");
@@ -33,7 +33,7 @@ public class MappingHelperTests
     [Fact]
     public void MapToLucaStock_Should_MapCorrectly()
     {
-        // Arrange
+        
         var stock = new Core.Entities.Stock
         {
             ProductId = 1,
@@ -56,10 +56,10 @@ public class MappingHelperTests
             { "MAIN", "WH001" }
         };
 
-        // Act
+        
         var result = MappingHelper.MapToLucaStock(stock, product, locationMapping);
 
-        // Assert
+        
         result.Should().NotBeNull();
         result.ProductCode.Should().Be("PRD-123");
         result.Quantity.Should().Be(10);

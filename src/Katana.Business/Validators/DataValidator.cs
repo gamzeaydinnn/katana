@@ -4,9 +4,9 @@ using System.Text.RegularExpressions;
 
 namespace Katana.Business.Validators
 {
-    /// <summary>
-    /// Tüm veri modellerinde ortak kullanılabilecek genel doğrulama işlemleri.
-    /// </summary>
+    
+    
+    
     public static class DataValidator
     {
         public static bool IsValidEmail(string? email)

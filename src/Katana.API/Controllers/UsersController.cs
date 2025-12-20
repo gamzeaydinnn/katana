@@ -10,7 +10,7 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin,Manager")] // tüm endpoint’leri varsayılan olarak Admin ve Manager görebilir
+[Authorize] 
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
@@ -24,10 +24,11 @@ public class UsersController : ControllerBase
         _auditService = auditService;
     }
 
-    /// <summary>
-    /// Tüm kullanıcıları getirir.
-    /// </summary>
+    
+    
+    
     [HttpGet]
+    [Authorize(Roles = "Admin,Manager")] 
     public async Task<IActionResult> GetAll()
     {
         var users = await _userService.GetAllAsync();
@@ -35,35 +36,54 @@ public class UsersController : ControllerBase
         return Ok(users);
     }
 
-    /// <summary>
-    /// Belirli bir kullanıcıyı ID’ye göre getirir.
-    /// </summary>
+    
+    
+    
     [HttpGet("{id}")]
+    [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> GetById(int id)
     {
         var user = await _userService.GetByIdAsync(id);
         return user == null ? NotFound(new { message = $"Kullanıcı bulunamadı: {id}" }) : Ok(user);
     }
 
-    /// <summary>
-    /// Yeni bir kullanıcı oluşturur.
-    /// </summary>
+    
+    
+    
     [HttpPost]
-    [Authorize(Roles = "Admin")] // yalnızca admin kullanıcı oluşturabilir
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
     {
         if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+        {
+            var errors = ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList();
+            return BadRequest(new { error = "Validation failed", errors });
+        }
 
-        var user = await _userService.CreateAsync(dto);
-        _auditService.LogCreate("User", user.Id.ToString(), User?.Identity?.Name ?? "system", $"Username: {user.Username}");
-        _loggingService.LogInfo($"User created: {user.Username}", User?.Identity?.Name, null, LogCategory.UserAction);
-        return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
+        try
+        {
+            var user = await _userService.CreateAsync(dto);
+            _auditService.LogCreate("User", user.Id.ToString(), User?.Identity?.Name ?? "system", $"Username: {user.Username}");
+            _loggingService.LogInfo($"User created: {user.Username}", User?.Identity?.Name, null, LogCategory.UserAction);
+            return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _loggingService.LogError("User creation failed", ex, User?.Identity?.Name, null, LogCategory.UserAction);
+            return StatusCode(500, new { error = "User creation failed", details = ex.Message });
+        }
     }
 
-    /// <summary>
-    /// Kullanıcıyı siler.
-    /// </summary>
+    
+    
+    
     [HttpDelete("{id}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)
@@ -78,11 +98,11 @@ public class UsersController : ControllerBase
         return NotFound(new { message = $"Kullanıcı bulunamadı: {id}" });
     }
 
-    /// <summary>
-    /// Kullanıcının rolünü günceller.
-    /// </summary>
+    
+    
+    
     [HttpPut("{id}/role")]
-    [Authorize(Roles = "Admin")] // sadece Admin rol değiştirebilir
+    [Authorize(Roles = "Admin")] 
     public async Task<IActionResult> UpdateRole(int id, [FromBody] string role)
     {
         if (string.IsNullOrWhiteSpace(role))
@@ -98,11 +118,11 @@ public class UsersController : ControllerBase
         return NotFound(new { message = $"Kullanıcı bulunamadı: {id}" });
     }
 
-    /// <summary>
-    /// Kullanıcı bilgilerini günceller.
-    /// </summary>
+    
+    
+    
     [HttpPut("{id}")]
-    [Authorize(Roles = "Admin")] // sadece Admin kullanıcı güncelleyebilir
+    [Authorize(Roles = "Admin")] 
     public async Task<IActionResult> Update(int id, [FromBody] UpdateUserDto dto)
     {
         if (!ModelState.IsValid)
@@ -121,7 +141,7 @@ public class UsersController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            // duplicate username/email gibi durumlar
+            
             return Conflict(new { error = ex.Message });
         }
     }

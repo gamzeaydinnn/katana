@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
 namespace Katana.Core.Entities;
-
 public class User
 {
     public int Id { get; set; }
@@ -21,6 +20,6 @@ public class User
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    // ✅ BU ŞART
+    
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

@@ -22,7 +22,7 @@ public class InvoiceItem
     
     public decimal UnitPrice { get; set; }
     
-    public decimal TaxRate { get; set; } = 0.18m; // Default 18% KDV
+    public decimal TaxRate { get; set; } = 0.18m; 
     
     public decimal TaxAmount { get; set; }
     
@@ -31,7 +31,7 @@ public class InvoiceItem
     [MaxLength(20)]
     public string Unit { get; set; } = "ADET";
     
-    // Navigation properties
+    
     public virtual Invoice Invoice { get; set; } = null!;
     public virtual Product Product { get; set; } = null!;
 }

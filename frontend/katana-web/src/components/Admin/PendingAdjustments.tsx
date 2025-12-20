@@ -4,6 +4,7 @@ import {
   Box,
   Alert,
   Button,
+  Chip,
   CircularProgress,
   Paper,
   Table,
@@ -18,6 +19,8 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Stack,
+  useMediaQuery,
 } from "@mui/material";
 import { pendingAdjustmentsAPI } from "../../services/api";
 import {
@@ -27,9 +30,15 @@ import {
   offPendingCreated,
   onPendingApproved,
   offPendingApproved,
+  onPendingRejected,
+  offPendingRejected,
 } from "../../services/signalr";
 import { useFeedback } from "../../providers/FeedbackProvider";
-import { decodeJwtPayload, tryGetJwtUsername } from "../../utils/jwt";
+import {
+  decodeJwtPayload,
+  tryGetJwtUsername,
+  getJwtRoles,
+} from "../../utils/jwt";
 
 interface PendingItem {
   id: number;
@@ -55,6 +64,23 @@ export default function PendingAdjustments() {
   const [rejecting, setRejecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useFeedback();
+  const isMobile = useMediaQuery("(max-width:900px)");
+
+  
+  const userRoles = (() => {
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem("authToken")
+          : null;
+      const payload = decodeJwtPayload(token);
+      return getJwtRoles(payload).map((r) => r.toLowerCase());
+    } catch {
+      return [];
+    }
+  })();
+  const canApproveReject =
+    userRoles.includes("admin") || userRoles.includes("stokyonetici");
 
   const isPendingStatus = (status?: string) =>
     (status ?? "").trim().toLowerCase() === "pending";
@@ -101,7 +127,7 @@ export default function PendingAdjustments() {
     load();
   }, [load]);
 
-  // read focusPending query param to highlight/scroll to a row
+  
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -111,7 +137,7 @@ export default function PendingAdjustments() {
     if (!focus) return;
     const id = parseInt(focus, 10);
     if (isNaN(id)) return;
-    // wait until items loaded
+    
     const t = setTimeout(() => {
       const el = document.getElementById(`pending-row-${id}`);
       if (el) {
@@ -119,7 +145,7 @@ export default function PendingAdjustments() {
         setHighlightedId(id);
         setTimeout(() => setHighlightedId(null), 6000);
       }
-      // remove query param without reloading
+      
       params.delete("focusPending");
       navigate(
         `${location.pathname}${
@@ -132,13 +158,13 @@ export default function PendingAdjustments() {
   }, [location.search, navigate]);
 
   useEffect(() => {
-    // start SignalR and subscribe to events to keep the list live
+    
     let createdHandler = (payload: any) => {
       try {
         const item = payload?.pending || payload;
         if (!item || !item.id) return;
         setItems((prev) => {
-          // if already exists, replace; otherwise add to top
+          
           const exists = prev.find((p) => p.id === item.id);
           if (exists) return prev.map((p) => (p.id === item.id ? item : p));
           return [item as any, ...prev];
@@ -156,13 +182,8 @@ export default function PendingAdjustments() {
       try {
         const id = payload?.pendingId || payload?.id || payload;
         if (!id) return;
-        setItems((prev) =>
-          prev.map((p) =>
-            p.id === id
-              ? { ...p, status: "Approved", approvedBy: payload?.approvedBy }
-              : p
-          )
-        );
+        
+        setItems((prev) => prev.filter((p) => p.id !== id));
         showToast({
           message: `Stok ayarlaması #${id} onaylandı`,
           severity: "success",
@@ -172,10 +193,26 @@ export default function PendingAdjustments() {
       }
     };
 
+    let rejectedHandler = (payload: any) => {
+      try {
+        const id = payload?.pendingId || payload?.id || payload;
+        if (!id) return;
+        
+        setItems((prev) => prev.filter((p) => p.id !== id));
+        showToast({
+          message: `Stok ayarlaması #${id} reddedildi`,
+          severity: "warning",
+        });
+      } catch (e) {
+        console.warn("Error handling PendingStockAdjustmentRejected", e);
+      }
+    };
+
     startConnection()
       .then(() => {
         onPendingCreated(createdHandler);
         onPendingApproved(approvedHandler);
+        onPendingRejected(rejectedHandler);
       })
       .catch((err) => console.warn("SignalR start failed", err));
 
@@ -183,6 +220,7 @@ export default function PendingAdjustments() {
       try {
         offPendingCreated(createdHandler);
         offPendingApproved(approvedHandler);
+        offPendingRejected(rejectedHandler);
       } catch {}
       stopConnection().catch(() => {});
     };
@@ -242,10 +280,31 @@ export default function PendingAdjustments() {
   }, [load, rejectReason, selected, showToast]);
 
   return (
-    <Box p={2}>
-      <Typography variant="h5" gutterBottom>
+    <Box p={0}>
+      <Typography
+        variant="h5"
+        gutterBottom
+        sx={{
+          fontWeight: 900,
+          letterSpacing: "-0.02em",
+          background: "linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          backgroundClip: "text",
+          mb: 2,
+          wordBreak: "break-word",
+          maxWidth: "100%",
+        }}
+      >
         Stok Hareketleri
       </Typography>
+
+      {!canApproveReject && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Stok hareketlerini görüntüleyebilirsiniz. Onaylama/reddetme yetkisi
+          için Admin veya Stok Yöneticisi rolü gereklidir.
+        </Alert>
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -258,18 +317,154 @@ export default function PendingAdjustments() {
           <Box p={4} display="flex" justifyContent="center">
             <CircularProgress />
           </Box>
+        ) : isMobile ? (
+          <Stack spacing={1.5}>
+            {items.length === 0 && (
+              <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
+                Bekleyen stok hareketi bulunamadı
+              </Typography>
+            )}
+            {items.map((it) => {
+              const requestedAt = it.requestedAt
+                ? new Date(it.requestedAt).toLocaleString()
+                : "-";
+              return (
+                <Paper
+                  id={`pending-row-${it.id}`}
+                  key={it.id}
+                  sx={{
+                    border: "1px solid",
+                    borderColor:
+                      highlightedId === it.id ? "primary.main" : "divider",
+                    borderWidth: highlightedId === it.id ? 2 : 1,
+                    p: 1.5,
+                    borderRadius: 2,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: 1,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={700}>
+                        #{it.id} {it.sku && `• ${it.sku}`}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Talep: {requestedAt}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={it.status || "Bilinmiyor"}
+                      color={
+                        isPendingStatus(it.status)
+                          ? "warning"
+                          : it.status === "Approved"
+                          ? "success"
+                          : it.status === "Rejected"
+                          ? "error"
+                          : "default"
+                      }
+                      size="small"
+                    />
+                  </Box>
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns: {
+                              xs: "1fr",
+                              sm: "repeat(2, minmax(0, 1fr))",
+                            },
+                            columnGap: 1,
+                            rowGap: 1,
+                            mt: 1.25,
+                          }}
+                        >
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Ürün ID
+                      </Typography>
+                      <Typography fontWeight={600}>{it.productId}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Miktar
+                      </Typography>
+                      <Typography fontWeight={600}>{it.quantity}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Talep Eden
+                      </Typography>
+                      <Typography fontWeight={600}>
+                        {it.requestedBy || "-"}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Notlar
+                      </Typography>
+                      <Typography fontWeight={500}>
+                        {it.notes || "-"}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ mt: 1.5 }}
+                    justifyContent="flex-end"
+                  >
+                    {canApproveReject ? (
+                      <>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="success"
+                          disabled={!isPendingStatus(it.status)}
+                          onClick={() => handleApprove(it)}
+                          sx={{ flex: 1 }}
+                        >
+                          Onayla
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          disabled={!isPendingStatus(it.status)}
+                          onClick={() => openReject(it)}
+                          sx={{ flex: 1 }}
+                        >
+                          Reddet
+                        </Button>
+                      </>
+                    ) : (
+                      <Typography variant="caption" color="text.secondary">
+                        Sadece görüntüleme
+                      </Typography>
+                    )}
+                  </Stack>
+                </Paper>
+              );
+            })}
+          </Stack>
         ) : (
-          <TableContainer>
-            <Table>
+          <TableContainer sx={{ maxHeight: 600, overflowX: "auto" }}>
+            <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>SKU</TableCell>
-                  <TableCell>ProductId</TableCell>
-                  <TableCell>Quantity</TableCell>
-                  <TableCell>RequestedAt</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell sx={{ minWidth: 60 }}>ID</TableCell>
+                  <TableCell sx={{ minWidth: 150 }}>SKU</TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>ProductId</TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>Quantity</TableCell>
+                  <TableCell sx={{ minWidth: 180 }}>RequestedAt</TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>Status</TableCell>
+                  <TableCell align="right" sx={{ minWidth: 200 }}>
+                    Actions
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -297,32 +492,43 @@ export default function PendingAdjustments() {
                     </TableCell>
                     <TableCell>{it.status}</TableCell>
                     <TableCell align="right">
-                      <Button
-                        size="small"
-                        variant="contained"
-                        color="primary"
-                        disabled={!isPendingStatus(it.status)}
-                        onClick={() => handleApprove(it)}
-                        sx={{ mr: 1 }}
-                      >
-                        Onayla
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="secondary"
-                        disabled={!isPendingStatus(it.status)}
-                        onClick={() => openReject(it)}
-                      >
-                        Reddet
-                      </Button>
+                      {canApproveReject ? (
+                        <>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="success"
+                            disabled={!isPendingStatus(it.status)}
+                            onClick={() => handleApprove(it)}
+                            sx={{ mr: 1, color: "white", fontWeight: 600 }}
+                          >
+                            Onayla
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="error"
+                            disabled={!isPendingStatus(it.status)}
+                            onClick={() => openReject(it)}
+                            sx={{ color: "white", fontWeight: 600 }}
+                          >
+                            Reddet
+                          </Button>
+                        </>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          Sadece görüntüleme
+                        </Typography>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
                 {items.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} align="center">
-                      No pending adjustments
+                      <Typography color="textSecondary">
+                        Bekleyen stok hareketi bulunamadı
+                      </Typography>
                     </TableCell>
                   </TableRow>
                 )}
@@ -354,8 +560,27 @@ export default function PendingAdjustments() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSelected(null)}>İptal</Button>
-          <Button onClick={handleReject} disabled={rejecting} color="secondary">
+          <Button
+            onClick={() => setSelected(null)}
+            variant="outlined"
+            sx={{
+              borderColor: "#64748b",
+              color: "#64748b",
+              "&:hover": {
+                borderColor: "#475569",
+                backgroundColor: "rgba(100, 116, 139, 0.04)",
+              },
+            }}
+          >
+            İptal
+          </Button>
+          <Button
+            onClick={handleReject}
+            disabled={rejecting}
+            variant="contained"
+            color="error"
+            sx={{ color: "white", fontWeight: 600 }}
+          >
             {rejecting ? "Reddediliyor..." : "Reddet"}
           </Button>
         </DialogActions>

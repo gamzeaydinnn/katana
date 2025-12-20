@@ -1,0 +1,20 @@
+﻿{
+    "isSuccess":  true,
+    "message":  "1 success, 0 failed",
+    "processedRecords":  1,
+    "successfulRecords":  1,
+    "failedRecords":  0,
+    "errors":  [
+
+               ],
+    "syncTime":  "2025-11-28T20:21:32.9854374Z",
+    "syncType":  "PRODUCT_STOCK_CARD",
+    "duration":  "00:00:01.3360292",
+    "totalChecked":  0,
+    "alreadyExists":  0,
+    "newCreated":  0,
+    "failed":  0,
+    "details":  [
+
+                ]
+}

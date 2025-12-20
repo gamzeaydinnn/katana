@@ -41,7 +41,7 @@ public class EmailNotificationService : INotificationService
         );
     }
 
-    // Basit e-posta gönderim methodu
+    
     private async Task SendEmailAsync(string to, string subject, string body)
     {
         await Task.Run(() =>

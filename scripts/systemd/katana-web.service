@@ -1,0 +1,37 @@
+[Unit]
+Description=Katana Web Frontend - React Application
+After=network.target katana-api.service
+Wants=network-online.target
+Requires=katana-api.service
+Documentation=https://github.com/gamzeaydinnn/katana
+
+[Service]
+Type=simple
+User=huseyinadm
+Group=huseyinadm
+WorkingDirectory=/home/huseyinadm/katana/frontend/katana-web
+
+# Use production build with 'serve' instead of dev server
+# First ensure build exists, then serve it
+ExecStartPre=/bin/bash -c 'if [ ! -d build ]; then echo "ERROR: build/ not found. Run npm run build first!"; exit 1; fi'
+ExecStart=/usr/bin/npx serve -s build -l 3000 --no-clipboard
+
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+SyslogIdentifier=katana-web
+
+# Environment variables
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

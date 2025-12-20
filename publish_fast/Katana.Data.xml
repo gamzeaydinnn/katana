@@ -1,0 +1,385 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Katana.Data</name>
+    </assembly>
+    <members>
+        <member name="P:Katana.Data.Configuration.InventorySettings.LucaDepoKategoriAgacId">
+            <summary>Luca depo kategori ağacı ID'si (Koza'daki depoKategoriAgacId)</summary>
+        </member>
+        <member name="P:Katana.Data.Configuration.InventorySettings.LucaDepoKategoriAgacKodu">
+            <summary>Luca depo kategori ağacı kodu (Koza'daki sisDepoKategoriAgacKodu)</summary>
+        </member>
+        <member name="T:Katana.Data.Migrations.InitKatanaDB">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.InitKatanaDB.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.InitKatanaDB.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.InitKatanaDB.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.AddDataCorrectionLog">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddDataCorrectionLog.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddDataCorrectionLog.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddDataCorrectionLog.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.FixCategoryProductRelationship">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.FixCategoryProductRelationship.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.FixCategoryProductRelationship.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.FixCategoryProductRelationship.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.Preview_ModelCheck">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.Preview_ModelCheck.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.Preview_ModelCheck.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.Preview_ModelCheck.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.Add_New_Files">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.Add_New_Files.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.Add_New_Files.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.Add_New_Files.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.UpdateSyncSchema">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.UpdateSyncSchema.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.UpdateSyncSchema.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.UpdateSyncSchema.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.AddKozaMappingsAndInventoryFixes">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddKozaMappingsAndInventoryFixes.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddKozaMappingsAndInventoryFixes.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddKozaMappingsAndInventoryFixes.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.AddStockFix">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddStockFix.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddStockFix.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddStockFix.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.AddLocationKozaDepotMapping">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddLocationKozaDepotMapping.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddLocationKozaDepotMapping.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddLocationKozaDepotMapping.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.AddCustomerLucaFields">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddCustomerLucaFields.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddCustomerLucaFields.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddCustomerLucaFields.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.AddSupplierKozaCariMapping">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddSupplierKozaCariMapping.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddSupplierKozaCariMapping.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddSupplierKozaCariMapping.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.AddSalesOrderTables">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddSalesOrderTables.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddSalesOrderTables.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddSalesOrderTables.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.AddLucaFieldsToSupplier">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddLucaFieldsToSupplier.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddLucaFieldsToSupplier.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddLucaFieldsToSupplier.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.AddKozaDepotEntity">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddKozaDepotEntity.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddKozaDepotEntity.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddKozaDepotEntity.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.AddOrderMappingTable">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddOrderMappingTable.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddOrderMappingTable.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddOrderMappingTable.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.UpdateOrderMappingWithExternalId">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.UpdateOrderMappingWithExternalId.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.UpdateOrderMappingWithExternalId.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.UpdateOrderMappingWithExternalId.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.SyncAllEntities">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.SyncAllEntities.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.SyncAllEntities.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.SyncAllEntities.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.AddSyncTrackingToMappings">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddSyncTrackingToMappings.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddSyncTrackingToMappings.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddSyncTrackingToMappings.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.AddCustomerSupplierSyncTracking">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddCustomerSupplierSyncTracking.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddCustomerSupplierSyncTracking.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddCustomerSupplierSyncTracking.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.AddTaxRateAndUoMMappings">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddTaxRateAndUoMMappings.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddTaxRateAndUoMMappings.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.AddTaxRateAndUoMMappings.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.SchemaAlignmentFixes">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.SchemaAlignmentFixes.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.SchemaAlignmentFixes.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.SchemaAlignmentFixes.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Katana.Data.Migrations.FixCustomerMappingIdType">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.FixCustomerMappingIdType.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.FixCustomerMappingIdType.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Katana.Data.Migrations.FixCustomerMappingIdType.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="P:Katana.Data.Models.MappingTable.LastSyncHash">
+            <summary>
+            Son senkronize edilen verinin hash'i (değişiklik tespiti için)
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.MappingTable.LastSyncAt">
+            <summary>
+            Son senkronize edilen tarih
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.MappingTable.SyncStatus">
+            <summary>
+            Senkronizasyon durumu: PENDING, SYNCED, FAILED
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.MappingTable.LastSyncError">
+            <summary>
+            Son senkronizasyon hatası (varsa)
+            </summary>
+        </member>
+        <member name="T:Katana.Data.Models.OrderMapping">
+            <summary>
+            Katana Order ID'lerini Luca Invoice ID'lerine map eden tablo
+            İdempotency için kullanılır - aynı sipariş 2 kez Luca'ya gönderilmemesi için
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.OrderId">
+            <summary>
+            Katana Order ID (Backend database'deki Order.Id)
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.LucaInvoiceId">
+            <summary>
+            Luca'dan dönen fatura/sipariş ID
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.EntityType">
+            <summary>
+            Entity tipi: "SalesOrder", "PurchaseOrder", "Invoice" vb.
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.ExternalOrderId">
+            <summary>
+            Katana API'den gelen orijinal sipariş ID veya referans kodu
+            (Örn: PendingStockAdjustment.ExternalOrderId, SalesOrder.OrderNo)
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.BelgeSeri">
+            <summary>
+            Koza'da kullanılan belge serisi
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.BelgeNo">
+            <summary>
+            Koza'da kullanılan belge numarası
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.BelgeTakipNo">
+            <summary>
+            Belge takip numarası (Katana order_no veya externalOrderId)
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.SyncStatus">
+            <summary>
+            Senkronizasyon durumu: PENDING, SYNCED, FAILED
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.LastSyncHash">
+            <summary>
+            Son senkronize edilen verinin hash'i (değişiklik tespiti için)
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.LastSyncError">
+            <summary>
+            Son senkronizasyon hatası (varsa)
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.CreatedAt">
+            <summary>
+            Mapping oluşturulma tarihi
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.UpdatedAt">
+            <summary>
+            Mapping güncelleme tarihi (Luca ID değiştirildiğinde)
+            </summary>
+        </member>
+        <member name="P:Katana.Data.Models.OrderMapping.LastSyncAt">
+            <summary>
+            Son senkronize edilen tarih
+            </summary>
+        </member>
+        <member name="T:Katana.Data.Repositories.OrderMappingRepository">
+            <summary>
+            Katana Order/Invoice ID'lerini Luca kodlarına çeviren repository
+            </summary>
+        </member>
+        <member name="T:Katana.Data.Repositories.ProductMappingRepository">
+            <summary>
+            Katana ürünleri ile Luca stok kartları arasındaki eşleştirme repository'si
+            </summary>
+        </member>
+        <member name="T:Katana.Data.Repositories.StockMovementMappingRepository">
+            <summary>
+            Katana stok hareketi ID'lerini Luca kodlarına eşleştiren repository
+            </summary>
+        </member>
+    </members>
+</doc>

@@ -1,0 +1,192 @@
+═══════════════════════════════════════════════════════════════
+  DEBUG ENDPOINT - Order Synchronization Troubleshooting
+═══════════════════════════════════════════════════════════════
+
+ENDPOINT:
+  GET /api/sync/debug/katana-order/{orderNo}
+
+AUTHORIZATION:
+  Requires: Admin role
+  Header: X-API-Key: your-api-key
+
+PURPOSE:
+  Compare an order between Katana API and local database to identify
+  synchronization issues.
+
+═══════════════════════════════════════════════════════════════
+USAGE EXAMPLES
+═══════════════════════════════════════════════════════════════
+
+1. PowerShell (Recommended):
+   .\test-debug-order.ps1 -OrderNo SO-56
+
+2. Bash:
+   ./test-debug-order.sh SO-56
+
+3. cURL:
+   curl -X GET http://localhost:5000/api/sync/debug/katana-order/SO-56 \
+     -H "X-API-Key: your-api-key"
+
+4. Browser (if using JWT):
+   http://localhost:5000/api/sync/debug/katana-order/SO-56
+
+═══════════════════════════════════════════════════════════════
+RESPONSE STRUCTURE
+═══════════════════════════════════════════════════════════════
+
+{
+  "orderNo": "SO-56",
+  "found": {
+    "inKatana": true,      // Order exists in Katana API
+    "inDatabase": false    // Order exists in local database
+  },
+  "katanaOrder": {
+    "id": 12345,
+    "orderNo": "SO-56",
+    "katanaCustomerId": 91190794,  // Katana's customer ID
+    "status": "NOT_SHIPPED",
+    "total": 1500.00,
+    "currency": "TRY",
+    "rowCount": 3,
+    "rows": [...]
+  },
+  "dbOrder": {
+    "id": 1,
+    "katanaOrderId": 12345,
+    "orderNo": "SO-56",
+    "localCustomerId": 1,          // Local database customer ID
+    "customerName": "Customer Name",
+    "customerReferenceId": "91190794",
+    "status": "NOT_SHIPPED",
+    "total": 1500.00,
+    "lineCount": 3,
+    "lines": [...]
+  },
+  "customerMapping": {
+    "id": 1,                       // Local customer ID
+    "title": "Customer Name",
+    "referenceId": "91190794",     // Katana customer ID
+    "email": "customer@example.com",
+    "isActive": true
+  },
+  "analysis": {
+    "customerIdMatch": "Katana Customer ID 91190794 → Local Customer ID 1",
+    "statusMatch": true,
+    "totalMatch": true,
+    "issues": [
+      "✅ Sorun tespit edilmedi - Sipariş doğru senkronize edilmiş"
+    ]
+  }
+}
+
+═══════════════════════════════════════════════════════════════
+COMMON ISSUES DETECTED
+═══════════════════════════════════════════════════════════════
+
+1. "⚠️ Sipariş Katana API'de bulunamadı"
+   → Order doesn't exist in Katana or wrong order number
+
+2. "⚠️ Sipariş veritabanında bulunamadı"
+   → Order not synced yet or sync failed
+
+3. "❌ Sipariş Katana'da var ama veritabanında yok"
+   → Synchronization hasn't run or failed
+   → Action: Trigger manual sync
+
+4. "❌ Müşteri mapping bulunamadı"
+   → Customer doesn't exist in local database
+   → Action: Check customer sync or create customer manually
+
+5. "❌ Customer ID = 0"
+   → Customer mapping failed during sync
+   → Action: Check customer resolution logic
+
+6. "⚠️ Status uyuşmazlığı"
+   → Status changed in Katana after sync
+   → Action: Re-sync to update status
+
+7. "⚠️ Total uyuşmazlığı"
+   → Order total changed in Katana after sync
+   → Action: Re-sync to update total
+
+8. "⚠️ Satır sayısı uyuşmazlığı"
+   → Order lines changed in Katana after sync
+   → Action: Re-sync to update lines
+
+═══════════════════════════════════════════════════════════════
+TROUBLESHOOTING WORKFLOW
+═══════════════════════════════════════════════════════════════
+
+Step 1: Run debug endpoint
+  .\test-debug-order.ps1 -OrderNo SO-56
+
+Step 2: Check "found" status
+  - If not in Katana: Verify order number
+  - If not in DB: Proceed to Step 3
+
+Step 3: Check customer mapping
+  - If null: Customer needs to be synced first
+  - If exists: Customer mapping is OK
+
+Step 4: Check issues list
+  - Follow recommended actions for each issue
+
+Step 5: Trigger sync if needed
+  curl -X POST http://localhost:5000/api/sync/from-katana/sales-orders \
+    -H "X-API-Key: your-api-key"
+
+Step 6: Re-run debug endpoint
+  Verify issues are resolved
+
+═══════════════════════════════════════════════════════════════
+TESTING SPECIFIC ORDERS
+═══════════════════════════════════════════════════════════════
+
+Test SO-41 (old order):
+  .\test-debug-order.ps1 -OrderNo SO-41
+
+Test SO-47 (old order):
+  .\test-debug-order.ps1 -OrderNo SO-47
+
+Test SO-56 (current issue):
+  .\test-debug-order.ps1 -OrderNo SO-56
+
+═══════════════════════════════════════════════════════════════
+INTERPRETING RESULTS
+═══════════════════════════════════════════════════════════════
+
+✅ Perfect Sync:
+  - found.inKatana: true
+  - found.inDatabase: true
+  - customerMapping: exists
+  - statusMatch: true
+  - totalMatch: true
+  - issues: ["✅ Sorun tespit edilmedi"]
+
+⚠️ Needs Re-sync:
+  - found.inKatana: true
+  - found.inDatabase: true
+  - statusMatch: false OR totalMatch: false
+  → Order changed in Katana, needs update
+
+❌ Not Synced:
+  - found.inKatana: true
+  - found.inDatabase: false
+  → Order never synced, trigger sync
+
+❌ Customer Issue:
+  - found.inKatana: true
+  - found.inDatabase: true
+  - customerMapping: null OR localCustomerId: 0
+  → Customer mapping failed
+
+═══════════════════════════════════════════════════════════════
+RELATED DOCUMENTATION
+═══════════════════════════════════════════════════════════════
+
+- Full Sync Flow: SALES_ORDER_SYNC_FLOW.md
+- Status Mapping: STATUS_MAPPING_DOCUMENTATION.md
+- Old Orders Fix: OLD_ORDERS_SYNC_FIX.md
+- Quick Reference: SYNC_QUICK_REFERENCE.md
+
+═══════════════════════════════════════════════════════════════

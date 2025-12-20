@@ -6,7 +6,6 @@ using Katana.Core.Events;
 using Katana.Core.Interfaces;
 using Katana.Data.Context;
 using Katana.Data.Models;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -59,6 +58,6 @@ public class PendingNotificationPublisherTests
         publisher.Verify();
     }
 
-    // NOTE: ApproveAsync publish path is validated indirectly via service logic.
-    // Full end-to-end publish test requires relational DB and API build. Skipped due to constraints.
+    
+    
 }

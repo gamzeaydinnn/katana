@@ -10,12 +10,12 @@ public class FailedSyncRecord
     
     [Required]
     [MaxLength(50)]
-    public string RecordType { get; set; } = string.Empty; // STOCK, INVOICE, CUSTOMER
+    public string RecordType { get; set; } = string.Empty; 
     
     [MaxLength(100)]
-    public string? RecordId { get; set; } // Original record identifier
+    public string? RecordId { get; set; } 
     
-    public string OriginalData { get; set; } = string.Empty; // JSON of original data
+    public string OriginalData { get; set; } = string.Empty; 
     
     [MaxLength(2000)]
     public string ErrorMessage { get; set; } = string.Empty;
@@ -32,7 +32,7 @@ public class FailedSyncRecord
     public DateTime? NextRetryAt { get; set; }
     
     [MaxLength(20)]
-    public string Status { get; set; } = "FAILED"; // FAILED, RETRYING, RESOLVED, IGNORED
+    public string Status { get; set; } = "FAILED"; 
     
     [MaxLength(1000)]
     public string? Resolution { get; set; }
@@ -42,7 +42,7 @@ public class FailedSyncRecord
     [MaxLength(100)]
     public string? ResolvedBy { get; set; }
     
-    // Navigation properties
+    
     public virtual IntegrationLog IntegrationLog { get; set; } = null!;
 }
 

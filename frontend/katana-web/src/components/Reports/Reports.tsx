@@ -1,34 +1,35 @@
-import React, { useState, useEffect } from "react";
 import {
-  Container,
-  Box,
-  Paper,
-  Typography,
-  Button,
-  Card,
-  CardContent,
-  Alert,
-  CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Chip,
-  FormControlLabel,
-  Switch,
-} from "@mui/material";
-import {
-  Assessment,
-  Inventory,
-  Download,
-  FileDownload,
-  TrendingUp,
-  TrendingDown,
-  CheckCircle,
+    Assessment,
+    CheckCircle,
+    FileDownload,
+    Inventory,
+    TrendingDown,
+    TrendingUp
 } from "@mui/icons-material";
+import {
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    Container,
+    FormControlLabel,
+    Paper,
+    Switch,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    TextField,
+    Typography,
+    useMediaQuery,
+} from "@mui/material";
+import React, { useEffect, useState } from "react";
+import * as XLSX from "xlsx";
 import { stockAPI } from "../../services/api";
 
 interface StockReportData {
@@ -66,18 +67,20 @@ interface StockReportResponse {
 
 const Reports: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [excelLoading, setExcelLoading] = useState(false);
   const [error, setError] = useState("");
   const [stockReport, setStockReport] = useState<StockReportResponse | null>(
     null
   );
   const [search, setSearch] = useState("");
   const [lowStockOnly, setLowStockOnly] = useState(false);
+  const isMobile = useMediaQuery("(max-width:900px)");
 
   useEffect(() => {
-    handleStockReport();
+    loadStockReport();
   }, []);
 
-  const handleStockReport = async () => {
+  const loadStockReport = async () => {
     try {
       setLoading(true);
       setError("");
@@ -90,41 +93,97 @@ const Reports: React.FC = () => {
       const response = await stockAPI.getStockReport(params.toString());
       setStockReport(response as StockReportResponse);
     } catch (err: any) {
-      console.error("Stock report error:", err);
+      console.warn("Stock report warning:", {
+        message: err?.message,
+        status: err?.response?.status,
+      });
       setError(
-        err.response?.data?.error || err.message || "Stok raporu yüklenemedi"
+        err?.response?.data?.error || err?.message || "Stok raporu yüklenemedi"
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const downloadCSV = () => {
-    if (!stockReport?.stockData.length) return;
-    const headers = ["Ürün Adı", "SKU", "Stok", "Fiyat", "Değer", "Durum"];
-    const rows = stockReport.stockData.map((item) => [
-      item.name,
-      item.sku,
-      item.quantity,
-      `${item.price.toFixed(2)} TL`,
-      `${item.stockValue.toFixed(2)} TL`,
-      item.isOutOfStock ? "Tükendi" : item.isLowStock ? "Düşük" : "Normal",
-    ]);
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `stok_raporu_${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const downloadExcel = async () => {
+    try {
+      setExcelLoading(true);
+      // Tüm ürünleri çekmek için büyük pageSize kullan
+      const params = new URLSearchParams({
+        page: "1",
+        pageSize: "10000",
+        ...(search && { search }),
+        ...(lowStockOnly && { lowStockOnly: "true" }),
+      });
+      const response = (await stockAPI.getStockReport(
+        params.toString()
+      )) as StockReportResponse;
+
+      if (!response?.stockData?.length) {
+        setError("İndirilecek veri bulunamadı");
+        return;
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(
+        response.stockData.map((item) => ({
+          "Ürün Adı": item.name,
+          SKU: item.sku,
+          Stok: item.quantity,
+          Fiyat: item.price.toFixed(2),
+          Değer: item.stockValue.toFixed(2),
+          Durum: item.isOutOfStock
+            ? "Tükendi"
+            : item.isLowStock
+            ? "Düşük Stok"
+            : "Normal",
+          Güncelleme: new Date(item.lastUpdated).toLocaleDateString("tr-TR"),
+        }))
+      );
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Stok Raporu");
+      XLSX.writeFile(
+        workbook,
+        `stok_raporu_${new Date().toISOString().split("T")[0]}.xlsx`
+      );
+    } catch (err: any) {
+      setError("Excel indirme hatası: " + (err?.message || "Bilinmeyen hata"));
+    } finally {
+      setExcelLoading(false);
+    }
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
+    <Container
+      maxWidth="lg"
+      sx={{
+        mt: { xs: 5.5, md: 4 },
+        mb: { xs: 2.5, md: 4 },
+        px: { xs: 1.5, sm: 2, md: 0 },
+      }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: { xs: "flex-start", sm: "center" },
+          flexDirection: { xs: "column", sm: "row" },
+          gap: { xs: 1, sm: 2 },
+          mb: 3,
+        }}
+      >
         <Assessment sx={{ fontSize: 32, color: "primary.main" }} />
-        <Typography variant="h4" fontWeight="bold">
+        <Typography
+          variant="h4"
+          sx={{
+            fontSize: { xs: "1.6rem", md: "2rem" },
+            fontWeight: 900,
+            letterSpacing: "-0.02em",
+            background: "linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
+        >
           Stok Raporu
         </Typography>
       </Box>
@@ -146,7 +205,15 @@ const Reports: React.FC = () => {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Ürün adı veya SKU girin"
             />
-            <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: { xs: 1, sm: 2 },
+                alignItems: "center",
+                justifyContent: { xs: "space-between", sm: "flex-start" },
+              }}
+            >
               <FormControlLabel
                 control={
                   <Switch
@@ -159,13 +226,21 @@ const Reports: React.FC = () => {
               <Button
                 variant="contained"
                 startIcon={
-                  loading ? <CircularProgress size={16} /> : <Download />
+                  excelLoading ? (
+                    <CircularProgress size={20} color="inherit" />
+                  ) : (
+                    <FileDownload />
+                  )
                 }
-                onClick={handleStockReport}
-                disabled={loading}
-                sx={{ minWidth: 150 }}
+                onClick={downloadExcel}
+                disabled={
+                  excelLoading ||
+                  !stockReport ||
+                  stockReport.stockData.length === 0
+                }
+                sx={{ minWidth: 150, width: { xs: "100%", sm: "auto" } }}
               >
-                Rapor Oluştur
+                {excelLoading ? "İndiriliyor..." : "Excel İndir"}
               </Button>
             </Box>
           </Box>
@@ -177,8 +252,12 @@ const Reports: React.FC = () => {
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-              gap: 2,
+              gridTemplateColumns: {
+                xs: "repeat(auto-fit, minmax(180px, 1fr))",
+                sm: "repeat(auto-fit, minmax(220px, 1fr))",
+                md: "repeat(auto-fit, minmax(250px, 1fr))",
+              },
+              gap: { xs: 1.5, md: 2 },
               mb: 3,
             }}
           >
@@ -264,12 +343,14 @@ const Reports: React.FC = () => {
             </Card>
           </Box>
 
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: { xs: 2, md: 3 } }}>
             <Box
               sx={{
                 display: "flex",
                 justifyContent: "space-between",
-                alignItems: "center",
+                alignItems: { xs: "flex-start", sm: "center" },
+                flexDirection: { xs: "column", sm: "row" },
+                gap: { xs: 1.5, sm: 0 },
                 mb: 2,
               }}
             >
@@ -279,78 +360,229 @@ const Reports: React.FC = () => {
               <Button
                 variant="outlined"
                 size="small"
-                startIcon={<FileDownload />}
-                onClick={downloadCSV}
+                startIcon={
+                  excelLoading ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <FileDownload />
+                  )
+                }
+                onClick={downloadExcel}
+                disabled={
+                  excelLoading ||
+                  !stockReport ||
+                  stockReport.stockData.length === 0
+                }
+                sx={{ width: { xs: "100%", sm: "auto" } }}
               >
-                CSV İndir
+                {excelLoading ? "İndiriliyor..." : "Excel İndir"}
               </Button>
             </Box>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>
-                      <strong>Ürün Adı</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>SKU</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Stok</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Fiyat</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>Değer</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Durum</strong>
-                    </TableCell>
-                    <TableCell>
-                      <strong>Güncelleme</strong>
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {stockReport.stockData.map((item) => (
-                    <TableRow key={item.id} hover>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell>{item.sku}</TableCell>
-                      <TableCell align="right">{item.quantity}</TableCell>
-                      <TableCell align="right">
-                        {item.price.toFixed(2)} ₺
-                      </TableCell>
-                      <TableCell align="right">
-                        {item.stockValue.toFixed(2)} ₺
+            {isMobile ? (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                {stockReport.stockData.length === 0 ? (
+                  <Typography color="text.secondary" align="center">
+                    Görüntülenecek veri yok
+                  </Typography>
+                ) : (
+                  stockReport.stockData.map((item) => {
+                    const statusLabel = item.isOutOfStock
+                      ? "Tükendi"
+                      : item.isLowStock
+                      ? "Düşük Stok"
+                      : "Normal";
+                    const statusColor = item.isOutOfStock
+                      ? "error"
+                      : item.isLowStock
+                      ? "warning"
+                      : "success";
+
+                    return (
+                      <Box
+                        key={item.id}
+                        sx={{
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: 2,
+                          p: 1.5,
+                          backgroundColor: "background.paper",
+                          boxShadow: (t) => t.shadows[1],
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 1,
+                            alignItems: "flex-start",
+                          }}
+                        >
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography
+                              variant="subtitle1"
+                              fontWeight={600}
+                              sx={{ wordBreak: "break-word" }}
+                            >
+                              {item.name}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ mt: 0.25 }}
+                            >
+                              SKU: <strong>{item.sku}</strong>
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={statusLabel}
+                            color={statusColor}
+                            size="small"
+                            sx={{ flexShrink: 0 }}
+                          />
+                        </Box>
+
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns:
+                              "repeat(auto-fit, minmax(140px, 1fr))",
+                            columnGap: 1,
+                            rowGap: 1.25,
+                            mt: 1.5,
+                          }}
+                        >
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Stok
+                            </Typography>
+                            <Typography fontWeight={600}>
+                              {item.quantity}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Fiyat
+                            </Typography>
+                            <Typography fontWeight={600}>
+                              {item.price.toFixed(2)} ₺
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Stok Değeri
+                            </Typography>
+                            <Typography fontWeight={600}>
+                              {item.stockValue.toFixed(2)} ₺
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Güncelleme
+                            </Typography>
+                            <Typography fontWeight={600}>
+                              {new Date(item.lastUpdated).toLocaleDateString(
+                                "tr-TR"
+                              )}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    );
+                  })
+                )}
+              </Box>
+            ) : (
+              <TableContainer
+                sx={{
+                  overflowX: "auto",
+                  borderRadius: 2,
+                  "&::-webkit-scrollbar": { height: 6 },
+                  "&::-webkit-scrollbar-thumb": {
+                    backgroundColor: "#cbd5f5",
+                    borderRadius: 3,
+                  },
+                }}
+              >
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>
+                        <strong>Ürün Adı</strong>
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          label={
-                            item.isOutOfStock
-                              ? "Tükendi"
-                              : item.isLowStock
-                              ? "Düşük Stok"
-                              : "Normal"
-                          }
-                          color={
-                            item.isOutOfStock
-                              ? "error"
-                              : item.isLowStock
-                              ? "warning"
-                              : "success"
-                          }
-                          size="small"
-                        />
+                        <strong>SKU</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>Stok</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>Fiyat</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>Değer</strong>
                       </TableCell>
                       <TableCell>
-                        {new Date(item.lastUpdated).toLocaleDateString("tr-TR")}
+                        <strong>Durum</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Güncelleme</strong>
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {stockReport.stockData.map((item) => (
+                      <TableRow key={item.id} hover>
+                        <TableCell>{item.name}</TableCell>
+                        <TableCell>{item.sku}</TableCell>
+                        <TableCell align="right">{item.quantity}</TableCell>
+                        <TableCell align="right">
+                          {item.price.toFixed(2)} ₺
+                        </TableCell>
+                        <TableCell align="right">
+                          {item.stockValue.toFixed(2)} ₺
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={
+                              item.isOutOfStock
+                                ? "Tükendi"
+                                : item.isLowStock
+                                ? "Düşük Stok"
+                                : "Normal"
+                            }
+                            color={
+                              item.isOutOfStock
+                                ? "error"
+                                : item.isLowStock
+                                ? "warning"
+                                : "success"
+                            }
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {new Date(item.lastUpdated).toLocaleDateString(
+                            "tr-TR"
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </Paper>
         </>
       )}

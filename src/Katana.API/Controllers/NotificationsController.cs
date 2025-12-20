@@ -16,7 +16,7 @@ public class NotificationsController : ControllerBase
         _db = db;
     }
 
-    // GET: /api/notifications?unread=true
+    
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] bool? unread)
     {
@@ -30,7 +30,7 @@ public class NotificationsController : ControllerBase
         return Ok(list);
     }
 
-    // GET: /api/notifications/{id}
+    
     [HttpGet("{id}")]
     public async Task<IActionResult> Get(int id)
     {
@@ -39,7 +39,7 @@ public class NotificationsController : ControllerBase
         return Ok(n);
     }
 
-    // POST: /api/notifications/{id}/mark-read
+    
     [HttpPost("{id}/mark-read")]
     public async Task<IActionResult> MarkRead(int id)
     {
@@ -50,7 +50,7 @@ public class NotificationsController : ControllerBase
         return Ok(n);
     }
 
-    // DELETE: /api/notifications/{id}
+    
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {

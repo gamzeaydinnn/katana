@@ -1,7 +1,6 @@
 using Katana.Core.DTOs;
 
 namespace Katana.Core.Interfaces;
-
 public interface IUserService
 {
     Task<IEnumerable<UserDto>> GetAllAsync();

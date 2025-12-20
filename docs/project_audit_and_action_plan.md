@@ -480,7 +480,7 @@ Not: Aşağıdaki dosya yolları ve sınıf isimleri repository içindeki gerçe
 
 - Mevcut: `PendingDbWriteQueue` ve `RetryPendingDbWritesService` var. İyi.
 - Yapılacaklar:
-  - Ensure durability: очередь içeriğini (özellikle önemli audit/failed writes) kısa süreli process crash'lerinden sonra kaybetmemek için opsiyon: küçük lokal SQLite/SQL table backstore veya persistent queue (e.g., Azure Storage Queue, RabbitMQ). Eğer in-memory ise restart kayıpları olabilir.
+  - Ensure durability: очередь içeriğini (özellikle önemli audit/failed writes) kısa süreli process crash'lerinden sonra kaybetmemek için persistent queue (e.g., Azure Storage Queue, RabbitMQ) veya kalıcı SQL tablo yapısı kullanın. Eğer in-memory ise restart kayıpları olabilir.
   - Retry policy: exponential backoff, max attempts, DLQ (dead letter) ve alerting.
 
 ---
