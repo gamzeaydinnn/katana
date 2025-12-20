@@ -13,15 +13,7 @@ import {
     Chip,
     CircularProgress,
     Container,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    FormControl,
-    InputLabel,
-    MenuItem,
     Paper,
-    Select,
     Stack,
     Table,
     TableBody,
@@ -65,34 +57,6 @@ const SYNC_TYPES: SyncTypeConfig[] = [
     description: 'Katana → Luca/Koza ürün senkronizasyonu',
     backendValue: 'STOCK_CARD',
     entities: ['PRODUCT', 'PRODUCT_STOCK', 'VARIANT']
-  },
-  {
-    id: 'stock-movements',
-    label: 'Stok Hareketleri',
-    description: 'Giriş/Çıkış/Transfer hareketleri',
-    backendValue: 'STOCK',
-    entities: ['STOCK_ADJUSTMENT', 'STOCK_TRANSFER']
-  },
-  {
-    id: 'invoices',
-    label: 'Faturalar & İrsaliyeler',
-    description: 'Satış/Alış faturaları ve irsaliyeler',
-    backendValue: 'INVOICE',
-    entities: ['INVOICE', 'WAYBILL', 'SALES_ORDER', 'DESPATCH']
-  },
-  {
-    id: 'contacts',
-    label: 'Müşteri & Tedarikçiler',
-    description: 'Cari/Müşteri/Tedarikçi kartları',
-    backendValue: 'CUSTOMER',
-    entities: ['CUSTOMER', 'SUPPLIER', 'CONTACT']
-  },
-  {
-    id: 'master-data',
-    label: 'Ana Veri',
-    description: 'Depo, kategori, ölçü birimleri',
-    backendValue: 'WAREHOUSE',
-    entities: ['WAREHOUSE', 'CATEGORY', 'UOM']
   }
 ];
 
@@ -100,8 +64,7 @@ const SyncManagement: React.FC = () => {
   const [history, setHistory] = useState<SyncHistory[]>([]);
   const [loading, setLoading] = useState(false);
   
-  const [openDialog, setOpenDialog] = useState(false);
-  const [syncType, setSyncType] = useState(SYNC_TYPES[0].backendValue);
+  const [syncType] = useState(SYNC_TYPES[0].backendValue);
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
@@ -142,7 +105,6 @@ const SyncManagement: React.FC = () => {
       const result = await stockAPI.startSync({ syncType });
       setSyncResult(result);
       setSyncStatus("success");
-      setOpenDialog(false);
       await loadHistory();
       showGlobalToast({
         message: "Senkronizasyon tamamlandı.",
@@ -242,11 +204,12 @@ const SyncManagement: React.FC = () => {
           </Button>
           <Button
             variant="contained"
-            startIcon={<PlayArrow />}
-            onClick={() => setOpenDialog(true)}
+            startIcon={syncing ? <CircularProgress size={16} color="inherit" /> : <PlayArrow />}
+            onClick={handleStartSync}
+            disabled={syncing}
             sx={{ flex: { xs: 1, sm: "none" }, minWidth: { xs: "48%", sm: 180 } }}
           >
-            Senkronizasyon Başlat
+            {syncing ? "Senkronize Ediliyor..." : "Senkronizasyon Başlat"}
           </Button>
         </Box>
       </Box>
@@ -560,51 +523,7 @@ const SyncManagement: React.FC = () => {
         </Paper>
       )}
 
-      {}
-      <Dialog
-        open={openDialog}
-        onClose={() => setOpenDialog(false)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle sx={{ pb: 1.5 }}>Senkronizasyon Başlat</DialogTitle>
-        <DialogContent sx={{ minWidth: { xs: "auto", sm: 400 }, pt: 2.5 }}>
-          <FormControl fullWidth margin="dense" sx={{ mt: 1 }}>
-            <InputLabel>Senkronizasyon Tipi</InputLabel>
-            <Select
-              value={syncType}
-              label="Senkronizasyon Tipi"
-              onChange={(e) => setSyncType(e.target.value)}
-            >
-              {SYNC_TYPES.map((type) => (
-                <MenuItem key={type.id} value={type.backendValue}>
-                  <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                    {type.label}
-                  </Typography>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button
-            variant="outlined"
-            color="inherit"
-            onClick={() => setOpenDialog(false)}
-            sx={{ fontWeight: 600 }}
-          >
-            İptal
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleStartSync}
-            disabled={syncing}
-            startIcon={syncing ? <CircularProgress size={16} /> : <PlayArrow />}
-          >
-            Başlat
-          </Button>
-        </DialogActions>
-      </Dialog>
+
     </Container>
   );
 };

@@ -1,30 +1,31 @@
 import {
-  AdminPanelSettings as AdminIcon,
-  ChevronLeft as ChevronLeftIcon,
-  Dashboard as DashboardIcon,
-  Inventory as InventoryIcon,
-  Assessment as ReportsIcon,
-  Sync as SyncIcon,
-  Receipt as ReceiptIcon,
-  CompareArrows as CompareArrowsIcon,
+    AdminPanelSettings as AdminIcon,
+    ChevronLeft as ChevronLeftIcon,
+    CompareArrows as CompareArrowsIcon,
+    Dashboard as DashboardIcon,
+    Hub as HubIcon,
+    Inventory as InventoryIcon,
+    Receipt as ReceiptIcon,
+    Assessment as ReportsIcon,
+    Sync as SyncIcon
 } from "@mui/icons-material";
 import {
-  Box,
-  Divider,
-  Drawer,
-  IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Typography,
-  useMediaQuery,
-  useTheme,
+    Box,
+    Divider,
+    Drawer,
+    IconButton,
+    List,
+    ListItem,
+    ListItemButton,
+    ListItemIcon,
+    ListItemText,
+    Typography,
+    useMediaQuery,
+    useTheme,
 } from "@mui/material";
+import { styled } from "@mui/material/styles";
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { styled } from "@mui/material/styles";
 
 const DESKTOP_DRAWER_WIDTH = 280;
 const MOBILE_DRAWER_WIDTH = 220;
@@ -112,11 +113,11 @@ const menuItems = [
     color: "#4facfe",
   },
   {
-    text: "Stok Yönetimi",
-    icon: <InventoryIcon />,
-    path: "/stock",
-    gradient: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
-    color: "#43e97b",
+    text: "Koza Entegrasyon",
+    icon: <HubIcon />,
+    path: "/koza",
+    gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    color: "#667eea",
   },
   {
     text: "Senkronizasyon",

@@ -95,7 +95,7 @@ public class TransformerService : ITransformerService
                 ProductSKU = item.ProductSKU,
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
-                TaxRate = item.TaxRate,
+                TaxRate = item.TaxRate > 1 ? item.TaxRate / 100 : item.TaxRate, // Normalize: 18 -> 0.18
                 TaxAmount = item.TaxAmount,
                 TotalAmount = item.TotalAmount,
                 Unit = item.Unit

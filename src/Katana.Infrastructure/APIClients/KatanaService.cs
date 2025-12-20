@@ -1126,32 +1126,107 @@ public class KatanaService : IKatanaService
         if (_cache.TryGetValue<string?>(cacheKey, out var cached))
             return cached;
 
-        try
+        const int MAX_RETRIES = 5;
+        var retryDelays = new[] { 2000, 4000, 8000, 16000, 32000 }; // Exponential backoff: 2s, 4s, 8s, 16s, 32s
+
+        for (int attempt = 0; attempt <= MAX_RETRIES; attempt++)
         {
-            var resp = await _httpClient.GetAsync($"variants/{variantId}");
-            if (!resp.IsSuccessStatusCode)
-                return null;
-
-            var content = await resp.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(content);
-            var root = doc.RootElement;
-            
-            JsonElement varEl = root;
-            if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
-                varEl = dataEl.EnumerateArray().FirstOrDefault();
-
-            if (varEl.ValueKind == JsonValueKind.Object && varEl.TryGetProperty("sku", out var skuEl) && skuEl.ValueKind == JsonValueKind.String)
+            try
             {
-                var sku = skuEl.GetString();
-                _cache.Set(cacheKey, sku, TimeSpan.FromMinutes(10));
-                return sku;
+                var resp = await _httpClient.GetAsync($"variants/{variantId}");
+                
+                // Handle 429 Too Many Requests
+                if (resp.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    var retryAfter = GetRetryAfterDelay(resp);
+                    
+                    if (attempt < MAX_RETRIES)
+                    {
+                        var delayMs = retryAfter.HasValue 
+                            ? (int)retryAfter.Value.TotalMilliseconds 
+                            : retryDelays[attempt];
+                        
+                        _logger.LogWarning(
+                            "⚠️ Rate limit (429) hit for variant {VariantId}. Attempt {Attempt}/{MaxRetries}. Waiting {DelayMs}ms before retry.",
+                            variantId, attempt + 1, MAX_RETRIES, delayMs);
+                        
+                        await Task.Delay(delayMs);
+                        continue;
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "❌ Rate limit (429) hit for variant {VariantId}. Max retries ({MaxRetries}) exceeded. Returning fallback.",
+                            variantId, MAX_RETRIES);
+                        return null;
+                    }
+                }
+                
+                if (!resp.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Failed to get variant {VariantId}. Status: {StatusCode}", variantId, resp.StatusCode);
+                    return null;
+                }
+
+                var content = await resp.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(content);
+                var root = doc.RootElement;
+                
+                JsonElement varEl = root;
+                if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
+                    varEl = dataEl.EnumerateArray().FirstOrDefault();
+
+                if (varEl.ValueKind == JsonValueKind.Object && varEl.TryGetProperty("sku", out var skuEl) && skuEl.ValueKind == JsonValueKind.String)
+                {
+                    var sku = skuEl.GetString();
+                    // Cache for 60 minutes to reduce API calls
+                    _cache.Set(cacheKey, sku, TimeSpan.FromMinutes(60));
+                    return sku;
+                }
+                
+                return null;
+            }
+            catch (Exception ex)
+            {
+                if (attempt < MAX_RETRIES)
+                {
+                    _logger.LogWarning(ex, "Error getting variant {VariantId}. Attempt {Attempt}/{MaxRetries}. Retrying...", 
+                        variantId, attempt + 1, MAX_RETRIES);
+                    await Task.Delay(retryDelays[attempt]);
+                }
+                else
+                {
+                    _logger.LogWarning(ex, "Failed to get variant sku for id {VariantId} after {MaxRetries} attempts", 
+                        variantId, MAX_RETRIES);
+                }
             }
         }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to get variant sku for id {VariantId}", variantId);
-        }
 
+        return null;
+    }
+
+    private TimeSpan? GetRetryAfterDelay(HttpResponseMessage response)
+    {
+        if (response.Headers.TryGetValues("Retry-After", out var values))
+        {
+            var retryAfterValue = values.FirstOrDefault();
+            if (!string.IsNullOrEmpty(retryAfterValue))
+            {
+                // Try parsing as seconds (integer)
+                if (int.TryParse(retryAfterValue, out var seconds))
+                {
+                    return TimeSpan.FromSeconds(seconds);
+                }
+                
+                // Try parsing as HTTP date
+                if (DateTimeOffset.TryParse(retryAfterValue, out var retryDate))
+                {
+                    var delay = retryDate - DateTimeOffset.UtcNow;
+                    return delay > TimeSpan.Zero ? delay : TimeSpan.FromSeconds(2);
+                }
+            }
+        }
+        
         return null;
     }
 
@@ -1165,6 +1240,30 @@ public class KatanaService : IKatanaService
         if (invEl.TryGetProperty("customer_id", out var custEl) && custEl.ValueKind == JsonValueKind.Number)
         {
             try { dto.ExternalCustomerId = custEl.GetInt32(); } catch { dto.ExternalCustomerId = null; }
+        }
+
+        // Map customer name/title - try multiple possible field names
+        if (invEl.TryGetProperty("customer_name", out var custNameEl) && custNameEl.ValueKind == JsonValueKind.String)
+            dto.CustomerTitle = custNameEl.GetString() ?? string.Empty;
+        else if (invEl.TryGetProperty("customer_title", out var custTitleEl) && custTitleEl.ValueKind == JsonValueKind.String)
+            dto.CustomerTitle = custTitleEl.GetString() ?? string.Empty;
+
+        // Map customer tax number - try multiple possible field names
+        if (invEl.TryGetProperty("customer_tax_number", out var taxNoEl) && taxNoEl.ValueKind == JsonValueKind.String)
+            dto.CustomerTaxNo = taxNoEl.GetString() ?? string.Empty;
+        else if (invEl.TryGetProperty("tax_no", out var taxEl) && taxEl.ValueKind == JsonValueKind.String)
+            dto.CustomerTaxNo = taxEl.GetString() ?? string.Empty;
+        else if (invEl.TryGetProperty("customer_tax_no", out var custTaxEl) && custTaxEl.ValueKind == JsonValueKind.String)
+            dto.CustomerTaxNo = custTaxEl.GetString() ?? string.Empty;
+
+        // Try to get customer info from billing_address if available
+        if (string.IsNullOrEmpty(dto.CustomerTitle) && invEl.TryGetProperty("billing_address", out var billAddrEl))
+        {
+            if (billAddrEl.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String)
+                dto.CustomerTitle = nameEl.GetString() ?? string.Empty;
+            
+            if (string.IsNullOrEmpty(dto.CustomerTaxNo) && billAddrEl.TryGetProperty("tax_number", out var billTaxEl) && billTaxEl.ValueKind == JsonValueKind.String)
+                dto.CustomerTaxNo = billTaxEl.GetString() ?? string.Empty;
         }
 
         if (invEl.TryGetProperty("order_no", out var noEl) && noEl.ValueKind == JsonValueKind.String)
@@ -1207,6 +1306,15 @@ public class KatanaService : IKatanaService
             }
         }
 
+        // Log customer mapping for debugging
+        _logger.LogDebug(
+            "Mapped invoice {InvoiceNo}: CustomerId={CustomerId}, CustomerTitle={CustomerTitle}, CustomerTaxNo={CustomerTaxNo}",
+            dto.InvoiceNo,
+            dto.ExternalCustomerId,
+            string.IsNullOrEmpty(dto.CustomerTitle) ? "EMPTY" : dto.CustomerTitle,
+            string.IsNullOrEmpty(dto.CustomerTaxNo) ? "EMPTY" : dto.CustomerTaxNo
+        );
+
         return dto;
     }
 
@@ -1240,13 +1348,44 @@ public class KatanaService : IKatanaService
 
                         
                         var allVariantIds = variantLookupEntries.SelectMany(x => x).Where(x => x.HasValue).Select(x => x!.Value).Distinct().ToList();
+                        _logger.LogInformation("🔍 Resolving SKUs for {Count} distinct variant IDs (from {TotalInvoices} invoices)", 
+                            allVariantIds.Count, invoices.Count);
+                        
                         var variantSkuMap = new Dictionary<int, string>();
-                        foreach (var vid in allVariantIds)
+                        
+                        // Throttle variant SKU resolution to avoid rate limits
+                        const int MAX_PARALLEL_VARIANTS = 2; // Reduced from 3 to 2 for safer rate limiting
+                        using var semaphore = new SemaphoreSlim(MAX_PARALLEL_VARIANTS);
+                        var tasks = allVariantIds.Select(async vid =>
                         {
-                            var sku = await GetVariantSkuAsync(vid);
-                            if (!string.IsNullOrEmpty(sku))
-                                variantSkuMap[vid] = sku;
-                        }
+                            await semaphore.WaitAsync();
+                            try
+                            {
+                                var sku = await GetVariantSkuAsync(vid);
+                                if (!string.IsNullOrEmpty(sku))
+                                {
+                                    lock (variantSkuMap)
+                                    {
+                                        variantSkuMap[vid] = sku;
+                                    }
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("⚠️ Variant {VariantId} SKU resolution returned null", vid);
+                                }
+                                
+                                // Add small delay between requests to avoid rate limits
+                                await Task.Delay(100);
+                            }
+                            finally
+                            {
+                                semaphore.Release();
+                            }
+                        });
+                        
+                        await Task.WhenAll(tasks);
+                        _logger.LogInformation("✅ Resolved {Count}/{Total} variant SKUs successfully", 
+                            variantSkuMap.Count, allVariantIds.Count);
 
                         
                         for (int i = 0; i < invoices.Count; i++)
@@ -1256,8 +1395,70 @@ public class KatanaService : IKatanaService
                             for (int j = 0; j < invoice.Items.Count && j < variantIds.Count; j++)
                             {
                                 var vid = variantIds[j];
-                                if (vid.HasValue && variantSkuMap.TryGetValue(vid.Value, out var sku))
-                                    invoice.Items[j].ProductSKU = sku;
+                                if (vid.HasValue)
+                                {
+                                    if (variantSkuMap.TryGetValue(vid.Value, out var sku))
+                                    {
+                                        invoice.Items[j].ProductSKU = sku;
+                                    }
+                                    else
+                                    {
+                                        // Fallback: Use variant ID as SKU if resolution failed
+                                        invoice.Items[j].ProductSKU = $"VAR-{vid.Value}";
+                                        _logger.LogWarning(
+                                            "⚠️ Failed to resolve SKU for variant {VariantId} in invoice {InvoiceNo}. Using fallback: {Fallback}",
+                                            vid.Value, invoice.InvoiceNo, invoice.Items[j].ProductSKU);
+                                    }
+                                }
+                                else
+                                {
+                                    // No variant ID available
+                                    invoice.Items[j].ProductSKU = $"UNKNOWN-{i}-{j}";
+                                    _logger.LogWarning(
+                                        "⚠️ No variant ID for invoice {InvoiceNo} item {ItemIndex}. Using fallback: {Fallback}",
+                                        invoice.InvoiceNo, j, invoice.Items[j].ProductSKU);
+                                }
+                            }
+                        }
+
+                        // Enrich invoices with customer data if missing
+                        foreach (var invoice in invoices)
+                        {
+                            if ((string.IsNullOrEmpty(invoice.CustomerTaxNo) || string.IsNullOrEmpty(invoice.CustomerTitle)) 
+                                && invoice.ExternalCustomerId.HasValue)
+                            {
+                                try
+                                {
+                                    var customer = await GetCustomerByIdAsync(invoice.ExternalCustomerId.Value);
+                                    if (customer != null)
+                                    {
+                                        if (string.IsNullOrEmpty(invoice.CustomerTitle))
+                                            invoice.CustomerTitle = customer.Name ?? string.Empty;
+                                        
+                                        // Try to extract tax number from customer data
+                                        // Katana might store it in different fields
+                                        if (string.IsNullOrEmpty(invoice.CustomerTaxNo))
+                                        {
+                                            // Check if customer has tax number in comment or other fields
+                                            invoice.CustomerTaxNo = customer.ReferenceId ?? string.Empty;
+                                        }
+
+                                        _logger.LogInformation(
+                                            "Enriched invoice {InvoiceNo} with customer data: Title={Title}, TaxNo={TaxNo}",
+                                            invoice.InvoiceNo,
+                                            invoice.CustomerTitle,
+                                            invoice.CustomerTaxNo
+                                        );
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogWarning(ex, 
+                                        "Failed to enrich invoice {InvoiceNo} with customer data for customer_id={CustomerId}",
+                                        invoice.InvoiceNo,
+                                        invoice.ExternalCustomerId
+                                    );
+                                }
                             }
                         }
                     }

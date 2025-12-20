@@ -27,6 +27,60 @@ public class ExtractorService : IExtractorService
         _logger = logger;
     }
 
+    private async Task<int> GetCustomerIdAsync(string? customerTaxNo, string? customerTitle, string? customerReference, string? customerCode, string invoiceNo, CancellationToken ct = default)
+    {
+        // Check if we have any identifier to search with
+        var hasTaxNo = !string.IsNullOrEmpty(customerTaxNo);
+        var hasTitle = !string.IsNullOrEmpty(customerTitle);
+        var hasReference = !string.IsNullOrEmpty(customerReference);
+        var hasCode = !string.IsNullOrEmpty(customerCode);
+
+        if (!hasTaxNo && !hasTitle && !hasReference && !hasCode)
+        {
+            _logger.LogWarning(
+                "Customer lookup skipped for invoice {InvoiceNo}: No customer identifiers provided (TaxNo, Title, Reference, Code all empty)",
+                invoiceNo
+            );
+            return 0;
+        }
+
+        // Build query with only non-empty conditions
+        var query = _dbContext.Customers.AsNoTracking().AsQueryable();
+        
+        // Apply filters only for non-empty values
+        query = query.Where(c =>
+            (hasTaxNo && c.TaxNo == customerTaxNo) ||
+            (hasTaxNo && c.TaxNo == "U" + customerTaxNo) ||
+            (hasTitle && c.Title == customerTitle) ||
+            (hasReference && c.ReferenceId == customerReference) ||
+            (hasCode && c.LucaCode == customerCode)
+        );
+
+        var customer = await query.FirstOrDefaultAsync(ct);
+
+        if (customer == null)
+        {
+            _logger.LogWarning(
+                "Customer not found for invoice {InvoiceNo}. TaxNo={TaxNo}, Title={Title}, Reference={Reference}, Code={Code}",
+                invoiceNo,
+                customerTaxNo ?? "N/A",
+                customerTitle ?? "N/A",
+                customerReference ?? "N/A",
+                customerCode ?? "N/A"
+            );
+            return 0;
+        }
+
+        _logger.LogDebug(
+            "Customer found for invoice {InvoiceNo}: CustomerId={CustomerId}, Title={Title}",
+            invoiceNo,
+            customer.Id,
+            customer.Title
+        );
+
+        return customer.Id;
+    }
+
     public async Task<List<ProductDto>> ExtractProductsAsync(DateTime? fromDate = null, CancellationToken ct = default)
     {
         _logger.LogInformation("ExtractorService => Fetching products from Katana API.");
@@ -212,27 +266,44 @@ public class ExtractorService : IExtractorService
                 }).ToList()
             };
 
-            
+            // Try to resolve customer ID
             if (dto.CustomerId == 0)
             {
                 try
                 {
-                    
-                    if (!string.IsNullOrEmpty(invoice.CustomerTaxNo))
-                    {
-                        var cust = await _dbContext.Customers.AsNoTracking()
-                            .FirstOrDefaultAsync(c => c.TaxNo == invoice.CustomerTaxNo, ct);
-                        if (cust != null)
-                            dto.CustomerId = cust.Id;
-                    }
+                    // First try with TaxNo/Title/Reference/Code
+                    dto.CustomerId = await GetCustomerIdAsync(
+                        invoice.CustomerTaxNo,
+                        invoice.CustomerTitle,
+                        null, // CustomerReference - Katana invoice'da yok
+                        null, // CustomerCode - Katana invoice'da yok
+                        invoice.InvoiceNo,
+                        ct);
 
-                    
-                    if (dto.CustomerId == 0 && !string.IsNullOrEmpty(invoice.CustomerTitle))
+                    // Fallback: If still not found and we have ExternalCustomerId, try to find by Katana customer_id
+                    if (dto.CustomerId == 0 && invoice.ExternalCustomerId.HasValue)
                     {
-                        var cust2 = await _dbContext.Customers.AsNoTracking()
-                            .FirstOrDefaultAsync(c => c.Title == invoice.CustomerTitle, ct);
-                        if (cust2 != null)
-                            dto.CustomerId = cust2.Id;
+                        var customerByKatanaId = await _dbContext.Customers.AsNoTracking()
+                            .FirstOrDefaultAsync(c => c.ReferenceId == invoice.ExternalCustomerId.Value.ToString(), ct);
+                        
+                        if (customerByKatanaId != null)
+                        {
+                            dto.CustomerId = customerByKatanaId.Id;
+                            _logger.LogInformation(
+                                "Customer resolved by Katana customer_id for invoice {InvoiceNo}: CustomerId={CustomerId}, KatanaCustomerId={KatanaCustomerId}",
+                                invoice.InvoiceNo,
+                                dto.CustomerId,
+                                invoice.ExternalCustomerId
+                            );
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "Customer not found by Katana customer_id for invoice {InvoiceNo}: KatanaCustomerId={KatanaCustomerId}",
+                                invoice.InvoiceNo,
+                                invoice.ExternalCustomerId
+                            );
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -302,8 +373,30 @@ public class ExtractorService : IExtractorService
             }
             else
             {
-                _logger.LogWarning("ExtractorService => Invoice skipped. InvoiceNo={InvoiceNo}; Reasons={Reasons}",
-                    dto.InvoiceNo, string.Join("; ", errors));
+                // Build detailed skip reason
+                var skipReasons = new List<string>();
+                
+                if (dto.CustomerId == 0)
+                {
+                    skipReasons.Add($"Missing customer (TaxNo='{invoice.CustomerTaxNo ?? "N/A"}', Title='{invoice.CustomerTitle ?? "N/A"}', KatanaId={invoice.ExternalCustomerId?.ToString() ?? "N/A"})");
+                }
+                
+                var missingProducts = dto.Items.Where(i => i.ProductId == 0).ToList();
+                if (missingProducts.Any())
+                {
+                    skipReasons.Add($"Missing products: {string.Join(", ", missingProducts.Select(p => $"SKU={p.ProductSKU ?? "N/A"}"))}");
+                }
+                
+                if (errors.Any())
+                {
+                    skipReasons.AddRange(errors);
+                }
+
+                _logger.LogWarning(
+                    "ExtractorService => Invoice skipped. InvoiceNo={InvoiceNo}; Reasons={Reasons}",
+                    dto.InvoiceNo, 
+                    string.Join("; ", skipReasons)
+                );
             }
         }
 

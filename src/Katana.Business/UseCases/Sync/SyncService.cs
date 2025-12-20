@@ -473,13 +473,15 @@ public class SyncService : ISyncService
         new()
         {
             SyncType = syncType,
-            IsSuccess = successful == processed,
+            IsSuccess = processed > 0 && successful == processed,
             ProcessedRecords = processed,
             SuccessfulRecords = successful,
             FailedRecords = processed - successful,
-            Message = successful == processed
-                ? $"{processed} kayıt senkronize edildi."
-                : $"{processed} kaydın {successful} tanesi senkronize edildi."
+            Message = processed == 0
+                ? "Senkronize edilecek kayıt bulunamadı."
+                : successful == processed
+                    ? $"{processed} kayıt senkronize edildi."
+                    : $"{processed} kaydın {successful} tanesi senkronize edildi."
         };
 
     private List<Product> FilterValidProducts(IEnumerable<Product> products, out int skipped)
@@ -631,13 +633,30 @@ public class SyncService : ISyncService
 
         if (string.IsNullOrWhiteSpace(customer.TaxNo))
         {
-            reason = "Vergi numarası boş";
+            reason = "Vergi/TC numarası boş";
             return false;
         }
 
-        if (customer.TaxNo.Length < 10)
+        // "U" ile başlayanlar TC Kimlik No olarak kabul edilir
+        if (customer.TaxNo.StartsWith("U", StringComparison.OrdinalIgnoreCase))
         {
-            reason = "Vergi numarası eksik";
+            string tcNo = customer.TaxNo.Substring(1); // U'yu çıkar
+            
+            if (tcNo.Length != 11 || !tcNo.All(char.IsDigit))
+            {
+                reason = "Geçersiz TC Kimlik No formatı (U + 11 rakam olmalı)";
+                return false;
+            }
+            
+            if (!ValidateTurkishId(tcNo))
+            {
+                reason = "Geçersiz TC Kimlik No";
+                return false;
+            }
+        }
+        else if (customer.TaxNo.Length < 10)
+        {
+            reason = "Vergi numarası eksik (en az 10 hane olmalı)";
             return false;
         }
 
@@ -649,6 +668,32 @@ public class SyncService : ISyncService
 
         reason = string.Empty;
         return true;
+    }
+
+    /// <summary>
+    /// TC Kimlik No algoritması ile doğrulama yapar
+    /// </summary>
+    private static bool ValidateTurkishId(string tcNo)
+    {
+        if (tcNo.Length != 11) return false;
+        if (!long.TryParse(tcNo, out long ATCNO)) return false;
+
+        long BTCNO = ATCNO / 100;
+        long TCNOTek = 0, TCNOCift = 0;
+
+        for (int i = 0; i < 9; i++)
+        {
+            if (i % 2 == 0)
+                TCNOTek += BTCNO % 10;
+            else
+                TCNOCift += BTCNO % 10;
+            BTCNO /= 10;
+        }
+
+        long onuncuHane = ((TCNOTek * 7) - TCNOCift) % 10;
+        long birinciOnHane = (TCNOTek + TCNOCift + onuncuHane) % 10;
+
+        return (ATCNO % 100 == (onuncuHane * 10 + birinciOnHane));
     }
 
     private static string NormalizeSku(KatanaProductDto product) =>
