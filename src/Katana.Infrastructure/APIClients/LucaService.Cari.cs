@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Linq;
+using System.Net.Sockets;
 using Katana.Core.DTOs.Koza;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
@@ -274,6 +275,10 @@ public partial class LucaService
                 throw new InvalidOperationException("Koza NO_JSON (HTML döndü). Auth/şube/cookie kırık olabilir.");
             }
 
+            // DEBUG: Log the raw response to see what fields are actually returned
+            _logger.LogInformation("ListMusteriCarilerAsync RAW RESPONSE: {Body}", 
+                body.Length > 1000 ? body.Substring(0, 1000) + "..." : body);
+
             var dto = JsonSerializer.Deserialize<KozaCariListResponse>(body, _jsonOptions);
             
             if (dto?.Error == true)
@@ -283,7 +288,37 @@ public partial class LucaService
             }
 
             // FIX: finMusteriListesi alanını kontrol et, yoksa list alanına bak
-            var müsteriler = dto?.FinMusteriListesi ?? dto?.List ?? new List<KozaCariDto>();
+            // Eğer her ikisi de boşsa, raw JSON'u parse edip tüm field'ları kontrol et
+            var müsteriler = dto?.FinMusteriListesi ?? dto?.List;
+            
+            if (müsteriler == null || müsteriler.Count == 0)
+            {
+                // Try to parse as generic JsonElement to see all fields
+                try
+                {
+                    var jsonDoc = JsonDocument.Parse(body);
+                    var root = jsonDoc.RootElement;
+                    
+                    _logger.LogWarning("Müşteri listesi boş döndü. Response'daki tüm field'lar:");
+                    foreach (var prop in root.EnumerateObject())
+                    {
+                        _logger.LogWarning("  Field: {Name}, Type: {Type}, ValueKind: {Kind}", 
+                            prop.Name, prop.Value.ValueKind, prop.Value.ValueKind);
+                        
+                        // Eğer array ise, içindeki eleman sayısını da logla
+                        if (prop.Value.ValueKind == JsonValueKind.Array)
+                        {
+                            _logger.LogWarning("    Array length: {Length}", prop.Value.GetArrayLength());
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "JSON parse hatası");
+                }
+                
+                müsteriler = new List<KozaCariDto>();
+            }
             
             _logger.LogInformation("Koza'dan {Count} müşteri cari listelendi (Filtre: {KodBas}-{KodBit}), Kaynak: {Source}", 
                 müsteriler.Count, kodBas ?? "Tümü", kodBit ?? "Tümü", 
@@ -426,87 +461,141 @@ public partial class LucaService
     /// </summary>
     public async Task<KozaResult> EnsureDepotAsync(KatanaLocationToDepoDto depot, CancellationToken ct = default)
     {
-        try
+        const int maxRetries = 3;
+        
+        for (int retry = 0; retry < maxRetries; retry++)
         {
-            _logger.LogInformation("EnsureDepotAsync: Processing depot {Code} - {Name}", depot.Code, depot.Name);
-            
-            // Mevcut depoları listele ve kontrol et
-            var existingDepots = await ListDepotsAsync(ct);
-            var existing = existingDepots.FirstOrDefault(d => 
-                string.Equals(d.Kod, depot.Code, StringComparison.OrdinalIgnoreCase));
-
-            if (existing != null)
+            try
             {
-                _logger.LogInformation("Depo zaten mevcut: {Code} (Id: {Id})", depot.Code, existing.DepoId);
+                _logger.LogInformation("EnsureDepotAsync: Processing depot {Code} - {Name} (Attempt {Retry}/{Max})", 
+                    depot.Code, depot.Name, retry + 1, maxRetries);
+                
+                // Session kontrolü ve yenileme
+                await EnsureAuthenticatedAsync();
+                await EnsureBranchSelectedAsync();
+                
+                // Mevcut depoları listele ve kontrol et
+                var existingDepots = await ListDepotsAsync(ct);
+                var existing = existingDepots.FirstOrDefault(d => 
+                    string.Equals(d.Kod, depot.Code, StringComparison.OrdinalIgnoreCase));
+
+                if (existing != null)
+                {
+                    _logger.LogInformation("✅ Depo zaten mevcut: {Code} (Id: {Id})", depot.Code, existing.DepoId);
+                    return new KozaResult 
+                    { 
+                        Success = true, 
+                        Message = "ALREADY_EXISTS",
+                        Data = new { DepoKodu = existing.Kod, DepoId = existing.DepoId }
+                    };
+                }
+
+                // Yeni depo oluştur
+                var payload = new
+                {
+                    depo = new
+                    {
+                        kod = depot.Code,
+                        tanim = depot.Name,
+                        adres = depot.Address ?? "",
+                        aktif = true
+                    }
+                };
+
+                var json = JsonSerializer.Serialize(payload, _jsonOptions);
+                _logger.LogDebug("EnsureDepotAsync creating: {Json}", json);
+
+                var request = new HttpRequestMessage(HttpMethod.Post, "/api/depo/kaydet")
+                {
+                    Content = new StringContent(json, Encoding.UTF8, "application/json")
+                };
+
+                ApplySessionCookie(request);
+                ApplyManualSessionCookie(request);
+
+                var client = _cookieHttpClient ?? _httpClient;
+                var response = await client.SendAsync(request, ct);
+
+                var body = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogDebug("EnsureDepotAsync response: {Status}, {Body}", 
+                    response.StatusCode, body?.Substring(0, Math.Min(500, body?.Length ?? 0)));
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Depo oluşturulamadı: {Code} - Status: {Status}, Body: {Body}", 
+                        depot.Code, response.StatusCode, body);
+                    
+                    // Retry edilebilir hata mı kontrol et
+                    if (retry < maxRetries - 1)
+                    {
+                        var delay = TimeSpan.FromSeconds(Math.Pow(2, retry + 1));
+                        _logger.LogWarning("⚠️ Retry {Retry}/{Max} after {Delay}s", 
+                            retry + 1, maxRetries, delay.TotalSeconds);
+                        await Task.Delay(delay, ct);
+                        continue;
+                    }
+                    
+                    return new KozaResult { Success = false, Message = $"HTTP {response.StatusCode}: {body}" };
+                }
+
+                long? depoId = null;
+                try
+                {
+                    var respJson = JsonSerializer.Deserialize<JsonElement>(body);
+                    if (respJson.TryGetProperty("depoId", out var did))
+                    {
+                        depoId = did.GetInt64();
+                    }
+                    else if (respJson.TryGetProperty("depo", out var d) && 
+                             d.TryGetProperty("depoId", out var dId))
+                    {
+                        depoId = dId.GetInt64();
+                    }
+                }
+                catch { /* Ignore parse errors */ }
+
+                _logger.LogInformation("✅ Depo başarıyla oluşturuldu: {Code} - {Name} (DepoId: {Id})", 
+                    depot.Code, depot.Name, depoId);
+                
                 return new KozaResult 
                 { 
                     Success = true, 
-                    Message = "ALREADY_EXISTS",
-                    Data = new { DepoKodu = existing.Kod, DepoId = existing.DepoId }
+                    Message = "OK",
+                    Data = new { DepoKodu = depot.Code, DepoId = depoId }
                 };
             }
-
-            // Yeni depo oluştur
-            var payload = new
+            catch (HttpRequestException ex) when (ex.InnerException is IOException || ex.InnerException is SocketException)
             {
-                depo = new
+                if (retry == maxRetries - 1)
                 {
-                    kod = depot.Code,
-                    tanim = depot.Name,
-                    adres = depot.Address ?? "",
-                    aktif = true
+                    _logger.LogError(ex, "❌ All retries failed for depot: {Code} - {Name}", depot.Code, depot.Name);
+                    throw;
                 }
-            };
 
-            var json = JsonSerializer.Serialize(payload, _jsonOptions);
-            _logger.LogDebug("EnsureDepotAsync creating: {Json}", json);
+                var delay = TimeSpan.FromSeconds(Math.Pow(2, retry + 1));
+                _logger.LogWarning("⚠️ Connection error for depot {Code}. Retry {Retry}/{Max} after {Delay}s. Error: {Error}",
+                    depot.Code, retry + 1, maxRetries, delay.TotalSeconds, ex.Message);
 
-            var response = await _httpClient.PostAsync(
-                "/api/depo/kaydet",
-                new StringContent(json, Encoding.UTF8, "application/json"),
-                ct);
-
-            var body = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogDebug("EnsureDepotAsync response: {Status}, {Body}", response.StatusCode, body?.Substring(0, Math.Min(500, body?.Length ?? 0)));
-
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogWarning("Depo oluşturulamadı: {Code} - Status: {Status}, Body: {Body}", 
-                    depot.Code, response.StatusCode, body);
-                return new KozaResult { Success = false, Message = $"HTTP {response.StatusCode}: {body}" };
+                await Task.Delay(delay, ct);
             }
-
-            long? depoId = null;
-            try
+            catch (Exception ex)
             {
-                var respJson = JsonSerializer.Deserialize<JsonElement>(body);
-                if (respJson.TryGetProperty("depoId", out var did))
+                _logger.LogError(ex, "EnsureDepotAsync failed for depot: {Code} - {Name}", depot.Code, depot.Name);
+                
+                if (retry < maxRetries - 1)
                 {
-                    depoId = did.GetInt64();
+                    var delay = TimeSpan.FromSeconds(Math.Pow(2, retry + 1));
+                    _logger.LogWarning("⚠️ Retry {Retry}/{Max} after {Delay}s", 
+                        retry + 1, maxRetries, delay.TotalSeconds);
+                    await Task.Delay(delay, ct);
+                    continue;
                 }
-                else if (respJson.TryGetProperty("depo", out var d) && 
-                         d.TryGetProperty("depoId", out var dId))
-                {
-                    depoId = dId.GetInt64();
-                }
+                
+                return new KozaResult { Success = false, Message = ex.Message };
             }
-            catch { /* Ignore parse errors */ }
+        }
 
-            _logger.LogInformation("Depo başarıyla oluşturuldu: {Code} - {Name} (DepoId: {Id})", 
-                depot.Code, depot.Name, depoId);
-            
-            return new KozaResult 
-            { 
-                Success = true, 
-                Message = "OK",
-                Data = new { DepoKodu = depot.Code, DepoId = depoId }
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "EnsureDepotAsync failed for depot: {Code} - {Name}", depot.Code, depot.Name);
-            return new KozaResult { Success = false, Message = ex.Message };
-        }
+        return new KozaResult { Success = false, Message = "Max retries exceeded" };
     }
 
     /// <summary>

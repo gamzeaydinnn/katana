@@ -1,45 +1,43 @@
 import {
-  CheckCircle,
-  CompareArrows as CompareArrowsIcon,
-  Error as ErrorIcon,
-  Inventory,
-  IntegrationInstructions as KozaIcon,
-  Article as LogsIcon,
-  MoreVert as MoreVertIcon,
-  Receipt,
-  Refresh,
-  ReportProblem,
-  Settings as SettingsIcon,
-  ShoppingCart,
-  SwapHoriz as SwapHorizIcon,
-  TrendingUp,
-  Group as UsersIcon,
-  Warehouse,
+    CheckCircle,
+    CompareArrows as CompareArrowsIcon,
+    Error as ErrorIcon,
+    Inventory,
+    Article as LogsIcon,
+    MoreVert as MoreVertIcon,
+    Receipt,
+    Refresh,
+    ReportProblem,
+    Settings as SettingsIcon,
+    ShoppingCart,
+    SwapHoriz as SwapHorizIcon,
+    TrendingUp,
+    Group as UsersIcon,
+    Warehouse
 } from "@mui/icons-material";
 import {
-  Alert,
-  Box,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Container,
-  Divider,
-  IconButton,
-  Menu,
-  MenuItem,
-  Paper,
-  Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  Tabs,
-  Typography,
-  useMediaQuery,
+    Alert,
+    Box,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    Container,
+    Divider,
+    IconButton,
+    Menu,
+    MenuItem,
+    Paper,
+    Tab,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Tabs,
+    Typography,
+    useMediaQuery
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import React, { useEffect, useState } from "react";
@@ -47,7 +45,6 @@ import api from "../../services/api";
 import DataCorrectionPanel from "../Admin/DataCorrectionPanel";
 import FailedRecords from "../Admin/FailedRecords";
 import KatanaProducts from "../Admin/KatanaProducts";
-import KozaIntegration from "../Admin/KozaIntegration";
 import LucaProducts from "../Admin/LucaProducts";
 import OrderIntegrationPage from "../Admin/OrderIntegrationPage";
 import PendingAdjustments from "../Admin/PendingAdjustments";
@@ -57,8 +54,8 @@ import StockMovements from "../Admin/StockMovements";
 import Suppliers from "../Admin/Suppliers";
 import Settings from "../Settings/Settings";
 import LogsViewer from "./LogsViewer";
-import UsersManagement from "./UsersManagement";
 import StatsCards from "./StatsCards";
+import UsersManagement from "./UsersManagement";
 
 interface Statistics {
   totalProducts: number;
@@ -700,18 +697,6 @@ const AdminPanel: React.FC = () => {
             </Typography>
           </MenuItem>
           <Divider sx={{ my: 1 }} />
-          <MenuItem
-            onClick={() => {
-              setActiveTab(11);
-              setMoreMenuAnchor(null);
-            }}
-            sx={overflowMenuItemSx}
-          >
-            <KozaIcon sx={{ mr: 1.5, fontSize: 20, color: "#667eea" }} />
-            <Typography variant="body2" translate="no" sx={overflowMenuTextSx}>
-              Koza Entegrasyon
-            </Typography>
-          </MenuItem>
           <MenuItem
             onClick={() => {
               setActiveTab(12);
@@ -1401,9 +1386,6 @@ const AdminPanel: React.FC = () => {
 
       {}
       {activeTab === 10 && <Settings />}
-
-      {/* Koza Entegrasyon Tab */}
-      {activeTab === 11 && <KozaIntegration />}
 
       {/* Sipariş Entegrasyonu (Sales + Purchase Orders) */}
       {activeTab === 12 && <OrderIntegrationPage />}

@@ -39,8 +39,14 @@ public static class InvoiceValidator
                 if (item.UnitPrice < 0)
                     errors.Add($"Unit price cannot be negative");
                 
+                // Normalize tax rate: if it's a percentage (>1), convert to decimal
+                if (item.TaxRate > 1)
+                {
+                    item.TaxRate = item.TaxRate / 100; // 18 -> 0.18, 20 -> 0.20
+                }
+                
                 if (item.TaxRate < 0 || item.TaxRate > 1)
-                    errors.Add($"Tax rate must be between 0 and 1");
+                    errors.Add($"Tax rate must be between 0 and 1 (got {item.TaxRate})");
             }
         }
 

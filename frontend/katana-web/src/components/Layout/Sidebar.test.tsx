@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import Sidebar from "./Sidebar";
 
@@ -17,9 +17,9 @@ describe("Sidebar Component", () => {
       </BrowserRouter>
     );
 
-    expect(screen.getByText(/dashboard/i)).toBeInTheDocument();
+    expect(screen.getByText(/kontrol paneli/i)).toBeInTheDocument();
     expect(screen.getByText(/admin paneli/i)).toBeInTheDocument();
-    expect(screen.getByText(/stok yönetimi/i)).toBeInTheDocument();
+    expect(screen.getByText(/canlı stok/i)).toBeInTheDocument();
   });
 
   test("calls onClose when close button clicked", () => {

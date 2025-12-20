@@ -164,7 +164,7 @@ builder.Services.AddHttpClient<ILucaService, LucaService>((sp, client) =>
 {
     var s = sp.GetRequiredService<IOptions<LucaApiSettings>>().Value;
     client.BaseAddress = new Uri(s.BaseUrl);
-    client.Timeout = TimeSpan.FromSeconds(s.TimeoutSeconds);
+    client.Timeout = TimeSpan.FromSeconds(120); // Increased timeout for Koza API
     client.DefaultRequestHeaders.Accept.Add(
         new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
     if (!string.IsNullOrEmpty(s.ApiKey) && !s.UseTokenAuth)
@@ -178,12 +178,20 @@ builder.Services.AddHttpClient<ILucaService, LucaService>((sp, client) =>
         var baseUrlKey = string.IsNullOrWhiteSpace(s.BaseUrl) ? "default" : s.BaseUrl.Trim();
         var cookieJarKey = $"LucaCookieJar:{baseUrlKey}";
 
-        return new HttpClientHandler
+        return new SocketsHttpHandler
         {
             CookieContainer = jar.GetOrCreate(cookieJarKey),
             UseCookies = true,
             AllowAutoRedirect = false,
-            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+            PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+            PooledConnectionIdleTimeout = TimeSpan.FromMinutes(1),
+            MaxConnectionsPerServer = 10,
+            // SSL/TLS settings for Koza API
+            SslOptions = new System.Net.Security.SslClientAuthenticationOptions
+            {
+                EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
+            }
         };
     })
     .AddHttpMessageHandler<RateLimitHandler>()

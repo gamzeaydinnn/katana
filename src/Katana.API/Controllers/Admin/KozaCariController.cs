@@ -156,7 +156,7 @@ public sealed class KozaCariController : ControllerBase
     #region Tedarikçi İşlemleri
 
     /// <summary>
-    /// Koza'daki tedarikçi carilerini listele
+    /// Koza'daki tedarikçi carilerini listele (mapping + Katana Suppliers JOIN)
     /// GET /api/admin/koza/cari/suppliers
     /// </summary>
     [HttpGet("suppliers")]
@@ -166,10 +166,34 @@ public sealed class KozaCariController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Listing Koza supplier caris");
-            var suppliers = await _lucaService.ListTedarikciSupplierItemsAsync(ct);
+            _logger.LogInformation("Listing Koza supplier caris from mapping table with Katana supplier details");
             
-            _logger.LogInformation("Retrieved {Count} suppliers from Koza", suppliers.Count);
+            // Mapping tablosu ile Suppliers tablosunu JOIN et
+            var query = from mapping in _dbContext.SupplierKozaCariMappings
+                        join supplier in _dbContext.Suppliers on mapping.KatanaSupplierId equals supplier.KatanaId into supplierGroup
+                        from supplier in supplierGroup.DefaultIfEmpty()
+                        where mapping.SyncStatus == "SUCCESS"
+                        orderby mapping.UpdatedAt descending
+                        select new
+                        {
+                            Mapping = mapping,
+                            Supplier = supplier
+                        };
+            
+            var results = await query.ToListAsync(ct);
+            
+            // DTO'ya dönüştür
+            var suppliers = results.Select(r => new KozaSupplierListItemDto
+            {
+                FinansalNesneId = r.Mapping.KozaFinansalNesneId,
+                Kod = r.Mapping.KozaCariKodu ?? $"TED-{r.Mapping.KatanaSupplierId}",
+                Tanim = r.Mapping.KozaCariTanim ?? r.Mapping.KatanaSupplierName ?? "",
+                VergiNo = r.Supplier?.TaxNo,
+                Telefon = r.Supplier?.Phone,
+                Email = r.Supplier?.Email
+            }).ToList();
+            
+            _logger.LogInformation("Retrieved {Count} suppliers from mapping table", suppliers.Count);
             return Ok(suppliers);
         }
         catch (Exception ex)
@@ -436,7 +460,7 @@ public sealed class KozaCariController : ControllerBase
     #region Müşteri İşlemleri
 
     /// <summary>
-    /// Koza'daki müşteri carilerini listele
+    /// Koza'daki müşteri carilerini listele (Luca Koza API'den)
     /// GET /api/admin/koza/cari/customers
     /// </summary>
     [HttpGet("customers")]
@@ -446,7 +470,9 @@ public sealed class KozaCariController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Listing Koza customer caris");
+            _logger.LogInformation("Listing Koza customer caris from Luca API");
+            
+            // Luca Koza API'den müşteri listesini çek
             var customers = await _lucaService.ListMusteriCustomerItemsAsync(ct);
             
             _logger.LogInformation("Retrieved {Count} customers from Koza", customers.Count);

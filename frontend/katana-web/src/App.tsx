@@ -1,18 +1,18 @@
 import {
-  Box,
-  CssBaseline,
-  ThemeProvider,
-  Toolbar,
-  useMediaQuery,
+    Box,
+    CssBaseline,
+    ThemeProvider,
+    Toolbar,
+    useMediaQuery,
 } from "@mui/material";
 import React, { useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import BranchSelector, { Branch } from "./components/Luca/BranchSelector";
 import {
-  getBranchList,
-  loginToLuca,
-  selectBranch,
+    getBranchList,
+    loginToLuca,
+    selectBranch,
 } from "./services/authService";
 
 import AdminPanel from "./components/AdminPanel/AdminPanel";
@@ -26,8 +26,9 @@ import Login from "./components/Login/Login";
 import Profile from "./components/Profile/Profile";
 import Reports from "./components/Reports/Reports";
 import Settings from "./components/Settings/Settings";
-import StockManagement from "./components/StockManagement/StockManagement";
+
 import SyncManagement from "./components/SyncManagement/SyncManagement";
+import KozaIntegrationPage from "./pages/KozaIntegrationPage";
 import OrderInvoiceSyncPage from "./pages/OrderInvoiceSyncPage";
 import StockMovementSyncPage from "./pages/StockMovementSyncPage";
 import StockView from "./pages/StockView";
@@ -215,11 +216,11 @@ const App: React.FC = () => {
                         >
                           <Routes>
                             <Route path="/" element={<Dashboard />} />
-                            <Route
-                              path="/stock"
-                              element={<StockManagement />}
-                            />
                             <Route path="/stock-view" element={<StockView />} />
+                            <Route
+                              path="/koza"
+                              element={<KozaIntegrationPage />}
+                            />
                             <Route path="/sync" element={<SyncManagement />} />
                             <Route
                               path="/order-sync"
