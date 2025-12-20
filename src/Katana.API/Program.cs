@@ -282,7 +282,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwt["Issuer"],
             ValidAudience = jwt["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
+            ClockSkew = TimeSpan.FromMinutes(5) // Allow 5 minutes clock skew
         };
         options.Events = new JwtBearerEvents
         {
@@ -291,6 +292,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 var accessToken = context.Request.Query["access_token"];
                 if (!string.IsNullOrEmpty(accessToken) && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
                     context.Token = accessToken;
+                return Task.CompletedTask;
+            },
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogError(context.Exception, "JWT Authentication failed for {Path}. Token: {Token}", 
+                    context.HttpContext.Request.Path, 
+                    context.Request.Headers["Authorization"].ToString().Replace("Bearer ", "").Substring(0, Math.Min(20, context.Request.Headers["Authorization"].ToString().Length)));
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogDebug("JWT Token validated successfully for {User}", context.Principal?.Identity?.Name);
                 return Task.CompletedTask;
             }
         };
