@@ -18,6 +18,7 @@ import {
   IconButton,
   InputAdornment,
   Paper,
+  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -30,33 +31,44 @@ import {
   Typography,
   useMediaQuery,
 } from "@mui/material";
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import api, { stockAPI } from "../../services/api";
 import { decodeJwtPayload, getJwtRoles } from "../../utils/jwt";
 
 interface LucaProduct {
   id: string | number | null;
+  skartId?: number;
   productCode?: string;
   productName?: string;
+  uzunAdi?: string;
   barcode?: string;
   category?: string;
+  kategoriAgacKod?: string;
   measurementUnit?: string;
   unit?: string;
   quantity?: number;
+  purchasePrice?: number;
+  salesPrice?: number;
   unitPrice?: number;
   vatRate?: number;
+  gtipCode?: string;
   lastUpdated?: string;
   isActive?: boolean;
 
+  // Luca API field names (PascalCase)
   ProductCode?: string;
   ProductName?: string;
+  UzunAdi?: string;
   Barkod?: string;
   KategoriAgacKod?: string;
   OlcumBirimi?: string;
   Unit?: string;
   Quantity?: number;
+  PerakendeAlisBirimFiyat?: number;
+  PerakendeSatisBirimFiyat?: number;
   UnitPrice?: number;
   VatRate?: number;
+  GtipKodu?: string;
   LastUpdated?: string;
   IsActive?: boolean;
 }
@@ -73,20 +85,25 @@ const LucaProducts: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<LucaProduct | null>(null);
+  const [productToDelete, setProductToDelete] = useState<LucaProduct | null>(
+    null
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [syncing, setSyncing] = useState(false);
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: "success" | "error" | "warning" | "info";
+  }>({ open: false, message: "", severity: "success" });
   const isMobile = useMediaQuery("(max-width:900px)");
 
   const fetchProducts = async () => {
     setLoading(true);
     setError(null);
     try {
-      // Products endpoint'ini kullan (veritabanından direkt çeker)
-      // Limit yok - tüm ürünleri çek
+      // Products endpoint'ini kullan (veritabanından çeker)
       const response = await api.get<any>("/Products?page=1&limit=10000");
 
-      // API yanıtı: {items: Array, total: number} formatında
       const rawData = response?.data?.data || response?.data || {};
       const productData =
         rawData?.items ||
@@ -94,56 +111,45 @@ const LucaProducts: React.FC = () => {
         rawData?.data ||
         (Array.isArray(rawData) ? rawData : []);
 
-      // Katana ürünlerini Luca formatına dönüştür
+      // Ürünleri frontend formatına dönüştür
       const mappedProducts = Array.isArray(productData)
         ? productData.map((p: any, index: number) => ({
             id: p.id || p.Id || index,
+            skartId: p.lucaId || p.LucaId,
             productCode: p.sku || p.Sku || p.productCode || p.ProductCode || "",
             productName:
               p.name || p.Name || p.productName || p.ProductName || "",
-            category: p.categoryName || p.CategoryName || p.category || "",
-            measurementUnit: p.uom || p.Uom || p.measurementUnit || "adet",
+            uzunAdi: p.uzunAdi || p.UzunAdi || p.description || "",
+            barcode: p.barcode || p.Barcode || p.barkod || "",
+            kategoriAgacKod: p.categoryCode || p.kategoriAgacKod || "",
+            measurementUnit: p.uom || p.Uom || p.measurementUnit || "ADET",
+            purchasePrice: p.purchasePrice || p.alisFiyat || 0,
+            salesPrice: p.price || p.Price || p.satisFiyat || 0,
+            gtipCode: p.gtipCode || p.gtipKodu || "",
             isActive: p.isActive ?? p.IsActive ?? true,
-            // React key için unique identifier
             _uniqueKey: `${p.id || p.Id || index}_${p.sku || p.Sku || index}`,
           }))
         : [];
 
-      // Duplicate SKU'ları filtrele - sadece ilkini tut
+      // Duplicate SKU'ları filtrele
       const seenSkus = new Set<string>();
       const uniqueProducts = mappedProducts.filter((p: any) => {
         const sku = p.productCode?.toLowerCase() || "";
-        if (!sku || seenSkus.has(sku)) {
-          return false;
-        }
+        if (!sku || seenSkus.has(sku)) return false;
         seenSkus.add(sku);
         return true;
       });
 
-      console.log(
-        `[LucaProducts] ${uniqueProducts.length} unique ürün yüklendi (toplam: ${mappedProducts.length})`
-      );
+      console.log(`[LucaProducts] ${uniqueProducts.length} ürün yüklendi`);
       setProducts(uniqueProducts);
       setFilteredProducts(uniqueProducts);
     } catch (err: any) {
-      console.error("[LucaProducts] İstek başarısız", err);
-
-      // Fallback: stockAPI.getLucaStockCards dene
-      try {
-        const data: any = await stockAPI.getLucaStockCards();
-        const productData = data?.data || data || [];
-        setProducts(Array.isArray(productData) ? productData : []);
-        setFilteredProducts(Array.isArray(productData) ? productData : []);
-      } catch (fallbackErr: any) {
-        const finalMessage =
-          fallbackErr?.response?.data?.error ||
-          err?.response?.data?.error ||
-          err?.message ||
-          "Ürünler yüklenemedi.";
-        setError(finalMessage);
-        setProducts([]);
-        setFilteredProducts([]);
-      }
+      console.error("[LucaProducts] Ürünler yüklenemedi", err);
+      const finalMessage =
+        err?.response?.data?.error || err?.message || "Ürünler yüklenemedi.";
+      setError(finalMessage);
+      setProducts([]);
+      setFilteredProducts([]);
     } finally {
       setLoading(false);
     }
@@ -200,13 +206,19 @@ const LucaProducts: React.FC = () => {
         return;
       }
 
-      await api.post(`/adminpanel/test-delete-product?sku=${encodeURIComponent(sku)}`);
+      await api.post(
+        `/adminpanel/test-delete-product?sku=${encodeURIComponent(sku)}`
+      );
       setConfirmDeleteOpen(false);
       setProductToDelete(null);
-      
+
       // Local state'den kaldır
-      setProducts(prev => prev.filter(p => (p.productCode || p.ProductCode) !== sku));
-      setFilteredProducts(prev => prev.filter(p => (p.productCode || p.ProductCode) !== sku));
+      setProducts((prev) =>
+        prev.filter((p) => (p.productCode || p.ProductCode) !== sku)
+      );
+      setFilteredProducts((prev) =>
+        prev.filter((p) => (p.productCode || p.ProductCode) !== sku)
+      );
     } catch (err: any) {
       setError(err?.response?.data?.message || "Ürün silinemedi");
     } finally {
@@ -220,32 +232,143 @@ const LucaProducts: React.FC = () => {
     setError(null);
 
     try {
-      const productCode = selectedProduct.productCode || selectedProduct.ProductCode || "";
+      const productCode = selectedProduct.productCode || "";
+
       if (!productCode) {
         setError("Ürün kodu bulunamadı.");
         setSaving(false);
         return;
       }
 
+      // 🔥 Luca'da güncellenebilir alanları gönder - kategoriAgacKod string olarak gönderilmeli
       const updateRequest = {
-        kartKodu: productCode,
-        kartAdi: selectedProduct.productName || selectedProduct.ProductName || "",
-        kdvOrani: Number(selectedProduct.vatRate ?? selectedProduct.VatRate ?? 20),
+        name: selectedProduct.productName || "",
+        uzunAdi: selectedProduct.uzunAdi || "",
+        barcode: selectedProduct.barcode || "",
+        kategoriAgacKod: String(selectedProduct.kategoriAgacKod || ""), // 🔥 String olarak gönder - baştaki sıfırları koru
+        purchasePrice: selectedProduct.purchasePrice ?? 0,
+        salesPrice: selectedProduct.salesPrice ?? 0,
+        gtipCode: selectedProduct.gtipCode || "",
       };
 
-      await api.post("/adminpanel/test-update-product", updateRequest);
-      handleCloseModal();
-      
-      // Local state güncelle
-      const updated = { ...selectedProduct };
-      setProducts(prev => prev.map(p => 
-        (p.productCode || p.ProductCode) === productCode ? updated : p
-      ));
-      setFilteredProducts(prev => prev.map(p => 
-        (p.productCode || p.ProductCode) === productCode ? updated : p
-      ));
+      console.log("📤 Luca'ya gönderilen request:", updateRequest);
+
+      // SKU ile güncelleme gönder (Local DB + Luca + Katana)
+      const response = await api.put<{
+        success?: boolean;
+        localDbUpdated?: boolean;
+        lucaUpdated?: boolean;
+        katanaUpdated?: boolean;
+        lucaError?: string;
+        katanaError?: string;
+        message?: string;
+        updatedProduct?: {
+          productCode?: string;
+          productName?: string;
+          uzunAdi?: string;
+          barcode?: string;
+          kategoriAgacKod?: string;
+          purchasePrice?: number;
+          salesPrice?: number;
+          gtipCode?: string;
+        };
+      }>(
+        `/products/by-sku/${encodeURIComponent(productCode)}/sync-to-luca`,
+        updateRequest
+      );
+
+      if (response.data?.success) {
+        // 🔥 KRİTİK: Local state'i güncelle - gönderilen request değerleriyle (backend'den dönen değil)
+        // Products listesini güncelle
+        setProducts((prev) =>
+          prev.map((p) =>
+            (p.productCode || p.ProductCode) === productCode
+              ? {
+                  ...p,
+                  productName: updateRequest.name,
+                  uzunAdi: updateRequest.uzunAdi,
+                  barcode: updateRequest.barcode,
+                  kategoriAgacKod: updateRequest.kategoriAgacKod,
+                  purchasePrice: updateRequest.purchasePrice,
+                  salesPrice: updateRequest.salesPrice,
+                  gtipCode: updateRequest.gtipCode,
+                }
+              : p
+          )
+        );
+        // Filtered products'ı da güncelle
+        setFilteredProducts((prev) =>
+          prev.map((p) =>
+            (p.productCode || p.ProductCode) === productCode
+              ? {
+                  ...p,
+                  productName: updateRequest.name,
+                  uzunAdi: updateRequest.uzunAdi,
+                  barcode: updateRequest.barcode,
+                  kategoriAgacKod: updateRequest.kategoriAgacKod,
+                  purchasePrice: updateRequest.purchasePrice,
+                  salesPrice: updateRequest.salesPrice,
+                  gtipCode: updateRequest.gtipCode,
+                }
+              : p
+          )
+        );
+
+        handleCloseModal();
+
+        // Sync durumlarını göster
+        const lucaOk = response.data?.lucaUpdated;
+        const katanaOk = response.data?.katanaUpdated;
+        const localOk = response.data?.localDbUpdated;
+
+        let statusParts: string[] = [];
+        if (localOk) statusParts.push("Local DB ✓");
+        if (lucaOk) statusParts.push("Luca ✓");
+        if (katanaOk) statusParts.push("Katana ✓");
+
+        const statusText =
+          statusParts.length > 0
+            ? statusParts.join(", ")
+            : "Hiçbir sistem güncellenemedi";
+
+        if (lucaOk && katanaOk) {
+          setSnackbar({
+            open: true,
+            message: `✅ ${productCode} tüm sistemlerde güncellendi! (${statusText})`,
+            severity: "success",
+          });
+        } else if (lucaOk || localOk) {
+          setSnackbar({
+            open: true,
+            message: `⚠️ ${productCode} kısmen güncellendi. (${statusText})`,
+            severity: "warning",
+          });
+        } else {
+          setSnackbar({
+            open: true,
+            message: `❌ ${productCode} güncellenemedi!`,
+            severity: "error",
+          });
+        }
+      } else {
+        setError(response.data?.message || "Ürün güncellenemedi");
+        setSnackbar({
+          open: true,
+          message: response.data?.message || "Ürün güncellenemedi",
+          severity: "error",
+        });
+      }
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Ürün güncellenemedi");
+      const errorMsg =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        "Ürün güncellenemedi";
+      setError(errorMsg);
+      setSnackbar({
+        open: true,
+        message: errorMsg,
+        severity: "error",
+      });
     } finally {
       setSaving(false);
     }
@@ -472,11 +595,27 @@ const LucaProducts: React.FC = () => {
                   </Box>
                 </Box>
                 {canEdit && (
-                  <Stack direction="row" spacing={1} justifyContent="flex-end" mt={1}>
-                    <Button size="small" variant="outlined" startIcon={<EditIcon fontSize="small" />} onClick={() => handleEditProduct(product)}>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    justifyContent="flex-end"
+                    mt={1}
+                  >
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<EditIcon fontSize="small" />}
+                      onClick={() => handleEditProduct(product)}
+                    >
                       Düzenle
                     </Button>
-                    <Button size="small" variant="outlined" color="error" startIcon={<DeleteIcon fontSize="small" />} onClick={() => handleDeleteClick(product)}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      startIcon={<DeleteIcon fontSize="small" />}
+                      onClick={() => handleDeleteClick(product)}
+                    >
                       Sil
                     </Button>
                   </Stack>
@@ -497,28 +636,22 @@ const LucaProducts: React.FC = () => {
                   <strong>Ürün Adı</strong>
                 </TableCell>
                 <TableCell>
+                  <strong>Uzun Adı</strong>
+                </TableCell>
+                <TableCell>
                   <strong>Barkod</strong>
                 </TableCell>
                 <TableCell>
-                  <strong>Kategori</strong>
-                </TableCell>
-                <TableCell>
-                  <strong>Ölçü Birimi</strong>
+                  <strong>Kategori Kodu</strong>
                 </TableCell>
                 <TableCell align="right">
-                  <strong>Miktar</strong>
+                  <strong>Alış Fiyatı</strong>
                 </TableCell>
                 <TableCell align="right">
-                  <strong>Birim Fiyat</strong>
-                </TableCell>
-                <TableCell align="right">
-                  <strong>KDV Oranı</strong>
+                  <strong>Satış Fiyatı</strong>
                 </TableCell>
                 <TableCell>
-                  <strong>Durum</strong>
-                </TableCell>
-                <TableCell>
-                  <strong>Son Güncelleme</strong>
+                  <strong>GTIP</strong>
                 </TableCell>
                 <TableCell align="center">
                   <strong>İşlemler</strong>
@@ -528,7 +661,7 @@ const LucaProducts: React.FC = () => {
             <TableBody>
               {filteredProducts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                     <Typography color="textSecondary" gutterBottom>
                       {searchTerm
                         ? "Arama sonucu bulunamadı"
@@ -544,23 +677,14 @@ const LucaProducts: React.FC = () => {
                 </TableRow>
               ) : (
                 filteredProducts.map((product, _idx) => {
-                  const code = product.productCode || product.ProductCode || "";
-                  const name = product.productName || product.ProductName || "";
-                  const unit =
-                    product.unit ||
-                    product.Unit ||
-                    product.measurementUnit ||
-                    product.OlcumBirimi ||
-                    "";
-                  const barcode = product.barcode || product.Barkod || "";
-                  const category =
-                    product.category || product.KategoriAgacKod || "";
-                  const lastUpdated =
-                    product.lastUpdated || product.LastUpdated || "";
-                  const quantity = product.quantity ?? product.Quantity ?? 0;
-                  const unitPrice = product.unitPrice ?? product.UnitPrice ?? 0;
-                  const vatRate = product.vatRate ?? product.VatRate ?? 0;
-                  const isActive = product.isActive ?? product.IsActive ?? true;
+                  const code = product.productCode || "";
+                  const name = product.productName || "";
+                  const uzunAdi = product.uzunAdi || "";
+                  const barcode = product.barcode || "";
+                  const kategoriKod = product.kategoriAgacKod || "";
+                  const purchasePrice = product.purchasePrice ?? 0;
+                  const salesPrice = product.salesPrice ?? 0;
+                  const gtipCode = product.gtipCode || "";
 
                   return (
                     <TableRow key={`desktop-${product.id}-${_idx}`} hover>
@@ -570,38 +694,46 @@ const LucaProducts: React.FC = () => {
                         </Typography>
                       </TableCell>
                       <TableCell>{name}</TableCell>
+                      <TableCell>{uzunAdi || "-"}</TableCell>
                       <TableCell>{barcode || "-"}</TableCell>
-                      <TableCell>{category || "-"}</TableCell>
-                      <TableCell>{unit}</TableCell>
-                      <TableCell align="right">{quantity}</TableCell>
+                      <TableCell>{kategoriKod || "-"}</TableCell>
                       <TableCell align="right">
-                        {unitPrice ? `${unitPrice.toFixed(2)} ₺` : "-"}
+                        {purchasePrice ? `${purchasePrice.toFixed(2)} ₺` : "-"}
                       </TableCell>
-                      <TableCell align="right">%{vatRate}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={isActive ? "Aktif" : "Pasif"}
-                          color={isActive ? "success" : "default"}
-                          size="small"
-                        />
+                      <TableCell align="right">
+                        {salesPrice ? `${salesPrice.toFixed(2)} ₺` : "-"}
                       </TableCell>
-                      <TableCell>{lastUpdated || "-"}</TableCell>
+                      <TableCell>{gtipCode || "-"}</TableCell>
                       <TableCell align="center">
                         {canEdit ? (
-                          <Stack direction="row" spacing={0.5} justifyContent="center">
+                          <Stack
+                            direction="row"
+                            spacing={0.5}
+                            justifyContent="center"
+                          >
                             <Tooltip title="Düzenle">
-                              <IconButton size="small" onClick={() => handleEditProduct(product)} color="primary">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleEditProduct(product)}
+                                color="primary"
+                              >
                                 <EditIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
                             <Tooltip title="Sil">
-                              <IconButton size="small" onClick={() => handleDeleteClick(product)} color="error">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDeleteClick(product)}
+                                color="error"
+                              >
                                 <DeleteIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
                           </Stack>
                         ) : (
-                          <Typography variant="body2" color="text.secondary">-</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            -
+                          </Typography>
                         )}
                       </TableCell>
                     </TableRow>
@@ -623,88 +755,128 @@ const LucaProducts: React.FC = () => {
         <DialogContent dividers sx={{ pt: 2 }}>
           {selectedProduct && (
             <Stack spacing={2.5}>
+              {/* ÜRÜN KODU - READ ONLY */}
               <TextField
                 fullWidth
-                label="Ürün Kodu"
-                value={
-                  selectedProduct.productCode ||
-                  selectedProduct.ProductCode ||
-                  ""
-                }
+                label="Ürün Kodu (Değiştirilemez)"
+                value={selectedProduct.productCode || ""}
+                disabled
+                size="small"
+                sx={{ bgcolor: "grey.100" }}
+              />
+
+              {/* ÜRÜN ADI - kartAdi */}
+              <TextField
+                fullWidth
+                label="Ürün Adı (kartAdi)"
+                value={selectedProduct.productName || ""}
                 onChange={(e) =>
                   setSelectedProduct((prev) =>
-                    prev ? ({ ...prev, productCode: e.target.value } as LucaProduct) : prev
+                    prev ? { ...prev, productName: e.target.value } : prev
                   )
                 }
                 size="small"
               />
+
+              {/* UZUN ADI */}
               <TextField
                 fullWidth
-                label="Ürün Adı"
-                value={
-                  selectedProduct.productName ||
-                  selectedProduct.ProductName ||
-                  ""
-                }
+                label="Uzun Adı (uzunAdi)"
+                value={selectedProduct.uzunAdi || ""}
                 onChange={(e) =>
                   setSelectedProduct((prev) =>
-                    prev ? ({ ...prev, productName: e.target.value } as LucaProduct) : prev
+                    prev ? { ...prev, uzunAdi: e.target.value } : prev
+                  )
+                }
+                size="small"
+                multiline
+                rows={2}
+              />
+
+              {/* BARKOD */}
+              <TextField
+                fullWidth
+                label="Barkod"
+                value={selectedProduct.barcode || ""}
+                onChange={(e) =>
+                  setSelectedProduct((prev) =>
+                    prev ? { ...prev, barcode: e.target.value } : prev
                   )
                 }
                 size="small"
               />
+
+              {/* KATEGORİ AĞAÇ KOD */}
               <TextField
                 fullWidth
-                label="Birim"
-                value={selectedProduct.unit || selectedProduct.Unit || ""}
+                label="Kategori Ağaç Kodu (kategoriAgacKod)"
+                value={selectedProduct.kategoriAgacKod || ""}
                 onChange={(e) =>
                   setSelectedProduct((prev) =>
-                    prev ? ({ ...prev, unit: e.target.value } as LucaProduct) : prev
+                    prev ? { ...prev, kategoriAgacKod: e.target.value } : prev
                   )
                 }
                 size="small"
+                placeholder="Örn: 01"
               />
+
+              {/* ALIŞ FİYATI */}
               <TextField
                 fullWidth
-                label="Miktar"
+                label="Alış Fiyatı (perakendeAlisBirimFiyat)"
                 type="number"
-                value={
-                  selectedProduct.quantity ?? selectedProduct.Quantity ?? 0
-                }
-                onChange={(e) =>
+                value={selectedProduct.purchasePrice ?? ""}
+                onChange={(e) => {
+                  const val =
+                    e.target.value === ""
+                      ? undefined
+                      : parseFloat(e.target.value);
                   setSelectedProduct((prev) =>
-                    prev ? ({ ...prev, quantity: parseInt(e.target.value, 10) } as LucaProduct) : prev
-                  )
-                }
+                    prev ? { ...prev, purchasePrice: val } : prev
+                  );
+                }}
                 size="small"
+                inputProps={{ min: 0, step: 0.01 }}
+                placeholder="0.00"
               />
+
+              {/* SATIŞ FİYATI */}
               <TextField
                 fullWidth
-                label="Birim Fiyat (₺)"
+                label="Satış Fiyatı (perakendeSatisBirimFiyat)"
                 type="number"
-                inputProps={{ step: "0.01" }}
-                value={
-                  selectedProduct.unitPrice ?? selectedProduct.UnitPrice ?? 0
-                }
-                onChange={(e) =>
+                value={selectedProduct.salesPrice ?? ""}
+                onChange={(e) => {
+                  const val =
+                    e.target.value === ""
+                      ? undefined
+                      : parseFloat(e.target.value);
                   setSelectedProduct((prev) =>
-                    prev ? ({ ...prev, unitPrice: parseFloat(e.target.value) } as LucaProduct) : prev
-                  )
-                }
+                    prev ? { ...prev, salesPrice: val } : prev
+                  );
+                }}
                 size="small"
+                inputProps={{ min: 0, step: 0.01 }}
+                placeholder="0.00"
               />
+
+              {/* GTIP KODU */}
               <TextField
                 fullWidth
-                label="KDV Oranı (%)"
-                type="number"
-                value={selectedProduct.vatRate ?? selectedProduct.VatRate ?? 0}
+                label="GTIP Kodu (gtipKodu)"
+                value={selectedProduct.gtipCode || ""}
                 onChange={(e) =>
                   setSelectedProduct((prev) =>
-                    prev ? ({ ...prev, vatRate: parseInt(e.target.value, 10) } as LucaProduct) : prev
+                    prev ? { ...prev, gtipCode: e.target.value } : prev
                   )
                 }
                 size="small"
               />
+
+              <Alert severity="info" sx={{ mt: 1 }}>
+                Bu alanlar Luca'da güncellenebilir alanlardır. Kaydet butonuna
+                basınca Luca'ya gönderilir.
+              </Alert>
             </Stack>
           )}
         </DialogContent>
@@ -743,20 +915,55 @@ const LucaProducts: React.FC = () => {
       </Dialog>
 
       {/* Silme Onay Dialog */}
-      <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
         <DialogTitle>Ürünü Sil</DialogTitle>
         <DialogContent>
           <Typography>
-            <strong>{productToDelete?.productCode || productToDelete?.ProductCode}</strong> kodlu ürünü silmek istediğinize emin misiniz?
+            <strong>
+              {productToDelete?.productCode || productToDelete?.ProductCode}
+            </strong>{" "}
+            kodlu ürünü silmek istediğinize emin misiniz?
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDeleteOpen(false)} variant="outlined" disabled={deleting}>İptal</Button>
-          <Button onClick={handleConfirmDelete} variant="contained" color="error" disabled={deleting}>
+          <Button
+            onClick={() => setConfirmDeleteOpen(false)}
+            variant="outlined"
+            disabled={deleting}
+          >
+            İptal
+          </Button>
+          <Button
+            onClick={handleConfirmDelete}
+            variant="contained"
+            color="error"
+            disabled={deleting}
+          >
             {deleting ? "Siliniyor..." : "Sil"}
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar - Güncelleme bildirimi */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

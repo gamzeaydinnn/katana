@@ -133,9 +133,9 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                 return result;
             }
 
-            // 2. Daha önce gönderilmiş mi kontrol et
+            // 2. Daha önce gönderilmiş mi kontrol et (LucaInvoiceId > 0 olmalı)
             var existingLucaId = await _mappingRepo.GetLucaInvoiceIdByOrderIdAsync(orderId, "SalesOrder");
-            if (existingLucaId.HasValue)
+            if (existingLucaId.HasValue && existingLucaId.Value > 0)
             {
                 result.Success = true;
                 result.LucaFaturaId = existingLucaId.Value;
@@ -173,6 +173,20 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
             // 5. Luca'dan dönen ID'yi parse et
             long? lucaFaturaId = null;
             bool isSuccess = false;
+
+            // 🔥 Önce hata kodunu kontrol et (code: 1001, 1002 = Login gerekli)
+            if (lucaResponse.TryGetProperty("code", out var codeProp) && codeProp.ValueKind == JsonValueKind.Number)
+            {
+                var code = codeProp.GetInt32();
+                if (code == 1001 || code == 1002)
+                {
+                    var msg = lucaResponse.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : "Login olunmalı";
+                    result.Success = false;
+                    result.Message = $"Luca oturum hatası: {msg}. Lütfen tekrar deneyin.";
+                    _logger.LogError("Luca returned login required error for Order {OrderNo}. Code: {Code}", order.OrderNo, code);
+                    return result;
+                }
+            }
 
             if (lucaResponse.TryGetProperty("basarili", out var basariliProp) && basariliProp.GetBoolean())
             {
@@ -881,7 +895,7 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
             // Bu örnekte genel bir yaklaşım gösteriyoruz
 
             var existingLucaId = await _mappingRepo.GetLucaInvoiceIdByOrderIdAsync(purchaseOrderId, "PurchaseOrder");
-            if (existingLucaId.HasValue)
+            if (existingLucaId.HasValue && existingLucaId.Value > 0)
             {
                 result.Success = true;
                 result.LucaFaturaId = existingLucaId.Value;

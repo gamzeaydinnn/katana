@@ -78,6 +78,29 @@ public class MappingService : IMappingService
         }
     }
 
+    /// <summary>
+    /// Gets all UNIT type mappings from database (Katana unit -> Luca OlcumBirimiId)
+    /// </summary>
+    public async Task<Dictionary<string, string>> GetUnitMappingAsync()
+    {
+        try
+        {
+            var list = await _context.MappingTables
+                .Where(m => m.MappingType == "UNIT" && m.IsActive)
+                .Select(m => new { m.SourceValue, m.TargetValue })
+                .ToListAsync();
+
+            var mappings = list.ToDictionary(m => m.SourceValue, m => m.TargetValue, StringComparer.OrdinalIgnoreCase);
+            _logger.LogInformation("Retrieved {Count} unit mappings from database", mappings.Count);
+            return mappings;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving unit mappings");
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
     public async Task UpdateSkuMappingAsync(string sku, string accountCode)
     {
         try
@@ -194,6 +217,49 @@ public class MappingService : IMappingService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating category mapping for {Category}", categoryName);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Creates or updates a UNIT type mapping (Katana unit -> Luca OlcumBirimiId)
+    /// </summary>
+    public async Task UpdateUnitMappingAsync(string katanaUnit, string lucaUnitId)
+    {
+        try
+        {
+            var normalizedUnit = (katanaUnit ?? string.Empty).Trim().ToLowerInvariant();
+            var existingMapping = await _context.MappingTables
+                .FirstOrDefaultAsync(m => m.MappingType == "UNIT" && m.SourceValue.ToLower() == normalizedUnit);
+
+            if (existingMapping != null)
+            {
+                existingMapping.TargetValue = lucaUnitId;
+                existingMapping.UpdatedAt = DateTime.UtcNow;
+                _logger.LogInformation("Updated unit mapping: {KatanaUnit} -> {LucaUnitId}", katanaUnit, lucaUnitId);
+            }
+            else
+            {
+                var newMapping = new Data.Models.MappingTable
+                {
+                    MappingType = "UNIT",
+                    SourceValue = normalizedUnit,
+                    TargetValue = lucaUnitId,
+                    Description = $"Katana unit '{katanaUnit}' -> Luca OlcumBirimiId {lucaUnitId}",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _context.MappingTables.Add(newMapping);
+                _logger.LogInformation("Created new unit mapping: {KatanaUnit} -> {LucaUnitId}", katanaUnit, lucaUnitId);
+            }
+
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating unit mapping for {KatanaUnit}", katanaUnit);
             throw;
         }
     }

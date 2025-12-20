@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
 
 namespace Katana.API.Controllers;
 
@@ -1037,6 +1038,365 @@ public class ProductsController : ControllerBase
             success = result.SuccessfulRecords,
             failed = result.FailedRecords
         });
+    }
+
+    /// <summary>
+    /// Ürünü günceller ve Luca'ya senkronize eder.
+    /// Frontend'den gelen UpdateProductRequest ile hem local DB hem Luca güncellenir.
+    /// </summary>
+    [HttpPut("{id}/sync-to-luca")]
+    [Authorize(Roles = "Admin,StokYonetici")]
+    public async Task<ActionResult> UpdateProductAndSyncToLuca(int id, [FromBody] UpdateProductRequest request)
+    {
+        _logger.LogInformation("🔄 UpdateProductAndSyncToLuca called: ID={Id}, Request={@Request}", id, request);
+
+        if (request == null)
+        {
+            return BadRequest(new { error = "Ürün verisi boş olamaz" });
+        }
+
+        try
+        {
+            // 1. Local DB'den ürünü bul
+            var existingProduct = await _productService.GetProductByIdAsync(id);
+            if (existingProduct == null)
+            {
+                return NotFound(new { error = $"Ürün bulunamadı: ID {id}" });
+            }
+
+            // 2. Local DB'yi güncelle (null olmayan alanları güncelle)
+            var updateDto = new UpdateProductDto
+            {
+                Name = request.Name ?? existingProduct.Name,
+                SKU = existingProduct.SKU, // SKU değiştirilemez
+                Price = request.SalesPrice ?? existingProduct.Price,
+                Stock = (int)(request.Quantity ?? existingProduct.Stock),
+                CategoryId = request.CategoryId ?? existingProduct.CategoryId,
+                IsActive = existingProduct.IsActive
+            };
+
+            var updatedProduct = await _productService.UpdateProductAsync(id, updateDto);
+            _logger.LogInformation("✅ Ürün local DB'de güncellendi: {SKU}", updatedProduct.SKU);
+
+            // 3. Luca'ya gönder (arka planda değil, senkron)
+            bool lucaUpdated = false;
+            string? lucaError = null;
+
+            try
+            {
+                // Luca ID'yi bul (Products tablosunda LucaId alanı varsa)
+                var productEntity = await _context.Products.FindAsync(id);
+                var lucaId = productEntity?.LucaId;
+
+                if (lucaId.HasValue && lucaId.Value > 0)
+                {
+                    // Mapping'leri al
+                    var categoryMappings = await GetCategoryMappingsAsync();
+                    var unitMappings = await GetUnitMappingsAsync();
+
+                    // Luca update request oluştur
+                    var lucaRequest = new LucaUpdateStokKartiRequest
+                    {
+                        SkartId = lucaId.Value,
+                        KartKodu = updatedProduct.SKU,
+                        KartAdi = request.Name ?? updatedProduct.Name,
+                        UzunAdi = request.UzunAdi,
+                        Barkod = request.Barcode,
+                        KategoriAgacKod = GetCategoryCode(request.CategoryId, categoryMappings),
+                        OlcumBirimiId = GetUnitId(request.UnitId, unitMappings),
+                        PerakendeAlisBirimFiyat = request.PurchasePrice,
+                        PerakendeSatisBirimFiyat = request.SalesPrice ?? updatedProduct.Price,
+                        GtipKodu = request.GtipCode,
+                        KartAlisKdvOran = request.KdvRate.HasValue ? (double)request.KdvRate.Value : null,
+                        KartSatisKdvOran = request.KdvRate.HasValue ? (double)request.KdvRate.Value : null
+                    };
+
+                    lucaUpdated = await _lucaService.UpdateStockCardAsync(lucaRequest);
+
+                    if (lucaUpdated)
+                    {
+                        _logger.LogInformation("✅ Ürün Luca'da güncellendi: {SKU}", updatedProduct.SKU);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("⚠️ Ürün Luca'da güncellenemedi: {SKU}", updatedProduct.SKU);
+                        lucaError = "Luca güncelleme başarısız";
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("⚠️ Ürünün LucaId'si yok, Luca'ya gönderilemedi: {SKU}", updatedProduct.SKU);
+                    lucaError = "Ürünün Luca ID'si bulunamadı";
+                }
+            }
+            catch (Exception lucaEx)
+            {
+                _logger.LogError(lucaEx, "❌ Luca güncelleme hatası: {SKU}", updatedProduct.SKU);
+                lucaError = lucaEx.Message;
+                // Luca hatası olsa bile local update başarılı, devam et
+            }
+
+            // 4. Response dön
+            return Ok(new
+            {
+                success = true,
+                message = lucaUpdated ? "Ürün güncellendi ve Luca'ya senkronize edildi" : "Ürün güncellendi (Luca senkronizasyonu başarısız)",
+                lucaUpdated = lucaUpdated,
+                lucaError = lucaError,
+                product = new
+                {
+                    id = updatedProduct.Id,
+                    sku = updatedProduct.SKU,
+                    name = updatedProduct.Name,
+                    categoryId = updatedProduct.CategoryId,
+                    stock = updatedProduct.Stock,
+                    price = updatedProduct.Price,
+                    isActive = updatedProduct.IsActive,
+                    updatedAt = DateTime.UtcNow
+                }
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            _logger.LogError(ex, "Product {Id} not found", id);
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ürün güncelleme hatası: ID {Id}", id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// SKU ile ürünü Luca'da, Local DB'de ve Katana'da günceller.
+    /// Frontend'den gelen güncellenebilir alanları tüm sistemlere senkronize eder.
+    /// </summary>
+    [HttpPut("by-sku/{sku}/sync-to-luca")]
+    [Authorize(Roles = "Admin,StokYonetici")]
+    public async Task<ActionResult> UpdateProductBySkuAndSyncToLuca(string sku, [FromBody] UpdateProductRequest request)
+    {
+        _logger.LogInformation("🔄 UpdateProductBySkuAndSyncToLuca called: SKU={Sku}, Request={@Request}", sku, request);
+
+        if (request == null)
+        {
+            return BadRequest(new { error = "Ürün verisi boş olamaz" });
+        }
+
+        try
+        {
+            var lucaUpdated = false;
+            var localDbUpdated = false;
+            var katanaUpdated = false;
+            string? lucaError = null;
+            string? katanaError = null;
+
+            // 1. LOCAL DB GÜNCELLE (ÖNCELİKLİ - Koza'dan çekince kaybolmasın)
+            try
+            {
+                var localProduct = await _productService.GetProductBySkuAsync(sku);
+                if (localProduct != null)
+                {
+                    var updateDto = new UpdateProductDto
+                    {
+                        Name = request.Name ?? localProduct.Name,
+                        SKU = localProduct.SKU,
+                        Description = request.UzunAdi ?? localProduct.Description,
+                        Price = request.SalesPrice ?? localProduct.Price,
+                        Stock = localProduct.Stock, // Stok değişmez
+                        CategoryId = localProduct.CategoryId,
+                        MainImageUrl = localProduct.MainImageUrl,
+                        IsActive = localProduct.IsActive,
+                        // Luca sync için eklenen alanlar
+                        Barcode = request.Barcode ?? localProduct.Barcode,
+                        KategoriAgacKod = request.KategoriAgacKod ?? localProduct.KategoriAgacKod,
+                        PurchasePrice = request.PurchasePrice ?? localProduct.PurchasePrice,
+                        GtipCode = request.GtipCode ?? localProduct.GtipCode,
+                        UzunAdi = request.UzunAdi ?? localProduct.UzunAdi
+                    };
+                    
+                    await _productService.UpdateProductAsync(localProduct.Id, updateDto);
+                    localDbUpdated = true;
+                    _logger.LogInformation("✅ Local DB güncellendi: SKU={Sku}", sku);
+                }
+                else
+                {
+                    _logger.LogWarning("⚠️ Local DB'de ürün bulunamadı: SKU={Sku}", sku);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Local DB güncelleme hatası: SKU={Sku}", sku);
+            }
+
+            // 2. LUCA/KOZA GÜNCELLE
+            try
+            {
+                var skartId = await _lucaService.FindStockCardBySkuAsync(sku);
+                
+                _logger.LogInformation("🔍 FindStockCardBySkuAsync result for SKU={Sku}: SkartId={SkartId}", sku, skartId);
+                
+                if (skartId.HasValue)
+                {
+                    var lucaRequest = new LucaUpdateStokKartiRequest
+                    {
+                        SkartId = skartId.Value,
+                        KartKodu = sku,
+                        KartAdi = request.Name,
+                        UzunAdi = request.UzunAdi,
+                        Barkod = request.Barcode,
+                        KategoriAgacKod = request.KategoriAgacKod,
+                        PerakendeAlisBirimFiyat = request.PurchasePrice,
+                        PerakendeSatisBirimFiyat = request.SalesPrice,
+                        GtipKodu = request.GtipCode
+                    };
+                    
+                    _logger.LogInformation("📤 Luca'ya gönderilecek request: {@LucaRequest}", lucaRequest);
+                    lucaUpdated = await _lucaService.UpdateStockCardAsync(lucaRequest);
+                    
+                    if (lucaUpdated)
+                    {
+                        _logger.LogInformation("✅ Ürün Luca'da güncellendi: {SKU}", sku);
+                    }
+                    else
+                    {
+                        lucaError = "Luca API güncelleme başarısız döndü";
+                        _logger.LogWarning("⚠️ Ürün Luca'da güncellenemedi: {SKU}", sku);
+                    }
+                }
+                else
+                {
+                    lucaError = $"Luca'da ürün bulunamadı: SKU {sku}";
+                    _logger.LogWarning("⚠️ Luca'da ürün bulunamadı: SKU={Sku}", sku);
+                }
+            }
+            catch (Exception ex)
+            {
+                lucaError = ex.Message;
+                _logger.LogError(ex, "❌ Luca güncelleme hatası: SKU={Sku}", sku);
+            }
+
+            // 3. KATANA GÜNCELLE
+            try
+            {
+                var katanaProduct = await _katanaService.GetProductBySkuAsync(sku);
+                if (katanaProduct != null && int.TryParse(katanaProduct.Id, out int katanaProductId))
+                {
+                    katanaUpdated = await _katanaService.UpdateProductAsync(
+                        katanaProductId,
+                        request.Name,
+                        request.SalesPrice,
+                        null // Stok değişmez
+                    );
+                    
+                    if (katanaUpdated)
+                    {
+                        _logger.LogInformation("✅ Ürün Katana'da güncellendi: SKU={Sku}", sku);
+                    }
+                    else
+                    {
+                        katanaError = "Katana API güncelleme başarısız döndü";
+                        _logger.LogWarning("⚠️ Ürün Katana'da güncellenemedi: SKU={Sku}", sku);
+                    }
+                }
+                else
+                {
+                    katanaError = "Katana'da ürün bulunamadı";
+                    _logger.LogWarning("⚠️ Katana'da ürün bulunamadı: SKU={Sku}", sku);
+                }
+            }
+            catch (Exception ex)
+            {
+                katanaError = ex.Message;
+                _logger.LogError(ex, "❌ Katana güncelleme hatası: SKU={Sku}", sku);
+            }
+
+            // 4. SONUÇ DÖNDÜR
+            var overallSuccess = localDbUpdated || lucaUpdated; // En az biri başarılı olmalı
+            
+            return Ok(new
+            {
+                success = overallSuccess,
+                message = overallSuccess 
+                    ? "Ürün güncellendi" 
+                    : "Güncelleme başarısız",
+                localDbUpdated = localDbUpdated,
+                lucaUpdated = lucaUpdated,
+                katanaUpdated = katanaUpdated,
+                lucaError = lucaError,
+                katanaError = katanaError,
+                sku = sku,
+                updatedProduct = new
+                {
+                    productCode = sku,
+                    productName = request.Name,
+                    uzunAdi = request.UzunAdi,
+                    barcode = request.Barcode,
+                    kategoriAgacKod = request.KategoriAgacKod,
+                    purchasePrice = request.PurchasePrice,
+                    salesPrice = request.SalesPrice,
+                    gtipCode = request.GtipCode
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ürün güncelleme hatası: SKU {Sku}", sku);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    private async Task<Dictionary<string, string>> GetCategoryMappingsAsync()
+    {
+        try
+        {
+            return await _context.MappingTables
+                .Where(m => m.MappingType == "PRODUCT_CATEGORY" && m.IsActive)
+                .ToDictionaryAsync(m => m.SourceValue, m => m.TargetValue);
+        }
+        catch
+        {
+            return new Dictionary<string, string>();
+        }
+    }
+
+    private async Task<Dictionary<string, string>> GetUnitMappingsAsync()
+    {
+        try
+        {
+            return await _context.MappingTables
+                .Where(m => m.MappingType == "UNIT" && m.IsActive)
+                .ToDictionaryAsync(m => m.SourceValue, m => m.TargetValue);
+        }
+        catch
+        {
+            return new Dictionary<string, string>();
+        }
+    }
+
+    private string? GetCategoryCode(int? categoryId, Dictionary<string, string> mappings)
+    {
+        if (!categoryId.HasValue) return null;
+        
+        // Kategori adını bul ve mapping'den kodu al
+        var category = _context.Categories.Find(categoryId.Value);
+        if (category != null && mappings.TryGetValue(category.Name, out var code))
+        {
+            return code;
+        }
+        return _lucaSettings.DefaultKategoriKodu;
+    }
+
+    private long? GetUnitId(int? unitId, Dictionary<string, string> mappings)
+    {
+        if (!unitId.HasValue) return _lucaSettings.DefaultOlcumBirimiId;
+        
+        // UnitId'yi string'e çevir ve mapping'den Luca ID'yi al
+        if (mappings.TryGetValue(unitId.Value.ToString(), out var lucaUnitId) && long.TryParse(lucaUnitId, out var id))
+        {
+            return id;
+        }
+        return _lucaSettings.DefaultOlcumBirimiId;
     }
 
     [HttpPut("{id}/activate")]

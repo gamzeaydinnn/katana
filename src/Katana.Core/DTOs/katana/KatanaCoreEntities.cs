@@ -89,6 +89,14 @@ public class ProductDto
     public string? MainImageUrl { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; }
+    
+    // Luca sync için eklenen alanlar
+    public string? Barcode { get; set; }
+    public string? KategoriAgacKod { get; set; }
+    public decimal? PurchasePrice { get; set; }
+    public string? GtipCode { get; set; }
+    public string? UzunAdi { get; set; }
+    public long? LucaId { get; set; }
 }
 
 public class ProductConfigDto
@@ -162,6 +170,12 @@ public class UpdateProductDto
     public string? MainImageUrl { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; }
+    // Luca sync için eklenen alanlar
+    public string? Barcode { get; set; }
+    public string? KategoriAgacKod { get; set; }
+    public decimal? PurchasePrice { get; set; }
+    public string? GtipCode { get; set; }
+    public string? UzunAdi { get; set; }
 }
 
 public class ProductStatisticsDto
