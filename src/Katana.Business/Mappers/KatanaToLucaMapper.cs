@@ -385,7 +385,8 @@ public static class KatanaToLucaMapper
         IReadOnlyDictionary<string, string>? productCategoryMappings = null,
         KatanaMappingSettings? mappingSettings = null,
         long? olcumBirimiIdOverride = null,
-        IReadOnlyDictionary<string, int>? unitMappings = null)
+        IReadOnlyDictionary<string, int>? unitMappings = null,
+        IReadOnlyDictionary<string, string>? dbUnitMappings = null)
     {
         if (product == null) throw new ArgumentNullException(nameof(product));
         if (lucaSettings == null) throw new ArgumentNullException(nameof(lucaSettings));
@@ -511,32 +512,50 @@ public static class KatanaToLucaMapper
         }
         
         // 🔥 ÖLÇÜ BİRİMİ MAPPING: Katana'dan gelen Unit'i Luca ID'sine çevir
+        // Öncelik sırası: (1) Override → (2) DB Mapping → (3) Config Mapping → (4) AutoMapUnit fallback → (5) Default
         long olcumBirimiId = lucaSettings.DefaultOlcumBirimiId;
         
         if (olcumBirimiIdOverride.HasValue)
         {
-            // Override varsa onu kullan
+            // 1. Override varsa onu kullan
             olcumBirimiId = olcumBirimiIdOverride.Value;
+            Console.WriteLine($"✅ ÖLÇÜ BİRİMİ (override): Luca ID: {olcumBirimiId}");
         }
         else if (!string.IsNullOrWhiteSpace(product.Unit))
         {
             // Katana'dan gelen Unit'i normalize et ve mapping'den bul
             var normalizedUnit = product.Unit.Trim().ToLowerInvariant();
+            bool found = false;
             
-            // 1. Önce appsettings.json UnitMapping'den ara
-            if (unitMappings != null && unitMappings.TryGetValue(normalizedUnit, out var mappedUnitId))
+            // 2. ÖNCE: Database UNIT mapping'den ara (dbUnitMappings)
+            if (dbUnitMappings != null && dbUnitMappings.TryGetValue(normalizedUnit, out var dbMappedId))
+            {
+                if (long.TryParse(dbMappedId, out var parsedDbId))
+                {
+                    olcumBirimiId = parsedDbId;
+                    found = true;
+                    Console.WriteLine($"✅ ÖLÇÜ BİRİMİ MAPPING (DB): '{product.Unit}' → Luca ID: {parsedDbId}");
+                }
+            }
+            
+            // 3. SONRA: appsettings.json UnitMapping'den ara (unitMappings parametresi)
+            if (!found && unitMappings != null && unitMappings.TryGetValue(normalizedUnit, out var mappedUnitId))
             {
                 olcumBirimiId = mappedUnitId;
-                Console.WriteLine($"✅ ÖLÇÜ BİRİMİ MAPPING (config): '{product.Unit}' → Luca ID: {mappedUnitId}");
+                found = true;
+                Console.WriteLine($"✅ ÖLÇÜ BİRİMİ MAPPING (config param): '{product.Unit}' → Luca ID: {mappedUnitId}");
             }
-            // 2. Config'de yoksa LucaApiSettings.UnitMapping'den ara
-            else if (lucaSettings.UnitMapping != null && lucaSettings.UnitMapping.TryGetValue(normalizedUnit, out var settingsMappedId))
+            
+            // 4. SONRA: LucaApiSettings.UnitMapping'den ara
+            if (!found && lucaSettings.UnitMapping != null && lucaSettings.UnitMapping.TryGetValue(normalizedUnit, out var settingsMappedId))
             {
                 olcumBirimiId = settingsMappedId;
-                Console.WriteLine($"✅ ÖLÇÜ BİRİMİ MAPPING (LucaApi): '{product.Unit}' → Luca ID: {settingsMappedId}");
+                found = true;
+                Console.WriteLine($"✅ ÖLÇÜ BİRİMİ MAPPING (LucaApiSettings): '{product.Unit}' → Luca ID: {settingsMappedId}");
             }
-            // 3. Hiçbirinde yoksa AutoMapUnit fallback kullan
-            else
+            
+            // 5. Hiçbirinde yoksa AutoMapUnit fallback kullan
+            if (!found)
             {
                 olcumBirimiId = AutoMapUnit(product.Unit);
                 Console.WriteLine($"⚠️ ÖLÇÜ BİRİMİ MAPPING BULUNAMADI: '{product.Unit}' - AutoMap kullanılıyor: {olcumBirimiId}");
@@ -703,20 +722,46 @@ public static class KatanaToLucaMapper
         return result;
     }
 
-    public static void ValidateLucaStockCard(LucaCreateStokKartiRequest dto)
+    /// <summary>
+    /// Validates a LucaCreateStokKartiRequest before sending to Luca API.
+    /// Throws ValidationException with all error messages concatenated if validation fails.
+    /// </summary>
+    /// <param name="dto">The stock card request to validate</param>
+    /// <param name="sku">Optional SKU for logging purposes</param>
+    public static void ValidateLucaStockCard(LucaCreateStokKartiRequest dto, string? sku = null)
     {
         if (dto == null) throw new ArgumentNullException(nameof(dto));
 
+        var errors = new List<string>();
+
+        // Requirement 10.1: KartKodu boş kontrolü
         if (string.IsNullOrWhiteSpace(dto.KartKodu))
         {
-            throw new ValidationException("Stok kodu zorunlu");
+            errors.Add("KartKodu (Stok kodu) zorunludur");
         }
 
+        // Requirement 10.2: KartAdi boş kontrolü
         if (string.IsNullOrWhiteSpace(dto.KartAdi))
         {
-            throw new ValidationException("Stok tanımı zorunlu");
+            errors.Add("KartAdi (Stok tanımı) zorunludur");
         }
 
+        // Requirement 10.3: OlcumBirimiId > 0 kontrolü
+        if (dto.OlcumBirimiId <= 0)
+        {
+            errors.Add($"OlcumBirimiId geçersiz: {dto.OlcumBirimiId} (0'dan büyük olmalı)");
+        }
+
+        // Requirement 10.4 & 10.5: Tüm hataları birleştirip ValidationException fırlat ve logla
+        if (errors.Count > 0)
+        {
+            var errorMessage = string.Join("; ", errors);
+            var skuInfo = !string.IsNullOrWhiteSpace(sku) ? $" [SKU: {sku}]" : "";
+            Console.WriteLine($"❌ STOK KARTI VALİDASYON HATASI{skuInfo}: {errorMessage}");
+            throw new ValidationException($"Stok kartı validasyon hatası{skuInfo}: {errorMessage}");
+        }
+
+        // Encoding normalization
         dto.KartAdi = EncodingHelper.ConvertToIso88599(dto.KartAdi);
         dto.UzunAdi = EncodingHelper.ConvertToIso88599(dto.UzunAdi);
     }

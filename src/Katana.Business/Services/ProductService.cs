@@ -27,7 +27,14 @@ public class ProductService : IProductService
         Description = p.Description,
         IsActive = p.IsActive,
         CreatedAt = p.CreatedAt,
-        UpdatedAt = p.UpdatedAt
+        UpdatedAt = p.UpdatedAt,
+        // Luca sync için eklenen alanlar
+        Barcode = p.Barcode,
+        KategoriAgacKod = p.KategoriAgacKod,
+        PurchasePrice = p.PurchasePrice,
+        GtipCode = p.GtipCode,
+        UzunAdi = p.UzunAdi,
+        LucaId = p.LucaId
     };
 
     public ProductService(IntegrationDbContext context, ILucaService lucaService, IPendingNotificationPublisher? notificationPublisher = null)
@@ -217,6 +224,13 @@ public class ProductService : IProductService
             product.Description = dto.Description;
             product.IsActive = dto.IsActive;
             product.UpdatedAt = DateTime.UtcNow;
+            
+            // Luca sync için eklenen alanlar - null değilse güncelle
+            if (dto.Barcode != null) product.Barcode = dto.Barcode;
+            if (dto.KategoriAgacKod != null) product.KategoriAgacKod = dto.KategoriAgacKod;
+            if (dto.PurchasePrice.HasValue) product.PurchasePrice = dto.PurchasePrice;
+            if (dto.GtipCode != null) product.GtipCode = dto.GtipCode;
+            if (dto.UzunAdi != null) product.UzunAdi = dto.UzunAdi;
 
             await _context.SaveChangesAsync();
             return MapToDto(product);
@@ -513,7 +527,14 @@ public class ProductService : IProductService
             Description = product.Description,
             IsActive = product.IsActive,
             CreatedAt = product.CreatedAt,
-            UpdatedAt = product.UpdatedAt
+            UpdatedAt = product.UpdatedAt,
+            // Luca sync için eklenen alanlar
+            Barcode = product.Barcode,
+            KategoriAgacKod = product.KategoriAgacKod,
+            PurchasePrice = product.PurchasePrice,
+            GtipCode = product.GtipCode,
+            UzunAdi = product.UzunAdi,
+            LucaId = product.LucaId
         };
     }
 

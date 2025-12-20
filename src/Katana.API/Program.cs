@@ -248,6 +248,7 @@ builder.Services.AddScoped<ICustomerMappingService, CustomerMappingService>();
 builder.Services.AddScoped<IDocumentMappingService, DocumentMappingService>();
 builder.Services.AddScoped<ITaxRateMappingService, TaxRateMappingService>();
 builder.Services.AddScoped<IUoMMappingService, UoMMappingService>();
+builder.Services.AddScoped<IOlcumBirimiSyncService, OlcumBirimiSyncService>();
 builder.Services.AddScoped<IIntegrationTestService, IntegrationTestService>();
 builder.Services.AddScoped<IDataCorrectionService, DataCorrectionService>();
 builder.Services.AddScoped<OrderInvoiceSyncService>();

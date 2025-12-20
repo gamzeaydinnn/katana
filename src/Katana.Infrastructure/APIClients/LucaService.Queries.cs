@@ -159,8 +159,56 @@ public partial class LucaService
             throw new HttpRequestException($"Luca API Error ({response.StatusCode}): {responseContent}");
         }
         
-        response.EnsureSuccessStatusCode();
-        return JsonSerializer.Deserialize<JsonElement>(responseContent);
+        // 🔥 Luca bazen HTTP 200 döner ama body'de hata kodu olur (code: 1001, 1002 = Login gerekli)
+        var result = JsonSerializer.Deserialize<JsonElement>(responseContent);
+        if (result.TryGetProperty("code", out var codeProp) && codeProp.ValueKind == JsonValueKind.Number)
+        {
+            var code = codeProp.GetInt32();
+            if (code == 1001 || code == 1002)
+            {
+                var msg = result.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : "Login olunmalı";
+                _logger.LogError("❌ CreateInvoice FAILED - Luca returned login required error. Code: {Code}, Message: {Message}", code, msg);
+                
+                // Session'ı yenile ve tekrar dene
+                _logger.LogInformation("🔄 Session yenileniyor ve fatura tekrar gönderilecek...");
+                await ForceSessionRefreshAsync();
+                await EnsureBranchSelectedAsync();
+                
+                // Retry once
+                using var retryRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                {
+                    Content = new ByteArrayContent(encoder.GetBytes(json))
+                };
+                retryRequest.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = _encoding.WebName };
+                ApplyManualSessionCookie(retryRequest);
+                
+                var retryResponse = await (_cookieHttpClient ?? _httpClient).SendAsync(retryRequest);
+                var retryContent = await ReadResponseContentAsync(retryResponse);
+                await AppendRawLogAsync("CREATE_INVOICE_RAW_RETRY", endpoint, json, retryResponse.StatusCode, retryContent);
+                
+                _logger.LogInformation("📄 CreateInvoice RETRY - Response Status: {Status}, Body: {Body}", 
+                    retryResponse.StatusCode, retryContent);
+                
+                if (IsHtmlResponse(retryContent))
+                {
+                    throw new InvalidOperationException($"Luca API returned HTML after retry. Status={(int)retryResponse.StatusCode}");
+                }
+                
+                var retryResult = JsonSerializer.Deserialize<JsonElement>(retryContent);
+                if (retryResult.TryGetProperty("code", out var retryCodeProp) && retryCodeProp.ValueKind == JsonValueKind.Number)
+                {
+                    var retryCode = retryCodeProp.GetInt32();
+                    if (retryCode == 1001 || retryCode == 1002)
+                    {
+                        throw new UnauthorizedAccessException($"Luca API login required after retry. Code: {retryCode}");
+                    }
+                }
+                
+                return retryResult;
+            }
+        }
+        
+        return result;
     }
 
     public async Task<JsonElement> CreateInvoiceRawJsonAsync(string rawJson)
@@ -2482,167 +2530,221 @@ public partial class LucaService
                 _logger.LogInformation("ℹ️ Stok kartı bulunamadı (boş liste): {SKU}", sku);
                 return null;
             }
+            
+            // 🔍 DEBUG: Response tipini logla
+            _logger.LogDebug("📋 Response tipi: {Kind}, SKU: {SKU}", result.ValueKind, sku);
 
-            if (result.ValueKind == JsonValueKind.Object)
+            // Response'dan array'i çıkar - doğrudan array veya object içinde olabilir
+            JsonElement arrayToProcess = default;
+            
+            if (result.ValueKind == JsonValueKind.Array && result.GetArrayLength() > 0)
             {
-                // Check for "list" array
-                if (result.TryGetProperty("list", out var listProp) && listProp.ValueKind == JsonValueKind.Array)
+                _logger.LogDebug("📋 Response doğrudan Array olarak geldi, {Count} kayıt", result.GetArrayLength());
+                arrayToProcess = result;
+            }
+            else if (result.ValueKind == JsonValueKind.Object)
+            {
+                // 🔍 DEBUG: Response yapısını logla
+                var propNames = new List<string>();
+                foreach (var prop in result.EnumerateObject())
                 {
-                    if (listProp.GetArrayLength() == 0)
+                    propNames.Add($"{prop.Name}({prop.Value.ValueKind})");
+                }
+                _logger.LogDebug("📋 Response Object yapısı - Property'ler: {Props}", string.Join(", ", propNames));
+                
+                // Check for array in various property names (Luca API farklı isimler dönebiliyor)
+                foreach (var key in new[] { "list", "stkSkart", "data", "items" })
+                {
+                    if (result.TryGetProperty(key, out var prop) && prop.ValueKind == JsonValueKind.Array)
                     {
-                        // 🔥 BOŞ LİSTE ama bu gerçekten "yok" mu yoksa API hatası mı?
-                        // Cache boşsa bu şüpheli bir durum (session/branch problemi olabilir)
-                        if (cacheWasEmpty)
-                        {
-                            _logger.LogWarning("⚠️ [SUSPICIOUS] Liste boş ANCAK cache de boştu - Session/Branch problemi olabilir!");
-                            _logger.LogWarning("   SKU: {SKU} - Bu gerçekten 'yok' mu yoksa API başarısız mı? DIKKATLI DAVRAN!", sku);
-                            // Boş dön ama logla - caller bu durumu handle etsin
-                        }
-                        else
-                        {
-                            _logger.LogInformation("ℹ️ Stok kartı bulunamadı (list boş): {SKU}", sku);
-                        }
-                        return null;
+                        arrayToProcess = prop;
+                        _logger.LogDebug("📋 Array bulundu: '{Key}' property'sinde {Count} kayıt", key, prop.GetArrayLength());
+                        break;
                     }
-
-                    // 🎯 AKILLI EŞLEŞME: Öncelik sırası
-                    // 1. TAM EŞLEŞME (SKU = "81.06301-8211")
-                    // 2. VERSİYONLU EŞLEŞME (SKU-V2, SKU-V3, ..., SKU-V99)
-                    // 3. AUTO- PREFIX (AUTO-6d876996)
-                    
-                    long? exactMatchId = null;
-                    long? versionedMatchId = null;
-                    long? autoMatchId = null;
-                    string? exactMatchCode = null;
-                    string? versionedMatchCode = null;
-                    string? autoMatchCode = null;
-                    
-                    var candidates = new List<(string code, long id, string type)>();
-
-                    foreach (var item in listProp.EnumerateArray())
+                }
+                
+                // 🔍 DEBUG: Eğer hiçbir array bulunamadıysa logla
+                if (arrayToProcess.ValueKind != JsonValueKind.Array)
+                {
+                    _logger.LogWarning("⚠️ Response'da array bulunamadı! SKU: {SKU}, Response preview: {Preview}", 
+                        sku, result.GetRawText().Length > 500 ? result.GetRawText().Substring(0, 500) : result.GetRawText());
+                }
+            }
+            
+            // Array'i işle
+            if (arrayToProcess.ValueKind == JsonValueKind.Array)
+            {
+                if (arrayToProcess.GetArrayLength() == 0)
+                {
+                    // 🔥 BOŞ LİSTE ama bu gerçekten "yok" mu yoksa API hatası mı?
+                    // Cache boşsa bu şüpheli bir durum (session/branch problemi olabilir)
+                    if (cacheWasEmpty)
                     {
-                        // KartKodu eşleşmesi kontrol et
-                        var kartKodu = item.TryGetProperty("kod", out var kodProp) ? kodProp.GetString() :
-                                       item.TryGetProperty("kartKodu", out var kartKoduProp) ? kartKoduProp.GetString() : null;
+                        _logger.LogWarning("⚠️ [SUSPICIOUS] Liste boş ANCAK cache de boştu - Session/Branch problemi olabilir!");
+                        _logger.LogWarning("   SKU: {SKU} - Bu gerçekten 'yok' mu yoksa API başarısız mı? DIKKATLI DAVRAN!", sku);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("ℹ️ Stok kartı bulunamadı (list boş): {SKU}", sku);
+                    }
+                    return null;
+                }
 
-                        if (string.IsNullOrWhiteSpace(kartKodu))
-                            continue;
+                // 🎯 AKILLI EŞLEŞME: Öncelik sırası
+                // 1. TAM EŞLEŞME (SKU = "81.06301-8211")
+                // 2. VERSİYONLU EŞLEŞME (SKU-V2, SKU-V3, ..., SKU-V99)
+                // 3. AUTO- PREFIX (AUTO-6d876996)
+                
+                long? exactMatchId = null;
+                long? versionedMatchId = null;
+                long? autoMatchId = null;
+                string? exactMatchCode = null;
+                string? versionedMatchCode = null;
+                string? autoMatchCode = null;
+                
+                var candidates = new List<(string code, long id, string type)>();
 
-                        var trimmedKod = kartKodu.Trim();
-                        
-                        // SkartId al
-                        if (!item.TryGetProperty("skartId", out var skartIdProp))
-                            continue;
-                            
-                        long? skartId = null;
-                        if (skartIdProp.ValueKind == JsonValueKind.Number)
-                            skartId = skartIdProp.GetInt64();
-                        else if (skartIdProp.ValueKind == JsonValueKind.String && long.TryParse(skartIdProp.GetString(), out var parsed))
-                            skartId = parsed;
-                            
-                        if (!skartId.HasValue || skartId.Value == 0)
-                            continue;
-
-                        // 1️⃣ TAM EŞLEŞME kontrolü
-                        if (trimmedKod.Equals(sku.Trim(), StringComparison.OrdinalIgnoreCase))
+                foreach (var item in arrayToProcess.EnumerateArray())
+                {
+                    // 🔍 DEBUG: İlk item'ın yapısını logla
+                    if (candidates.Count == 0)
+                    {
+                        var itemProps = new List<string>();
+                        foreach (var prop in item.EnumerateObject())
                         {
-                            exactMatchId = skartId.Value;
-                            exactMatchCode = trimmedKod;
-                            candidates.Add((trimmedKod, skartId.Value, "EXACT"));
-                            _logger.LogDebug("  ✅ Tam eşleşme bulundu: {Code} → {Id}", trimmedKod, skartId.Value);
+                            itemProps.Add($"{prop.Name}={prop.Value.ToString().Substring(0, Math.Min(50, prop.Value.ToString().Length))}");
                         }
-                        // 2️⃣ VERSİYONLU EŞLEŞME (-V2, -V3, -V99, timestamp sonekleri)
-                        else if (trimmedKod.StartsWith(sku.Trim(), StringComparison.OrdinalIgnoreCase) &&
-                                 (System.Text.RegularExpressions.Regex.IsMatch(trimmedKod, @"-V\d+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase) ||
-                                  System.Text.RegularExpressions.Regex.IsMatch(trimmedKod, @"-\d{12}$"))) // Timestamp soneki (örn: -202512052307)
-                        {
-                            versionedMatchId ??= skartId.Value; // İlk bulduğunu al
-                            versionedMatchCode ??= trimmedKod;
-                            candidates.Add((trimmedKod, skartId.Value, "VERSIONED"));
-                            _logger.LogDebug("  📦 Versiyonlu eşleşme bulundu: {Code} → {Id}", trimmedKod, skartId.Value);
-                        }
-                        // 3️⃣ AUTO- PREFIX (AUTO-6d876996 gibi)
-                        else if (trimmedKod.StartsWith("AUTO-", StringComparison.OrdinalIgnoreCase))
-                        {
-                            // Stok Adı (tanim/kartAdi) alanında orijinal SKU olabilir mi kontrol et
-                            var kartAdi = item.TryGetProperty("tanim", out var tanimProp) ? tanimProp.GetString() :
-                                          item.TryGetProperty("kartAdi", out var kartAdiProp) ? kartAdiProp.GetString() : null;
-                            
-                            if (!string.IsNullOrWhiteSpace(kartAdi) && 
-                                kartAdi.Trim().Contains(sku.Trim(), StringComparison.OrdinalIgnoreCase))
-                            {
-                                autoMatchId ??= skartId.Value;
-                                autoMatchCode ??= trimmedKod;
-                                candidates.Add((trimmedKod, skartId.Value, "AUTO"));
-                                _logger.LogDebug("  🔧 AUTO- prefix eşleşme bulundu: {Code} (Stok Adı: {Name}) → {Id}", 
-                                    trimmedKod, kartAdi, skartId.Value);
-                            }
-                        }
+                        _logger.LogDebug("🔍 İlk item yapısı: {Props}", string.Join(", ", itemProps.Take(10)));
                     }
                     
-                    // 🎯 SONUÇ: Öncelik sırasına göre dön
-                    if (exactMatchId.HasValue)
+                    // KartKodu eşleşmesi kontrol et - TÜM OLASI FIELD İSİMLERİNİ KONTROL ET
+                    // Luca API farklı endpoint'lerde farklı field isimleri dönebiliyor:
+                    // kod, kartKodu, code, skartKod, stokKartKodu, stokKodu
+                    var kartKodu = TryGetProperty(item, "kod", "kartKodu", "code", "skartKod", "stokKartKodu", "stokKodu");
+                    
+                    // 🔍 DEBUG: Bulunan kartKodu'yu logla
+                    if (candidates.Count < 3)
                     {
-                        _logger.LogInformation("✅ [EXACT MATCH] Stok kartı bulundu: {SKU} → {Code} (skartId: {Id})", 
-                            sku, exactMatchCode, exactMatchId.Value);
-                        
-                        await _stockCardCacheLock.WaitAsync();
-                        try
-                        {
-                            _stockCardCache[sku] = exactMatchId;
-                        }
-                        finally
-                        {
-                            _stockCardCacheLock.Release();
-                        }
-                        
-                        return exactMatchId;
+                        _logger.LogDebug("🔍 Item kartKodu: '{KartKodu}', Aranan SKU: '{SKU}'", kartKodu ?? "(null)", sku);
                     }
-                    else if (versionedMatchId.HasValue)
+
+                    if (string.IsNullOrWhiteSpace(kartKodu))
+                        continue;
+
+                    var trimmedKod = kartKodu.Trim();
+                    
+                    // SkartId al
+                    if (!item.TryGetProperty("skartId", out var skartIdProp))
+                        continue;
+                        
+                    long? skartId = null;
+                    if (skartIdProp.ValueKind == JsonValueKind.Number)
+                        skartId = skartIdProp.GetInt64();
+                    else if (skartIdProp.ValueKind == JsonValueKind.String && long.TryParse(skartIdProp.GetString(), out var parsed))
+                        skartId = parsed;
+                        
+                    if (!skartId.HasValue || skartId.Value == 0)
+                        continue;
+
+                    // 1️⃣ TAM EŞLEŞME kontrolü
+                    if (trimmedKod.Equals(sku.Trim(), StringComparison.OrdinalIgnoreCase))
                     {
-                        _logger.LogWarning("⚠️ [VERSIONED MATCH] SKU: {SKU} Luca'da versiyonlanmış olarak bulundu: {Code} (skartId: {Id})", 
-                            sku, versionedMatchCode, versionedMatchId.Value);
-                        _logger.LogWarning("   ⚠️ DİKKAT: Bu ürün zaten var! Yeni kart açılmamalı.");
-                        
-                        if (candidates.Count > 1)
-                        {
-                            _logger.LogWarning("   📋 Bulunan {Count} varyasyon:", candidates.Count);
-                            foreach (var (code, id, type) in candidates)
-                            {
-                                _logger.LogWarning("      - {Code} ({Type}) → ID: {Id}", code, type, id);
-                            }
-                        }
-                        
-                        await _stockCardCacheLock.WaitAsync();
-                        try
-                        {
-                            _stockCardCache[sku] = versionedMatchId;
-                        }
-                        finally
-                        {
-                            _stockCardCacheLock.Release();
-                        }
-                        
-                        return versionedMatchId;
+                        exactMatchId = skartId.Value;
+                        exactMatchCode = trimmedKod;
+                        candidates.Add((trimmedKod, skartId.Value, "EXACT"));
+                        _logger.LogDebug("  ✅ Tam eşleşme bulundu: {Code} → {Id}", trimmedKod, skartId.Value);
                     }
-                    else if (autoMatchId.HasValue)
+                    // 2️⃣ VERSİYONLU EŞLEŞME (-V2, -V3, -V99, timestamp sonekleri)
+                    else if (trimmedKod.StartsWith(sku.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                             (System.Text.RegularExpressions.Regex.IsMatch(trimmedKod, @"-V\d+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase) ||
+                              System.Text.RegularExpressions.Regex.IsMatch(trimmedKod, @"-\d{12}$"))) // Timestamp soneki (örn: -202512052307)
                     {
-                        _logger.LogWarning("⚠️ [AUTO-PREFIX MATCH] SKU: {SKU} Luca'da AUTO- prefix ile bulundu: {Code} (skartId: {Id})", 
-                            sku, autoMatchCode, autoMatchId.Value);
-                        _logger.LogWarning("   ⚠️ DİKKAT: Bu ürün zaten var! Yeni kart açılmamalı.");
-                        
-                        await _stockCardCacheLock.WaitAsync();
-                        try
-                        {
-                            _stockCardCache[sku] = autoMatchId;
-                        }
-                        finally
-                        {
-                            _stockCardCacheLock.Release();
-                        }
-                        
-                        return autoMatchId;
+                        versionedMatchId ??= skartId.Value; // İlk bulduğunu al
+                        versionedMatchCode ??= trimmedKod;
+                        candidates.Add((trimmedKod, skartId.Value, "VERSIONED"));
+                        _logger.LogDebug("  📦 Versiyonlu eşleşme bulundu: {Code} → {Id}", trimmedKod, skartId.Value);
                     }
+                    // 3️⃣ AUTO- PREFIX (AUTO-6d876996 gibi)
+                    else if (trimmedKod.StartsWith("AUTO-", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Stok Adı (tanim/kartAdi) alanında orijinal SKU olabilir mi kontrol et
+                        var kartAdi = item.TryGetProperty("tanim", out var tanimProp) ? tanimProp.GetString() :
+                                      item.TryGetProperty("kartAdi", out var kartAdiProp) ? kartAdiProp.GetString() : null;
+                        
+                        if (!string.IsNullOrWhiteSpace(kartAdi) && 
+                            kartAdi.Trim().Contains(sku.Trim(), StringComparison.OrdinalIgnoreCase))
+                        {
+                            autoMatchId ??= skartId.Value;
+                            autoMatchCode ??= trimmedKod;
+                            candidates.Add((trimmedKod, skartId.Value, "AUTO"));
+                            _logger.LogDebug("  🔧 AUTO- prefix eşleşme bulundu: {Code} (Stok Adı: {Name}) → {Id}", 
+                                trimmedKod, kartAdi, skartId.Value);
+                        }
+                    }
+                }
+                
+                // 🎯 SONUÇ: Öncelik sırasına göre dön
+                if (exactMatchId.HasValue)
+                {
+                    _logger.LogInformation("✅ [EXACT MATCH] Stok kartı bulundu: {SKU} → {Code} (skartId: {Id})", 
+                        sku, exactMatchCode, exactMatchId.Value);
+                    
+                    await _stockCardCacheLock.WaitAsync();
+                    try
+                    {
+                        _stockCardCache[sku] = exactMatchId;
+                    }
+                    finally
+                    {
+                        _stockCardCacheLock.Release();
+                    }
+                    
+                    return exactMatchId;
+                }
+                else if (versionedMatchId.HasValue)
+                {
+                    _logger.LogWarning("⚠️ [VERSIONED MATCH] SKU: {SKU} Luca'da versiyonlanmış olarak bulundu: {Code} (skartId: {Id})", 
+                        sku, versionedMatchCode, versionedMatchId.Value);
+                    _logger.LogWarning("   ⚠️ DİKKAT: Bu ürün zaten var! Yeni kart açılmamalı.");
+                    
+                    if (candidates.Count > 1)
+                    {
+                        _logger.LogWarning("   📋 Bulunan {Count} varyasyon:", candidates.Count);
+                        foreach (var (code, id, type) in candidates)
+                        {
+                            _logger.LogWarning("      - {Code} ({Type}) → ID: {Id}", code, type, id);
+                        }
+                    }
+                    
+                    await _stockCardCacheLock.WaitAsync();
+                    try
+                    {
+                        _stockCardCache[sku] = versionedMatchId;
+                    }
+                    finally
+                    {
+                        _stockCardCacheLock.Release();
+                    }
+                    
+                    return versionedMatchId;
+                }
+                else if (autoMatchId.HasValue)
+                {
+                    _logger.LogWarning("⚠️ [AUTO-PREFIX MATCH] SKU: {SKU} Luca'da AUTO- prefix ile bulundu: {Code} (skartId: {Id})", 
+                        sku, autoMatchCode, autoMatchId.Value);
+                    _logger.LogWarning("   ⚠️ DİKKAT: Bu ürün zaten var! Yeni kart açılmamalı.");
+                    
+                    await _stockCardCacheLock.WaitAsync();
+                    try
+                    {
+                        _stockCardCache[sku] = autoMatchId;
+                    }
+                    finally
+                    {
+                        _stockCardCacheLock.Release();
+                    }
+                    
+                    return autoMatchId;
                 }
             }
 

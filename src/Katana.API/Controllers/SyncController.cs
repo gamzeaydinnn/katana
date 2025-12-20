@@ -1229,6 +1229,136 @@ public class SyncController : ControllerBase
             });
         }
     }
+
+    // ========================================================================
+    // ÖLÇÜ BİRİMİ MAPPING ENDPOINT'LERİ
+    // ========================================================================
+
+    /// <summary>
+    /// Luca'dan tüm ölçü birimlerini listele
+    /// </summary>
+    [HttpGet("list-luca-olcum-birimleri")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult> ListLucaOlcumBirimleri()
+    {
+        try
+        {
+            var olcumBirimiService = HttpContext.RequestServices.GetRequiredService<IOlcumBirimiSyncService>();
+            var units = await olcumBirimiService.GetLucaOlcumBirimleriAsync();
+            
+            return Ok(new
+            {
+                success = true,
+                count = units.Count,
+                data = units
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Luca ölçü birimleri listelenirken hata oluştu");
+            return BadRequest(new { success = false, error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Luca ölçü birimlerinden otomatik UNIT mapping'leri oluştur
+    /// </summary>
+    [HttpPost("sync-olcum-birimi-mappings")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult> SyncOlcumBirimiMappings()
+    {
+        try
+        {
+            var olcumBirimiService = HttpContext.RequestServices.GetRequiredService<IOlcumBirimiSyncService>();
+            var addedCount = await olcumBirimiService.SyncOlcumBirimiMappingsAsync();
+            
+            return Ok(new
+            {
+                success = true,
+                addedCount = addedCount,
+                message = $"{addedCount} yeni ölçü birimi mapping'i oluşturuldu"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ölçü birimi mapping'leri senkronize edilirken hata oluştu");
+            return BadRequest(new { success = false, error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Tek bir ürünün mapping'ini test et (Katana product + Luca request)
+    /// </summary>
+    [HttpGet("test-single-product/{sku}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult> TestSingleProductMapping(string sku)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(sku))
+            {
+                return BadRequest(new { success = false, error = "SKU parametresi gerekli" });
+            }
+
+            var katanaService = HttpContext.RequestServices.GetRequiredService<IKatanaService>();
+            var mappingService = HttpContext.RequestServices.GetRequiredService<IMappingService>();
+            
+            // Katana'dan ürünü getir
+            var products = await katanaService.GetProductsAsync();
+            var product = products.FirstOrDefault(p => 
+                string.Equals(p.SKU, sku, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.Id, sku, StringComparison.OrdinalIgnoreCase));
+            
+            if (product == null)
+            {
+                return NotFound(new { success = false, error = $"Ürün bulunamadı: {sku}" });
+            }
+
+            // Mapping'leri al
+            var categoryMappings = await mappingService.GetCategoryMappingAsync();
+            var unitMappings = await mappingService.GetUnitMappingAsync();
+
+            // Mapper'ı çağır
+            var lucaRequest = Katana.Business.Mappers.KatanaToLucaMapper.MapKatanaProductToStockCard(
+                product,
+                _lucaSettings,
+                categoryMappings,
+                null,
+                null,
+                null,
+                unitMappings
+            );
+
+            return Ok(new
+            {
+                success = true,
+                katanaProduct = new
+                {
+                    id = product.Id,
+                    sku = product.SKU,
+                    name = product.Name,
+                    category = product.Category,
+                    unit = product.Unit,
+                    barcode = product.Barcode,
+                    costPrice = product.CostPrice,
+                    salesPrice = product.SalesPrice
+                },
+                lucaRequest = lucaRequest,
+                mappingDetails = new
+                {
+                    categoryMappingFound = !string.IsNullOrWhiteSpace(product.Category) && categoryMappings.ContainsKey(product.Category),
+                    unitMappingFound = !string.IsNullOrWhiteSpace(product.Unit) && unitMappings.ContainsKey(product.Unit.ToLowerInvariant()),
+                    resolvedCategory = lucaRequest.KategoriAgacKod,
+                    resolvedUnitId = lucaRequest.OlcumBirimiId
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ürün mapping testi başarısız: {SKU}", sku);
+            return BadRequest(new { success = false, error = ex.Message });
+        }
+    }
 }
 
 public class StartSyncRequest

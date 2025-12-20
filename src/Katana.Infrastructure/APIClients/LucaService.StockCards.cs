@@ -589,17 +589,12 @@ public partial class LucaService
         else if (item.TryGetProperty("stokKartId", out var stokKartId))
             dto.StokKartId = stokKartId.ValueKind == JsonValueKind.Number ? stokKartId.GetInt64() : null;
 
-        // Kod alanları
-        if (item.TryGetProperty("kod", out var kod))
-            dto.KartKodu = kod.GetString() ?? "";
-        else if (item.TryGetProperty("kartKodu", out var kartKodu2))
-            dto.KartKodu = kartKodu2.GetString() ?? "";
+        // Kod alanları - TÜM OLASI FIELD İSİMLERİNİ KONTROL ET
+        // Luca API farklı endpoint'lerde farklı field isimleri dönebiliyor
+        dto.KartKodu = TryGetProperty(item, "kod", "kartKodu", "code", "skartKod", "stokKartKodu", "stokKodu") ?? "";
 
-        // Ad alanları
-        if (item.TryGetProperty("adi", out var adi))
-            dto.KartAdi = adi.GetString() ?? "";
-        else if (item.TryGetProperty("kartAdi", out var kartAdi2))
-            dto.KartAdi = kartAdi2.GetString() ?? "";
+        // Ad alanları - TÜM OLASI FIELD İSİMLERİNİ KONTROL ET
+        dto.KartAdi = TryGetProperty(item, "adi", "kartAdi", "tanim", "name", "stokKartAdi", "stokAdi") ?? "";
 
         // Barkod
         if (item.TryGetProperty("barkod", out var barkod))

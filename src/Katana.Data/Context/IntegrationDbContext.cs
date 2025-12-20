@@ -102,6 +102,12 @@ public class IntegrationDbContext : DbContext
         entity.HasIndex(e => e.CategoryId); 
         entity.Property(e => e.Price).HasPrecision(18, 2);
         
+        // Luca sync fields configuration
+        entity.Property(e => e.PurchasePrice).HasPrecision(18, 2);
+        entity.Property(e => e.Barcode).HasMaxLength(100);
+        entity.Property(e => e.KategoriAgacKod).HasMaxLength(50);
+        entity.Property(e => e.GtipCode).HasMaxLength(50);
+        entity.Property(e => e.UzunAdi).HasMaxLength(500);
         
         entity.HasOne<Category>()
             .WithMany()

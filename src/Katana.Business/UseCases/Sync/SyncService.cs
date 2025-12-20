@@ -1416,6 +1416,11 @@ public class SyncService : ISyncService
         };
     }
 
+    /// <summary>
+    /// Luca'dan ürünleri çeker ve local DB'ye senkronize eder.
+    /// 🔥 LUCA = SINGLE SOURCE OF TRUTH - Timestamp karşılaştırması YOK!
+    /// Luca'daki veri her zaman local'in üzerine yazılır.
+    /// </summary>
     public async Task<SyncResultDto> SyncProductsFromLucaAsync(DateTime? fromDate = null)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -1423,12 +1428,13 @@ public class SyncService : ISyncService
 
         try
         {
-            _logger.LogInformation("Starting Luca → Katana PRODUCT sync");
+            _logger.LogInformation("🔄 Starting Luca → Katana PRODUCT sync (Luca = Single Source of Truth)");
 
             var lucaProducts = await _lucaService.FetchProductsAsync(fromDate);
-            _logger.LogInformation("Fetched {Count} products from Luca", lucaProducts.Count);
+            _logger.LogInformation("✅ Fetched {Count} products from Luca", lucaProducts.Count);
 
-            var successful = 0;
+            var created = 0;
+            var updated = 0;
             var errors = new List<string>();
 
             foreach (var lucaDto in lucaProducts)
@@ -1441,49 +1447,60 @@ public class SyncService : ISyncService
                         continue;
                     }
 
-                    var sku = lucaDto.ProductCode;
+                    var sku = lucaDto.ProductCode.Trim();
                     var existing = await _dbContext.Products.FirstOrDefaultAsync(p => p.SKU == sku);
 
                     if (existing == null)
                     {
+                        // 🆕 YENİ ÜRÜN - Oluştur
                         var newProduct = MappingHelper.MapFromLucaProduct(lucaDto);
-                        // LucaId'yi kaydet (hızlı silme için)
                         newProduct.LucaId = lucaDto.SkartId;
                         _dbContext.Products.Add(newProduct);
+                        created++;
+                        _logger.LogInformation("🆕 Yeni ürün oluşturuldu: {SKU}", sku);
                     }
                     else
                     {
-                        existing.Name = lucaDto.ProductName;
+                        // 🔄 MEVCUT ÜRÜN - Luca verisiyle TAMAMEN üzerine yaz
+                        // ⚠️ TIMESTAMP KARŞILAŞTIRMASI YOK - Luca her zaman doğru kaynak!
+                        existing.Name = lucaDto.ProductName ?? existing.Name;
+                        existing.LucaId = lucaDto.SkartId;
                         existing.UpdatedAt = DateTime.UtcNow;
                         existing.IsActive = true;
-                        // LucaId'yi güncelle (hızlı silme için)
-                        if (lucaDto.SkartId > 0)
-                        {
-                            existing.LucaId = lucaDto.SkartId;
-                        }
+                        
+                        updated++;
+                        _logger.LogInformation("🔄 Ürün Luca'dan güncellendi: {SKU}", sku);
                     }
-
-                    successful++;
                 }
                 catch (Exception ex)
                 {
                     errors.Add($"Error syncing product {lucaDto.ProductCode}: {ex.Message}");
+                    _logger.LogWarning(ex, "Ürün sync hatası: {SKU}", lucaDto.ProductCode);
                 }
             }
 
             await _dbContext.SaveChangesAsync();
             stopwatch.Stop();
 
-            await FinalizeOperationAsync(logEntry, "SUCCESS", lucaProducts.Count, successful, lucaProducts.Count - successful, errors.Any() ? string.Join("; ", errors) : null);
+            var message = $"Luca'dan {created} yeni ürün oluşturuldu, {updated} ürün güncellendi.";
+            if (errors.Any())
+            {
+                message += $" {errors.Count} hata oluştu.";
+            }
+
+            await FinalizeOperationAsync(logEntry, "SUCCESS", lucaProducts.Count, created + updated, errors.Count, errors.Any() ? string.Join("; ", errors) : null);
+
+            _logger.LogInformation("✅ Luca → Katana sync tamamlandı: Created={Created}, Updated={Updated}, Errors={Errors}", 
+                created, updated, errors.Count);
 
             return new SyncResultDto
             {
                 SyncType = "LUCA_TO_KATANA_PRODUCT",
                 IsSuccess = errors.Count == 0,
                 ProcessedRecords = lucaProducts.Count,
-                SuccessfulRecords = successful,
+                SuccessfulRecords = created + updated,
                 FailedRecords = errors.Count,
-                Message = errors.Any() ? "Bazı kayıtlar atlandı veya hata aldı." : $"Luca'dan {successful} ürün başarıyla aktarıldı.",
+                Message = message,
                 Duration = stopwatch.Elapsed
             };
         }
@@ -1491,7 +1508,7 @@ public class SyncService : ISyncService
         {
             stopwatch.Stop();
             await FinalizeOperationAsync(logEntry, "FAILED", 0, 0, 0, ex.Message);
-            _logger.LogError(ex, "Luca → Katana product sync failed");
+            _logger.LogError(ex, "❌ Luca → Katana product sync failed");
 
             return new SyncResultDto
             {

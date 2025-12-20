@@ -88,7 +88,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("InvoiceId");
 
-                    b.ToTable("AccountingRecords");
+                    b.ToTable("AccountingRecords", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.AuditLog", b =>
@@ -140,7 +140,7 @@ namespace Katana.Data.Migrations
                     b.HasIndex("EntityName", "ActionType", "Timestamp")
                         .HasDatabaseName("IX_AuditLogs_EntityName_ActionType_Timestamp");
 
-                    b.ToTable("AuditLogs");
+                    b.ToTable("AuditLogs", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.Batch", b =>
@@ -178,7 +178,7 @@ namespace Katana.Data.Migrations
                     b.HasIndex("ProductId", "BatchNo")
                         .IsUnique();
 
-                    b.ToTable("Batches");
+                    b.ToTable("Batches", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.BillOfMaterials", b =>
@@ -211,7 +211,7 @@ namespace Katana.Data.Migrations
                     b.HasIndex("ProductId", "MaterialId")
                         .IsUnique();
 
-                    b.ToTable("BillOfMaterials");
+                    b.ToTable("BillOfMaterials", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.Category", b =>
@@ -249,7 +249,7 @@ namespace Katana.Data.Migrations
                         .IsUnique()
                         .HasFilter("[ParentId] IS NOT NULL");
 
-                    b.ToTable("Categories");
+                    b.ToTable("Categories", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.Customer", b =>
@@ -369,7 +369,7 @@ namespace Katana.Data.Migrations
                     b.HasIndex("TaxNo")
                         .IsUnique();
 
-                    b.ToTable("Customers");
+                    b.ToTable("Customers", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.CustomerKozaCariMapping", b =>
@@ -444,7 +444,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("SyncStatus");
 
-                    b.ToTable("CustomerKozaCariMappings");
+                    b.ToTable("CustomerKozaCariMappings", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.DataCorrectionLog", b =>
@@ -516,7 +516,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("SourceSystem", "EntityType", "IsApproved");
 
-                    b.ToTable("DataCorrectionLogs");
+                    b.ToTable("DataCorrectionLogs", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.FailedNotification", b =>
@@ -602,7 +602,7 @@ namespace Katana.Data.Migrations
                     b.HasIndex("ProductId", "Timestamp")
                         .HasDatabaseName("IX_InventoryMovements_Product_Timestamp");
 
-                    b.ToTable("InventoryMovements");
+                    b.ToTable("InventoryMovements", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.Invoice", b =>
@@ -672,7 +672,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("IsSynced");
 
-                    b.ToTable("Invoices");
+                    b.ToTable("Invoices", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.InvoiceItem", b =>
@@ -729,7 +729,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("InvoiceItems");
+                    b.ToTable("InvoiceItems", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.KozaDepot", b =>
@@ -785,7 +785,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("Kod");
 
-                    b.ToTable("KozaDepots");
+                    b.ToTable("KozaDepots", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.LocationKozaDepotMapping", b =>
@@ -854,7 +854,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("SyncStatus");
 
-                    b.ToTable("LocationKozaDepotMappings");
+                    b.ToTable("LocationKozaDepotMappings", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.ManufacturingOrder", b =>
@@ -898,7 +898,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("ManufacturingOrders");
+                    b.ToTable("ManufacturingOrders", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.Notification", b =>
@@ -940,7 +940,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("IsRead");
 
-                    b.ToTable("Notifications");
+                    b.ToTable("Notifications", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.Order", b =>
@@ -988,7 +988,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("OrderNo");
 
-                    b.ToTable("Orders");
+                    b.ToTable("Orders", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.OrderItem", b =>
@@ -1017,7 +1017,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("OrderItems");
+                    b.ToTable("OrderItems", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.Payment", b =>
@@ -1049,7 +1049,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("PaymentDate");
 
-                    b.ToTable("Payments");
+                    b.ToTable("Payments", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.Product", b =>
@@ -1059,6 +1059,10 @@ namespace Katana.Data.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Barcode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int>("CategoryId")
                         .HasColumnType("int");
@@ -1070,8 +1074,19 @@ namespace Katana.Data.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("GtipCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<string>("KategoriAgacKod")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<long?>("LucaId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("MainImageUrl")
                         .HasMaxLength(500)
@@ -1083,6 +1098,10 @@ namespace Katana.Data.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("PurchasePrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
@@ -1098,6 +1117,10 @@ namespace Katana.Data.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("UzunAdi")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CategoryId");
@@ -1105,7 +1128,7 @@ namespace Katana.Data.Migrations
                     b.HasIndex("SKU")
                         .IsUnique();
 
-                    b.ToTable("Products");
+                    b.ToTable("Products", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.ProductLucaMapping", b =>
@@ -1191,7 +1214,7 @@ namespace Katana.Data.Migrations
                     b.HasIndex("KatanaProductId", "IsActive")
                         .IsUnique();
 
-                    b.ToTable("ProductLucaMappings");
+                    b.ToTable("ProductLucaMappings", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.ProductVariant", b =>
@@ -1235,7 +1258,7 @@ namespace Katana.Data.Migrations
                     b.HasIndex("SKU")
                         .IsUnique();
 
-                    b.ToTable("ProductVariants");
+                    b.ToTable("ProductVariants", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.PurchaseOrder", b =>
@@ -1343,7 +1366,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("SupplierId");
 
-                    b.ToTable("PurchaseOrders");
+                    b.ToTable("PurchaseOrders", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.PurchaseOrderItem", b =>
@@ -1397,7 +1420,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("PurchaseOrderId");
 
-                    b.ToTable("PurchaseOrderItems");
+                    b.ToTable("PurchaseOrderItems", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.SalesOrder", b =>
@@ -1511,7 +1534,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("OrderNo");
 
-                    b.ToTable("SalesOrders");
+                    b.ToTable("SalesOrders", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.SalesOrderLine", b =>
@@ -1594,7 +1617,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("VariantId");
 
-                    b.ToTable("SalesOrderLines");
+                    b.ToTable("SalesOrderLines", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.Stock", b =>
@@ -1644,7 +1667,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("ProductId", "Timestamp");
 
-                    b.ToTable("Stocks");
+                    b.ToTable("Stocks", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.StockMovement", b =>
@@ -1712,7 +1735,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("Timestamp");
 
-                    b.ToTable("StockMovements");
+                    b.ToTable("StockMovements", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.StockTransfer", b =>
@@ -1754,7 +1777,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("TransferDate");
 
-                    b.ToTable("StockTransfers");
+                    b.ToTable("StockTransfers", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.Supplier", b =>
@@ -1841,7 +1864,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("Code");
 
-                    b.ToTable("Suppliers");
+                    b.ToTable("Suppliers", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.SupplierKozaCariMapping", b =>
@@ -1910,7 +1933,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("SyncStatus");
 
-                    b.ToTable("SupplierKozaCariMappings");
+                    b.ToTable("SupplierKozaCariMappings", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.SupplierPrice", b =>
@@ -1939,7 +1962,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("SupplierId");
 
-                    b.ToTable("SupplierPrices");
+                    b.ToTable("SupplierPrices", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.SyncOperationLog", b =>
@@ -2042,7 +2065,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("SyncStatus");
 
-                    b.ToTable("TaxRateMappings");
+                    b.ToTable("TaxRateMappings", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.UoMMapping", b =>
@@ -2099,7 +2122,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("SyncStatus");
 
-                    b.ToTable("UoMMappings");
+                    b.ToTable("UoMMappings", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.User", b =>
@@ -2144,7 +2167,7 @@ namespace Katana.Data.Migrations
                     b.HasIndex("Username")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.VariantMapping", b =>
@@ -2180,7 +2203,7 @@ namespace Katana.Data.Migrations
                     b.HasIndex("KatanaVariantId")
                         .IsUnique();
 
-                    b.ToTable("VariantMappings");
+                    b.ToTable("VariantMappings", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Data.Models.DashboardMetric", b =>
@@ -2208,7 +2231,7 @@ namespace Katana.Data.Migrations
                     b.HasIndex("Hour")
                         .IsUnique();
 
-                    b.ToTable("DashboardMetrics");
+                    b.ToTable("DashboardMetrics", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Data.Models.ErrorLog", b =>
@@ -2270,7 +2293,7 @@ namespace Katana.Data.Migrations
                     b.HasIndex("Level", "CreatedAt")
                         .HasDatabaseName("IX_ErrorLogs_Level_CreatedAt");
 
-                    b.ToTable("ErrorLogs");
+                    b.ToTable("ErrorLogs", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Data.Models.FailedSyncRecord", b =>
@@ -2342,7 +2365,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("RecordType", "Status");
 
-                    b.ToTable("FailedSyncRecords");
+                    b.ToTable("FailedSyncRecords", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Data.Models.IntegrationLog", b =>
@@ -2396,7 +2419,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("SyncType", "StartTime");
 
-                    b.ToTable("IntegrationLogs");
+                    b.ToTable("IntegrationLogs", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Data.Models.LucaProduct", b =>
@@ -2505,7 +2528,7 @@ namespace Katana.Data.Migrations
                     b.HasIndex("MappingType", "SourceValue")
                         .IsUnique();
 
-                    b.ToTable("MappingTables");
+                    b.ToTable("MappingTables", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Data.Models.OrderMapping", b =>
@@ -2580,7 +2603,7 @@ namespace Katana.Data.Migrations
                     b.HasIndex("OrderId", "EntityType")
                         .IsUnique();
 
-                    b.ToTable("OrderMappings");
+                    b.ToTable("OrderMappings", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Data.Models.PendingStockAdjustment", b =>
@@ -2642,7 +2665,7 @@ namespace Katana.Data.Migrations
 
                     b.HasIndex("Status");
 
-                    b.ToTable("PendingStockAdjustments");
+                    b.ToTable("PendingStockAdjustments", (string)null);
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.AccountingRecord", b =>

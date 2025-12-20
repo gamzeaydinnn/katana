@@ -594,10 +594,50 @@ public class LucaVergiDairesiDto
     public string Tanim { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// Luca ölçü birimi DTO - ListeleGnlOlcumBirimi.do endpoint'inden dönen veri
+/// </summary>
 public class LucaOlcumBirimiDto
 {
+    [JsonPropertyName("id")]
     public long Id { get; set; }
-    public string Tanim { get; set; } = string.Empty;
+
+    [JsonPropertyName("kod")]
+    public string Kod { get; set; } = string.Empty;
+
+    [JsonPropertyName("ad")]
+    public string Ad { get; set; } = string.Empty;
+
+    [JsonPropertyName("kisa")]
+    public string? Kisa { get; set; }
+
+    [JsonPropertyName("aktif")]
+    public bool Aktif { get; set; }
+
+    // Backward compatibility - Tanim property maps to Ad
+    [JsonIgnore]
+    public string Tanim => Ad;
+}
+
+/// <summary>
+/// Luca ölçü birimi API response wrapper
+/// </summary>
+public class LucaOlcumBirimiResponse
+{
+    [JsonPropertyName("data")]
+    public List<LucaOlcumBirimiDto>? Data { get; set; }
+
+    [JsonPropertyName("list")]
+    public List<LucaOlcumBirimiDto>? List { get; set; }
+
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+
+    /// <summary>
+    /// Returns the measurement units from either Data or List property
+    /// </summary>
+    [JsonIgnore]
+    public List<LucaOlcumBirimiDto> Units => Data ?? List ?? new List<LucaOlcumBirimiDto>();
 }
 
 public class LucaMeasurementUnitDto
