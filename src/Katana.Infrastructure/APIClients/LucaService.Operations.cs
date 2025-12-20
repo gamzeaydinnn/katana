@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Katana.Core.DTOs;
 using Katana.Core.DTOs.Koza;
+using Katana.Core.Helpers;
 using Katana.Data.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -17,7 +18,6 @@ using System.Globalization;
 using Katana.Business.Interfaces;
 using Katana.Business.Mappers;
 using Katana.Core.Entities;
-using Katana.Core.Helpers;
 using KozaDtos = Katana.Core.DTOs.Koza;
 using System.Diagnostics;
 
@@ -2046,11 +2046,13 @@ public partial class LucaService
         return $"{endpoint}{separator}pageNo={safePageNo}&pageSize={safePageSize}";
     }
 
+    /// <summary>
+    /// SKU/KartKodu normalizasyonu - KartKoduHelper.CanonicalizeKartKodu'ya yönlendirir.
+    /// Cache lookup, payload oluşturma ve duplicate kontrolü için tek bir canonical form sağlar.
+    /// </summary>
     private static string NormalizeSku(string? sku)
     {
-        if (string.IsNullOrWhiteSpace(sku)) return string.Empty;
-        var collapsed = string.Join(" ", sku.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries));
-        return collapsed.ToUpperInvariant();
+        return KartKoduHelper.CanonicalizeKartKodu(sku);
     }
 
     public async Task<List<LucaStockCardSummaryDto>> ListStockCardsAsync(CancellationToken cancellationToken = default)
@@ -2940,16 +2942,18 @@ public partial class LucaService
             var toCreate = new List<LucaCreateStokKartiRequest>();
             foreach (var card in uniqueCards)
             {
+                var originalKartKodu = card.KartKodu ?? string.Empty;
                 var normalizedSku = NormalizeSku(card.KartKodu);
                 if (!string.IsNullOrWhiteSpace(normalizedSku) && kozaCache.Cache.ContainsKey(normalizedSku))
                 {
                     skippedCount++;
                     duplicateCount++;
-                    _logger.LogInformation("⏭️ SKIP: {SKU} zaten Luca'da var (cache)", card.KartKodu);
+                    _logger.LogInformation("⏭️ SKIP: {Original} zaten Luca'da var (cache). Canonical: {Canonical}", originalKartKodu, normalizedSku);
                     await MaybeReportProgressAsync("CACHE", card.KartKodu);
                     continue;
                 }
-
+                
+                _logger.LogDebug("📝 Cache MISS: {Original} → {Canonical} - Oluşturulacak", originalKartKodu, normalizedSku);
                 toCreate.Add(card);
             }
 
@@ -2997,32 +3001,32 @@ public partial class LucaService
                     var cardHadPost = false;
                     try
                     {
-                        // 🔥 SKU DEBUG LOG - Hata ayıklama için
-                        _logger.LogDebug("SKU Check → SKU={SKU}", card.KartKodu);
+                        // 🔥 CANONICAL KEY - Cache ve payload için aynı normalizasyon
+                        var canonicalKey = KartKoduHelper.CanonicalizeKartKodu(card.KartKodu);
+                        var originalKartKodu = card.KartKodu ?? string.Empty;
+                        
+                        // 🔥 SKU DEBUG LOG - Hata ayıklama için (original ve canonical)
+                        _logger.LogDebug("SKU Check → Original={Original}, Canonical={Canonical}", originalKartKodu, canonicalKey);
 
-                        _logger.LogInformation("✨ Yeni stok kartı: {SKU}", card.KartKodu);
+                        _logger.LogInformation("✨ Yeni stok kartı: {SKU} (canonical: {Canonical})", originalKartKodu, canonicalKey);
                         
                         // Yeni kayıt oluştur
-                        _logger.LogInformation("➕ [3/3] Yeni stok kartı POST ediliyor: {KartKodu}", card.KartKodu);
+                        _logger.LogInformation("➕ [3/3] Yeni stok kartı POST ediliyor: {KartKodu} → {Canonical}", originalKartKodu, canonicalKey);
                         
                     // 🔥 Postman örneğine göre JSON formatında request oluştur
                     var baslangic = string.IsNullOrWhiteSpace(card.BaslangicTarihi)
                         ? DateTime.Now.ToString("dd'/'MM'/'yyyy", System.Globalization.CultureInfo.InvariantCulture)
                         : card.BaslangicTarihi;
-                    var safeName = (card.KartAdi ?? string.Empty)
-                        .Replace("Ø", "O")
-                        .Replace("ø", "o")
-                        .Trim();
-                    var safeCode = (card.KartKodu ?? string.Empty)
-                        .Replace("Ø", "O")
-                        .Replace("ø", "o")
-                        .Trim();
+                    
+                    // 🔥 CANONICAL NORMALIZATION - Payload için de aynı canonical form kullan
+                    var safeCode = canonicalKey; // Cache key ile aynı
+                    var safeName = KartKoduHelper.CanonicalizeKartKodu(card.KartAdi); // İsim için de normalize et
                     
                     // ✅ KartAdi boşsa SKU kullan (fallback)
                     if (string.IsNullOrWhiteSpace(safeName))
                     {
-                        _logger.LogWarning("⚠️ KartAdi boş, SKU kullanılıyor: {KartKodu}", card.KartKodu);
-                        safeName = card.KartKodu ?? "UNKNOWN-PRODUCT";
+                        _logger.LogWarning("⚠️ KartAdi boş, SKU kullanılıyor: {KartKodu}", originalKartKodu);
+                        safeName = safeCode;
                     }
                     if (string.IsNullOrWhiteSpace(safeName))
                     {
@@ -3415,6 +3419,27 @@ public partial class LucaService
                                     "Katana'da ürün güncellemesi yapmanız gerekirse, Luca'da manuel olarak aynı kartı düzenleyiniz.", 
                                     card.KartKodu);
                                 
+                                // 🔥 DUPLICATE CACHE UPDATE - Koza duplicate dedi, cache'e ekle ki tekrar denemeyelim
+                                await _stockCardCacheLock.WaitAsync();
+                                try
+                                {
+                                    var canonicalForCache = KartKoduHelper.CanonicalizeKartKodu(card.KartKodu);
+                                    if (!_stockCardCache.ContainsKey(canonicalForCache))
+                                    {
+                                        // ID'yi bilmiyoruz ama -1 ile işaretle (exists but unknown ID)
+                                        _stockCardCache[canonicalForCache] = -1;
+                                        _logger.LogInformation("🔄 Duplicate tespit edildi, cache'e eklendi: {Canonical} (ID unknown)", canonicalForCache);
+                                    }
+                                    if (kozaCache.IsReady && !kozaCache.Cache.ContainsKey(canonicalForCache))
+                                    {
+                                        kozaCache.Cache[canonicalForCache] = -1;
+                                    }
+                                }
+                                finally
+                                {
+                                    _stockCardCacheLock.Release();
+                                }
+                                
                                 // Duplicate'ı success olarak işaretle (atlanacak)
                                 duplicateCount++;
                                 continue;
@@ -3535,6 +3560,31 @@ public partial class LucaService
                         errorMsg.Contains("kart kodu var"))
                     {
                         _logger.LogWarning("⚠️ Duplicate tespit edildi (API hatası): {KartKodu} - {Message}", card.KartKodu, ex.Message);
+                        
+                        // 🔥 DUPLICATE CACHE UPDATE - Exception'dan gelen duplicate'ı da cache'e ekle
+                        try
+                        {
+                            await _stockCardCacheLock.WaitAsync();
+                            try
+                            {
+                                var canonicalForCache = KartKoduHelper.CanonicalizeKartKodu(card.KartKodu);
+                                if (!_stockCardCache.ContainsKey(canonicalForCache))
+                                {
+                                    _stockCardCache[canonicalForCache] = -1; // ID unknown
+                                    _logger.LogInformation("🔄 Duplicate (exception), cache'e eklendi: {Canonical}", canonicalForCache);
+                                }
+                                if (kozaCache.IsReady && !kozaCache.Cache.ContainsKey(canonicalForCache))
+                                {
+                                    kozaCache.Cache[canonicalForCache] = -1;
+                                }
+                            }
+                            finally
+                            {
+                                _stockCardCacheLock.Release();
+                            }
+                        }
+                        catch { /* Cache update failure shouldn't break the flow */ }
+                        
                         duplicateCount++;
                         skippedCount++;
                         // Duplicate hata olarak sayma, başarısız olarak sayma
