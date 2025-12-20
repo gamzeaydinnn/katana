@@ -1,27 +1,41 @@
-import React, { useMemo, useState, useEffect } from "react";
-import { ThemeProvider, CssBaseline, Box, Toolbar } from "@mui/material";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-
 import {
-  loginToLuca,
-  getBranchList,
-  selectBranch,
-} from "./services/authService";
-import BranchSelector, { Branch } from "./components/Luca/BranchSelector";
+    Box,
+    CssBaseline,
+    ThemeProvider,
+    Toolbar,
+    useMediaQuery,
+} from "@mui/material";
+import React, { useEffect, useMemo, useState } from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 
-// Layout Components
+import BranchSelector, { Branch } from "./components/Luca/BranchSelector";
+import {
+    getBranchList,
+    loginToLuca,
+    selectBranch,
+} from "./services/authService";
+
+import AdminPanel from "./components/AdminPanel/AdminPanel";
+import ProtectedRoute from "./components/Auth/ProtectedRoute";
+import Dashboard from "./components/Dashboard/Dashboard";
+import ErrorDebugPanel from "./components/Debug/ErrorDebugPanel";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Header from "./components/Layout/Header";
 import Sidebar from "./components/Layout/Sidebar";
-import Dashboard from "./components/Dashboard/Dashboard";
-import StockManagement from "./components/StockManagement/StockManagement";
-import SyncManagement from "./components/SyncManagement/SyncManagement";
-import Reports from "./components/Reports/Reports";
-import AdminPanel from "./components/AdminPanel/AdminPanel";
-import ErrorBoundary from "./components/ErrorBoundary";
 import Login from "./components/Login/Login";
-import ProtectedRoute from "./components/Auth/ProtectedRoute";
+import Profile from "./components/Profile/Profile";
+import Reports from "./components/Reports/Reports";
+import Settings from "./components/Settings/Settings";
+
+import SyncManagement from "./components/SyncManagement/SyncManagement";
+import KozaIntegrationPage from "./pages/KozaIntegrationPage";
+import OrderInvoiceSyncPage from "./pages/OrderInvoiceSyncPage";
+import StockMovementSyncPage from "./pages/StockMovementSyncPage";
+import StockView from "./pages/StockView";
+import Unauthorized from "./pages/Unauthorized";
 import { FeedbackProvider } from "./providers/FeedbackProvider";
 import { createAppTheme, type ColorMode } from "./theme";
+import { setupGlobalErrorHandlers } from "./utils/errorLogger";
 
 const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -30,6 +44,12 @@ const App: React.FC = () => {
   );
 
   const theme = useMemo(() => createAppTheme(mode), [mode]);
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
+  // Setup global error logging
+  useEffect(() => {
+    setupGlobalErrorHandlers();
+  }, []);
 
   const toggleMode = () => {
     setMode((prev) => {
@@ -39,7 +59,6 @@ const App: React.FC = () => {
     });
   };
 
-  // 🌿 Branch / session setup
   const [branchesToSelect, setBranchesToSelect] = useState<Branch[] | null>(
     null
   );
@@ -85,6 +104,10 @@ const App: React.FC = () => {
     initializeLucaSession();
   }, []);
 
+  useEffect(() => {
+    setSidebarOpen(!isMobile);
+  }, [isMobile]);
+
   const handleBranchSelect = async (b: Branch) => {
     setShowBranchSelector(false);
     setBranchesToSelect(null);
@@ -108,34 +131,37 @@ const App: React.FC = () => {
     <ErrorBoundary>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {/* 🌈 Gradient Background */}
+        {}
         <Box
           sx={{
             position: "fixed",
             inset: 0,
             zIndex: 0,
             pointerEvents: "none",
-            background: (t) => `
-              radial-gradient(800px 400px at 10% -10%, ${
-                t.palette.primary.main
-              }26, transparent),
-              radial-gradient(600px 300px at 90% 0%, ${
-                t.palette.secondary.main
-              }22, transparent),
-              radial-gradient(600px 300px at 50% 100%, ${
-                t.palette.success.main
-              }1f, transparent),
-              linear-gradient(180deg, ${t.palette.background.default} 0%, ${
-              t.palette.mode === "dark" ? "#0b1020" : "#ecf2f7"
-            } 100%)
+            background: (t) =>
+              t.palette.mode === "dark"
+                ? `
+              radial-gradient(900px 600px at 0% 0%, rgba(148,163,184,0.20), transparent),
+              radial-gradient(900px 600px at 100% 100%, rgba(56,189,248,0.18), transparent),
+              linear-gradient(180deg, #020617 0%, #020617 100%)
+            `
+                : `
+              radial-gradient(800px 400px at 10% -10%, ${t.palette.primary.main}26, transparent),
+              radial-gradient(600px 300px at 90% 0%, ${t.palette.secondary.main}22, transparent),
+              radial-gradient(600px 300px at 50% 100%, ${t.palette.success.main}1f, transparent),
+              linear-gradient(180deg, ${t.palette.background.default} 0%, #ecf2f7 100%)
             `,
           }}
         />
-        {/* Router Yapısı */}
+        {}
         <FeedbackProvider>
           <BrowserRouter>
             <Routes>
+              {/* Public route - Login */}
               <Route path="/login" element={<Login />} />
+              <Route path="/unauthorized" element={<Unauthorized />} />
+
+              {/* Protected routes - Require authentication */}
               <Route
                 path="/*"
                 element={
@@ -161,28 +187,61 @@ const App: React.FC = () => {
                         onClose={() => setSidebarOpen(false)}
                       />
 
-                      {/* 🎯 Main Content: Soldan Hizalı */}
+                      {}
                       <Box
                         component="main"
                         sx={{
                           flexGrow: 1,
                           bgcolor: "transparent",
-                          p: { xs: 2, sm: 3, md: 4 },
+                          p: { xs: 1, sm: 2, md: 3, lg: 4 },
                           transition: "all 0.3s ease",
                           minHeight: "100vh",
                           display: "flex",
                           flexDirection: "column",
                           alignItems: "flex-start",
+                          width: "100%",
+                          maxWidth: "100%",
+                          overflowX: "hidden",
+                          boxSizing: "border-box",
                         }}
                       >
                         <Toolbar />
-                        <Box sx={{ width: "100%", maxWidth: "1440px", mx: 0 }}>
+                        <Box
+                          sx={{
+                            width: "100%",
+                            maxWidth: "1440px",
+                            mx: 0,
+                            boxSizing: "border-box",
+                          }}
+                        >
                           <Routes>
                             <Route path="/" element={<Dashboard />} />
-                            <Route path="/stock" element={<StockManagement />} />
+                            <Route path="/stock-view" element={<StockView />} />
+                            <Route
+                              path="/koza"
+                              element={<KozaIntegrationPage />}
+                            />
                             <Route path="/sync" element={<SyncManagement />} />
+                            <Route
+                              path="/order-sync"
+                              element={<OrderInvoiceSyncPage />}
+                            />
+                            <Route
+                              path="/stock-movement-sync"
+                              element={<StockMovementSyncPage />}
+                            />
                             <Route path="/reports" element={<Reports />} />
-                            <Route path="/admin" element={<AdminPanel />} />
+                            {/* Admin panel - requires Admin/Manager role */}
+                            <Route
+                              path="/admin"
+                              element={
+                                <ProtectedRoute requiredRole="Admin">
+                                  <AdminPanel />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route path="/profile" element={<Profile />} />
+                            <Route path="/settings" element={<Settings />} />
                           </Routes>
                         </Box>
                       </Box>
@@ -200,6 +259,7 @@ const App: React.FC = () => {
             </Routes>
           </BrowserRouter>
         </FeedbackProvider>
+        <ErrorDebugPanel />
       </ThemeProvider>
     </ErrorBoundary>
   );

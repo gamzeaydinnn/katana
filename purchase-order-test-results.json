@@ -1,0 +1,27 @@
+{
+  "timestamp": "2025-12-04T16:12:13.452434",
+  "test_type": "Purchase Order Integration Test",
+  "summary": {
+    "total": 2,
+    "passed": 1,
+    "failed": 1,
+    "success_rate": 50.0
+  },
+  "test_data": {
+    "supplier_id": null,
+    "product_id": null,
+    "created_purchase_order_id": null
+  },
+  "results": [
+    {
+      "test": "API Health Check",
+      "status": "PASSED",
+      "details": "Status: 200"
+    },
+    {
+      "test": "API'ye Giriş Yap",
+      "status": "FAILED",
+      "details": "Status: 401"
+    }
+  ]
+}

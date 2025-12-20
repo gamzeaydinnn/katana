@@ -8,7 +8,7 @@ public interface IKatanaStockService
 {
     Task<List<Product>> GetAllProductsAsync(int? page = null, int? limit = null);
     Task<Product?> GetProductByIdAsync(string productId);
-    Task<List<Core.Entities.StockMovement>> GetStockMovementsAsync(DateTime? fromDate = null, int? page = null);
+    Task<List<StockMovement>> GetStockMovementsAsync(DateTime? fromDate = null, int? page = null);
     Task<bool> IsKatanaApiHealthyAsync();
 }
 
@@ -62,7 +62,7 @@ public class KatanaStockService : IKatanaStockService
         }
     }
 
-    public async Task<List<Core.Entities.StockMovement>> GetStockMovementsAsync(DateTime? fromDate = null, int? page = null)
+    public async Task<List<StockMovement>> GetStockMovementsAsync(DateTime? fromDate = null, int? page = null)
     {
         try
         {
@@ -71,12 +71,7 @@ public class KatanaStockService : IKatanaStockService
             
             var movements = await _katanaApiClient.GetStockMovementsAsync(fromDate, page);
             _logger.LogInformation("Successfully fetched {Count} stock movements from Katana API", movements.Count);
-            
-            // Map from Katana.Business.Interfaces.StockMovement to Katana.Core.Entities.StockMovement
-            return movements.Select(m => new Core.Entities.StockMovement
-            {
-                // Map properties burada - şu an için boş liste döndürelim
-            }).ToList();
+            return movements;
         }
         catch (Exception ex)
         {

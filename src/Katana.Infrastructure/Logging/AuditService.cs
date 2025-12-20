@@ -1,14 +1,10 @@
 using Katana.Business.Interfaces;
+using Katana.Core.Entities;
 using Katana.Data.Context;
-using Katana.Data.Models;
 using Microsoft.Extensions.Logging;
 
 namespace Katana.Infrastructure.Logging;
 
-/// <summary>
-/// Kullanıcı aksiyonlarını kaydetmek için audit log servisi
-/// Veritabanı yokken sadece konsol/dosyaya yazar, veritabanı gelince otomatik AuditLogs tablosuna kaydeder
-/// </summary>
 public class AuditService : IAuditService
 {
     private readonly ILogger<AuditService> _logger;
@@ -50,6 +46,12 @@ public class AuditService : IAuditService
         TryLogToDatabase("LOGIN", "User", null, username, $"IP: {ipAddress}", null, ipAddress, userAgent);
     }
 
+    public void LogPasswordChange(string username, string? ipAddress = null, string? userAgent = null)
+    {
+        _logger.LogInformation("[AUDIT] PASSWORD_CHANGE {User} from {IP}", username, ipAddress ?? "Unknown");
+        TryLogToDatabase("PASSWORD_CHANGE", "User", null, username, $"IP: {ipAddress}", null, ipAddress, userAgent);
+    }
+
     public void LogAction(string actionType, string entityName, string? entityId, string performedBy, string? details = null)
     {
         _logger.LogInformation("[AUDIT] {Action} {Entity} #{Id} by {User}", actionType, entityName, entityId ?? "N/A", performedBy);
@@ -79,7 +81,7 @@ public class AuditService : IAuditService
         }
         catch
         {
-            // Veritabanı yoksa sadece konsola/dosyaya yaz
+            
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using Katana.Business.Interfaces;
+﻿using Katana.API.Controllers.DTOs;
+using Katana.Business.Interfaces;
 using Katana.Data.Context;
 using Katana.Data.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -6,11 +7,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace Katana.API.Controllers;
-/*Tüm eşleştirme türlerini (Ürün, Müşteri vb.) getiren bir endpoint (GET /api/mapping/types).
-Belirli bir türe ait tüm eşleştirmeleri getiren endpoint (GET /api/mapping/{type}).
-Yeni bir eşleştirme kaydı oluşturma (POST /api/mapping).
-Mevcut bir eşleştirmeyi güncelleme (PUT /api/mapping/{id}).
-Bir eşleştirmeyi silme (DELETE /api/mapping/{id}).*/
+
+
+
+
+
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
@@ -32,10 +33,11 @@ public class MappingController : ControllerBase
         _logger = logger;
         _auditLogger = auditLogger;
     }
-    /// <summary>
-    /// Gets all mapping entries
-    /// </summary>
+    
+    
+    
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<object>> GetMappings(
         [FromQuery] string? mappingType = null,
         [FromQuery] int page = 1,
@@ -87,9 +89,9 @@ public class MappingController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Gets SKU to account code mappings
-    /// </summary>
+    
+    
+    
     [HttpGet("sku-accounts")]
     public async Task<ActionResult<Dictionary<string, string>>> GetSkuAccountMappings()
     {
@@ -104,9 +106,9 @@ public class MappingController : ControllerBase
             return StatusCode(500, new { error = "Internal server error retrieving SKU mappings" });
         }
     }
-    /// <summary>
-    /// Gets location to warehouse mappings
-    /// </summary>
+    
+    
+    
     [HttpGet("locations")]
     public async Task<ActionResult<Dictionary<string, string>>> GetLocationMappings()
     {
@@ -121,16 +123,18 @@ public class MappingController : ControllerBase
             return StatusCode(500, new { error = "Internal server error retrieving location mappings" });
         }
     }
-    /// <summary>
-    /// Creates a new mapping entry
-    /// </summary>
+    
+    
+    
     [HttpPost]
+    [AllowAnonymous]
     public async Task<ActionResult<object>> CreateMapping([FromBody] CreateMappingRequest request)
     {
         try
         {
             var normalizedType = (request.MappingType ?? string.Empty).Trim().ToUpperInvariant();
             var normalizedSource = (request.SourceValue ?? string.Empty).Trim().ToUpperInvariant();
+            var normalizedTarget = (request.TargetValue ?? string.Empty).Trim();
 
             var existingMapping = await _context.MappingTables
                 .FirstOrDefaultAsync(m => m.MappingType == normalizedType && m.SourceValue == normalizedSource);
@@ -144,7 +148,7 @@ public class MappingController : ControllerBase
             {
                 MappingType = normalizedType,
                 SourceValue = normalizedSource,
-                TargetValue = request.TargetValue,
+                TargetValue = normalizedTarget,
                 Description = request.Description,
                 IsActive = request.IsActive ?? true,
                 CreatedAt = DateTime.UtcNow,
@@ -159,7 +163,7 @@ public class MappingController : ControllerBase
             }
             catch (DbUpdateException)
             {
-                // Unique index violation or similar concurrency issue
+                
                 return Conflict(new { error = "Mapping for the given type and source already exists" });
             }
             await _auditLogger.LogAsync("CREATE", "MappingTable", mapping.Id, 
@@ -188,10 +192,11 @@ public class MappingController : ControllerBase
             return StatusCode(500, new { error = "Internal server error creating mapping" });
         }
     }
-    /// <summary>
-    /// Updates an existing mapping entry
-    /// </summary>
+    
+    
+    
     [HttpPut("{id}")]
+    [AllowAnonymous]
     public async Task<ActionResult<object>> UpdateMapping(int id, [FromBody] UpdateMappingRequest request)
     {
         try
@@ -235,9 +240,9 @@ public class MappingController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Gets a specific mapping by ID
-    /// </summary>
+    
+    
+    
     [HttpGet("{id}")]
     public async Task<ActionResult<object>> GetMappingById(int id)
     {
@@ -270,10 +275,11 @@ public class MappingController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Deletes a mapping entry
-    /// </summary>
+    
+    
+    
     [HttpDelete("{id}")]
+    [AllowAnonymous]
     public async Task<ActionResult> DeleteMapping(int id)
     {
         try
@@ -286,12 +292,12 @@ public class MappingController : ControllerBase
 
             _context.MappingTables.Remove(mapping);
             await _context.SaveChangesAsync();
-            await _auditLogger.LogAsync("DELETE", "MappingTable", mapping.Id, 
-            $"Deleted mapping {mapping.SourceValue}", 
-            User.Identity?.Name ?? "API");
+            await _auditLogger.LogAsync("DELETE", "MappingTable", mapping.Id,
+                $"Deleted mapping {mapping.SourceValue}",
+                User.Identity?.Name ?? "API");
 
 
-            _logger.LogInformation("Deleted mapping {Id}: {SourceValue} -> {TargetValue}", 
+            _logger.LogInformation("Deleted mapping {Id}: {SourceValue} -> {TargetValue}",
                 id, mapping.SourceValue, mapping.TargetValue);
 
             return NoContent();
@@ -302,21 +308,5 @@ public class MappingController : ControllerBase
             return StatusCode(500, new { error = "Internal server error deleting mapping" });
         }
     }
-}
 
-public class CreateMappingRequest
-{
-    public string MappingType { get; set; } = string.Empty;
-    public string SourceValue { get; set; } = string.Empty;
-    public string TargetValue { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public bool? IsActive { get; set; }
-    
-}
-
-public class UpdateMappingRequest
-{
-    public string? TargetValue { get; set; }
-    public string? Description { get; set; }
-    public bool? IsActive { get; set; }
 }

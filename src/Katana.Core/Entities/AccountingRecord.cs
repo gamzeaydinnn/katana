@@ -12,11 +12,11 @@ public class AccountingRecord
     
     [Required]
     [MaxLength(20)]
-    public string Type { get; set; } = string.Empty; // INCOME, EXPENSE
+    public string Type { get; set; } = string.Empty; 
     
     [Required]
     [MaxLength(100)]
-    public string Category { get; set; } = string.Empty; // SALE, PURCHASE, SALARY, RENT, etc.
+    public string Category { get; set; } = string.Empty; 
     
     public decimal Amount { get; set; }
     
@@ -32,7 +32,7 @@ public class AccountingRecord
     public int? CustomerId { get; set; }
     
     [MaxLength(100)]
-    public string? PaymentMethod { get; set; } // CASH, CREDIT_CARD, BANK_TRANSFER, etc.
+    public string? PaymentMethod { get; set; } 
     
     public DateTime TransactionDate { get; set; }
     
@@ -44,7 +44,7 @@ public class AccountingRecord
     
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     
-    // Navigation properties
+    
     public virtual Invoice? Invoice { get; set; }
     public virtual Customer? Customer { get; set; }
 }

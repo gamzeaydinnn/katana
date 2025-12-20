@@ -24,8 +24,17 @@ public class OrdersController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        _loggingService.LogInfo("Orders listed", User?.Identity?.Name, null, LogCategory.UserAction);
-        return Ok(await _orderService.GetAllAsync());
+        try
+        {
+            _loggingService.LogInfo("Orders listed", User?.Identity?.Name, null, LogCategory.UserAction);
+            var orders = await _orderService.GetAllAsync();
+            return Ok(orders);
+        }
+        catch (Exception ex)
+        {
+            _loggingService.LogError("Orders list failed", ex, User?.Identity?.Name, null, LogCategory.Business);
+            return StatusCode(500, new { message = "Siparişler yüklenirken hata oluştu", error = ex.Message });
+        }
     }
 
     [HttpGet("{id}")]

@@ -1,4 +1,4 @@
-// /Users/dilarasara/katana/src/Katana.Business/Jobs/RetryJob.cs
+
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -28,7 +28,7 @@ public class RetryJob : IJob
 {
     _logger.LogInformation("🔁 Retry job started at {Time}", DateTime.UtcNow);
 
-    // Yalnızca başarısız kayıtları al
+    
     var failedRecords = await _context.FailedSyncRecords
         .Where(f => f.Status == "FAILED")
         .OrderBy(f => f.Id)

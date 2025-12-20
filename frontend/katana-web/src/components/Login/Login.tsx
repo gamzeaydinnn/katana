@@ -1,18 +1,18 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Lock, Person, Visibility, VisibilityOff } from "@mui/icons-material";
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  TextField,
-  Button,
-  Typography,
-  Alert,
-  InputAdornment,
   IconButton,
+  InputAdornment,
+  TextField,
+  Typography,
   useTheme,
 } from "@mui/material";
-import { Visibility, VisibilityOff, Lock, Person } from "@mui/icons-material";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { authAPI } from "../../services/api";
 
 const Login: React.FC = () => {
@@ -31,13 +31,19 @@ const Login: React.FC = () => {
 
     try {
       const response = await authAPI.login(username, password);
-      if (!response?.token) {
-        throw new Error("Token alınamadı");
+      const token = response?.token || response?.Token;
+
+      if (
+        !token ||
+        typeof token !== "string" ||
+        token.split(".").length !== 3
+      ) {
+        throw new Error("Geçersiz token formatı");
       }
-      localStorage.setItem("authToken", response.token);
+
+      localStorage.setItem("authToken", token);
       navigate("/admin");
     } catch (err: any) {
-      // If server responded with a message, show it. Otherwise show network/error message for easier debugging.
       const serverMessage = err?.response?.data?.message;
       const fallback = err?.message || "Giriş başarısız";
       setError(serverMessage || fallback);
@@ -101,9 +107,10 @@ const Login: React.FC = () => {
             theme.palette.mode === "dark"
               ? "0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
               : "0 20px 40px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)",
-          transition: "all 0.3s ease",
+          transition: "box-shadow 0.3s ease",
+          
           "&:hover": {
-            transform: "translateY(-4px)",
+            transform: "none",
             boxShadow:
               theme.palette.mode === "dark"
                 ? "0 32px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)"
@@ -115,19 +122,23 @@ const Login: React.FC = () => {
           <Box sx={{ textAlign: "center", mb: 4 }}>
             <Box
               sx={{
-                width: 80,
-                height: 80,
-                borderRadius: 4,
-                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
                 mx: "auto",
                 mb: 3,
-                boxShadow: `0 8px 24px ${theme.palette.primary.main}40`,
+                display: "flex",
+                justifyContent: "center",
               }}
             >
-              <Lock sx={{ fontSize: 40, color: "white" }} />
+              <Box
+                component="img"
+                src="/logoo.png"
+                alt="Beformet Metal Logo"
+                sx={{
+                  height: 160,
+                  width: "auto",
+                  objectFit: "contain",
+                  filter: "drop-shadow(0 8px 24px rgba(43,110,246,0.25))",
+                }}
+              />
             </Box>
             <Typography
               variant="h5"
@@ -141,7 +152,7 @@ const Login: React.FC = () => {
                 mb: 1,
               }}
             >
-              Katana Yönetim Paneli
+              Beformet Metal
             </Typography>
             <Typography
               variant="body2"
@@ -174,81 +185,114 @@ const Login: React.FC = () => {
           )}
 
           <form onSubmit={handleLogin}>
-            <TextField
-              fullWidth
-              label="Kullanıcı Adı"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              margin="normal"
-              required
-              sx={{
-                mb: 2,
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: 3,
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    boxShadow: `0 0 0 2px ${theme.palette.primary.main}20`,
-                  },
-                  "&.Mui-focused": {
-                    boxShadow: `0 0 0 3px ${theme.palette.primary.main}30`,
-                  },
-                },
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Person sx={{ color: theme.palette.primary.main }} />
-                  </InputAdornment>
-                ),
-              }}
-            />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              <Box>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mb: 1,
+                    fontWeight: 600,
+                    color: theme.palette.primary.main,
+                  }}
+                >
+                  Kullanıcı Adı *
+                </Typography>
+                <TextField
+                  fullWidth
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  placeholder="admin"
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 3,
+                      "& fieldset": {
+                        borderColor: theme.palette.primary.main,
+                        borderWidth: "2px",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: theme.palette.primary.main,
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: theme.palette.primary.main,
+                      },
+                    },
+                    "& .MuiInputBase-input": {
+                      paddingLeft: "8px",
+                    },
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Person sx={{ color: theme.palette.primary.main }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
 
-            <TextField
-              fullWidth
-              label="Şifre"
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              margin="normal"
-              required
-              sx={{
-                mb: 3,
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: 3,
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    boxShadow: `0 0 0 2px ${theme.palette.primary.main}20`,
-                  },
-                  "&.Mui-focused": {
-                    boxShadow: `0 0 0 3px ${theme.palette.primary.main}30`,
-                  },
-                },
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Lock sx={{ color: theme.palette.primary.main }} />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                      sx={{
-                        color: theme.palette.primary.main,
-                        transition: "all 0.2s ease",
-                        "&:hover": {
-                          transform: "scale(1.1)",
-                        },
-                      }}
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
+              <Box>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mb: 1,
+                    fontWeight: 600,
+                    color: theme.palette.primary.main,
+                  }}
+                >
+                  Şifre *
+                </Typography>
+                <TextField
+                  fullWidth
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 3,
+                      "& fieldset": {
+                        borderColor: theme.palette.primary.main,
+                        borderWidth: "2px",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: theme.palette.primary.main,
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: theme.palette.primary.main,
+                      },
+                    },
+                    "& .MuiInputBase-input": {
+                      paddingLeft: "8px",
+                    },
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Lock sx={{ color: theme.palette.primary.main }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                          sx={{
+                            color: theme.palette.primary.main,
+                            "&:hover": {
+                              backgroundColor: "transparent",
+                            },
+                          }}
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
+            </Box>
 
             <Button
               fullWidth
@@ -257,15 +301,15 @@ const Login: React.FC = () => {
               size="large"
               disabled={loading}
               sx={{
+                mt: 3,
                 py: 1.75,
                 borderRadius: 3,
                 fontWeight: 700,
                 letterSpacing: "0.01em",
                 background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                 boxShadow: `0 4px 12px ${theme.palette.primary.main}40`,
-                transition: "all 0.2s ease",
+                transition: "box-shadow 0.2s ease, opacity 0.2s ease",
                 "&:hover": {
-                  transform: "translateY(-2px)",
                   boxShadow: `0 8px 20px ${theme.palette.primary.main}60`,
                 },
                 "&:disabled": {
@@ -277,54 +321,6 @@ const Login: React.FC = () => {
               {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
             </Button>
 
-            <Box
-              sx={{
-                mt: 4,
-                p: 3,
-                backdropFilter: "blur(10px)",
-                background:
-                  theme.palette.mode === "dark"
-                    ? "rgba(30,41,59,0.5)"
-                    : "rgba(0,0,0,0.02)",
-                borderRadius: 3,
-                border:
-                  theme.palette.mode === "dark"
-                    ? "1px solid rgba(255,255,255,0.1)"
-                    : "1px solid rgba(0,0,0,0.05)",
-              }}
-            >
-              <Typography
-                variant="caption"
-                sx={{
-                  color: theme.palette.text.secondary,
-                  display: "block",
-                  fontWeight: 700,
-                  letterSpacing: "0.01em",
-                  mb: 1,
-                }}
-              >
-                Test Hesabı:
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  color: theme.palette.text.primary,
-                  fontWeight: 600,
-                  mb: 0.5,
-                }}
-              >
-                Kullanıcı Adı: <strong>admin</strong>
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  color: theme.palette.text.primary,
-                  fontWeight: 600,
-                }}
-              >
-                Şifre: <strong>Katana2025!</strong>
-              </Typography>
-            </Box>
           </form>
         </CardContent>
       </Card>

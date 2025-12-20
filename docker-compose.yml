@@ -6,29 +6,19 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
+      - "5055:8080"
       - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Server=db;Database=KatanaLucaIntegration;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=true;
-    depends_on:
-      - db
+      - ConnectionStrings__SqlServerConnection=Server=host.docker.internal,1433;Database=KatanaDB;User Id=sa;Password=Admin00!S;TrustServerCertificate=True;
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - katana-network
     volumes:
       - ./logs:/app/logs
 
-  db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=YourStrong@Passw0rd
-      - MSSQL_PID=Express
-    ports:
-      - "1433:1433"
-    networks:
-      - katana-network
-    volumes:
-      - sqlserver-data:/var/opt/mssql
+  # DB servisleri kaldırıldı - host SQL Server kullanılıyor
 
 networks:
   katana-network:

@@ -15,7 +15,7 @@ describe("Dashboard Component", () => {
 
   test("renders loading state initially", () => {
     (api.stockAPI.getDashboardStats as jest.Mock).mockImplementation(
-      () => new Promise(() => {}) // Never resolves
+      () => new Promise(() => {}) 
     );
 
     render(<Dashboard />);

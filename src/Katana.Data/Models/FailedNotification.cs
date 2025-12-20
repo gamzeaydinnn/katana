@@ -8,9 +8,9 @@ public class FailedNotification
 
     [Required]
     [MaxLength(150)]
-    public string EventName { get; set; } = string.Empty; // e.g. "PendingStockAdjustmentCreated"
+    public string EventName { get; set; } = string.Empty; 
 
-    // Serialized JSON payload to re-publish
+    
     public string Payload { get; set; } = string.Empty;
 
     public int RetryCount { get; set; } = 0;

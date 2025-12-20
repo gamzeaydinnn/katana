@@ -2,15 +2,9 @@ using System.Globalization;
 
 namespace Katana.Core.ValueObjects;
 
-/// <summary>
-/// Immutable representation of a tax rate normalised between 0 and 1.
-/// Provides helpers to work with percentages while guarding against invalid states.
-/// </summary>
 public readonly record struct TaxRate
 {
-    /// <summary>
-    /// Normalised tax value (0.18 == %18 KDV).
-    /// </summary>
+    
     public decimal Value { get; }
 
     public TaxRate(decimal value)

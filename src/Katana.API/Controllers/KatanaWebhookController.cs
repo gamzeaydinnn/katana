@@ -7,13 +7,13 @@ using System.Text;
 
 namespace Katana.API.Controllers;
 
-/// <summary>
-/// Katana API'den gelen webhook isteklerini yakalar.
-/// Stok değişiklikleri otomatik olarak pending adjustment'a dönüştürülür.
-/// </summary>
+
+
+
+
 [ApiController]
 [Route("api/webhook/katana")]
-[AllowAnonymous] // Katana API'den geldiği için token auth yerine API key kontrolü yapılacak
+[AllowAnonymous] 
 public class KatanaWebhookController : ControllerBase
 {
     private readonly IPendingStockAdjustmentService _pendingService;
@@ -30,27 +30,27 @@ public class KatanaWebhookController : ControllerBase
         _configuration = configuration;
     }
 
-    /// <summary>
-    /// Katana API'den stok değişikliği webhook'u alır ve pending adjustment oluşturur.
-    /// </summary>
-    /// <remarks>
-    /// Webhook Payload Örneği:
-    /// {
-    ///   "event": "stock.updated",
-    ///   "orderId": "ORD-12345",
-    ///   "productId": 123,
-    ///   "sku": "SKU-ABC-001",
-    ///   "quantityChange": -5,
-    ///   "timestamp": "2025-11-01T10:30:00Z"
-    /// }
-    /// </remarks>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     [HttpPost("stock-change")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ReceiveStockChange([FromBody] KatanaStockChangeWebhook webhook)
     {
-        // API Key validation
+        
         var expectedApiKey = _configuration["KatanaApi:WebhookSecret"];
         var receivedApiKey = Request.Headers["X-Katana-Signature"].FirstOrDefault();
 
@@ -70,14 +70,14 @@ public class KatanaWebhookController : ControllerBase
                 webhook.QuantityChange
             );
 
-            // Otomatik pending adjustment oluştur
+            
             var pendingAdjustment = new PendingStockAdjustment
             {
                 ExternalOrderId = webhook.OrderId,
                 ProductId = webhook.ProductId,
                 Sku = webhook.Sku ?? $"PRODUCT-{webhook.ProductId}",
                 Quantity = webhook.QuantityChange,
-                RequestedBy = "Katana-API", // Sistem otomatik oluşturdu
+                RequestedBy = "Katana-API", 
                 RequestedAt = webhook.Timestamp != default ? webhook.Timestamp : DateTimeOffset.UtcNow,
                 Status = "Pending",
                 Notes = $"Katana webhook: {webhook.Event}"
@@ -105,9 +105,9 @@ public class KatanaWebhookController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Webhook test endpoint - development için
-    /// </summary>
+    
+    
+    
     [HttpPost("test")]
     [ApiExplorerSettings(IgnoreApi = false)]
     public async Task<IActionResult> TestWebhook()
@@ -122,58 +122,58 @@ public class KatanaWebhookController : ControllerBase
             Timestamp = DateTime.UtcNow
         };
 
-        // Mock API key for test
+        
         Request.Headers["X-Katana-Signature"] = _configuration["KatanaApi:WebhookSecret"] ?? "test-secret";
 
         return await ReceiveStockChange(testWebhook);
     }
 }
 
-/// <summary>
-/// Katana API webhook payload model
-/// </summary>
+
+
+
 public class KatanaStockChangeWebhook
 {
-    /// <summary>Event type: stock.updated, stock.created, order.completed</summary>
+    
     public string Event { get; set; } = string.Empty;
 
-    /// <summary>Katana order ID (external reference)</summary>
+    
     public string OrderId { get; set; } = string.Empty;
 
-    /// <summary>Product ID in Katana system</summary>
+    
     public int ProductId { get; set; }
 
-    /// <summary>Product SKU</summary>
+    
     public string? Sku { get; set; }
 
-    /// <summary>Quantity change (negative = decrease, positive = increase)</summary>
+    
     public int QuantityChange { get; set; }
 
-    /// <summary>Webhook timestamp from Katana</summary>
+    
     public DateTime Timestamp { get; set; }
 
-    /// <summary>Additional metadata (optional)</summary>
+    
     public Dictionary<string, object>? Metadata { get; set; }
 }
 
 internal static class KatanaWebhookSecurity
 {
-    // Constant-time comparison to avoid timing attacks on secrets
+    
     public static bool SecureEquals(string? a, string? b)
     {
         if (a is null || b is null) return false;
-        // Normalize as UTF8 bytes
+        
         var ba = Encoding.UTF8.GetBytes(a);
         var bb = Encoding.UTF8.GetBytes(b);
         if (ba.Length != bb.Length)
         {
-            // Compare with equal-length array to keep timing consistent
+            
             var pad = new byte[Math.Max(ba.Length, bb.Length)];
             var aa = new byte[pad.Length];
             var bb2 = new byte[pad.Length];
             Array.Copy(ba, aa, Math.Min(ba.Length, aa.Length));
             Array.Copy(bb, bb2, Math.Min(bb.Length, bb2.Length));
-            return CryptographicOperations.FixedTimeEquals(aa, bb2) && false; // ensure false if lengths differ
+            return CryptographicOperations.FixedTimeEquals(aa, bb2) && false; 
         }
         return CryptographicOperations.FixedTimeEquals(ba, bb);
     }

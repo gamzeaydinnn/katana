@@ -47,10 +47,10 @@ public class SyncJob : IJob
         {
             _logger.LogError(ex, "Error executing scheduled sync job for {SyncType}", syncType);
             
-            // Create a JobExecutionException to indicate the job failed
+            
             var jobException = new JobExecutionException(ex)
             {
-                RefireImmediately = false // Don't retry immediately
+                RefireImmediately = false 
             };
             
             throw jobException;

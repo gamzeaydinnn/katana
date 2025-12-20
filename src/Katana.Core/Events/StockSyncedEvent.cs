@@ -1,10 +1,6 @@
 using Katana.Core.Entities;
 
 namespace Katana.Core.Events;
-
-/// <summary>
-/// Bir stok hareketi Luca'ya başarıyla aktarıldığında yayınlanacak event.
-/// </summary>
 public class StockSyncedEvent
 {
     public int StockId { get; }

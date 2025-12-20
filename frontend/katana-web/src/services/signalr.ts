@@ -6,16 +6,44 @@ import {
 
 let connection: HubConnection | null = null;
 
-const HUB_URL = "/hubs/notifications"; // proxy will forward in dev
+// Allow overriding backend base URL via `REACT_APP_API_URL` in dev/prod.
+// If `REACT_APP_API_URL` is set, use that as the base; otherwise prefer
+// a relative path (`/hubs/notifications`) so the React dev-server proxy
+// (see package.json "proxy") can forward requests to the backend.
+const getHubUrl = () => {
+  const base = process.env.REACT_APP_API_URL?.trim();
+  if (base && base.length > 0) {
+    try {
+      // Normalize: remove any trailing slash, and also strip a trailing `/api` or `/api/` if present
+      let baseUrl = base.endsWith("/") ? base.slice(0, -1) : base;
+      baseUrl = baseUrl.replace(/\/api\/?$/i, "");
+      // If the env points to the API root (e.g. http://host:5055 or http://host:5055/api),
+      // append the hub path directly so we don't end up with `/api/hubs/...`.
+      const hubUrl = `${baseUrl}/hubs/notifications`;
+      console.log("[SignalR Service] 🔗 Hub URL from env:", hubUrl);
+      return hubUrl;
+    } catch (e) {
+      console.error("[SignalR Service] ❌ Error parsing REACT_APP_API_URL:", e);
+      return "/hubs/notifications";
+    }
+  }
+
+  // Default: use relative path so CRA dev proxy can forward it.
+  console.log(
+    "[SignalR Service] 🔗 Using relative hub path: /hubs/notifications"
+  );
+  return "/hubs/notifications";
+};
+
+const HUB_URL = getHubUrl();
 
 export function startConnection() {
   if (connection) {
-    // If already connected/connecting, do nothing (idempotent)
-    const state = (connection.state as unknown) as string;
+    const state = connection.state as unknown as string;
     if (state && state !== "Disconnected") {
       return Promise.resolve();
     }
-    // Only start when fully disconnected
+
     return connection.start();
   }
 
@@ -64,9 +92,17 @@ export function startConnection() {
     .then(() => {
       console.log("[SignalR Service] ✅ Connection started successfully");
     })
-    .catch((err) => {
-      console.error("[SignalR Service] ❌ Failed to start connection:", err);
-      throw err;
+    .catch((err: any) => {
+      console.error("[SignalR Service] ❌ Failed to start connection:", {
+        message: err?.message,
+        statusCode: err?.statusCode,
+        errorType: err?.constructor?.name,
+        fullError: err,
+      });
+      // Don't throw - allow app to continue without SignalR
+      console.warn(
+        "[SignalR Service] ⚠️ Continuing without SignalR notifications"
+      );
     });
 }
 
@@ -93,6 +129,133 @@ export function offPendingApproved(handler: (payload: object) => void) {
   connection?.off("PendingStockAdjustmentApproved", handler);
 }
 
+export function onPendingRejected(handler: (payload: object) => void) {
+  connection?.on("PendingStockAdjustmentRejected", handler);
+}
+
+export function offPendingRejected(handler: (payload: object) => void) {
+  connection?.off("PendingStockAdjustmentRejected", handler);
+}
+
 export function isConnected() {
-  return connection !== null && ((connection!.state as unknown) as string) === "Connected";
+  return (
+    connection !== null &&
+    (connection!.state as unknown as string) === "Connected"
+  );
+}
+
+// ============ Yeni Bildirim Tipleri ============
+
+export interface ProductNotification {
+  id: number;
+  eventType: "ProductCreated" | "ProductUpdated";
+  productId: number;
+  sku: string;
+  name: string;
+  source: "Katana" | "Manual";
+  createdAt: string;
+  link?: string;
+}
+
+export interface StockMovementNotification {
+  id: number;
+  eventType: "StockTransferCreated" | "StockAdjustmentCreated";
+  movementId?: number;
+  transferId?: number;
+  adjustmentId?: number;
+  documentNo: string;
+  quantity: number;
+  createdAt: string;
+  link?: string;
+}
+
+export interface SyncNotification {
+  id: number;
+  eventType: "StockMovementSynced" | "StockMovementFailed";
+  movementId: number;
+  movementType: "TRANSFER" | "ADJUSTMENT";
+  documentNo: string;
+  lucaDocumentId?: number;
+  errorMessage?: string;
+  syncedAt?: string;
+  failedAt?: string;
+  link?: string;
+}
+
+// ============ Ürün Bildirimleri ============
+
+export function onProductCreated(
+  handler: (payload: ProductNotification) => void
+) {
+  connection?.on("ProductCreated", handler);
+}
+
+export function offProductCreated(
+  handler: (payload: ProductNotification) => void
+) {
+  connection?.off("ProductCreated", handler);
+}
+
+export function onProductUpdated(
+  handler: (payload: ProductNotification) => void
+) {
+  connection?.on("ProductUpdated", handler);
+}
+
+export function offProductUpdated(
+  handler: (payload: ProductNotification) => void
+) {
+  connection?.off("ProductUpdated", handler);
+}
+
+// ============ Stok Hareketi Bildirimleri ============
+
+export function onStockTransferCreated(
+  handler: (payload: StockMovementNotification) => void
+) {
+  connection?.on("StockTransferCreated", handler);
+}
+
+export function offStockTransferCreated(
+  handler: (payload: StockMovementNotification) => void
+) {
+  connection?.off("StockTransferCreated", handler);
+}
+
+export function onStockAdjustmentCreated(
+  handler: (payload: StockMovementNotification) => void
+) {
+  connection?.on("StockAdjustmentCreated", handler);
+}
+
+export function offStockAdjustmentCreated(
+  handler: (payload: StockMovementNotification) => void
+) {
+  connection?.off("StockAdjustmentCreated", handler);
+}
+
+// ============ Sync Bildirimleri ============
+
+export function onStockMovementSynced(
+  handler: (payload: SyncNotification) => void
+) {
+  connection?.on("StockMovementSynced", handler);
+}
+
+export function offStockMovementSynced(
+  handler: (payload: SyncNotification) => void
+) {
+  connection?.off("StockMovementSynced", handler);
+}
+
+export function onStockMovementFailed(
+  handler: (payload: SyncNotification) => void
+) {
+  connection?.on("StockMovementFailed", handler);
+}
+
+export function offStockMovementFailed(
+  handler: (payload: SyncNotification) => void
+) {
+  connection?.off("StockMovementFailed", handler);
 }

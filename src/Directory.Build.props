@@ -1,0 +1,43 @@
+<Project>
+  <PropertyGroup>
+    <!-- Build Performance Optimizations -->
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    
+    <!-- Incremental Build Optimization -->
+    <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+    
+    <!-- Parallel Build -->
+    <BuildInParallel>true</BuildInParallel>
+    
+    <!-- Use Server GC for better performance -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    
+    <!-- Disable analyzers during build for speed (keep in IDE) -->
+    <RunAnalyzersDuringBuild>false</RunAnalyzersDuringBuild>
+    <RunAnalyzersDuringLiveAnalysis>true</RunAnalyzersDuringLiveAnalysis>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    
+    <!-- Deterministic builds -->
+    <Deterministic>true</Deterministic>
+    
+    <!-- Skip generating XML docs in Debug for faster builds -->
+    <GenerateDocumentationFile Condition="'$(Configuration)' == 'Release'">true</GenerateDocumentationFile>
+    <GenerateDocumentationFile Condition="'$(Configuration)' == 'Debug'">false</GenerateDocumentationFile>
+    
+    <!-- Suppress CS1591 warnings (XML docs) -->
+    <NoWarn>$(NoWarn);1591;CS8604;CS8601</NoWarn>
+    
+    <!-- Optimize restore -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
+    
+    <!-- Use shared compilation for faster builds -->
+    <UseSharedCompilation>true</UseSharedCompilation>
+    
+    <!-- Emit debug info but not full PDBs in Debug -->
+    <DebugType Condition="'$(Configuration)' == 'Debug'">portable</DebugType>
+    <DebugSymbols Condition="'$(Configuration)' == 'Debug'">true</DebugSymbols>
+  </PropertyGroup>
+</Project>

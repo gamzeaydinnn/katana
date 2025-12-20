@@ -14,7 +14,6 @@ public class CategoryRepository : Repository<Category>
     {
         return await _dbSet
             .Include(c => c.Children)
-            .Include(c => c.Products)
             .ToListAsync();
     }
 

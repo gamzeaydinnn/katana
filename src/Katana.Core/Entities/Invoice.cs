@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Katana.Core.Enums;
 
 namespace Katana.Core.Entities;
-
 public class Invoice
 {
     public int Id { get; set; }
@@ -18,9 +18,10 @@ public class Invoice
     
     public decimal TotalAmount { get; set; }
     
+    // ✅ FIX: Güvenli enum kullanımı (string yerine)
+    // Database'de string olarak saklanıyor ama code'da type-safe enum
     [Required]
-    [MaxLength(20)]
-    public string Status { get; set; } = string.Empty; // DRAFT, SENT, PAID, CANCELLED
+    public InvoiceStatus Status { get; set; } = InvoiceStatus.Draft; 
     
     public DateTime InvoiceDate { get; set; }
     
@@ -40,7 +41,7 @@ public class Invoice
     
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     
-    // Navigation properties
+    
     public virtual Customer Customer { get; set; } = null!;
     public virtual ICollection<InvoiceItem> InvoiceItems { get; set; } = new List<InvoiceItem>();
 }

@@ -24,9 +24,9 @@ public class StockController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>
-    /// Get stock movements from Katana API
-    /// </summary>
+    
+    
+    
     [HttpGet("movements")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -48,9 +48,9 @@ public class StockController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get stock status for all products
-    /// </summary>
+    
+    
+    
     [HttpGet("status")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -60,7 +60,7 @@ public class StockController : ControllerBase
         {
             var products = await _katanaService.GetProductsAsync();
             
-            // Transform to stock status format using correct Product properties
+            
             var stockStatus = products.Select(p => new
             {
                 id = p.SKU,
@@ -84,9 +84,9 @@ public class StockController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get all stock movements from local database
-    /// </summary>
+    
+    
+    
     [HttpGet("local/movements")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetLocalStockMovements()
@@ -103,9 +103,9 @@ public class StockController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get stock movements by product ID
-    /// </summary>
+    
+    
+    
     [HttpGet("local/movements/product/{productId}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetStockMovementsByProduct(int productId)
@@ -122,9 +122,9 @@ public class StockController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get stock movements by location
-    /// </summary>
+    
+    
+    
     [HttpGet("local/movements/location/{location}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetStockMovementsByLocation(string location)
@@ -141,9 +141,9 @@ public class StockController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get stock movements by date range
-    /// </summary>
+    
+    
+    
     [HttpGet("local/movements/range")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetStockMovementsByDateRange(
@@ -162,9 +162,9 @@ public class StockController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Create a new stock movement
-    /// </summary>
+    
+    
+    
     [HttpPost("local/movements")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -187,9 +187,9 @@ public class StockController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Delete a stock movement
-    /// </summary>
+    
+    
+    
     [HttpDelete("local/movements/{id}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -211,9 +211,9 @@ public class StockController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get stock summary for all products
-    /// </summary>
+    
+    
+    
     [HttpGet("local/summary")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetStockSummary()
@@ -230,9 +230,9 @@ public class StockController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get stock summary for a specific product
-    /// </summary>
+    
+    
+    
     [HttpGet("local/summary/{productId}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -254,9 +254,9 @@ public class StockController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get unsynced stock movements
-    /// </summary>
+    
+    
+    
     [HttpGet("local/movements/unsynced")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetUnsyncedStockMovements()
@@ -273,9 +273,9 @@ public class StockController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Mark stock movement as synced
-    /// </summary>
+    
+    
+    
     [HttpPut("local/movements/{id}/sync")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

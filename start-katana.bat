@@ -9,7 +9,7 @@ cd frontend\katana-web
 start "Katana Frontend" cmd /k "npm start"
 echo.
 echo Both services are starting...
-echo Backend: http://localhost:5000
+echo Backend: http://localhost:5055
 echo Frontend: http://localhost:3000
 echo.
 pause

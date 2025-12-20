@@ -1,7 +1,11 @@
-﻿using Katana.Core.Enums;
+﻿using Katana.Business.Interfaces;
+using Katana.Business.Services;
+using Katana.Core.Enums;
+using Katana.Core.DTOs;
 using Katana.Data.Context;
 using Katana.Data.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,21 +13,29 @@ namespace Katana.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[AllowAnonymous]
 public class ReportsController : ControllerBase
 {
     private readonly IntegrationDbContext _context;
     private readonly ILogger<ReportsController> _logger;
+    private readonly IKatanaService _katanaService;
+    private readonly IDashboardService _dashboardService;
 
-    public ReportsController(IntegrationDbContext context, ILogger<ReportsController> logger)
+    public ReportsController(
+        IntegrationDbContext context,
+        ILogger<ReportsController> logger,
+        IKatanaService katanaService,
+        IDashboardService dashboardService)
     {
         _context = context;
         _logger = logger;
+        _katanaService = katanaService;
+        _dashboardService = dashboardService;
     }
 
-    /// <summary>
-    /// Gets the latest integration logs
-    /// </summary>
+    
+    
+    
     [HttpGet("logs")]
     public async Task<ActionResult<object>> GetIntegrationLogs(
         [FromQuery] int page = 1, 
@@ -42,7 +54,7 @@ public class ReportsController : ControllerBase
 
             if (!string.IsNullOrEmpty(status))
             {
-                // Parse string to enum
+                
                 if (Enum.TryParse<SyncStatus>(status, true, out var syncStatus))
                 {
                     query = query.Where(l => l.Status == syncStatus);
@@ -86,9 +98,9 @@ public class ReportsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Gets the last sync report for each sync type
-    /// </summary>
+    
+    
+    
     [HttpGet("last")]
     public async Task<ActionResult<object>> GetLastSyncReports()
     {
@@ -145,20 +157,31 @@ public class ReportsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Gets failed sync records that need attention
-    /// </summary>
+    
+    
+    
     [HttpGet("failed")]
     public async Task<ActionResult<object>> GetFailedRecords(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
-        [FromQuery] string? recordType = null)
+        [FromQuery] string? recordType = null,
+        [FromQuery] string? status = null)
     {
         try
         {
             var query = _context.FailedSyncRecords
                 .Include(f => f.IntegrationLog)
-                .Where(f => f.Status == "FAILED");
+                .AsQueryable();
+
+            // Status filtresi
+            if (!string.IsNullOrEmpty(status))
+            {
+                query = query.Where(f => f.Status == status.ToUpper());
+            }
+            else
+            {
+                query = query.Where(f => f.Status == "FAILED");
+            }
 
             if (!string.IsNullOrEmpty(recordType))
             {
@@ -176,17 +199,21 @@ public class ReportsController : ControllerBase
                     f.RecordType,
                     f.RecordId,
                     f.ErrorMessage,
+                    // Kullanıcı dostu hata mesajı
+                    UserFriendlyError = Katana.Core.Helpers.UserFriendlyMessages.TranslateError(f.ErrorMessage, f.ErrorCode),
                     f.ErrorCode,
                     f.FailedAt,
                     f.RetryCount,
                     f.LastRetryAt,
                     f.NextRetryAt,
                     f.Status,
-                    IntegrationLog = new
+                    SourceSystem = f.IntegrationLog != null ? 
+                        (f.IntegrationLog.SyncType.Contains("Katana") ? "KATANA" : "LUCA") : "SYSTEM",
+                    IntegrationLog = f.IntegrationLog != null ? new
                     {
                         f.IntegrationLog.SyncType,
                         f.IntegrationLog.StartTime
-                    }
+                    } : null
                 })
                 .ToListAsync();
 
@@ -202,13 +229,13 @@ public class ReportsController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving failed records");
-            return StatusCode(500, new { error = "Internal server error retrieving failed records" });
+            return StatusCode(500, new { error = "Hatalı kayıtlar yüklenirken bir sorun oluştu" });
         }
     }
 
-    /// <summary>
-    /// Gets sync statistics for dashboard
-    /// </summary>
+    
+    
+    
     [HttpGet("statistics")]
     public async Task<ActionResult<object>> GetSyncStatistics([FromQuery] int days = 7)
     {
@@ -251,11 +278,12 @@ public class ReportsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Gets stock report with product details, quantities, and values
-    /// </summary>
+    
+    
+    
     [HttpGet("stock")]
-    [Authorize(Roles = "Admin,StockManager")]
+    [HttpGet("~/api/Analytics/stock")]
+    [AllowAnonymous] 
     public async Task<ActionResult<object>> GetStockReport(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 100,
@@ -266,7 +294,7 @@ public class ReportsController : ControllerBase
         {
             var query = _context.Products.AsQueryable();
 
-            // Search filter
+            
             if (!string.IsNullOrEmpty(search))
             {
                 query = query.Where(p => 
@@ -274,16 +302,32 @@ public class ReportsController : ControllerBase
                     p.SKU.Contains(search));
             }
 
-            // Low stock filter (Stock < 10 varsayılan eşik)
+            
+            var initialProducts = await query.Select(p => new
+            {
+                p.Id,
+                p.Name,
+                p.SKU,
+                CategoryId = p.CategoryId,
+                Balance = _context.StockMovements.Where(sm => sm.ProductId == p.Id).Sum(sm => (int?)sm.ChangeQuantity) ?? p.StockSnapshot,
+                Price = p.Price,
+                IsActive = p.IsActive,
+                MainImageUrl = p.MainImageUrl,
+                Description = p.Description,
+                LastUpdated = p.UpdatedAt
+            }).ToListAsync();
+
+            
             if (lowStockOnly)
             {
-                query = query.Where(p => p.Stock <= 10);
+                initialProducts = initialProducts.Where(p => p.Balance <= 10).ToList();
             }
 
-            var totalCount = await query.CountAsync();
-            
-            var stockData = await query
-                .OrderByDescending(p => p.Stock * p.Price)
+            var totalCount = initialProducts.Count;
+
+            var ordered = initialProducts.OrderByDescending(p => p.Balance * p.Price).ToList();
+
+            var stockData = ordered
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(p => new
@@ -292,19 +336,19 @@ public class ReportsController : ControllerBase
                     p.Name,
                     p.SKU,
                     CategoryId = p.CategoryId,
-                    Quantity = p.Stock,
+                    Quantity = Math.Max(p.Balance, 0),
                     Price = p.Price,
-                    StockValue = p.Stock * p.Price,
-                    IsLowStock = p.Stock <= 10,
-                    IsOutOfStock = p.Stock == 0,
+                    StockValue = p.Balance * p.Price,
+                    IsLowStock = p.Balance <= 10,
+                    IsOutOfStock = p.Balance == 0,
                     IsActive = p.IsActive,
                     MainImageUrl = p.MainImageUrl,
                     Description = p.Description,
-                    LastUpdated = p.UpdatedAt
+                    LastUpdated = p.LastUpdated
                 })
-                .ToListAsync();
+                .ToList();
 
-            // Summary statistics
+            
             var totalStockValue = stockData.Sum(s => s.StockValue);
             var lowStockCount = stockData.Count(s => s.IsLowStock);
             var outOfStockCount = stockData.Count(s => s.IsOutOfStock);
@@ -338,5 +382,247 @@ public class ReportsController : ControllerBase
             return StatusCode(500, new { error = "Failed to generate stock report" });
         }
     }
-}
 
+    
+    
+    
+    [HttpGet("sync")]
+    [HttpGet("~/api/Analytics/sync")]
+    public async Task<IActionResult> GetSyncReport()
+    {
+        try
+        {
+            var logs = await _context.SyncOperationLogs
+                .OrderByDescending(l => l.StartTime)
+                .Take(100)
+                .Select(l => new
+                {
+                    syncType = l.SyncType,
+                    status = l.Status,
+                    startTime = l.StartTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                    duration = l.EndTime.HasValue
+                        ? $"{(l.EndTime.Value - l.StartTime).TotalSeconds:F1}s"
+                        : "N/A",
+                    successCount = l.SuccessfulRecords,
+                    failCount = l.FailedRecords
+                })
+                .ToListAsync();
+
+            return Ok(logs);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating sync report");
+            return StatusCode(500, new { message = "Sync raporu oluşturulamadı" });
+        }
+    }
+
+    
+    
+    
+    [HttpGet("summary")]
+    [HttpGet("~/api/Analytics/summary")]
+    public async Task<IActionResult> GetSummaryReport()
+    {
+        try
+        {
+            var products = await _katanaService.GetProductsAsync();
+
+            var recentSyncs = await _context.SyncOperationLogs
+                .OrderByDescending(l => l.StartTime)
+                .Take(10)
+                .ToListAsync();
+
+            var summary = new
+            {
+                totalProducts = products.Count,
+                activeProducts = products.Count(p => p.IsActive),
+                inactiveProducts = products.Count(p => !p.IsActive),
+                totalSyncs = recentSyncs.Count,
+                successfulSyncs = recentSyncs.Count(s => s.Status == "SUCCESS"),
+                failedSyncs = recentSyncs.Count(s => s.Status != "SUCCESS"),
+                lastSyncDate = recentSyncs.FirstOrDefault()?.StartTime.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"
+            };
+
+            return Ok(summary);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating summary report");
+            return StatusCode(500, new { message = "Özet rapor oluşturulamadı" });
+        }
+    }
+
+    
+    
+    
+    [HttpGet("dashboard")]
+    [HttpGet("~/api/Dashboard")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetDashboard()
+    {
+        try
+        {
+            _logger.LogInformation("Dashboard istatistikleri getiriliyor");
+
+            // Lokal veritabanından gerçek verileri al
+            var dbProducts = await _context.Products.ToListAsync();
+            var totalProducts = dbProducts.Count;
+            var activeProducts = dbProducts.Count(p => p.IsActive);
+            var inStock = dbProducts.Count(p => p.Stock > 0);
+            var outOfStock = dbProducts.Count(p => p.Stock == 0);
+            var lowStock = dbProducts.Count(p => p.Stock > 0 && p.Stock <= 10);
+            var totalValue = dbProducts.Sum(p => p.Stock * p.Price);
+
+            // Son sync bilgisi
+            var lastSync = await _context.IntegrationLogs
+                .OrderByDescending(l => l.EndTime ?? l.StartTime)
+                .FirstOrDefaultAsync();
+
+            var pendingSync = await _context.PendingStockAdjustments
+                .CountAsync(p => p.Status == "Pending");
+
+            var stats = new
+            {
+                totalProducts,
+                activeProducts,
+                inStock,
+                outOfStock,
+                lowStock,
+                totalValue,
+                totalStock = activeProducts,
+                pendingSync,
+                criticalStock = lowStock,
+                lastSyncDate = lastSync?.EndTime ?? lastSync?.StartTime
+            };
+
+            _logger.LogInformation("Dashboard istatistikleri başarıyla alındı: Total={Total}, Active={Active}, InStock={InStock}, OutOfStock={OutOfStock}", 
+                totalProducts, activeProducts, inStock, outOfStock);
+            return Ok(stats);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Dashboard verileri alınırken hata oluştu");
+            return StatusCode(500, new { message = "Dashboard verileri alınamadı" });
+        }
+    }
+
+    
+    
+    
+    [HttpGet("dashboard/sync-stats")]
+    [HttpGet("~/api/Dashboard/sync-stats")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetDashboardSyncStats()
+    {
+        try
+        {
+            var isHealthy = await _katanaService.TestConnectionAsync();
+
+            if (!isHealthy)
+            {
+                _logger.LogWarning("Katana API bağlantısı başarısız.");
+                return Ok(new
+                {
+                    totalProducts = 0,
+                    totalStock = 0,
+                    lowStockItems = 0,
+                    outOfStockItems = 0,
+                    pendingSync = 0,
+                    lastSyncDate = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    warning = "Katana API bağlantısı kurulamadı"
+                });
+            }
+
+            var products = await _katanaService.GetProductsAsync();
+
+            var totalProducts = products.Count;
+            var totalStock = products.Count(p => p.IsActive);
+            var outOfStockItems = products.Count(p => !p.IsActive);
+            var lowStockItems = 0;
+
+            var pendingSync = await _context.SyncOperationLogs
+                .CountAsync(l => l.Status != "SUCCESS");
+
+            var lastSync = await _context.SyncOperationLogs
+                .OrderByDescending(l => l.EndTime ?? l.StartTime)
+                .FirstOrDefaultAsync();
+
+            return Ok(new
+            {
+                totalProducts,
+                totalStock,
+                lowStockItems,
+                outOfStockItems,
+                pendingSync,
+                lastSyncDate = (lastSync != null
+                    ? (lastSync.EndTime ?? lastSync.StartTime).ToString("yyyy-MM-ddTHH:mm:ss")
+                    : DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"))
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Senkronizasyon istatistikleri alınırken hata oluştu.");
+            return StatusCode(500, new { error = "Senkronizasyon istatistikleri alınamadı", details = ex.Message });
+        }
+    }
+
+    
+    
+    
+    [HttpGet("dashboard/stats")]
+    [HttpGet("~/api/dashboard/stats")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<DashboardStatsDto>> GetDashboardStats()
+    {
+        try
+        {
+            var stats = await _dashboardService.GetDashboardStatsAsync();
+            return Ok(stats);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Dashboard istatistikleri alınamadı.");
+            return StatusCode(500, new { error = "İstatistikler alınamadı", details = ex.Message });
+        }
+    }
+
+    
+    
+    
+    [HttpGet("dashboard/activities")]
+    [HttpGet("~/api/Dashboard/activities")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRecentActivities()
+    {
+        try
+        {
+            var recentLogs = await _context.SyncOperationLogs
+                .OrderByDescending(l => l.EndTime ?? l.StartTime)
+                .Take(20)
+                .ToListAsync();
+
+            var activities = recentLogs.Select(log => new
+            {
+                id = log.Id,
+                type = log.SyncType,
+                message = log.Status == "SUCCESS"
+                    ? $"{log.SyncType} - Başarılı"
+                    : $"{log.SyncType} - Başarısız",
+                timestamp = log.EndTime ?? log.StartTime,
+                status = log.Status
+            }).ToList();
+
+            return Ok(new { data = activities, count = activities.Count });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Son aktiviteler alınırken hata oluştu");
+            return StatusCode(500, new { error = "Son aktiviteler alınamadı", details = ex.Message });
+        }
+    }
+}

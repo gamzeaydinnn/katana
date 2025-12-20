@@ -3,11 +3,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Katana.Infrastructure.Services;
-
-/// <summary>
-/// Lightweight cache helper around IMemoryCache.
-/// Provides simple GetOrAdd patterns with a default TTL.
-/// </summary>
 public class CacheService
 {
     private readonly IMemoryCache _cache;
@@ -19,7 +14,7 @@ public class CacheService
 
     public T? Get<T>(string key)
     {
-        return _cache.TryGetValue(key, out T value) ? value : default;
+        return _cache.TryGetValue(key, out T? value) ? value : default;
     }
 
     public T GetOrAdd<T>(string key, Func<ICacheEntry, T> factory, TimeSpan ttl)

@@ -38,7 +38,7 @@ public class FailedNotificationProcessor : BackgroundService
                 }
                 catch (OperationCanceledException)
                 {
-                    // shutting down
+                    
                     break;
                 }
                 catch (Exception ex)
@@ -97,7 +97,7 @@ public class FailedNotificationProcessor : BackgroundService
             }
             catch (Exception ex)
             {
-                // backoff: 2^RetryCount seconds (cap 300s)
+                
                 fn.RetryCount += 1;
                 fn.LastRetryAt = DateTime.UtcNow;
                 var delaySeconds = Math.Min((int)Math.Pow(2, Math.Max(0, fn.RetryCount - 1)), 300);

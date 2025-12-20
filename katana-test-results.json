@@ -1,0 +1,56 @@
+{
+  "timestamp": "2025-12-04T16:09:26.264824",
+  "summary": {
+    "total": 9,
+    "passed": 9,
+    "failed": 0,
+    "success_rate": 100.0
+  },
+  "results": [
+    {
+      "test": "API Bağlantısı",
+      "status": "PASSED",
+      "message": ""
+    },
+    {
+      "test": "API Health Endpoint",
+      "status": "PASSED",
+      "message": "Status: 200"
+    },
+    {
+      "test": "Suppliers Endpoint",
+      "status": "PASSED",
+      "message": "Status: 401"
+    },
+    {
+      "test": "Products Endpoint",
+      "status": "PASSED",
+      "message": "Status: 200"
+    },
+    {
+      "test": "Purchase Orders Endpoint",
+      "status": "PASSED",
+      "message": "Status: 401"
+    },
+    {
+      "test": "API Container",
+      "status": "PASSED",
+      "message": ""
+    },
+    {
+      "test": "Database Container",
+      "status": "PASSED",
+      "message": ""
+    },
+    {
+      "test": "API Port (8080)",
+      "status": "PASSED",
+      "message": ""
+    },
+    {
+      "test": "Database Port (1433)",
+      "status": "PASSED",
+      "message": ""
+    }
+  ]
+}

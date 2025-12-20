@@ -1,0 +1,2132 @@
+{
+	"info": {
+		"_postman_id": "d576f958-6a3a-43c7-a43c-91fc33a3113e",
+		"name": "Luca Koza",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "11682394",
+		"_collection_link": "https://agembilisim.postman.co/workspace/Team-Workspace~362215c7-7e90-411f-8076-66d380893286/collection/1357106-d576f958-6a3a-43c7-a43c-91fc33a3113e?action=share&source=collection_link&creator=11682394"
+	},
+	"item": [
+		{
+			"name": "Giriş",
+			"item": [
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"orgCode\": \"1422649\",\n  \"userName\": \"Admin\",\n  \"userPassword\": \"WebServis\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/Giris.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"Giris.do"
+							]
+						},
+						"description": "test kullanıcı :\n\n{  \n\"orgCode\": \"1422649\",  \n\"userName\": \"Admin\",  \n\"userPassword\": \"WebServis\"  \n}"
+					},
+					"response": []
+				},
+				{
+					"name": "Şirket Şube Listesi",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {
+							"content-type": true
+						}
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}\n"
+						},
+						"url": {
+							"raw": "{{API_URL}}/YdlUserResponsibilityOrgSs.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"YdlUserResponsibilityOrgSs.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Şube Değiştir",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {}
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"disabled": true
+							},
+							{
+								"key": "",
+								"value": "",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"orgSirketSubeId\":854\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/GuncelleYtkSirketSubeDegistir.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"GuncelleYtkSirketSubeDegistir.do"
+							]
+						},
+						"description": "Şube Seçimi için kullanılır.\n\nŞirket Şube Id'sini parametre alır.\n\nLogin işleminden sonra çağırılmalıdır."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Genel",
+			"item": [
+				{
+					"name": "Ölçü Birimi Listesi",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							},
+							{
+								"key": "No-Paging",
+								"type": "text",
+								"value": "true"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleGnlOlcumBirimi.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleGnlOlcumBirimi.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Vergi Dairesi Listesi",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							},
+							{
+								"key": "No-Paging",
+								"type": "text",
+								"value": "true"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleGnlVergiDairesi.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleGnlVergiDairesi.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Değişken Değer Ekle",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"degisken\": \"TEST\",\n    \"degerListesi\":[\n        {\n            \"kod\":\"3\",\n            \"aciklama\":\"apiTest3\"\n        },\n        {\n            \"kod\":\"2\",\n            \"aciklama\":\"apiTest2\"\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleYtkWSDynamicLov.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleYtkWSDynamicLov.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Değişken Listesi",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"attributeId\": 2555,\n    \"name\": \"test\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/GuncelleYtkAttribute.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"GuncelleYtkAttribute.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Belge Tur Detay Listesi",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				},
+				{
+					"name": "Seri Listesi",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"gnlBelgeTurDetay\" : {\n        \"belgeTurDetayId\" : 76 \n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleGnlOrgSsSeri.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleGnlOrgSsSeri.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Para Birimi Listesi",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"gnlOrgSirketSube\" : {\n        \"orgSirketSubeId\" : 5808\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleGnlOrgSsParaBirim.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleGnlOrgSsParaBirim.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Adres Listesi",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				},
+				{
+					"name": "Seri Son Numara",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"seriNoWs\": \"IZM2025\",\n    \"belgeTurDetayIdWs\": 10541\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/MaxSeriNoWSGnlOrgSsSeri.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"MaxSeriNoWSGnlOrgSsSeri.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Değişken Değer Listesi",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"ytkDynamicLovValue\":{\n        \"dynamicLovValueId\" : 25239,\n        \"ytkDynamicLov\": {\n            \"dynamicLovId\": 2697\n        },\n        \"description\": \"TEST GÜNCELLEME DEĞİŞKEN\",\n        \"value\": \"0012\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleYtkDynamicLovValue.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleYtkDynamicLovValue.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Değişken Değer Güncelleme",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				},
+				{
+					"name": "Değişken Değer Güncelleme",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"dynamicLovValueId\" : 25239,\n    \"ytkDynamicLov\": {\n        \"dynamicLovId\": 2697\n    },\n    \"description\": \"TEST GÜNCELLEME DEĞİŞKEN\",\n    \"value\": \"0015\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/GuncelleYtkDynamicLovValue.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"GuncelleYtkDynamicLovValue.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "New Request",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Cari",
+			"item": [
+				{
+					"name": "Müşteri Listesi",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "No-Paging",
+								"value": "true"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"birincilFaturaAdres\":{\n        \"gnlIl\":{\n            \"ilId\": 1\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleFinMusteri.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleFinMusteri.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Tedarikçi Listesi",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "No-Paging",
+								"value": "true"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"apiFilter\": true\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleFinTedarikci.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleFinTedarikci.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Müşteri Ekle",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tip\": 1,\n  \"cariTipId\": 5,\n  \"kartKod\": \"0087\",\n  \"tanim\": \"TY Demir Cargo\",\n  \"paraBirimKod\": \"TRY\",\n  \"kisaAd\": \"TY Demir Cargo\",\n  \"yasalUnvan\": \"TY Demir Cargo\",\n  \"adresSerbest\": \"Ankara Çankaya\",\n  \"adresTipId\": 9,\n  \"ilce\": \"MERKEZ\",\n  \"iletisimTanim\": \"pf+nvnoao22@trendyolmail.com\",\n  \"iletisimTipId\": 5,\n  \"kategoriKod\": \"120.06\",\n  \"ulke\": \"TÜRKİYE\",\n  \"il\": \"ANKARA\"\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleFinMusteriWS.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleFinMusteriWS.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Tedarikçi Ekle",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "default"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tip\" : \"1\",\n    \"cariTipId\": 1,\n    \"takipNoFlag\": true,\n    \"efaturaTuru\": 1,\n    \"kategoriKod\": \"\",\n    \"kartKod\": \"00069\",\n    \"tanim\":\"test1 sirket\",\n    \"kisaAd\":\"testSirket\",\n    \"yasalUnvan\":\"test\",\n    \"paraBirimKod\": \"TRY\",\n    \"ad\": \"testAd\",\n    \"soyad\": \"testSoyad\",\n    \"tcUyruklu\" : true,\n    \"adresTipId\": 9,\n    \"ulke\": \"Fransa\",\n    \"il\": \"Merkez\",\n    \"ilce\": \"Merkez\",\n    \"adresSerbest\" :\"\",\n    \"iletisimTipId\" : 3,\n    \"iletisimTanim\" : \"905011111111\",\n    \"iletisimListesi\": [\n        {\n            \"iletisimTipId\": 4,\n            \"iletisimTanim\": \"905322466285\"\n        },\n        {\n            \"iletisimTipId\": 5,\n            \"iletisimTanim\": \"Test\"\n        },\n                {\n            \"iletisimTipId\": 2,\n            \"iletisimTanim\": \"Test2\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleFinTedarikciWS.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleFinTedarikciWS.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cari İletişim Listesi",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\"finansalNesneId\": 144782\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleWSGnlSsIletisim.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleWSGnlSsIletisim.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cari Adres Listesi",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"finansalNesneId\": 144782\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleWSGnlSsAdres.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleWSGnlSsAdres.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cari Çalışma Koşulları",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"calismaKosulId\": 998\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/GetirFinCalismaKosul.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"GetirFinCalismaKosul.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cari Yetkili Kişiler",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"gnlFinansalNesne\": {\n        \"finansalNesneId\": 144782\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleFinFinansalNesneYetkili.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleFinFinansalNesneYetkili.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cari Hareket Ekleme",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"belgeSeri\": \"A\",\n  \"belgeNo\": \"229594\",\n  \"belgeTarihi\": \"05/05/2023\",\n  \"duzenlemeSaati\": \"16:59\",\n  \"vadeTarihi\": \"05/05/2023\",\n  \"belgeTakipNo\": \"229594\",\n  \"belgeAciklama\": \"Masraf Faturası\",\n  \"belgeTurDetayId\": 134,\n  \"cariTuru\": 2,\n  \"paraBirimKod\": \"TRY\",\n  \"cariKodu\": \"336.10.10.10614\",\n  \"kurBedeli\": 1,\n  \"detayList\": [\n    {\n      \"kartTuru\": 6,\n      \"kartKodu\": \"750.22.22.00056\",\n      \"tutar\": 84,\n      \"aciklama\": \"İştirak Toplantısı için kiralanan araç otopark gideri\",\n      \"kdvDahil\": 1,\n      \"kdvOran\": 0.18,\n      \"fhAttribute1Ack\": \"1\",\n      \"fhAttribute1Deger\": \"GENEL\"\n    },\n     {\n      \"kartTuru\": 6,\n      \"kartKodu\": \"750.22.22.00059\",\n      \"tutar\": 30.51,\n      \"aciklama\": \"İştirak Toplantısı için kiralanan araç otopark gideri\",\n      \"fhAttribute1Ack\": \"1\",\n      \"fhAttribute1Deger\": \"GENEL\"\n    }, {\n      \"kartTuru\": 6,\n      \"kartKodu\": \"750.22.22.00060\",\n      \"tutar\": 5.49,\n      \"aciklama\": \"İştirak Toplantısı için kiralanan araç otopark gideri\",\n      \"fhAttribute1Ack\": \"1\",\n      \"fhAttribute1Deger\": \"GENEL\"\n    },\n     {\n      \"kartTuru\": 6,\n      \"kartKodu\": \"750.13.13.00020\",\n      \"tutar\": 496.34,\n      \"aciklama\": \"İştirak Toplantısı için kiralanan araç otopark gideri\",\n      \"kdvDahil\": 1,\n      \"kdvOran\": 0.18,\n      \"fhAttribute1Ack\": \"1\",\n      \"fhAttribute1Deger\": \"GENEL\"\n    },\n     {\n      \"kartTuru\": 6,\n      \"kartKodu\": \"750.13.13.00024\",\n      \"tutar\": 180.27,\n      \"aciklama\": \"İştirak Toplantısı için kiralanan araç otopark gideri\",\n      \"fhAttribute1Ack\": \"1\",\n      \"fhAttribute1Deger\": \"GENEL\"\n    },\n     {\n      \"kartTuru\": 6,\n      \"kartKodu\": \"750.13.13.00025\",\n      \"tutar\": 32.45,\n      \"aciklama\": \"İştirak Toplantısı için kiralanan araç otopark gideri\",\n      \"fhAttribute1Ack\": \"1\",\n      \"fhAttribute1Deger\": \"GENEL\"\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleFinCariHareketBaslikWS.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleFinCariHareketBaslikWS.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cari Risk Bilgileri",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/GetirFinRisk.do?gnlFinansalNesne.finansalNesneId=137246",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"GetirFinRisk.do"
+							],
+							"query": [
+								{
+									"key": "gnlFinansalNesne.finansalNesneId",
+									"value": "137246"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "test",
+					"request": {
+						"method": "POST",
+						"header": []
+					},
+					"response": []
+				},
+				{
+					"name": "New Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "No-Paging",
+								"value": "true",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"finCariHareketBaslik\":{\n        \"parCariKartTuru\": 3\n    },\n    \"parCariKartKoduBas\": \"01\",\n    \"parCariKartKoduBit\": \"01\",\n    \"parCariKartKoduOp\": \"between\"\n\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleFinCariHareketBaslik.do?detayliListe=true",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleFinCariHareketBaslik.do"
+							],
+							"query": [
+								{
+									"key": "detayliListe",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Özel Cari Hareket Listesi",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{API_URL}}/ListeleFinOzelCariHrktBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleFinOzelCariHrktBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "New Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"finCariHareketBaslik\": {\n        \"gnlOrgSsBelge\": {\n            \"belgeTarihiBas\": \"07/05/2024\",\n            \"belgeTarihiBit\": \"14/05/2024\",\n            \"belgeTarihiOp\": \"between\",\n            \"gnlBelgeTurDetay\": {\n                \"belgeTurDetayId\": 134\n            }\n        }\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleFinCariHareketBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleFinCariHareketBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sözleşme Ekle",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{API_URL}}/EkleFinMusteriSozlesmeWS.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleFinMusteriSozlesmeWS.do"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Stok",
+			"item": [
+				{
+					"name": "Stok Kartı Listesi",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "No-Paging",
+								"value": "true",
+								"disabled": true
+							},
+							{
+								"key": "displayTagSize",
+								"value": "200",
+								"type": "text",
+								"disabled": true
+							},
+							{
+								"key": "pageNo",
+								"value": "3",
+								"type": "text",
+								"disabled": true
+							},
+							{
+								"key": "Cookie",
+								"value": "JSESSIONID=2F9348A888CFF55441F0EC2D848672FA",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stkSkart\" : {\n        \"eklemeTarihiBas\":\"06/04/2022\",\n        \"eklemeTarihiBit\":\"06/04/2022\",\n        \"eklemeTarihiOp\":\"between\"\n    }\n\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleStkSkart.do?",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleStkSkart.do"
+							],
+							"query": [
+								{
+									"key": "",
+									"value": null
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Stok Kartı Listesi AutoComplete",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "No-Paging",
+								"value": "true",
+								"disabled": true
+							},
+							{
+								"key": "displayTagSize",
+								"type": "text",
+								"value": "100"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"displayTagSize\" : 5\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/SdlSkart.do?kartTuru=1&q=BORON&pageNo=1&autoComplete=1&pageSize=5",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"SdlSkart.do"
+							],
+							"query": [
+								{
+									"key": "kartTuru",
+									"value": "1"
+								},
+								{
+									"key": "q",
+									"value": "BORON"
+								},
+								{
+									"key": "pageNo",
+									"value": "1"
+								},
+								{
+									"key": "autoComplete",
+									"value": "1"
+								},
+								{
+									"key": "pageSize",
+									"value": "5"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Depo Listesi",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "No-Paging",
+								"value": "true"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleStkDepo.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleStkDepo.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "İrsaliye Listesi",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "No-Paging",
+								"value": "true"
+							},
+							{
+								"key": "",
+								"type": "text",
+								"value": "",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stkSsIrsaliyeBaslik\" : {\n        \"gnlOrgSsBelge\" : {\n            \"belgeNoBas\" : 997,\n            \"belgeNoBit\" : 997,\n            \"belgeNoOp\" : \"between\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleStkSsIrsaliyeBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleStkSsIrsaliyeBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Stok Kartı Kategori",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							},
+							{
+								"key": "No-Paging",
+								"type": "text",
+								"value": "true"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"kartTuru\": 1\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleStkSkartKategoriAgac.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleStkSkartKategoriAgac.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "İrsaliye Ekle",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"bayiNo\": \"Merkez\",\n  \"eirsaliyeTuru\": 1,\n  \"belgeSeri\": \"GND2022\",\n  \"belgeNo\": null,\n  \"belgeTarihi\": \"10/02/2025\",\n  \"duzenlemeSaati\": \"16:49\",\n  \"vadeTarihi\": \"11/02/2025\",\n  \"belgeTakipNo\": \"25000010\",\n  \"belgeAciklama\": null,\n  \"belgeTurDetayId\": 52,\n  \"paraBirimKod\": \"EUR\",\n  \"kurBedeli\": null,\n  \"yuklemeTarihi\": \"10/02/2025\",\n  \"kdvFlag\": false,\n  \"referansNo\": null,\n  \"tevkifatOran\": null,\n  \"tevkifatKod\": null,\n  \"musteriTedarikci\": 1,\n  \"cariKodu\" : \"18343626711\",\n  \"cariTanim\": null,\n  \"cariTip\": null,\n  \"cariKısaAd\": null,\n  \"cariYasalUnvan\": null,\n  \"vergiNo\": null,\n  \"vergiDairesi\": null,\n  \"cariAd\": null,\n  \"cariSoyad\": null,\n  \"tcKimlikNo\": 0,\n  \"il\": null,\n  \"ilce\": null,\n  \"mahallesemt\": null,\n  \"caddesokak\": null,\n  \"diskapino\": null,\n  \"ickapino\": null,\n  \"postaKodu\": null,\n  \"adresSerbest\": null,\n  \"tasiyiciPlaka\": \"35 POH 22\",\n  \"tasiyiciVkn\": null,\n  \"tasiyiciUnvan\": null,\n  \"kargoNumarasi\": null,\n  \"detayList\": [\n    {\n      \"kartTuru\" : 1,\n      \"kartKodu\" : \"000.000126\",\n      \"kartAdi\": \"Kapak 15173\",\n      \"barkod\": \"\",\n      \"olcuBirimi\": 3,\n      \"kartAlisKdvOran\": 0,\n      \"kartSatisKdvOran\": 0,\n      \"birimFiyat\": 0,\n      \"miktar\": 400,\n      \"tutar\": 0,\n      \"kdvOran\": 0.2,\n      \"iskontoOran1\": 0,\n      \"iskontoOran2\": 0,\n      \"iskontoOran3\": 0,\n      \"iskontoOran4\": 0,\n      \"iskontoOran5\": 0,\n      \"iskontoOran6\": 0,\n      \"iskontoOran7\": 0,\n      \"iskontoOran8\": 0,\n      \"iskontoOran9\": 0,\n      \"iskontoOran10\": 0,\n      \"otvOran\": 0,\n      \"stopajOran\": 0,\n      \"lotNo\": null,\n      \"aciklama\": \"\",\n      \"garantiSuresi\": 0,\n      \"garantiBitisTarihi\": null,\n      \"uretimTarihi\": null,\n      \"depoKodu\": \"001.001.0001\"\n    }\n  ],\n  \"soforListesi\": [\n    {\n      \"ad\": \"HAKAN\",\n      \"soyad\": \"RAMİTGEN\",\n      \"tckn\": \"111111111111\"\n    }\n  ],\n  \"dorseListesi\": [\n    {\n      \"plaka\": \"35 POH 22\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleStkWsIrsaliyeBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleStkWsIrsaliyeBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "UTS İlet",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"ssFaturaDetayId\" : 235831,\n    \"iletimTarihi\" : \"01/10/2021\"\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/UTSIletildiFtrWsUTSIletim.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"UTSIletildiFtrWsUTSIletim.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Stok Kartı Ekle",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {}
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"kartAdi\": \"Test Ürünü\", //required\n    \"kartKodu\": \"00013225\", //required\n    \"kartTipi\": 1, \n    \"kartAlisKdvOran\": 1,\n    \"olcumBirimiId\": 13424,\n    \"baslangicTarihi\": \"06/04/2022\", //required (dd/mm/yyyy)\n    \"kartTuru\" : 1, //required 1-Stok, 2-Hizmet\n    \"kategoriAgacKod\": null,\n    \"barkod\": \"8888888\",\n    \"alisTevkifatOran\": \"7/10\",\n    \"satisTevkifatOran\": \"2/10\",\n    \"alisTevkifatTipId\": 1,\n    \"satisTevkifatTipId\": 1,\n    \"satilabilirFlag\": 1, // default  true\n    \"satinAlinabilirFlag\": 1, // default  true\n    \"lotNoFlag\": 1, // default false\n    \"minStokKontrol\": 0,\n    \"maliyetHesaplanacakFlag\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleStkWsSkart.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleStkWsSkart.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Hizmet Kartı Ekle",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"kartAdi\": \"Test\",\n    \"kartKodu\": \"000138\",\n    \"kartAlisKdvOran\": 1,\n    \"olcumBirimiId\": 2,\n    \"alisTevkifatTipId\": 1,\n    \"satisTevkifatTipId\": 1,\n    \"baslangicTarihi\": \"06/04/2022\",\n    \"kartTuru\" : 2,\n    \"kategoriAgacKod\": \"001.0001\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleStkWsSkart.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleStkWsSkart.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Dsh Başlık Ekle",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"belgeSeri\": \"A\",\n    \"belgeTurDetayId\": 41,\n    \"belgeTarihi\": \"21/09/2020\",\n    \"duzenlemeSaati\": \"12:00\",\n    \"vadeTarihi\": \"21/09/2021\",\n    \"belgeAciklama\": \"Test Açıklama\",\n    \"paraBirimKod\": \"TRY\",\n    \"depoKodu\" : \"003.0001\",\n    \"detayList\": [\n        {\n            \"kartTuru\": 1,\n            \"kartKodu\": \"153.01017\",\n            \"birimFiyat\": 32.0,\n            \"miktar\": 12.0,\n            \"kdvOran\": 0.18,\n            \"depoKodu\" : \"003.0001\",\n            \"olcuBirimi\" : 1,\n            \"kartAdi\":\"test\",\n            \"kartAlisKdvOran\": 0.18,\n            \"kartSatisKdvOran\": 0.18,\n            \"kartTipi\": 1\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleStkWsDshBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleStkWsDshBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Alış Fiyat Bilgileri",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stkSkart\": {\n        \"skartId\": 72043\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleStkSkartAlisFiyat.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleStkSkartAlisFiyat.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Satış Fiyat Bilgileri",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stkSkart\": {\n        \"skartId\": 72043\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleStkSkartSatisFiyat.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleStkSkartSatisFiyat.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Stok Kartları Temin Yerleri",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stkSkart\": {\n        \"skartId\": \"71908\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleStkSkartTeminYeri.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleStkSkartTeminYeri.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Stok Kartı Alternatif Ölçü Birimi Listesi",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stkSkart\": {\n        \"skartId\": 71908\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleStkSkartAlternatifOb.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleStkSkartAlternatifOb.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Stok Kartı Alternatif Stoklar",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stkSkart\": {\n        \"skartId\": 71908\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleStkSkartAlternatif.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleStkSkartAlternatif.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Depo Kartları Eldeki Miktar Listesi",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleStkSsEldekiMiktar.do?cagirilanKart=depo&stkDepo.depoId=1794",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleStkSsEldekiMiktar.do"
+							],
+							"query": [
+								{
+									"key": "cagirilanKart",
+									"value": "depo"
+								},
+								{
+									"key": "stkDepo.depoId",
+									"value": "1794"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Stok Kartları Maliyet Bilgisi",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stkSkart\": {\n        \"skartId\": 65433\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleStkSkartMaliyet.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleStkSkartMaliyet.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Stok Kartı Alım Şartları",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stkSkart\": {\n        \"skartId\": 71908\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleStkSkartAlimSart.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleStkSkartAlimSart.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "İrsaliye Silme",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"ssIrsaliyeBaslikId\": 90984\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/SilStkWsIrsaliyeBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"SilStkWsIrsaliyeBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Depo Transferi Ekle",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"belgeSeri\": \"A\",\n    \"belgeTarihi\": \"21/09/2022\",\n    \"duzenlemeSaati\": \"12:00\",\n    \"vadeTarihi\": \"21/09/2022\",\n    \"belgeTakipNo\": \"tk136\",\n    \"belgeAciklama\": \"Açıklama test 124\",\n    \"girisDepoKodu\": \"001.0001\",\n    \"cikisDepoKodu\" : \"02.0001\",\n    \"detayList\": [\n        {\n            \"kartKodu\": \"153.01017\",\n            \"miktar\": 10.0,\n            \"aciklama\": \"test\"\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleStkWsDtransferBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleStkWsDtransferBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "New Request",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{ \n    \"ytkDynamicLov\": {\n        \"dynamicLovId\": 2505\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleYtkDynamicLovValue.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleYtkDynamicLovValue.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "New Request",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"belgeSeri\": \"A\",\n  \"belgeTarihi\": \"04/04/2023\",\n  \"belgeAciklama\": \"BUCAK MADENCİLİK KUM ÇAKIL NAKLİYAT SAN.\",\n  \"belgeTakipNo\": \"BOI2023000009957\",\n  \"depoKodu\": \"000006\",\n  \"detayList\" : [\n    {\n        \"kartKodu\" : \"000128\",\n        \"sayim1Miktar\" : 5,\n        \"sayim2Miktar\" : 6,\n        \"sayim3Miktar\" : 7   \n    }\n  ],\n  \"kapamaBelgeOlustur\" : true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleStkWsSayimBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleStkWsSayimBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Stok Kartı Eldeki Miktar",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"eirsaliyeId\":2026\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/EirsaliyeXmlStkEirsaliye.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EirsaliyeXmlStkEirsaliye.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "New Request",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				},
+				{
+					"name": "E-İrsaliye Gönder",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Sipariş",
+			"item": [
+				{
+					"name": "Satış Sipariş Listesi",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "No-Paging",
+								"value": "true"
+							},
+							{
+								"key": "",
+								"type": "text",
+								"value": "",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stsSsSiparisBaslik\": {\n        \"gnlOrgSsBelge\": {\n            \"gnlOrgSsSeri\": {\n                \"seri\":\"A\"\n            },\n            \"belgeTakipNoBas\": \"ee2684ce-66b5-4271-a734-ffe4f2defabd\",\n            \"belgeTakipNoBit\": \"ee2684ce-66b5-4271-a734-ffe4f2defabd\",\n            \"belgeTakipNoOp\": \"between\"\n        }\n    }\n\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleStsSsSiparisBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleStsSsSiparisBaslik.do"
+							],
+							"query": [
+								{
+									"key": "detayliListe",
+									"value": "true",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Satış Siparişi Ekle",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"belgeSeri\": \"A\",\n    \"belgeTarihi\" : \"12/04/2022\",\n    \"duzenlemeSaati\" : \"11:42\",\n    \"vadeTarihi\" : \"12/04/2022\",\n    \"belgeAciklama\" : \"TEST SIPARIS\",\n    \"teklifSiparisTur\" : 1,\n    \"paraBirimKod\" : \"TRY\",\n    \"cariKodu\" : \"18343626711\",\n    \"kdvFlag\" : true,\n    \"islemTuru\": 1,\n    \"opsiyonTarihFlag\":\"1\",\n    \"onayFlag\":\"2\",\n    \"detayList\" : [\n        {\n            \"kartTuru\" : 1,\n            \"kartKodu\" : \"000.000126\",\n            \"birimFiyat\" : 9.90,\n            \"miktar\" : 1,\n            \"tutar\" : 9.90,\n            \"kdvOran\" :  0.18,\n            \"depoKodu\":\"001\"\n        },\n\n        {\n            \"kartTuru\" : 1,\n            \"kartKodu\" : \"000.000126\",\n            \"birimFiyat\" : 9.90,\n            \"miktar\" : 1,\n            \"tutar\" : 8.50,\n            \"kdvOran\" :  0.18,\n            \"depoKodu\":\"001\"\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleStsWsSiparisBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleStsWsSiparisBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Satınalma Siparişi Ekle",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\"belgeSeri\" : \"A\",\n\"belgeNo\" : 2593,\n\"belgeTarihi\" : \"28/11/2022\",\n\"duzenlemeSaati\" : \"10:00\",\n\"vadeTarihi\" : \"28/11/2022\",\n\"belgeTakipNo\" : \"2593t0\",\n\"belgeAciklama\" : \"SATIN ALMA SİPARİŞİ\",\n\"teklifSiparisTur\" : 1,\n\"paraBirimKod\" : \"USD\",\n\"kdvFlag\" : 1,\n\"cariKodu\" : \"320.10.10.10192\",\n\"cariTanim\" : \"DEMSAY ELEKTRONİK SANAYİ VE TİC. AŞ.\",\n\"cariKisaAd\" : \"DEMSAY ELEKTRONİK SANAYİ VE TİC. AŞ.\",\n\"cariTip\" : 1,\n\"cariAd\" : null,\n\"cariSoyad\" : null,\n\"tcKimlikNo\" : null,\n\"il\" : null,\n\"ilce\" : null,\n\"mahallesemt\" : null,\n\"caddesokak\" : null,\n\"diskapino\" : 0,\n\"ickapino\" : 0,\n\"postaKodu\" : 0,\n\"adresSerbest\" : null,\n\"onayFlag\" : 1,\n\"personelAd\" : \"Volkan Seren\",\n\"personelSoyad\" : \"vseren\",\n\"detayList\" : [\n            {\n                \"kartTuru\" : 1,\n                \"kartKodu\" : \"150.ART0035403\",\n                \"birimFiyat\" : 2.1712,\n                \"miktar\" : 25.00,\n                \"kdvOran\" : 0.18,\n                \"depoKodu\" : \"1.1\",\n                \"olcuBirimi\" : 12790,\n                \"kartAdi\" : \"Connector_Header_Surface_Mount_12_Position_0.049\\\";_(1.25mm)\",\n                \"kartAlisKdvOran\" : 0.18,\n                \"kartSatisKdvOran\" : 0.18,\n                \"kartTipi\" : 1,\n                \"shAttribute1Deger\" : 1,\n                \"shAttribute1\" : 1,\n                \"shAttribute1Ack\" : \"TT920.05RO-TF-X FLİGHT CONTROL ACTUATION SYSTEM ROLLOUT\"\n            },\n            {\n                \"kartTuru\" : 1,\n                \"kartKodu\" : \"150.ART0039847\",\n                \"birimFiyat\" : 0.7198,\n                \"miktar\" : 25.00,\n                \"kdvOran\" : 0.18,\n                \"depoKodu\" : 1.1,\n                \"olcuBirimi\" : 12790,\n                \"kartAdi\" : \"Conn_Rcpt_Hsg_12pos_1.25mm\",\n                \"kartAlisKdvOran\" : 0.18,\n                \"kartSatisKdvOran\" : 0.18,\n                \"kartTipi\" : 1,\n                \"shAttribute1Deger\" : 1,\n                \"shAttribute1\" : 1,\n                \"shAttribute1Ack\" : \"TT920.05RO-TF-X FLİGHT CONTROL ACTUATION SYSTEM ROLLOUT\"\n            },\n            {\n                \"kartTuru\" : 1,\n                \"kartKodu\" : \"150.ART0039848\",\n                \"birimFiyat\" : 7.2452,\n                \"miktar\" : 25.00,\n                \"kdvOran\" : 0.18,\n                \"depoKodu\" : 1.1,\n                \"olcuBirimi\" : 12790,\n                \"kartAdi\" : \"Temperature_Sensor_Digital,_Local_-55°c_~_150°c_16_B_6-wson_(2x2)\",\n                \"kartAlisKdvOran\" : 0.18,\n                \"kartSatisKdvOran\" : 0.18,\n                \"kartTipi\" : 1,\n                \"shAttribute1Deger\" : 1,\n                \"shAttribute1\" : 1,\n                \"shAttribute1Ack\" : \"TT920.05RO-TF-X FLİGHT CONTROL ACTUATION SYSTEM ROLLOUT\"\n\n            },\n            {\n                \"kartTuru\" : 1,\n                \"kartKodu\" : \"150.ART0035168\",\n                \"birimFiyat\" : 680.27,\n                \"miktar\" : 1.00,\n                \"kdvOran\" : 0.18,\n                \"depoKodu\" : 1.1,\n                \"olcuBirimi\" : 12790,\n                \"kartAdi\" : \"Hand_Crimper_Tool_505431_2002180300\",\n                \"kartAlisKdvOran\" : 0.18,\n                \"kartSatisKdvOran\" : 0.18,\n                \"kartTipi\" : 1,\n                \"shAttribute1Deger\" : 1,\n                \"shAttribute1\" : 1,\n                \"shAttribute1Ack\" : \"TT920.05RO-TF-X FLİGHT CONTROL ACTUATION SYSTEM ROLLOUT\"\n            },\n            {\n                \"kartTuru\" : 1,\n                \"kartKodu\" : \"150.ART0039850\",\n                \"birimFiyat\" : 46.7516,\n                \"miktar\" : 2.00,\n                \"kdvOran\" : 0.18,\n                \"depoKodu\" : 1.1,\n                \"olcuBirimi\" : 12790,\n                \"kartAdi\" : \"Extraction_Tool_For_Wire_To_Wire_And_Wire_To_Board_Terminals\",\n                \"kartAlisKdvOran\" : 0.18,\n                \"kartSatisKdvOran\" : 0.18,\n                \"kartTipi\" : 1,\n                \"shAttribute1Deger\" : 1,\n                \"shAttribute1\" : 1,\n                \"shAttribute1Ack\" : \"TT920.05RO-TF-X FLİGHT CONTROL ACTUATION SYSTEM ROLLOUT\"\n            }\n\n\n\n],\n\"cariYasalUnvan\" : \"DEMSAY ELEKTRONİK SANAYİ VE TİC. AŞ.\",\n\"vergiNo\" : 2910823972,\n\"shAttribute1\" : 1,\n\"shAttribute1Ack\" : \"TT920.05RO-TF-X FLİGHT CONTROL ACTUATION SYSTEM ROLLOUT\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleStnWsSiparisBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleStnWsSiparisBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Satış Sipariş Silme",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"ssSiparisBaslikId\" : 43450   \n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/SilStsWsSiparisBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"SilStsWsSiparisBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Satınalma Siparişi Listesi",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "No-Paging",
+								"value": "true",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"stnSsSiparisBaslik\" : {\n\t\n\t}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleStnSsSiparisBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleStnSsSiparisBaslik.do"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Fatura",
+			"item": [
+				{
+					"name": "Fatura PDF Link",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "No-Paging",
+								"value": "true"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"ssFaturaBaslikId\" : 122042\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/FaturaPDFLinkFtrWsFaturaBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"FaturaPDFLinkFtrWsFaturaBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Fatura Listesi",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "No-Paging",
+								"value": "true"
+							},
+							{
+								"key": "",
+								"type": "text",
+								"value": "",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"parUstHareketTuru\": \"16\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleFtrSsFaturaBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleFtrSsFaturaBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Fatura Ekle",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\"belgeSeri\": \"A\",\n\"belgeTarihi\": \"07/10/2025\",\n\"duzenlemeSaati\": \"11:09\",\n\"vadeTarihi\": \"07/10/2025\",\n\"belgeAciklama\": \"SP-EFatura-No:345375\",\n\"belgeTurDetayId\": \"76\",\n\"faturaTur\": \"1\",\n\"paraBirimKod\": \"USD\",\n\"kdvFlag\": true,\n\"musteriTedarikci\": \"1\",\n\"kurBedeli\": 48.6592,\n\"detayList\": [\n{\n\"kartTuru\": 1,\n\"kartKodu\": \"00003\",\n\"birimFiyat\": 32.802,\n\"miktar\": 4,\n\"tutar\": 500.00,\n\"kdvOran\": 0.1,\n\"depoKodu\": \"000.003.001\"\n}\n],\n\"cariKodu\": \"00000017\",\n\"cariTip\": 1,\n\"cariTanim\": \"VOLKAN ÜNAL\",\n\"cariKisaAd\": \"VOLKAN ÜNAL\",\n\"cariYasalUnvan\": \"VOLKAN ÜNAL\",\n\"vergiNo\": \"12\",\n\"il\": \"ANKARA\",\n\"ilce\": \"ÇANKAYA\",\n\"odemeTipi\": \"KREDIKARTI_BANKAKARTI\",\n\"gonderimTipi\": \"ELEKTRONIK\",\n\"efaturaTuru\": 1\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleFtrWsFaturaBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleFtrWsFaturaBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Fatura Kapama",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"belgeTurDetayId\" : 127,\n\t\"faturaId\" : 129937,\n\t\"belgeSeri\" : \"A\",\n\t\"belgeTarih\" : \"05/05/2025\",\n\t\"vadeTarih\"  : \"05/05/2025\",\n\t\"tutar\" : 120,\n\t\"cariKod\" : \"004\"\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleFtrWsFaturaKapama.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleFtrWsFaturaKapama.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Fatura Silme",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"ssFaturaBaslikId\": 111193\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/SilFtrWsFaturaBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"SilFtrWsFaturaBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "New Request",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"ftrSsFaturaBaslik\": {\n    }, \n    \"gnlParaBirimRapor\": {\n        \"paraBirimId\": 4\n    }, \n    \"parUstHareketTuru\": \"16\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleDovizliFtrSsFaturaBaslik.do?dovizGetir=1",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleDovizliFtrSsFaturaBaslik.do"
+							],
+							"query": [
+								{
+									"key": "dovizGetir",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Fatura Gönder",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Finans",
+			"item": [
+				{
+					"name": "Kredi Kartı Giriş Ekle",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"belgeSeri\": \"A\",\n    \"belgeNo\": \"\",\n    \"belgeTarihi\": \"22/04/2021\",\n    \"duzenlemeSaati\": \"11:44\",\n    \"vadeTarihi\": \"22/04/2021\",\n    \"belgeTakipNo\": \"\",\n    \"belgeAciklama\": \"BAKİYE ÖDEMESİ\",\n    \"cariKodu\": \"01.03\",\n    \"detayList\": [\n        {\n            \"kartTuru\": 1,\n            \"kartKodu\": \"120.04.034.12015326687\",\n            \"avansFlag\" : false,\n            \"tutar\" : 795,\n            \"aciklama\": \"BAKİYE ÖDEMESİ\",\n            \"vadeTarihi\" : \"22/04/2021\",\n            \"fhAttribute1Deger\": \"0141\",\n            \"fhAttribute1Ack\": \"BAKİYE ÖDEMESİ\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleFinKrediKartiWS.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleFinKrediKartiWS.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cari Hareket Ekle",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"belgeSeri\": \"A\",\n    \"belgeNo\": \"\",\n    \"belgeTarihi\": \"05/07/2021\",\n    \"duzenlemeSaati\": \"14:00\",\n    \"vadeTarihi\": \"05/07/2021\",\n    \"belgeTurDetayId\": \"65\",\n    \"belgeTakipNo\": \"TT12s1\",\n    \"belgeAciklama\": \"komisyon faturası\",\n    \"cariTuru\": 3,\n    \"paraBirimKod\": \"TRY\",\n    \"cariKodu\": \"0001\",\n    \"kurBedeli\" : 1.0,\n    \"detayList\": [\n        {\n            \"kartTuru\": 1,\n            \"kartKodu\": \"12.34.5432\",\n            \"avansFlag\" : false,\n            \"tutar\" : 5241.15,\n            \"aciklama\": \"test\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/EkleFinCariHareketBaslikWS.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"EkleFinCariHareketBaslikWS.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cari Hareket Listesi",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							},
+							{
+								"key": "No-Paging",
+								"type": "text",
+								"value": "true"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n        \"finCariHareketBaslik\":{\n            \"gnlOrgSsBelge\":{\n            \"belgeTarihiBas\" : \"01/01/2025\",\n            \"belgeTarihiBit\" : \"20/04/2025\",\n            \"belgeTarihiOp\" : \"between\",\n            \"gnlBelgeTurDetay\":{\n                \"belgeTurDetayId\": 134\n            }\n            }\n        }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleFinCariHareketBaslik.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleFinCariHareketBaslik.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Banka Kartları Listesi",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							},
+							{
+								"key": "No-Paging",
+								"type": "text",
+								"value": "true"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\n}"
+						},
+						"url": {
+							"raw": "{{API_URL}}/Yetki/ListeleFinSsBanka.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"Yetki",
+								"ListeleFinSsBanka.do"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Kasa Kartları Listesi",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_URL}}/ListeleFinSsKasa.do",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"ListeleFinSsKasa.do"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Rapor",
+			"item": [
+				{
+					"name": "New Request",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{API_URL}}/DinamikRaporRprStokHizmetEkstre.do?parSiralamaKriteri=2,1,8,13,4,5&parStokKartTuru=1&basStokKodAd_comp=76468&basStokKodAd_comp_ack=00000001%20-%20Y%C4%B0YECEK&bitStokKodAd_comp=76468&bitStokKodAd_comp_ack=00000001%20-%20Y%C4%B0YECEK&parBaslangicStokKodu=00000001&parBitisStokKodu=00000001&raporFormat=XLS&request_locale=tr_TR&menuItemIslemKod=KPVK11KZgYGZ69mpMUI5HHOmSx6+X3/pURjG/l5LWoM=",
+							"host": [
+								"{{API_URL}}"
+							],
+							"path": [
+								"DinamikRaporRprStokHizmetEkstre.do"
+							],
+							"query": [
+								{
+									"key": "parSiralamaKriteri",
+									"value": "2,1,8,13,4,5"
+								},
+								{
+									"key": "parStokKartTuru",
+									"value": "1"
+								},
+								{
+									"key": "basStokKodAd_comp",
+									"value": "76468"
+								},
+								{
+									"key": "basStokKodAd_comp_ack",
+									"value": "00000001%20-%20Y%C4%B0YECEK"
+								},
+								{
+									"key": "bitStokKodAd_comp",
+									"value": "76468"
+								},
+								{
+									"key": "bitStokKodAd_comp_ack",
+									"value": "00000001%20-%20Y%C4%B0YECEK"
+								},
+								{
+									"key": "parBaslangicStokKodu",
+									"value": "00000001"
+								},
+								{
+									"key": "parBitisStokKodu",
+									"value": "00000001"
+								},
+								{
+									"key": "raporFormat",
+									"value": "XLS"
+								},
+								{
+									"key": "request_locale",
+									"value": "tr_TR"
+								},
+								{
+									"key": "menuItemIslemKod",
+									"value": "KPVK11KZgYGZ69mpMUI5HHOmSx6+X3/pURjG/l5LWoM="
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

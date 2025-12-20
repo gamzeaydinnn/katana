@@ -6,7 +6,6 @@ using Katana.Business.Services;
 using Katana.Core.Entities;
 using Katana.Data.Context;
 using Katana.Data.Models;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -18,16 +17,12 @@ public class PendingStockAdjustmentServiceTests : IDisposable
 {
     private readonly IntegrationDbContext _context;
     private readonly PendingStockAdjustmentService _service;
-    private readonly SqliteConnection _connection;
     private readonly long _pendingId;
 
     public PendingStockAdjustmentServiceTests()
     {
-        _connection = new SqliteConnection("Filename=:memory:");
-        _connection.Open();
-
         var options = new DbContextOptionsBuilder<IntegrationDbContext>()
-            .UseSqlite(_connection)
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
         _context = new IntegrationDbContext(options);
@@ -60,7 +55,7 @@ public class PendingStockAdjustmentServiceTests : IDisposable
             Id = 1,
             ProductId = 1,
             Sku = "SKU-1",
-            Quantity = -4, // negative means decrease stock
+            Quantity = -4, 
             RequestedAt = DateTimeOffset.UtcNow,
             Status = "Pending",
             ExternalOrderId = "ORDER-1",
@@ -74,10 +69,10 @@ public class PendingStockAdjustmentServiceTests : IDisposable
     [Fact]
     public async Task ApproveAsync_ShouldApplyStockChangeAndPersistMovement()
     {
-        // Act
+        
         var result = await _service.ApproveAsync(_pendingId, "admin");
 
-        // Assert
+        
         result.Should().BeTrue();
 
         var product = await _context.Products.SingleAsync();
@@ -99,6 +94,6 @@ public class PendingStockAdjustmentServiceTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _connection.Dispose();
-    }
+        
+}
 }

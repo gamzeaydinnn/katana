@@ -23,6 +23,8 @@ import {
   Tab,
   Collapse,
   IconButton,
+  Stack,
+  useMediaQuery,
 } from "@mui/material";
 import {
   ExpandMore as ExpandMoreIcon,
@@ -66,7 +68,7 @@ const LogsViewer: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Filters
+  
   const [errorFilters, setErrorFilters] = useState({
     level: "",
     category: "",
@@ -87,16 +89,61 @@ const LogsViewer: React.FC = () => {
   const [totalErrors, setTotalErrors] = useState(0);
   const [totalAudits, setTotalAudits] = useState(0);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const isMobile = useMediaQuery("(max-width:900px)");
+  const refreshButtonSx = {
+    my: 1,
+    height: isMobile ? 30 : 40,
+    minWidth: isMobile ? 64 : 140,
+    px: isMobile ? 0.75 : 2.5,
+    py: isMobile ? 0.25 : 1,
+    fontSize: isMobile ? "0.65rem" : "0.9rem",
+    borderRadius: 999,
+    color: "#fff",
+    fontWeight: 600,
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)",
+    "& .MuiButton-startIcon": {
+      marginRight: isMobile ? 0.25 : 0.5,
+      "& > *:first-of-type": {
+        fontSize: isMobile ? "0.95rem" : "1rem",
+      },
+    },
+    "&:hover": {
+      background: "linear-gradient(135deg, #5568d3 0%, #653a8e 100%)",
+      boxShadow: "0 6px 20px rgba(102, 126, 234, 0.6)",
+    },
+  };
+
+  
+  const formatToTurkishTime = (dateString: string) => {
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      
+      const turkeyDate = new Date(date.getTime() + 3 * 60 * 60 * 1000);
+
+      const day = String(turkeyDate.getDate()).padStart(2, "0");
+      const month = String(turkeyDate.getMonth() + 1).padStart(2, "0");
+      const year = turkeyDate.getFullYear();
+      const hours = String(turkeyDate.getHours()).padStart(2, "0");
+      const minutes = String(turkeyDate.getMinutes()).padStart(2, "0");
+      const seconds = String(turkeyDate.getSeconds()).padStart(2, "0");
+
+      return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
+    } catch (error) {
+      return "Invalid Date";
+    }
+  };
 
   useEffect(() => {
     fetchStats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, []);
 
   useEffect(() => {
     if (tabValue === 0) fetchErrorLogs();
     else if (tabValue === 1) fetchAuditLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [tabValue, errorFilters.page, auditFilters.page]);
 
   const fetchErrorLogs = async () => {
@@ -194,10 +241,10 @@ const LogsViewer: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
-        System Logs
+        Sistem Logları
       </Typography>
 
-      {/* Stats Cards */}
+      {}
       {stats && (
         <Box
           sx={{
@@ -210,7 +257,7 @@ const LogsViewer: React.FC = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                Error Logs ({stats.period})
+                Hata Logları ({stats.period})
               </Typography>
               {stats.errorStats.map((s) => (
                 <Chip
@@ -226,7 +273,7 @@ const LogsViewer: React.FC = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                Audit Logs ({stats.period})
+                Denetim Logları ({stats.period})
               </Typography>
               {stats.auditStats.map((s) => (
                 <Chip
@@ -242,7 +289,7 @@ const LogsViewer: React.FC = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                By Category
+                Kategoriye Göre
               </Typography>
               {stats.categoryStats.slice(0, 5).map((s) => (
                 <Chip
@@ -270,24 +317,63 @@ const LogsViewer: React.FC = () => {
             borderColor: "divider",
             display: "flex",
             justifyContent: "space-between",
+            alignItems: "center",
             px: 2,
+            gap: 1,
+            flexWrap: isMobile ? "wrap" : "nowrap",
           }}
         >
-          <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
-            <Tab label={`Error Logs (${totalErrors})`} />
-            <Tab label={`Audit Logs (${totalAudits})`} />
-          </Tabs>
-          <Button
-            startIcon={<RefreshIcon />}
-            onClick={handleRefresh}
-            sx={{ my: 1 }}
+          <Tabs
+            value={tabValue}
+            onChange={(_, v) => setTabValue(v)}
+            variant={isMobile ? "fullWidth" : "standard"}
+            sx={{
+              flexGrow: 1,
+              "& .MuiTab-root": {
+                fontWeight: 600,
+                textTransform: "none",
+              },
+            }}
           >
-            Refresh
-          </Button>
+            <Tab label={`Hata Logları (${totalErrors})`} />
+            <Tab label={`Denetim Logları (${totalAudits})`} />
+          </Tabs>
+          {!isMobile && (
+            <Button
+              variant="contained"
+              startIcon={<RefreshIcon fontSize="small" />}
+              onClick={handleRefresh}
+              size="medium"
+              sx={refreshButtonSx}
+            >
+              Yenile
+            </Button>
+          )}
         </Box>
 
+        {isMobile && (
+          <Box
+            sx={{
+              px: 2,
+              pt: 1,
+              display: "flex",
+              justifyContent: "flex-end",
+            }}
+          >
+            <Button
+              variant="contained"
+              startIcon={<RefreshIcon fontSize="small" />}
+              onClick={handleRefresh}
+              size="small"
+              sx={refreshButtonSx}
+            >
+              Yenile
+            </Button>
+          </Box>
+        )}
+
         <CardContent>
-          {/* Error Logs Tab */}
+          {}
           {tabValue === 0 && (
             <>
               <Box
@@ -302,7 +388,7 @@ const LogsViewer: React.FC = () => {
                   select
                   fullWidth
                   size="small"
-                  label="Level"
+                  label="Seviye"
                   value={errorFilters.level}
                   onChange={(e) =>
                     setErrorFilters({
@@ -312,10 +398,10 @@ const LogsViewer: React.FC = () => {
                     })
                   }
                 >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="Error">Error</MenuItem>
-                  <MenuItem value="Warning">Warning</MenuItem>
-                  <MenuItem value="Info">Info</MenuItem>
+                  <MenuItem value="">Tümü</MenuItem>
+                  <MenuItem value="Error">Hata</MenuItem>
+                  <MenuItem value="Warning">Uyarı</MenuItem>
+                  <MenuItem value="Info">Bilgi</MenuItem>
                 </TextField>
                 <TextField
                   select
@@ -344,7 +430,7 @@ const LogsViewer: React.FC = () => {
                   type="date"
                   fullWidth
                   size="small"
-                  label="From Date"
+                  label="Başlangıç Tarihi"
                   value={errorFilters.fromDate}
                   onChange={(e) =>
                     setErrorFilters({
@@ -355,13 +441,132 @@ const LogsViewer: React.FC = () => {
                   }
                   InputLabelProps={{ shrink: true }}
                 />
-                <Button fullWidth variant="contained" onClick={fetchErrorLogs}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  onClick={fetchErrorLogs}
+                  sx={{
+                    fontWeight: 600,
+                    color: "white",
+                    backgroundColor: "#3b82f6",
+                    "&:hover": {
+                      backgroundColor: "#2563eb",
+                    },
+                  }}
+                >
                   Filter
                 </Button>
               </Box>
 
               {loading ? (
                 <CircularProgress />
+              ) : isMobile ? (
+                <>
+                  <Stack spacing={1.5}>
+                    {errorLogs.map((log) => (
+                      <Paper
+                        key={log.id}
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          border: "1px solid",
+                          borderColor: "divider",
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 1,
+                            alignItems: "flex-start",
+                          }}
+                        >
+                          <Chip
+                            label={log.level}
+                            color={getLevelColor(log.level) as any}
+                            size="small"
+                          />
+                          <Chip
+                            label={log.category || "N/A"}
+                            size="small"
+                          />
+                        </Box>
+                        <Typography variant="body2" sx={{ mt: 1 }}>
+                          {log.message}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: "block", mt: 0.5 }}
+                        >
+                          {log.user || "System"} •{" "}
+                          {formatToTurkishTime(log.createdAt)}
+                        </Typography>
+                        {log.contextData && (
+                          <>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              onClick={() =>
+                                setExpandedRow(
+                                  expandedRow === log.id ? null : log.id
+                                )
+                              }
+                              sx={{
+                                mt: 1,
+                                borderRadius: 999,
+                                px: 1.5,
+                                color: "#fff",
+                              }}
+                              startIcon={
+                                expandedRow === log.id ? (
+                                  <ExpandLessIcon />
+                                ) : (
+                                  <ExpandMoreIcon />
+                                )
+                              }
+                            >
+                              Detay
+                            </Button>
+                            <Collapse
+                              in={expandedRow === log.id}
+                              timeout="auto"
+                              unmountOnExit
+                            >
+                              <Box
+                                sx={{
+                                  mt: 1,
+                                  p: 1,
+                                  bgcolor: "grey.50",
+                                  borderRadius: 1,
+                                }}
+                              >
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    fontFamily: "monospace",
+                                    whiteSpace: "pre-wrap",
+                                  }}
+                                >
+                                  {log.contextData}
+                                </Typography>
+                              </Box>
+                            </Collapse>
+                          </>
+                        )}
+                      </Paper>
+                    ))}
+                  </Stack>
+                  <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+                    <Pagination
+                      count={Math.ceil(totalErrors / errorFilters.pageSize)}
+                      page={errorFilters.page}
+                      onChange={(_, p) =>
+                        setErrorFilters({ ...errorFilters, page: p })
+                      }
+                    />
+                  </Box>
+                </>
               ) : (
                 <>
                   <TableContainer component={Paper}>
@@ -413,7 +618,7 @@ const LogsViewer: React.FC = () => {
                               <TableCell>{log.message}</TableCell>
                               <TableCell>{log.user || "System"}</TableCell>
                               <TableCell>
-                                {new Date(log.createdAt).toLocaleString()}
+                                {formatToTurkishTime(log.createdAt)}
                               </TableCell>
                             </TableRow>
                             <TableRow>
@@ -460,7 +665,7 @@ const LogsViewer: React.FC = () => {
             </>
           )}
 
-          {/* Audit Logs Tab */}
+          {}
           {tabValue === 1 && (
             <>
               <Box
@@ -475,7 +680,7 @@ const LogsViewer: React.FC = () => {
                   select
                   fullWidth
                   size="small"
-                  label="Action"
+                  label="İşlem"
                   value={auditFilters.actionType}
                   onChange={(e) =>
                     setAuditFilters({
@@ -485,7 +690,7 @@ const LogsViewer: React.FC = () => {
                     })
                   }
                 >
-                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="">Tümü</MenuItem>
                   <MenuItem value="CREATE">CREATE</MenuItem>
                   <MenuItem value="UPDATE">UPDATE</MenuItem>
                   <MenuItem value="DELETE">DELETE</MenuItem>
@@ -495,7 +700,7 @@ const LogsViewer: React.FC = () => {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Entity Name"
+                  label="Varlık Adı"
                   value={auditFilters.entityName}
                   onChange={(e) =>
                     setAuditFilters({
@@ -509,7 +714,7 @@ const LogsViewer: React.FC = () => {
                   type="date"
                   fullWidth
                   size="small"
-                  label="From Date"
+                  label="Başlangıç Tarihi"
                   value={auditFilters.fromDate}
                   onChange={(e) =>
                     setAuditFilters({
@@ -520,13 +725,119 @@ const LogsViewer: React.FC = () => {
                   }
                   InputLabelProps={{ shrink: true }}
                 />
-                <Button fullWidth variant="contained" onClick={fetchAuditLogs}>
-                  Filter
+                <Button
+                  fullWidth
+                  variant="contained"
+                  onClick={fetchAuditLogs}
+                  sx={{
+                    fontWeight: 600,
+                    color: "white",
+                    backgroundColor: "#3b82f6",
+                    "&:hover": {
+                      backgroundColor: "#2563eb",
+                    },
+                  }}
+                >
+                  Uygula
                 </Button>
               </Box>
 
               {loading ? (
                 <CircularProgress />
+              ) : isMobile ? (
+                <>
+                  <Stack spacing={1.5}>
+                    {auditLogs.map((log) => (
+                      <Paper
+                        key={log.id}
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          border: "1px solid",
+                          borderColor: "divider",
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 1,
+                          }}
+                        >
+                          <Chip
+                            label={log.actionType}
+                            color={getActionColor(log.actionType) as any}
+                            size="small"
+                          />
+                          <Typography variant="caption" color="text.secondary">
+                            {formatToTurkishTime(log.timestamp)}
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" sx={{ mt: 1 }}>
+                          {log.entityName} #{log.entityId || "-"}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: "block", mt: 0.25 }}
+                        >
+                          {log.performedBy} • {log.ipAddress || "IP Yok"}
+                        </Typography>
+                        <Button
+                          size="small"
+                          sx={{ mt: 1 }}
+                          startIcon={
+                            expandedRow === log.id ? (
+                              <ExpandLessIcon />
+                            ) : (
+                              <ExpandMoreIcon />
+                            )
+                          }
+                          onClick={() =>
+                            setExpandedRow(
+                              expandedRow === log.id ? null : log.id
+                            )
+                          }
+                        >
+                          Detay
+                        </Button>
+                        <Collapse
+                          in={expandedRow === log.id}
+                          timeout="auto"
+                          unmountOnExit
+                        >
+                          <Box
+                            sx={{
+                              mt: 1,
+                              p: 1,
+                              bgcolor: "grey.50",
+                              borderRadius: 1,
+                            }}
+                          >
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                fontFamily: "monospace",
+                                whiteSpace: "pre-wrap",
+                              }}
+                            >
+                              {log.details || "No details"}
+                            </Typography>
+                          </Box>
+                        </Collapse>
+                      </Paper>
+                    ))}
+                  </Stack>
+                  <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+                    <Pagination
+                      count={Math.ceil(totalAudits / auditFilters.pageSize)}
+                      page={auditFilters.page}
+                      onChange={(_, p) =>
+                        setAuditFilters({ ...auditFilters, page: p })
+                      }
+                    />
+                  </Box>
+                </>
               ) : (
                 <>
                   <TableContainer component={Paper}>
@@ -534,12 +845,12 @@ const LogsViewer: React.FC = () => {
                       <TableHead>
                         <TableRow>
                           <TableCell width={50}></TableCell>
-                          <TableCell>Action</TableCell>
-                          <TableCell>Entity</TableCell>
-                          <TableCell>Entity ID</TableCell>
-                          <TableCell>User</TableCell>
-                          <TableCell>IP Address</TableCell>
-                          <TableCell>Date</TableCell>
+                          <TableCell>İşlem</TableCell>
+                          <TableCell>Varlık</TableCell>
+                          <TableCell>Varlık ID</TableCell>
+                          <TableCell>Kullanıcı</TableCell>
+                          <TableCell>IP Adresi</TableCell>
+                          <TableCell>Tarih</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -575,7 +886,7 @@ const LogsViewer: React.FC = () => {
                               <TableCell>{log.performedBy}</TableCell>
                               <TableCell>{log.ipAddress || "N/A"}</TableCell>
                               <TableCell>
-                                {new Date(log.timestamp).toLocaleString()}
+                                {formatToTurkishTime(log.timestamp)}
                               </TableCell>
                             </TableRow>
                             <TableRow>

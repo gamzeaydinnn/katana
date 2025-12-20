@@ -1,4 +1,5 @@
-// SignalR Service tests - placeholder for future implementation
+export {};
+
 describe("SignalR Service", () => {
   test("placeholder test", () => {
     expect(true).toBe(true);

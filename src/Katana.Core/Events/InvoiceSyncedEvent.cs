@@ -1,11 +1,8 @@
-/*Yani, sistem ileride event publish–subscribe (Domain Event / Integration Event) mimarisine genişletilebilsin diye oluşturulmuş iskelet dosyalar bunlar.*/
+
 using Katana.Core.Entities;
 
 namespace Katana.Core.Events;
 
-/// <summary>
-/// Bir fatura Luca'ya başarıyla senkronize edildiğinde yayınlanacak event.
-/// </summary>
 public class InvoiceSyncedEvent
 {
     public int InvoiceId { get; }

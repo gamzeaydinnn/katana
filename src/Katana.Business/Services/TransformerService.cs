@@ -2,13 +2,14 @@ using Katana.Business.Interfaces;
 using Katana.Business.Validators;
 using Katana.Core.DTOs;
 using Katana.Core.Entities;
+using Katana.Core.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace Katana.Business.Services;
 
-/// <summary>
-/// DTOLARı domain varlıklarına dönüştürür ve iş kurallarına göre doğrular.
-/// </summary>
+
+
+
 public class TransformerService : ITransformerService
 {
     private readonly ILogger<TransformerService> _logger;
@@ -23,20 +24,21 @@ public class TransformerService : ITransformerService
         var products = new List<Product>();
 
         foreach (var dto in dtos)
-        {
-            var entity = new Product
             {
-                SKU = dto.SKU,
-                Name = dto.Name,
-                Description = dto.Description ?? string.Empty,
-                CategoryId = dto.CategoryId,
-                Price = dto.Price,
-                Stock = dto.Stock,
-                MainImageUrl = dto.MainImageUrl,
-                IsActive = dto.IsActive,
-                CreatedAt = dto.CreatedAt,
-                UpdatedAt = dto.UpdatedAt ?? DateTime.UtcNow
-            };
+                var entity = new Product
+                {
+                    SKU = dto.SKU,
+                    Name = dto.Name,
+                    Description = dto.Description ?? string.Empty,
+                    CategoryId = dto.CategoryId,
+                    Price = dto.Price,
+                    
+                    StockSnapshot = dto.Stock,
+                    MainImageUrl = dto.MainImageUrl,
+                    IsActive = dto.IsActive,
+                    CreatedAt = dto.CreatedAt ?? DateTime.UtcNow,
+                    UpdatedAt = dto.UpdatedAt ?? DateTime.UtcNow
+                };
 
             var validationErrors = ProductValidator.ValidateUpdate(new UpdateProductDto
             {
@@ -77,7 +79,7 @@ public class TransformerService : ITransformerService
                 Amount = dto.Amount,
                 TaxAmount = dto.TaxAmount,
                 TotalAmount = dto.TotalAmount,
-                Status = string.IsNullOrWhiteSpace(dto.Status) ? "DRAFT" : dto.Status,
+                Status = Enum.TryParse<InvoiceStatus>(dto.Status, true, out var status) ? status : InvoiceStatus.Draft,
                 InvoiceDate = dto.InvoiceDate,
                 DueDate = dto.DueDate,
                 Currency = string.IsNullOrWhiteSpace(dto.Currency) ? "TRY" : dto.Currency,
@@ -93,7 +95,7 @@ public class TransformerService : ITransformerService
                 ProductSKU = item.ProductSKU,
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
-                TaxRate = item.TaxRate,
+                TaxRate = item.TaxRate > 1 ? item.TaxRate / 100 : item.TaxRate, // Normalize: 18 -> 0.18
                 TaxAmount = item.TaxAmount,
                 TotalAmount = item.TotalAmount,
                 Unit = item.Unit

@@ -1,8 +1,4 @@
 namespace Katana.Core.DTOs;
-
-/// <summary>
-/// Stok bilgisi için DTO
-/// </summary>
 public class StockDto
 {
     public int Id { get; set; }
@@ -19,9 +15,6 @@ public class StockDto
     public DateTime? SyncedAt { get; set; }
 }
 
-/// <summary>
-/// Stok hareketi oluşturma/güncelleme için DTO
-/// </summary>
 public class CreateStockMovementDto
 {
     public int ProductId { get; set; }
@@ -32,9 +25,6 @@ public class CreateStockMovementDto
     public string? Reference { get; set; }
 }
 
-/// <summary>
-/// Stok özet bilgisi için DTO
-/// </summary>
 public class StockSummaryDto
 {
     public int ProductId { get; set; }

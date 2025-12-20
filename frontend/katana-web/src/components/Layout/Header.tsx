@@ -1,10 +1,10 @@
 import {
   AccountCircle,
   CheckCircle,
-  Error,
   Logout,
   Menu as MenuIcon,
   Notifications as NotificationsIcon,
+  MoreVert,
   Settings,
   Sync,
 } from "@mui/icons-material";
@@ -13,35 +13,54 @@ import {
   Avatar,
   Badge,
   Box,
+  Button,
   Chip,
   IconButton,
   Menu,
   MenuItem,
+  Stack,
   Toolbar,
-  Tooltip,
   Typography,
-  useTheme,
 } from "@mui/material";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import React, { useEffect, useState } from "react";
-import { stockAPI } from "../../services/api";
+import { useNavigate } from "react-router-dom";
+import api, { stockAPI } from "../../services/api";
 import {
-  startConnection,
-  onPendingCreated,
+  offPendingApproved,
   offPendingCreated,
   onPendingApproved,
-  offPendingApproved,
+  onPendingCreated,
+  onProductCreated,
+  offProductCreated,
+  onStockTransferCreated,
+  offStockTransferCreated,
+  onStockAdjustmentCreated,
+  offStockAdjustmentCreated,
+  onStockMovementSynced,
+  offStockMovementSynced,
+  startConnection,
+  type ProductNotification,
+  type StockMovementNotification,
+  type SyncNotification,
 } from "../../services/signalr";
 
 interface HeaderProps {
   onMenuClick: () => void;
-  sidebarOpen: boolean;
   currentBranchName?: string | null;
   onOpenBranchSelector?: () => void;
-  mode?: "light" | "dark";
-  onToggleMode?: () => void;
 }
 
-type NotificationStatus = "pending" | "approved" | "rejected";
+type NotificationStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "product"
+  | "transfer"
+  | "adjustment"
+  | "synced"
+  | "failed";
 
 interface NotificationItem {
   id: string;
@@ -50,17 +69,26 @@ interface NotificationItem {
   status: NotificationStatus;
   createdAt: string;
   referenceId?: number;
+  notificationType?: string;
 }
 
 const MAX_NOTIFICATIONS = 20;
 
 const notificationStatusMeta: Record<
   NotificationStatus,
-  { label: string; color: "warning" | "success" | "error" }
+  {
+    label: string;
+    color: "warning" | "success" | "error" | "info" | "primary" | "secondary";
+  }
 > = {
   pending: { label: "Bekliyor", color: "warning" },
   approved: { label: "Onaylandı", color: "success" },
   rejected: { label: "Reddedildi", color: "error" },
+  product: { label: "Yeni Ürün", color: "info" },
+  transfer: { label: "Transfer", color: "primary" },
+  adjustment: { label: "Düzeltme", color: "secondary" },
+  synced: { label: "Aktarıldı", color: "success" },
+  failed: { label: "Hata", color: "error" },
 };
 
 const formatRelativeTime = (value?: string) => {
@@ -72,10 +100,8 @@ const formatRelativeTime = (value?: string) => {
 
   const diff = Date.now() - date.getTime();
   if (diff < 60_000) return "Az önce";
-  if (diff < 3_600_000)
-    return `${Math.floor(diff / 60_000)} dk önce`;
-  if (diff < 86_400_000)
-    return `${Math.floor(diff / 3_600_000)} sa önce`;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} dk önce`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} sa önce`;
 
   return date.toLocaleString("tr-TR", {
     day: "2-digit",
@@ -87,65 +113,88 @@ const formatRelativeTime = (value?: string) => {
 
 const Header: React.FC<HeaderProps> = ({
   onMenuClick,
-  sidebarOpen,
   currentBranchName,
   onOpenBranchSelector,
-  mode = "light",
-  onToggleMode,
 }) => {
-  const theme = useTheme();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [notificationAnchor, setNotificationAnchor] =
     React.useState<null | HTMLElement>(null);
-  const [backendStatus, setBackendStatus] = useState<
-    "connected" | "disconnected" | "checking"
-  >("checking");
+  const [mobileActionsAnchor, setMobileActionsAnchor] =
+    React.useState<null | HTMLElement>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [signalrStatus, setSignalrStatus] = useState<
-    "connecting" | "connected" | "error"
-  >("connecting");
-  const [signalrError, setSignalrError] = useState<string | null>(null);
 
-  // Backend health check
   useEffect(() => {
     const checkBackendHealth = async () => {
       setIsChecking(true);
-      setBackendStatus("checking");
       try {
         await stockAPI.getHealthStatus();
-        setBackendStatus("connected");
       } catch (error) {
-        setBackendStatus("disconnected");
+        // Handle error silently
       } finally {
         setIsChecking(false);
       }
     };
 
     checkBackendHealth();
-    const interval = setInterval(checkBackendHealth, 60000); // Check every minute
+    const interval = setInterval(checkBackendHealth, 60000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     let isMounted = true;
 
-    setSignalrStatus("connecting");
+    const loadInitialNotifications = async () => {
+      try {
+        const response = await api.get<{ pendingAdjustments: any[] }>(
+          "/adminpanel/pending-adjustments"
+        );
+        if (isMounted && response.data?.pendingAdjustments) {
+          const pending = response.data.pendingAdjustments.slice(
+            0,
+            MAX_NOTIFICATIONS
+          );
+          const notifications: NotificationItem[] = pending.map(
+            (item: any) => ({
+              id: `pending-${item.id}`,
+              referenceId: item.id,
+              title: item.sku
+                ? `Bekleyen: ${item.sku}`
+                : `Bekleyen: #${item.id}`,
+              description: item.quantity ? `Adet: ${item.quantity}` : undefined,
+              status: "pending" as const,
+              createdAt: item.requestedAt || new Date().toISOString(),
+            })
+          );
+          setNotifications(notifications);
+          console.log(
+            `[Header] ✅ Loaded ${notifications.length} initial notifications`
+          );
+        }
+      } catch (err: any) {
+        console.warn("[Header] ⚠ Notification loading warning:", {
+          message: err?.message,
+          status: err?.response?.status,
+        });
+
+        setNotifications([]);
+      }
+    };
+
+    loadInitialNotifications();
+
     startConnection()
       .then(() => {
         if (isMounted) {
-          setSignalrStatus("connected");
-          setSignalrError(null);
+          console.log("[Header] ✅ SignalR connected successfully");
         }
       })
-      .catch((err) => {
-        console.warn("SignalR connection failed", err);
-        if (isMounted) {
-          setSignalrStatus("error");
-          setSignalrError(
-            err?.message || "SignalR bağlantısı kurulamadı"
-          );
-        }
+      .catch((err: any) => {
+        console.warn("[Header] ⚠️ SignalR connection failed:", {
+          message: err?.message,
+          statusCode: err?.statusCode,
+          errorType: err?.constructor?.name,
+        });
       });
 
     const createdHandler = (payload: any) => {
@@ -167,10 +216,7 @@ const Header: React.FC<HeaderProps> = ({
           : `Yeni bekleyen: #${pending.id}`;
 
       const descriptionParts: string[] = [];
-      if (
-        pending.quantity !== undefined &&
-        pending.quantity !== null
-      ) {
+      if (pending.quantity !== undefined && pending.quantity !== null) {
         descriptionParts.push(`Adet: ${pending.quantity}`);
       }
       if (pending.requestedBy) {
@@ -196,8 +242,7 @@ const Header: React.FC<HeaderProps> = ({
     };
 
     const approvedHandler = (payload: any) => {
-      const pendingId =
-        payload?.pendingId ?? payload?.id ?? payload;
+      const pendingId = payload?.pendingId ?? payload?.id ?? payload;
       if (!pendingId) return;
 
       const idNumber =
@@ -242,9 +287,7 @@ const Header: React.FC<HeaderProps> = ({
           id: `approved-${idNumber}-${Date.now()}`,
           referenceId: idNumber,
           title: `Onaylandı: #${idNumber}`,
-          description: approvedBy
-            ? `Onaylayan: ${approvedBy}`
-            : undefined,
+          description: approvedBy ? `Onaylayan: ${approvedBy}` : undefined,
           status: "approved" as const,
           createdAt: approvedAt,
         };
@@ -256,14 +299,102 @@ const Header: React.FC<HeaderProps> = ({
     onPendingCreated(createdHandler);
     onPendingApproved(approvedHandler);
 
+    // Yeni ürün bildirimi handler'ı
+    const productCreatedHandler = (payload: ProductNotification) => {
+      if (!payload?.productId) return;
+
+      const title = payload.sku
+        ? `Yeni ürün: ${payload.sku}`
+        : `Yeni ürün: ${payload.name || "#" + payload.productId}`;
+
+      setNotifications((prev) => {
+        const next: NotificationItem = {
+          id: `product-${payload.productId}-${Date.now()}`,
+          referenceId: payload.productId,
+          title,
+          description:
+            payload.source === "Katana"
+              ? "Katana'dan senkronize edildi"
+              : "Manuel oluşturuldu",
+          status: "product" as const,
+          createdAt: payload.createdAt || new Date().toISOString(),
+          notificationType: "ProductCreated",
+        };
+        return [next, ...prev].slice(0, MAX_NOTIFICATIONS);
+      });
+    };
+
+    // Stok transfer bildirimi handler'ı
+    const transferCreatedHandler = (payload: StockMovementNotification) => {
+      if (!payload?.documentNo) return;
+
+      setNotifications((prev) => {
+        const next: NotificationItem = {
+          id: `transfer-${payload.transferId || payload.id}-${Date.now()}`,
+          referenceId: payload.transferId || payload.id,
+          title: `Yeni transfer: ${payload.documentNo}`,
+          description: `Miktar: ${payload.quantity}`,
+          status: "transfer" as const,
+          createdAt: payload.createdAt || new Date().toISOString(),
+          notificationType: "StockTransferCreated",
+        };
+        return [next, ...prev].slice(0, MAX_NOTIFICATIONS);
+      });
+    };
+
+    // Stok düzeltme bildirimi handler'ı
+    const adjustmentCreatedHandler = (payload: StockMovementNotification) => {
+      if (!payload?.documentNo) return;
+
+      setNotifications((prev) => {
+        const next: NotificationItem = {
+          id: `adjustment-${payload.adjustmentId || payload.id}-${Date.now()}`,
+          referenceId: payload.adjustmentId || payload.id,
+          title: `Yeni düzeltme: ${payload.documentNo}`,
+          description: `Miktar: ${payload.quantity}`,
+          status: "adjustment" as const,
+          createdAt: payload.createdAt || new Date().toISOString(),
+          notificationType: "StockAdjustmentCreated",
+        };
+        return [next, ...prev].slice(0, MAX_NOTIFICATIONS);
+      });
+    };
+
+    // Sync başarılı bildirimi handler'ı
+    const syncedHandler = (payload: SyncNotification) => {
+      if (!payload?.documentNo) return;
+
+      setNotifications((prev) => {
+        const next: NotificationItem = {
+          id: `synced-${payload.movementId}-${Date.now()}`,
+          referenceId: payload.movementId,
+          title: `Aktarıldı: ${payload.documentNo}`,
+          description: `Luca #${payload.lucaDocumentId}`,
+          status: "synced" as const,
+          createdAt: payload.syncedAt || new Date().toISOString(),
+          notificationType: "StockMovementSynced",
+        };
+        return [next, ...prev].slice(0, MAX_NOTIFICATIONS);
+      });
+    };
+
+    onProductCreated(productCreatedHandler);
+    onStockTransferCreated(transferCreatedHandler);
+    onStockAdjustmentCreated(adjustmentCreatedHandler);
+    onStockMovementSynced(syncedHandler);
+
     return () => {
       isMounted = false;
       offPendingCreated(createdHandler);
       offPendingApproved(approvedHandler);
+      offProductCreated(productCreatedHandler);
+      offStockTransferCreated(transferCreatedHandler);
+      offStockAdjustmentCreated(adjustmentCreatedHandler);
+      offStockMovementSynced(syncedHandler);
     };
   }, []);
 
-  // small pulse animation for backend status when connected (defined inline in sx below)
+  const navigate = useNavigate();
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -281,340 +412,443 @@ const Header: React.FC<HeaderProps> = ({
     setNotificationAnchor(null);
   };
 
+  const handleMobileActionsOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setMobileActionsAnchor(event.currentTarget);
+  };
+
+  const handleMobileActionsClose = () => {
+    setMobileActionsAnchor(null);
+  };
+
+  const handleProfileClick = () => {
+    handleMenuClose();
+    navigate("/profile");
+  };
+
+  const handleSettingsClick = () => {
+    handleMenuClose();
+    navigate("/settings");
+  };
+
   const handleLogout = () => {
+    handleMenuClose();
     localStorage.removeItem("authToken");
     window.location.href = "/login";
   };
 
-  const pendingCount = notifications.reduce(
-    (count, item) => (item.status === "pending" ? count + 1 : count),
-    0
-  );
+  // Okunmamış bildirimleri say (pending, product, transfer, adjustment)
+  const pendingCount = notifications.reduce((count, item) => {
+    const unreadStatuses = [
+      "pending",
+      "product",
+      "transfer",
+      "adjustment",
+      "failed",
+    ];
+    return unreadStatuses.includes(item.status) ? count + 1 : count;
+  }, 0);
 
-  const notificationTooltip =
-    signalrStatus === "connected"
-      ? "Bildirimler (canlı)"
-      : signalrStatus === "error"
-      ? `Bildirimler (SignalR hatası${
-          signalrError ? `: ${signalrError}` : ""
-        })`
-      : "Bildirimler (bağlanıyor...)";
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  return (
-    <AppBar
-      position="fixed"
-      sx={{
-        zIndex: (theme) => theme.zIndex.drawer + 1,
-        backdropFilter: "blur(10px)",
-        background:
-          "linear-gradient(90deg, #2b6ef6 0%, #4f86ff 50%, #79a8ff 100%)",
-        backgroundSize: "300% 300%",
-        animation: "headerGradient 10s ease-in-out infinite",
-        "@keyframes headerGradient": {
-          "0%": { backgroundPosition: "0% 50%" },
-          "50%": { backgroundPosition: "100% 50%" },
-          "100%": { backgroundPosition: "0% 50%" },
-        },
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
-        boxShadow: "0 8px 32px rgba(16,24,40,0.14)",
-        transition: "all 0.3s ease",
-      }}
-    >
-      <Toolbar sx={{ minHeight: 64 }}>
+  const ACTION_SIZE = 44;
+  const ACTION_RADIUS = 10;
+  const ACTION_BORDER = "1.5px solid rgba(79, 134, 255, 0.3)";
+
+  const baseIconButtonSx = {
+    backgroundColor: "#fff",
+    border: ACTION_BORDER,
+    borderRadius: `${ACTION_RADIUS}px`,
+    width: ACTION_SIZE,
+    height: ACTION_SIZE,
+    color: "#4F86FF",
+    flexShrink: 0,
+    "&:hover": {
+      backgroundColor: "rgba(79, 134, 255, 0.05)",
+      borderColor: "#4F86FF",
+    },
+  } as const;
+
+  const DesktopHeaderContent = () => (
+    <>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1.25,
+          minWidth: 0,
+          flexShrink: 0,
+        }}
+      >
         <IconButton
           color="inherit"
           aria-label="open drawer"
           onClick={onMenuClick}
           edge="start"
           sx={{
-            mr: 2,
-            color: "#fff",
+            color: "#1e40af",
             transition: "transform 0.2s ease",
+            flexShrink: 0,
+            p: 1,
+            width: ACTION_SIZE,
+            height: ACTION_SIZE,
             "&:hover": {
               transform: "scale(1.08)",
-              backgroundColor: "rgba(255,255,255,0.06)",
+              backgroundColor: "rgba(79, 134, 255, 0.1)",
             },
           }}
         >
-          <MenuIcon />
+          <MenuIcon sx={{ fontSize: 26 }} />
         </IconButton>
 
+        <Box
+          component="img"
+          src="/logoo.png"
+          alt="BeforMet Metal Logo"
+          sx={{
+            height: 44,
+            width: "auto",
+            objectFit: "contain",
+            filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.15))",
+            flexShrink: 0,
+          }}
+        />
         <Typography
           variant="h6"
-          noWrap
           component="div"
           sx={{
-            flexGrow: 1,
-            fontWeight: 800,
-            letterSpacing: "-0.02em",
-            color: "#fff",
-            textShadow: "0 2px 10px rgba(0,0,0,0.18)",
+            fontFamily: '"Poppins", "Inter", sans-serif',
+            fontWeight: 600,
+            letterSpacing: "-0.5px",
+            color: "#1e40af",
+            textShadow: "0 1px 2px rgba(0,0,0,0.05)",
+            fontSize: "1.15rem",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            minWidth: 0,
           }}
         >
-          Beformet Metal ERP
+          Beformet Metal
         </Typography>
+      </Box>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          {/* Theme toggle */}
-          <Tooltip title={mode === "dark" ? "Açık tema" : "Koyu tema"}>
-            <IconButton
-              size="small"
-              onClick={onToggleMode}
-              sx={{
-                color: theme.palette.primary.main,
-                transition: "all 0.2s ease",
-                "&:hover": {
-                  transform: "scale(1.1)",
-                  backgroundColor: theme.palette.action.hover,
-                },
-              }}
-            >
-              {mode === "dark" ? (
-                // Light mode icon
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.8 1.42-1.42zM1 13h3v-2H1v2zm10-9h-2v3h2V4zm7.04 1.46l-1.41-1.41-1.8 1.79 1.42 1.42 1.79-1.8zM20 11v2h3v-2h-3zm-9 9h2v-3h-2v3zm6.24-1.84l1.8 1.79 1.41-1.41-1.79-1.8-1.42 1.42zM4.96 18.54l1.41 1.41 1.8-1.79-1.42-1.42-1.79 1.8zM12 8a4 4 0 100 8 4 4 0 000-8z"
-                    fill="currentColor"
-                  />
-                </svg>
-              ) : (
-                // Dark mode icon
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M20.742 13.045A8.001 8.001 0 0110.955 3.258 9.003 9.003 0 1020.742 13.045z"
-                    fill="currentColor"
-                  />
-                </svg>
-              )}
-            </IconButton>
-          </Tooltip>
+      <Box sx={{ flex: 1, minWidth: 0 }} />
 
-          {/* Backend Status */}
-          <Chip
-            icon={backendStatus === "connected" ? <CheckCircle /> : <Error />}
-            label={
-              backendStatus === "connected" ? "API Bağlı" : "API Bağlantısı Yok"
-            }
-            color={backendStatus === "connected" ? "success" : "error"}
-            size="small"
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          flexShrink: 0,
+          minWidth: 0,
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1}
+          sx={{ flexShrink: 0 }}
+        >
+          <Button
             variant="outlined"
+            startIcon={<CheckCircle />}
             sx={{
-              borderRadius: 2,
+              borderColor: "#10B981",
+              color: "#10B981",
+              backgroundColor: "#fff",
+              borderRadius: "12px",
+              textTransform: "none",
               fontWeight: 600,
-              transition: "all 0.22s ease",
-              ...(backendStatus === "connected"
-                ? {
-                    animation: "pulse 2400ms ease-in-out infinite",
-                    "@keyframes pulse": {
-                      "0%": {
-                        transform: "scale(1)",
-                        boxShadow: "0 0 0 0 rgba(79,110,247,0.35)",
-                      },
-                      "70%": {
-                        transform: "scale(1.03)",
-                        boxShadow: "0 10px 30px 6px rgba(79,110,247,0.08)",
-                      },
-                      "100%": {
-                        transform: "scale(1)",
-                        boxShadow: "0 0 0 0 rgba(79,110,247,0)",
-                      },
-                    },
-                  }
-                : {}),
-              "&:hover": { transform: "scale(1.05)" },
+              px: 2.25,
+              height: ACTION_SIZE,
+              minWidth: 0,
+              "&:hover": {
+                borderColor: "#10B981",
+                backgroundColor: "rgba(16, 185, 129, 0.05)",
+              },
             }}
-          />
+          >
+            API Bağlı
+          </Button>
 
-          {/* Branch display + selector */}
-          {onOpenBranchSelector && (
-            <Chip
-              label={currentBranchName ? String(currentBranchName) : "Şube Seç"}
-              onClick={onOpenBranchSelector}
-              size="small"
-              variant="outlined"
-              sx={{
-                ml: 1,
-                cursor: "pointer",
-                borderRadius: 2,
-                fontWeight: 600,
-                transition: "all 0.2s ease",
-                "&:hover": {
-                  transform: "scale(1.05)",
-                  backgroundColor: theme.palette.action.hover,
-                },
-              }}
-            />
-          )}
+          <Button
+            variant="outlined"
+            onClick={onOpenBranchSelector}
+            sx={{
+              borderColor: "#3B82F6",
+              color: "#3B82F6",
+              backgroundColor: "#fff",
+              borderRadius: "12px",
+              textTransform: "none",
+              fontWeight: 600,
+              px: 2.25,
+              height: ACTION_SIZE,
+              minWidth: 0,
+              "&:hover": {
+                borderColor: "#3B82F6",
+                backgroundColor: "rgba(59, 130, 246, 0.05)",
+              },
+            }}
+          >
+            {currentBranchName || "Şube Seç"}
+          </Button>
 
-          {/* Sync Status */}
-          <Tooltip title="Son senkronizasyon: 10 dakika önce">
-            <IconButton
-              size="small"
-              sx={{
-                color: theme.palette.success.main,
-                transition: "all 0.22s ease",
-                "&:hover": {
-                  transform: "scale(1.12)",
-                  backgroundColor: theme.palette.action.hover,
+          <IconButton
+            sx={{
+              ...baseIconButtonSx,
+              color: "#10B981",
+              ...(isChecking && {
+                animation: "spin 1s linear infinite",
+                "@keyframes spin": {
+                  "0%": { transform: "rotate(0deg)" },
+                  "100%": { transform: "rotate(360deg)" },
                 },
-                ...(isChecking
-                  ? {
-                      animation: "spin 1000ms linear infinite",
-                      "@keyframes spin": {
-                        "0%": { transform: "rotate(0deg)" },
-                        "100%": { transform: "rotate(360deg)" },
-                      },
-                    }
-                  : {}),
-              }}
-            >
-              <Sync />
-            </IconButton>
-          </Tooltip>
+              }),
+            }}
+          >
+            <Sync sx={{ fontSize: 20 }} />
+          </IconButton>
 
-          {/* Notifications */}
-          <Tooltip title={notificationTooltip}>
-            <IconButton
-              size="large"
-              onClick={handleNotificationOpen}
+          <IconButton onClick={handleNotificationOpen} sx={baseIconButtonSx}>
+            <Badge
+              badgeContent={pendingCount}
+              color="error"
+              max={99}
               sx={{
-                color:
-                  signalrStatus === "error"
-                    ? theme.palette.error.main
-                    : theme.palette.primary.main,
-                transition: "all 0.22s ease",
-                "&:hover": {
-                  transform: "scale(1.08)",
-                  backgroundColor: theme.palette.action.hover,
-                },
-                "@keyframes bounce": {
-                  "0%": { transform: "translateY(0)" },
-                  "30%": { transform: "translateY(-6px)" },
-                  "60%": { transform: "translateY(0)" },
-                  "100%": { transform: "translateY(0)" },
+                "& .MuiBadge-badge": {
+                  backgroundColor: "#ef4444",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "9px",
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: "8px",
+                  border: "2px solid #fff",
                 },
               }}
             >
-              <Badge
-                badgeContent={pendingCount}
-                color={pendingCount > 0 ? "error" : "default"}
-                showZero
-                sx={{
-                  ...(pendingCount > 0
-                    ? {
-                        "& .MuiBadge-badge": {
-                          transformOrigin: "center top",
-                          animation: "bounce 1600ms ease-in-out infinite",
-                        },
-                      }
-                    : {}),
-                }}
-              >
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-          </Tooltip>
+              <NotificationsIcon sx={{ fontSize: 20 }} />
+            </Badge>
+          </IconButton>
 
-          {/* Profile Menu */}
-          <Tooltip title="Profil">
-            <IconButton
-              size="large"
-              edge="end"
-              onClick={handleProfileMenuOpen}
+          <IconButton
+            onClick={handleProfileMenuOpen}
+            sx={{ ...baseIconButtonSx, p: 0 }}
+          >
+            <Avatar
               sx={{
-                transition: "all 0.2s ease",
-                "&:hover": {
-                  transform: "scale(1.1)",
-                  backgroundColor: theme.palette.action.hover,
-                },
+                width: 28,
+                height: 28,
+                backgroundColor: "#4F86FF",
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: "14px",
               }}
             >
-              <Avatar
-                sx={{
-                  width: 36,
-                  height: 36,
-                  border: `2px solid ${theme.palette.primary.main}`,
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    borderColor: theme.palette.secondary.main,
-                    boxShadow: `0 0 12px ${theme.palette.primary.main}40`,
-                  },
-                }}
-              >
-                A
-              </Avatar>
-            </IconButton>
-          </Tooltip>
-        </Box>
+              A
+            </Avatar>
+          </IconButton>
+        </Stack>
+      </Box>
+    </>
+  );
 
-        {/* Profile Menu */}
+  const MobileHeaderContent = () => (
+    <>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          minWidth: 0,
+          flexShrink: 0,
+        }}
+      >
+        <IconButton
+          color="inherit"
+          aria-label="open drawer"
+          onClick={onMenuClick}
+          edge="start"
+          sx={{
+            color: "#1e40af",
+            transition: "transform 0.2s ease",
+            flexShrink: 0,
+            p: 0.75,
+            width: ACTION_SIZE,
+            height: ACTION_SIZE,
+            "&:hover": {
+              transform: "scale(1.08)",
+              backgroundColor: "rgba(79, 134, 255, 0.1)",
+            },
+          }}
+        >
+          <MenuIcon sx={{ fontSize: 24 }} />
+        </IconButton>
+
+        <Box
+          component="img"
+          src="/logoo.png"
+          alt="BeforMet Metal Logo"
+          sx={{
+            height: 36,
+            width: "auto",
+            objectFit: "contain",
+            filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.12))",
+            flexShrink: 0,
+          }}
+        />
+      </Box>
+
+      <Box sx={{ flex: 1, minWidth: 0 }} />
+
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={0.75}
+        sx={{ flexShrink: 0 }}
+      >
+        <IconButton
+          sx={{
+            ...baseIconButtonSx,
+            color: "#10B981",
+            ...(isChecking && {
+              animation: "spin 1s linear infinite",
+              "@keyframes spin": {
+                "0%": { transform: "rotate(0deg)" },
+                "100%": { transform: "rotate(360deg)" },
+              },
+            }),
+          }}
+        >
+          <Sync sx={{ fontSize: 20 }} />
+        </IconButton>
+
+        <IconButton onClick={handleNotificationOpen} sx={baseIconButtonSx}>
+          <Badge
+            badgeContent={pendingCount}
+            color="error"
+            max={99}
+            sx={{
+              "& .MuiBadge-badge": {
+                backgroundColor: "#ef4444",
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: "9px",
+                minWidth: 16,
+                height: 16,
+                borderRadius: "8px",
+                border: "2px solid #fff",
+              },
+            }}
+          >
+            <NotificationsIcon sx={{ fontSize: 20 }} />
+          </Badge>
+        </IconButton>
+
+        <IconButton
+          onClick={handleMobileActionsOpen}
+          sx={baseIconButtonSx}
+          aria-label="more-actions"
+        >
+          <MoreVert sx={{ fontSize: 22 }} />
+        </IconButton>
+
+        <IconButton
+          onClick={handleProfileMenuOpen}
+          sx={{ ...baseIconButtonSx, p: 0 }}
+        >
+          <Avatar
+            sx={{
+              width: 28,
+              height: 28,
+              backgroundColor: "#4F86FF",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: "14px",
+            }}
+          >
+            A
+          </Avatar>
+        </IconButton>
+      </Stack>
+    </>
+  );
+
+  return (
+    <AppBar
+      position="fixed"
+      sx={{
+        zIndex: (theme) => theme.zIndex.drawer + 1,
+        background: "linear-gradient(135deg, #E8F0FF 0%, #F0F4FF 100%)",
+        borderBottom: "none",
+        boxShadow: "0 2px 8px rgba(43, 110, 246, 0.06)",
+        transition: "all 0.3s ease",
+      }}
+    >
+      <Toolbar
+        sx={{
+          minHeight: 64,
+          px: 3,
+          gap: 1.5,
+          flexWrap: "nowrap",
+          alignItems: "center",
+          width: "100%",
+          maxWidth: "100%",
+          boxSizing: "border-box",
+          overflow: "visible",
+        }}
+      >
+        {isMobile ? <MobileHeaderContent /> : <DesktopHeaderContent />}
+
         <Menu
           anchorEl={anchorEl}
           open={Boolean(anchorEl)}
           onClose={handleMenuClose}
           onClick={handleMenuClose}
-          PaperProps={{
-            sx: {
-              backdropFilter: "blur(20px)",
-              background:
-                theme.palette.mode === "dark"
-                  ? "rgba(15,23,42,0.95)"
-                  : "rgba(255,255,255,0.95)",
-              border:
-                theme.palette.mode === "dark"
-                  ? "1px solid rgba(255,255,255,0.1)"
-                  : "1px solid rgba(0,0,0,0.05)",
-              borderRadius: 3,
-              boxShadow:
-                theme.palette.mode === "dark"
-                  ? "0 20px 40px rgba(0,0,0,0.4)"
-                  : "0 20px 40px rgba(0,0,0,0.1)",
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+          transformOrigin={{ vertical: "top", horizontal: "right" }}
+          slotProps={{
+            paper: {
+              sx: {
+                background: "rgba(255,255,255,0.98)",
+                border: "1px solid rgba(0,0,0,0.05)",
+                borderRadius: 3,
+                boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+                mt: 1,
+              },
             },
           }}
         >
           <MenuItem
-            onClick={handleMenuClose}
+            onClick={handleProfileClick}
             sx={{
               borderRadius: 2,
               mx: 1,
               my: 0.5,
               transition: "all 0.2s ease",
               "&:hover": {
-                backgroundColor: theme.palette.action.hover,
+                backgroundColor: "rgba(79, 134, 255, 0.08)",
                 transform: "translateX(4px)",
               },
             }}
           >
-            <AccountCircle sx={{ mr: 2, color: theme.palette.primary.main }} />{" "}
-            Profil
+            <AccountCircle sx={{ mr: 2, color: "#4F86FF" }} /> Profil
           </MenuItem>
           <MenuItem
-            onClick={handleMenuClose}
+            onClick={handleSettingsClick}
             sx={{
               borderRadius: 2,
               mx: 1,
               my: 0.5,
               transition: "all 0.2s ease",
               "&:hover": {
-                backgroundColor: theme.palette.action.hover,
+                backgroundColor: "rgba(79, 134, 255, 0.08)",
                 transform: "translateX(4px)",
               },
             }}
           >
-            <Settings sx={{ mr: 2, color: theme.palette.primary.main }} />{" "}
-            Ayarlar
+            <Settings sx={{ mr: 2, color: "#4F86FF" }} /> Ayarlar
           </MenuItem>
           <MenuItem
             onClick={handleLogout}
@@ -624,39 +858,29 @@ const Header: React.FC<HeaderProps> = ({
               my: 0.5,
               transition: "all 0.2s ease",
               "&:hover": {
-                backgroundColor: theme.palette.action.hover,
+                backgroundColor: "rgba(79, 134, 255, 0.08)",
                 transform: "translateX(4px)",
               },
             }}
           >
-            <Logout sx={{ mr: 2, color: theme.palette.primary.main }} /> Çıkış
-            Yap
+            <Logout sx={{ mr: 2, color: "#4F86FF" }} /> Çıkış Yap
           </MenuItem>
         </Menu>
 
-        {/* Notification Menu */}
         <Menu
           anchorEl={notificationAnchor}
           open={Boolean(notificationAnchor)}
           onClose={handleNotificationClose}
           onClick={handleNotificationClose}
-          PaperProps={{
-            sx: {
-              backdropFilter: "blur(20px)",
-              background:
-                theme.palette.mode === "dark"
-                  ? "rgba(15,23,42,0.95)"
-                  : "rgba(255,255,255,0.95)",
-              border:
-                theme.palette.mode === "dark"
-                  ? "1px solid rgba(255,255,255,0.1)"
-                  : "1px solid rgba(0,0,0,0.05)",
-              borderRadius: 3,
-              boxShadow:
-                theme.palette.mode === "dark"
-                  ? "0 20px 40px rgba(0,0,0,0.4)"
-                  : "0 20px 40px rgba(0,0,0,0.1)",
-              minWidth: 280,
+          slotProps={{
+            paper: {
+              sx: {
+                background: "rgba(255,255,255,0.98)",
+                border: "1px solid rgba(0,0,0,0.05)",
+                borderRadius: 3,
+                boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+                minWidth: 280,
+              },
             },
           }}
         >
@@ -682,8 +906,7 @@ const Header: React.FC<HeaderProps> = ({
             </MenuItem>
           ) : (
             notifications.map((notification) => {
-              const statusMeta =
-                notificationStatusMeta[notification.status];
+              const statusMeta = notificationStatusMeta[notification.status];
               return (
                 <MenuItem
                   key={notification.id}
@@ -694,10 +917,10 @@ const Header: React.FC<HeaderProps> = ({
                     transition: "all 0.2s ease",
                     backgroundColor:
                       notification.status === "pending"
-                        ? theme.palette.action.hover
+                        ? "rgba(79, 134, 255, 0.05)"
                         : "transparent",
                     "&:hover": {
-                      backgroundColor: theme.palette.action.hover,
+                      backgroundColor: "rgba(79, 134, 255, 0.08)",
                       transform: "translateX(4px)",
                     },
                   }}
@@ -734,14 +957,59 @@ const Header: React.FC<HeaderProps> = ({
                       </Typography>
                     )}
                     <Typography variant="caption" color="text.secondary">
-                      {formatRelativeTime(notification.createdAt) ||
-                        "—"}
+                      {formatRelativeTime(notification.createdAt) || "—"}
                     </Typography>
                   </Box>
                 </MenuItem>
               );
             })
           )}
+        </Menu>
+
+        <Menu
+          anchorEl={mobileActionsAnchor}
+          open={Boolean(mobileActionsAnchor)}
+          onClose={handleMobileActionsClose}
+          onClick={handleMobileActionsClose}
+          slotProps={{
+            paper: {
+              sx: {
+                background: "rgba(255,255,255,0.98)",
+                border: "1px solid rgba(0,0,0,0.05)",
+                borderRadius: 3,
+                boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+                minWidth: 200,
+              },
+            },
+          }}
+        >
+          <MenuItem
+            disabled
+            sx={{
+              borderRadius: 2,
+              mx: 1,
+              my: 0.5,
+              opacity: 0.9,
+              "&:hover": { backgroundColor: "transparent" },
+            }}
+          >
+            <CheckCircle sx={{ mr: 2, color: "#10B981" }} /> API Bağlı
+          </MenuItem>
+          <MenuItem
+            onClick={onOpenBranchSelector}
+            sx={{
+              borderRadius: 2,
+              mx: 1,
+              my: 0.5,
+              "&:hover": {
+                backgroundColor: "rgba(59, 130, 246, 0.08)",
+              },
+            }}
+          >
+            <Typography sx={{ fontWeight: 600, color: "#3B82F6" }}>
+              Şube Seç
+            </Typography>
+          </MenuItem>
         </Menu>
       </Toolbar>
     </AppBar>

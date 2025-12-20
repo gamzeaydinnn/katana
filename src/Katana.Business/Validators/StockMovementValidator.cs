@@ -2,14 +2,14 @@ using Katana.Core.DTOs;
 
 namespace Katana.Business.Validators;
 
-/// <summary>
-/// Stok hareketi doğrulama sınıfı
-/// </summary>
+
+
+
 public static class StockMovementValidator
 {
-    /// <summary>
-    /// Stok hareketi oluşturma DTO'sunu doğrular
-    /// </summary>
+    
+    
+    
     public static (bool IsValid, List<string> Errors) Validate(CreateStockMovementDto dto)
     {
         var errors = new List<string>();
