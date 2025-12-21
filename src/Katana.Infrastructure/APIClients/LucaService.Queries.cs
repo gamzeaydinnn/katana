@@ -802,19 +802,39 @@ public partial class LucaService
             
             var result = await CreateWarehouseTransferAsync(transferRequest);
             
+            // Response'u logla
+            var responseText = result.GetRawText();
+            _logger.LogInformation("🔍 Depo Transfer Response: {Response}", responseText);
+            
             // Response'dan ID çıkar
             if (result.TryGetProperty("id", out var idProp) || result.TryGetProperty("ssBelgeId", out idProp))
             {
-                return idProp.GetInt64();
+                var id = idProp.GetInt64();
+                _logger.LogInformation("✅ Depo Transfer ID bulundu: {Id}", id);
+                return id;
             }
             
             // Alternatif: data.id
             if (result.TryGetProperty("data", out var dataProp) && dataProp.TryGetProperty("id", out idProp))
             {
-                return idProp.GetInt64();
+                var id = idProp.GetInt64();
+                _logger.LogInformation("✅ Depo Transfer ID (data.id) bulundu: {Id}", id);
+                return id;
             }
             
-            _logger.LogWarning("Depo transfer response'dan ID çıkarılamadı: {Response}", result.GetRawText());
+            // success ve message kontrol et
+            if (result.TryGetProperty("success", out var successProp))
+            {
+                var success = successProp.GetBoolean();
+                _logger.LogWarning("⚠️ Depo Transfer success: {Success}", success);
+                
+                if (result.TryGetProperty("message", out var messageProp))
+                {
+                    _logger.LogWarning("⚠️ Depo Transfer message: {Message}", messageProp.GetString());
+                }
+            }
+            
+            _logger.LogWarning("❌ Depo transfer response'dan ID çıkarılamadı: {Response}", responseText);
             return 0;
         }
         catch (Exception ex)
@@ -860,19 +880,39 @@ public partial class LucaService
             
             var result = await CreateOtherStockMovementAsync(dshRequest);
             
+            // Response'u logla
+            var responseText = result.GetRawText();
+            _logger.LogInformation("🔍 DSH Stok Fişi Response: {Response}", responseText);
+            
             // Response'dan ID çıkar
             if (result.TryGetProperty("id", out var idProp) || result.TryGetProperty("ssDshBaslikId", out idProp))
             {
-                return idProp.GetInt64();
+                var id = idProp.GetInt64();
+                _logger.LogInformation("✅ DSH Stok Fişi ID bulundu: {Id}", id);
+                return id;
             }
             
             // Alternatif: data.id
             if (result.TryGetProperty("data", out var dataProp) && dataProp.TryGetProperty("id", out idProp))
             {
-                return idProp.GetInt64();
+                var id = idProp.GetInt64();
+                _logger.LogInformation("✅ DSH Stok Fişi ID (data.id) bulundu: {Id}", id);
+                return id;
             }
             
-            _logger.LogWarning("DSH stok fişi response'dan ID çıkarılamadı: {Response}", result.GetRawText());
+            // success ve message kontrol et
+            if (result.TryGetProperty("success", out var successProp))
+            {
+                var success = successProp.GetBoolean();
+                _logger.LogWarning("⚠️ DSH Stok Fişi success: {Success}", success);
+                
+                if (result.TryGetProperty("message", out var messageProp))
+                {
+                    _logger.LogWarning("⚠️ DSH Stok Fişi message: {Message}", messageProp.GetString());
+                }
+            }
+            
+            _logger.LogWarning("❌ DSH stok fişi response'dan ID çıkarılamadı: {Response}", responseText);
             return 0;
         }
         catch (Exception ex)
