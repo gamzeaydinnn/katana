@@ -369,8 +369,8 @@ const KozaIntegrationPage: React.FC = () => {
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Box
             sx={{
-              width: 48,
-              height: 48,
+              width: { xs: 40, sm: 48 },
+              height: { xs: 40, sm: 48 },
               borderRadius: 3,
               background: tabConfig[activeTab].gradient,
               display: "flex",
@@ -380,7 +380,7 @@ const KozaIntegrationPage: React.FC = () => {
             }}
           >
             {React.cloneElement(tabConfig[activeTab].icon, {
-              sx: { color: "white", fontSize: 28 },
+              sx: { color: "white", fontSize: { xs: 24, sm: 28 } },
             })}
           </Box>
           <Box>
@@ -410,9 +410,11 @@ const KozaIntegrationPage: React.FC = () => {
             sx={{
               backgroundColor: "rgba(79,134,255,0.08)",
               "&:hover": { backgroundColor: "rgba(79,134,255,0.15)" },
+              width: { xs: 44, sm: 48 },
+              height: { xs: 44, sm: 48 },
             }}
           >
-            <Refresh />
+            <Refresh sx={{ fontSize: { xs: 20, sm: 24 } }} />
           </IconButton>
         </Tooltip>
       </Box>
@@ -494,21 +496,21 @@ const KozaIntegrationPage: React.FC = () => {
                 borderRadius: 3,
               }}
             >
-              <CardContent>
+              <CardContent sx={{ py: { xs: 2, sm: 3 } }}>
                 <Stack
                   direction="row"
                   justifyContent="space-between"
                   alignItems="center"
                 >
                   <Box>
-                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    <Typography variant="body2" sx={{ opacity: 0.9, fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
                       Toplam Depo
                     </Typography>
-                    <Typography variant="h3" fontWeight={800}>
+                    <Typography variant="h3" fontWeight={800} sx={{ fontSize: { xs: "2rem", sm: "3rem" } }}>
                       {totalDepots}
                     </Typography>
                   </Box>
-                  <Warehouse sx={{ fontSize: 48, opacity: 0.3 }} />
+                  <Warehouse sx={{ fontSize: { xs: 36, sm: 48 }, opacity: 0.3 }} />
                 </Stack>
               </CardContent>
             </Card>
@@ -520,11 +522,13 @@ const KozaIntegrationPage: React.FC = () => {
               sx={{
                 display: "flex",
                 justifyContent: "space-between",
-                alignItems: "center",
+                alignItems: { xs: "flex-start", sm: "center" },
+                flexDirection: { xs: "column", sm: "row" },
+                gap: { xs: 1.5, sm: 0 },
                 mb: 2,
               }}
             >
-              <Typography variant="h6" fontWeight={600}>
+              <Typography variant="h6" fontWeight={600} sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}>
                 Depo Listesi
               </Typography>
               <Button
@@ -538,14 +542,17 @@ const KozaIntegrationPage: React.FC = () => {
                 }
                 onClick={syncDepots}
                 disabled={syncingDepots}
+                fullWidth={isMobile}
                 sx={{
                   background: tabConfig[0].gradient,
                   borderRadius: 2,
                   textTransform: "none",
                   fontWeight: 600,
+                  minHeight: 44,
+                  fontSize: { xs: "0.875rem", sm: "0.9375rem" },
                 }}
               >
-                {syncingDepots ? "Senkronize Ediliyor..." : "Senkronize Et"}
+                {syncingDepots ? (isMobile ? "Senkronize..." : "Senkronize Ediliyor...") : "Senkronize Et"}
               </Button>
             </Box>
 
@@ -558,32 +565,42 @@ const KozaIntegrationPage: React.FC = () => {
                 Henüz depo kaydı yok. Katana Location'larınızı senkronize edin.
               </Alert>
             ) : (
-              <TableContainer>
-                <Table>
+              <TableContainer sx={{ overflowX: "auto" }}>
+                <Table size={isMobile ? "small" : "medium"}>
                   <TableHead>
                     <TableRow>
-                      <TableCell>ID</TableCell>
-                      <TableCell>Kod</TableCell>
-                      <TableCell>Tanım</TableCell>
-                      <TableCell>Kategori</TableCell>
-                      <TableCell>Şehir</TableCell>
+                      <TableCell sx={{ minWidth: { xs: 60, sm: 80 } }}>ID</TableCell>
+                      <TableCell sx={{ minWidth: { xs: 100, sm: 120 } }}>Kod</TableCell>
+                      <TableCell sx={{ minWidth: { xs: 150, sm: 200 } }}>Tanım</TableCell>
+                      {!isMobile && <TableCell>Kategori</TableCell>}
+                      {!isMobile && <TableCell>Şehir</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {depots.map((depo, idx) => (
                       <TableRow key={`depot-${depo.depoId ?? idx}`} hover>
-                        <TableCell>{depo.depoId ?? depo.id ?? "-"}</TableCell>
+                        <TableCell sx={{ fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                          {depo.depoId ?? depo.id ?? "-"}
+                        </TableCell>
                         <TableCell>
                           <Chip
                             label={depo.kod}
                             size="small"
                             color="primary"
                             variant="outlined"
+                            sx={{ fontSize: { xs: "0.7rem", sm: "0.8125rem" } }}
                           />
                         </TableCell>
-                        <TableCell>{depo.tanim}</TableCell>
-                        <TableCell>{depo.kategoriKod}</TableCell>
-                        <TableCell>{depo.il || "-"}</TableCell>
+                        <TableCell sx={{ fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                          {depo.tanim}
+                          {isMobile && (
+                            <Box sx={{ fontSize: "0.7rem", color: "text.secondary", mt: 0.5 }}>
+                              {depo.kategoriKod} • {depo.il || "-"}
+                            </Box>
+                          )}
+                        </TableCell>
+                        {!isMobile && <TableCell>{depo.kategoriKod}</TableCell>}
+                        {!isMobile && <TableCell>{depo.il || "-"}</TableCell>}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -617,10 +634,10 @@ const KozaIntegrationPage: React.FC = () => {
               }}
             >
               <CardContent sx={{ py: 2 }}>
-                <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                <Typography variant="body2" sx={{ opacity: 0.9, fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
                   Toplam Tedarikçi
                 </Typography>
-                <Typography variant="h4" fontWeight={800}>
+                <Typography variant="h4" fontWeight={800} sx={{ fontSize: { xs: "1.75rem", sm: "2.125rem" } }}>
                   {suppliers.length}
                 </Typography>
               </CardContent>
@@ -629,13 +646,14 @@ const KozaIntegrationPage: React.FC = () => {
               <>
                 <Card sx={{ borderRadius: 3 }}>
                   <CardContent sx={{ py: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
                       Başarılı
                     </Typography>
                     <Typography
                       variant="h4"
                       fontWeight={800}
                       color="success.main"
+                      sx={{ fontSize: { xs: "1.75rem", sm: "2.125rem" } }}
                     >
                       {supplierSyncResult.successCount}
                     </Typography>
@@ -643,23 +661,24 @@ const KozaIntegrationPage: React.FC = () => {
                 </Card>
                 <Card sx={{ borderRadius: 3 }}>
                   <CardContent sx={{ py: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
                       Atlandı
                     </Typography>
-                    <Typography variant="h4" fontWeight={800} color="info.main">
+                    <Typography variant="h4" fontWeight={800} color="info.main" sx={{ fontSize: { xs: "1.75rem", sm: "2.125rem" } }}>
                       {supplierSyncResult.skippedCount}
                     </Typography>
                   </CardContent>
                 </Card>
                 <Card sx={{ borderRadius: 3 }}>
                   <CardContent sx={{ py: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
                       Hatalı
                     </Typography>
                     <Typography
                       variant="h4"
                       fontWeight={800}
                       color="error.main"
+                      sx={{ fontSize: { xs: "1.75rem", sm: "2.125rem" } }}
                     >
                       {supplierSyncResult.errorCount}
                     </Typography>
@@ -668,18 +687,19 @@ const KozaIntegrationPage: React.FC = () => {
               </>
             )}
           </Box>
-
           {/* Supplier List */}
           <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 3 }}>
             <Box
               sx={{
                 display: "flex",
                 justifyContent: "space-between",
-                alignItems: "center",
+                alignItems: { xs: "flex-start", sm: "center" },
+                flexDirection: { xs: "column", sm: "row" },
+                gap: { xs: 1.5, sm: 0 },
                 mb: 2,
               }}
             >
-              <Typography variant="h6" fontWeight={600}>
+              <Typography variant="h6" fontWeight={600} sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}>
                 Tedarikçi Listesi
               </Typography>
               <Button
@@ -693,14 +713,17 @@ const KozaIntegrationPage: React.FC = () => {
                 }
                 onClick={syncSuppliers}
                 disabled={syncingSuppliers}
+                fullWidth={isMobile}
                 sx={{
                   background: tabConfig[1].gradient,
                   borderRadius: 2,
                   textTransform: "none",
                   fontWeight: 600,
+                  minHeight: 44,
+                  fontSize: { xs: "0.875rem", sm: "0.9375rem" },
                 }}
               >
-                {syncingSuppliers ? "Senkronize Ediliyor..." : "Senkronize Et"}
+                {syncingSuppliers ? (isMobile ? "Senkronize..." : "Senkronize Ediliyor...") : "Senkronize Et"}
               </Button>
             </Box>
 
@@ -711,13 +734,13 @@ const KozaIntegrationPage: React.FC = () => {
             ) : suppliers.length === 0 ? (
               <Alert severity="info">Henüz tedarikçi kaydı yok.</Alert>
             ) : (
-              <TableContainer>
-                <Table>
+              <TableContainer sx={{ overflowX: "auto" }}>
+                <Table size={isMobile ? "small" : "medium"}>
                   <TableHead>
                     <TableRow>
-                      <TableCell>ID</TableCell>
-                      <TableCell>Kod</TableCell>
-                      <TableCell>Tanım</TableCell>
+                      <TableCell sx={{ minWidth: { xs: 60, sm: 80 } }}>ID</TableCell>
+                      <TableCell sx={{ minWidth: { xs: 100, sm: 120 } }}>Kod</TableCell>
+                      <TableCell sx={{ minWidth: { xs: 150, sm: 200 } }}>Tanım</TableCell>
                       {!isMobile && <TableCell>Vergi No</TableCell>}
                       {!isMobile && <TableCell>İletişim</TableCell>}
                     </TableRow>
@@ -725,16 +748,28 @@ const KozaIntegrationPage: React.FC = () => {
                   <TableBody>
                     {suppliers.map((sup, idx) => (
                       <TableRow key={`supplier-${sup.finansalNesneId ?? idx}`} hover>
-                        <TableCell>{sup.finansalNesneId ?? "-"}</TableCell>
+                        <TableCell sx={{ fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                          {sup.finansalNesneId ?? "-"}
+                        </TableCell>
                         <TableCell>
                           <Chip
                             label={sup.kod ?? "-"}
                             size="small"
                             color="warning"
                             variant="outlined"
+                            sx={{ fontSize: { xs: "0.7rem", sm: "0.8125rem" } }}
                           />
                         </TableCell>
-                        <TableCell>{sup.tanim ?? "-"}</TableCell>
+                        <TableCell sx={{ fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                          {sup.tanim ?? "-"}
+                          {isMobile && (
+                            <Box sx={{ fontSize: "0.7rem", color: "text.secondary", mt: 0.5 }}>
+                              {sup.vergiNo && `VN: ${sup.vergiNo}`}
+                              {sup.vergiNo && (sup.telefon || sup.email) && " • "}
+                              {sup.telefon ?? sup.email ?? ""}
+                            </Box>
+                          )}
+                        </TableCell>
                         {!isMobile && (
                           <TableCell>{sup.vergiNo ?? "-"}</TableCell>
                         )}
@@ -776,10 +811,10 @@ const KozaIntegrationPage: React.FC = () => {
               }}
             >
               <CardContent sx={{ py: 2 }}>
-                <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                <Typography variant="body2" sx={{ opacity: 0.9, fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
                   Toplam Müşteri
                 </Typography>
-                <Typography variant="h4" fontWeight={800}>
+                <Typography variant="h4" fontWeight={800} sx={{ fontSize: { xs: "1.75rem", sm: "2.125rem" } }}>
                   {customers.length}
                 </Typography>
               </CardContent>
@@ -788,13 +823,14 @@ const KozaIntegrationPage: React.FC = () => {
               <>
                 <Card sx={{ borderRadius: 3 }}>
                   <CardContent sx={{ py: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
                       Başarılı
                     </Typography>
                     <Typography
                       variant="h4"
                       fontWeight={800}
                       color="success.main"
+                      sx={{ fontSize: { xs: "1.75rem", sm: "2.125rem" } }}
                     >
                       {customerSyncResult.successCount}
                     </Typography>
@@ -802,13 +838,14 @@ const KozaIntegrationPage: React.FC = () => {
                 </Card>
                 <Card sx={{ borderRadius: 3 }}>
                   <CardContent sx={{ py: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
                       Hatalı
                     </Typography>
                     <Typography
                       variant="h4"
                       fontWeight={800}
                       color="error.main"
+                      sx={{ fontSize: { xs: "1.75rem", sm: "2.125rem" } }}
                     >
                       {customerSyncResult.errorCount}
                     </Typography>
@@ -824,11 +861,13 @@ const KozaIntegrationPage: React.FC = () => {
               sx={{
                 display: "flex",
                 justifyContent: "space-between",
-                alignItems: "center",
+                alignItems: { xs: "flex-start", sm: "center" },
+                flexDirection: { xs: "column", sm: "row" },
+                gap: { xs: 1.5, sm: 0 },
                 mb: 2,
               }}
             >
-              <Typography variant="h6" fontWeight={600}>
+              <Typography variant="h6" fontWeight={600} sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}>
                 Müşteri Listesi
               </Typography>
               <Button
@@ -842,14 +881,17 @@ const KozaIntegrationPage: React.FC = () => {
                 }
                 onClick={syncCustomers}
                 disabled={syncingCustomers}
+                fullWidth={isMobile}
                 sx={{
                   background: tabConfig[2].gradient,
                   borderRadius: 2,
                   textTransform: "none",
                   fontWeight: 600,
+                  minHeight: 44,
+                  fontSize: { xs: "0.875rem", sm: "0.9375rem" },
                 }}
               >
-                {syncingCustomers ? "Senkronize Ediliyor..." : "Senkronize Et"}
+                {syncingCustomers ? (isMobile ? "Senkronize..." : "Senkronize Ediliyor...") : "Senkronize Et"}
               </Button>
             </Box>
 
@@ -860,13 +902,13 @@ const KozaIntegrationPage: React.FC = () => {
             ) : customers.length === 0 ? (
               <Alert severity="info">Henüz müşteri kaydı yok.</Alert>
             ) : (
-              <TableContainer>
-                <Table>
+              <TableContainer sx={{ overflowX: "auto" }}>
+                <Table size={isMobile ? "small" : "medium"}>
                   <TableHead>
                     <TableRow>
-                      <TableCell>ID</TableCell>
-                      <TableCell>Kod</TableCell>
-                      <TableCell>Tanım</TableCell>
+                      <TableCell sx={{ minWidth: { xs: 60, sm: 80 } }}>ID</TableCell>
+                      <TableCell sx={{ minWidth: { xs: 100, sm: 120 } }}>Kod</TableCell>
+                      <TableCell sx={{ minWidth: { xs: 150, sm: 200 } }}>Tanım</TableCell>
                       {!isMobile && <TableCell>Vergi No</TableCell>}
                       {!isMobile && <TableCell>Telefon</TableCell>}
                     </TableRow>
@@ -874,16 +916,28 @@ const KozaIntegrationPage: React.FC = () => {
                   <TableBody>
                     {customers.map((cust, idx) => (
                       <TableRow key={`customer-${cust.finansalNesneId ?? idx}`} hover>
-                        <TableCell>{cust.finansalNesneId ?? "-"}</TableCell>
+                        <TableCell sx={{ fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                          {cust.finansalNesneId ?? "-"}
+                        </TableCell>
                         <TableCell>
                           <Chip
                             label={cust.kod || "-"}
                             size="small"
                             color="success"
                             variant="outlined"
+                            sx={{ fontSize: { xs: "0.7rem", sm: "0.8125rem" } }}
                           />
                         </TableCell>
-                        <TableCell>{cust.tanim || "-"}</TableCell>
+                        <TableCell sx={{ fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
+                          {cust.tanim || "-"}
+                          {isMobile && (
+                            <Box sx={{ fontSize: "0.7rem", color: "text.secondary", mt: 0.5 }}>
+                              {cust.vergiNo && `VN: ${cust.vergiNo}`}
+                              {cust.vergiNo && cust.telefon && " • "}
+                              {cust.telefon ?? ""}
+                            </Box>
+                          )}
+                        </TableCell>
                         {!isMobile && (
                           <TableCell>{cust.vergiNo ?? "-"}</TableCell>
                         )}
