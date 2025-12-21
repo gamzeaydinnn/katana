@@ -1,48 +1,48 @@
 import {
-    ThumbUp as ApproveIcon,
-    ArrowBack as ArrowBackIcon,
-    CheckCircle as CheckCircleIcon,
-    CloudUpload as CloudUploadIcon,
-    Error as ErrorIcon,
-    HourglassEmpty as PendingIcon,
-    Refresh as RefreshIcon,
-    Inventory as StockIcon,
-    Sync as SyncIcon,
-    Visibility as ViewIcon,
+  ThumbUp as ApproveIcon,
+  ArrowBack as ArrowBackIcon,
+  CheckCircle as CheckCircleIcon,
+  CloudUpload as CloudUploadIcon,
+  Error as ErrorIcon,
+  HourglassEmpty as PendingIcon,
+  Refresh as RefreshIcon,
+  Inventory as StockIcon,
+  Sync as SyncIcon,
+  Visibility as ViewIcon,
 } from "@mui/icons-material";
 import {
-    Alert,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    CardHeader,
-    Chip,
-    CircularProgress,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogContentText,
-    DialogTitle,
-    Divider,
-    FormControl,
-    IconButton,
-    InputLabel,
-    MenuItem,
-    Paper,
-    Select,
-    Snackbar,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TablePagination,
-    TableRow,
-    TextField,
-    Tooltip,
-    Typography,
-    useMediaQuery,
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Divider,
+  FormControl,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TablePagination,
+  TableRow,
+  TextField,
+  Tooltip,
+  Typography,
+  useMediaQuery,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import React, { useEffect, useState } from "react";
@@ -390,11 +390,23 @@ const SalesOrders: React.FC = () => {
         await fetchOrderDetail(orderId);
       }
       await fetchOrders();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Sync failed:", err);
+      // Backend'den gelen hata mesajını göster
+      let errorMessage = "Senkronizasyon hatası";
+      if (err && typeof err === "object" && "response" in err) {
+        const axiosErr = err as { response?: { data?: { message?: string; errorDetails?: string } } };
+        const data = axiosErr.response?.data;
+        if (data?.message) {
+          errorMessage = data.message;
+          if (data.errorDetails) {
+            errorMessage += `: ${data.errorDetails}`;
+          }
+        }
+      }
       setSnackbar({
         open: true,
-        message: "Senkronizasyon hatası",
+        message: errorMessage,
         severity: "error",
       });
     } finally {

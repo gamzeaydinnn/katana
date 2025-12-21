@@ -680,6 +680,12 @@ public static class MappingHelper
         // BelgeSeri - Luca örneğine göre "EFA2025" kabul ediliyor
         var belgeSeri = order.BelgeSeri ?? "EFA2025";
 
+        // Döviz kuru hesaplama: TRY için 1.0, diğer para birimleri için ConversionRate kullan
+        var currency = string.IsNullOrWhiteSpace(order.Currency) ? "TRY" : order.Currency;
+        var kurBedeli = currency.ToUpperInvariant() == "TRY" 
+            ? 1.0 
+            : (double)(order.ConversionRate ?? 1m);
+
         return new LucaCreateInvoiceHeaderRequest
         {
             BelgeSeri = belgeSeri,
@@ -693,8 +699,8 @@ public static class MappingHelper
                 : $"Katana Sipariş: {order.OrderNo ?? order.Id.ToString()}",
             BelgeTurDetayId = "76", // Satış faturası
             FaturaTur = "1",
-            ParaBirimKod = string.IsNullOrWhiteSpace(order.Currency) ? "TRY" : order.Currency,
-            KurBedeli = 1.0,
+            ParaBirimKod = currency,
+            KurBedeli = kurBedeli,
             KdvFlag = true,
             ReferansNo = order.CustomerRef ?? belgeTakipNo,
             MusteriTedarikci = "1",

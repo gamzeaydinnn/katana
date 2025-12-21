@@ -169,24 +169,80 @@ public class SalesOrdersController : ControllerBase
             return NotFound($"Sipariş bulunamadı: {id}");
 
         if (order.Customer == null)
-            return BadRequest("Müşteri bilgisi eksik");
+            return BadRequest(new { message = "Müşteri bilgisi eksik. Siparişe müşteri atanmamış." });
 
         if (order.Lines == null || order.Lines.Count == 0)
         {
             return BadRequest(new { message = "Sipariş satırları bulunamadı. Katana'dan tekrar senkronize edin." });
         }
 
-        // Cari kodu validasyonu: "CUST_" gibi değerler Luca tarafında HTML/500'a sebep olabilir.
-        var customerCode = !string.IsNullOrWhiteSpace(order.Customer.LucaCode) ? order.Customer.LucaCode : order.Customer.TaxNo;
-        if (string.IsNullOrWhiteSpace(customerCode) || customerCode.StartsWith("CUST_", StringComparison.OrdinalIgnoreCase))
+        // ===== MÜŞTERİ VERİSİ VALİDASYONU =====
+        var customer = order.Customer;
+        var validationErrors = new List<string>();
+
+        // Cari kodu kontrolü
+        var customerCode = !string.IsNullOrWhiteSpace(customer.LucaCode) 
+            ? customer.LucaCode 
+            : customer.TaxNo;
+        
+        if (string.IsNullOrWhiteSpace(customerCode))
         {
-            return BadRequest(new { message = "Müşterinin geçerli bir Vergi No veya Luca Cari Kodu eksik/geçersiz. 'CUST_' gönderilemez." });
+            validationErrors.Add("Müşterinin Vergi No veya Luca Cari Kodu eksik");
+        }
+        else if (customerCode.StartsWith("CUST", StringComparison.OrdinalIgnoreCase))
+        {
+            validationErrors.Add($"Geçersiz cari kodu: '{customerCode}'. Müşteriye geçerli bir Vergi No veya Luca Cari Kodu atayın");
+        }
+
+        // Vergi No / TC Kimlik No formatı kontrolü
+        if (!string.IsNullOrWhiteSpace(customer.TaxNo))
+        {
+            var taxNoDigits = new string(customer.TaxNo.Where(char.IsDigit).ToArray());
+            if (taxNoDigits.Length != 10 && taxNoDigits.Length != 11)
+            {
+                validationErrors.Add($"Geçersiz Vergi No/TC Kimlik No formatı: '{customer.TaxNo}' (10 veya 11 haneli olmalı)");
+            }
+        }
+
+        // Müşteri adı kontrolü
+        if (string.IsNullOrWhiteSpace(customer.Title))
+        {
+            validationErrors.Add("Müşteri adı/unvanı eksik");
+        }
+
+        if (validationErrors.Count > 0)
+        {
+            return BadRequest(new { 
+                message = "Müşteri verisi eksik veya geçersiz", 
+                errorDetails = string.Join("; ", validationErrors),
+                customerId = customer.Id,
+                customerTitle = customer.Title
+            });
+        }
+
+        // ===== DEPO KODU VALİDASYONU =====
+        var depoKodu = await _locationMappingService.GetDepoKoduByLocationIdAsync(order.LocationId?.ToString() ?? string.Empty);
+        
+        // Depo kodu uyarısı logla (default kullanılıyorsa)
+        if (string.IsNullOrWhiteSpace(order.LocationId?.ToString()))
+        {
+            _logger.LogWarning("Sipariş {OrderNo} için LocationId boş, varsayılan depo kullanılıyor: {DepoKodu}", 
+                order.OrderNo, depoKodu);
         }
 
         // Duplikasyon kontrolü - Zaten senkronize edilmiş ve hata yoksa reddet
         if (order.IsSyncedToLuca && string.IsNullOrEmpty(order.LastSyncError))
         {
-            return BadRequest(new { message = "Order already synced to Luca", lucaOrderId = order.LucaOrderId });
+            return BadRequest(new { message = "Sipariş zaten Koza'ya senkronize edilmiş", lucaOrderId = order.LucaOrderId });
+        }
+
+        // ===== DÖVİZ KURU VALİDASYONU =====
+        var currency = string.IsNullOrWhiteSpace(order.Currency) ? "TRY" : order.Currency.ToUpperInvariant();
+        if (currency != "TRY" && (!order.ConversionRate.HasValue || order.ConversionRate <= 0))
+        {
+            _logger.LogWarning("Dövizli sipariş {OrderNo} için kur bilgisi eksik. Currency={Currency}, ConversionRate={Rate}", 
+                order.OrderNo, currency, order.ConversionRate);
+            // Uyarı ver ama devam et - Koza tarafında hata alınırsa kullanıcı görecek
         }
 
         // If UI sends Luca fields together with the sync request, apply them first so the outgoing payload matches UI.
@@ -215,7 +271,6 @@ public class SalesOrdersController : ControllerBase
         }
 
         // Dış entegrasyon çağrısı (Luca) retry stratejisinin içine sokulmaz: transient DB retry durumunda Luca'ya duplicate gitmesin.
-        var depoKodu = await _locationMappingService.GetDepoKoduByLocationIdAsync(order.LocationId?.ToString() ?? string.Empty);
         var lucaResult = await _lucaService.CreateSalesOrderInvoiceAsync(order, depoKodu);
 
         var strategy = _context.Database.CreateExecutionStrategy();

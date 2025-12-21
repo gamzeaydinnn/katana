@@ -928,6 +928,7 @@ public class SyncController : ControllerBase
                             OrderCreatedDate = order.OrderCreatedDate ?? order.CreatedAt,
                             DeliveryDate = order.DeliveryDate,
                             Currency = order.Currency ?? "TRY",
+                            ConversionRate = order.ConversionRate,
                             Status = order.Status ?? "NOT_SHIPPED",
                             Total = order.Total,
                             TotalInBaseCurrency = order.TotalInBaseCurrency,

@@ -41,6 +41,13 @@ public class SalesOrder
     [Column(TypeName = "decimal(18,2)")]
     public decimal? TotalInBaseCurrency { get; set; }
 
+    /// <summary>
+    /// Döviz kuru (Katana API'den gelen conversion_rate)
+    /// EUR, USD gibi dövizli siparişler için kullanılır
+    /// </summary>
+    [Column(TypeName = "decimal(18,6)")]
+    public decimal? ConversionRate { get; set; }
+
     [MaxLength(500)]
     public string? AdditionalInfo { get; set; }
 

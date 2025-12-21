@@ -178,6 +178,11 @@ public partial class LucaService
             };
         }
 
+        // 🔍 DETAYLI LOGLAMA: Sipariş bilgileri
+        _logger.LogInformation(
+            "📤 Luca fatura oluşturma başlatıldı. OrderId={OrderId}, OrderNo={OrderNo}, Currency={Currency}, ConversionRate={ConversionRate}, LineCount={LineCount}",
+            order.Id, order.OrderNo, order.Currency, order.ConversionRate, order.Lines.Count);
+
         static string? TryGetMessage(JsonElement el)
         {
             if (el.TryGetProperty("mesaj", out var mesaj) && mesaj.ValueKind == JsonValueKind.String)
@@ -213,7 +218,18 @@ public partial class LucaService
 
         try
         {
+            // 🔍 DETAYLI LOGLAMA: Mapping öncesi
+            _logger.LogInformation(
+                "🔄 Mapping başlatılıyor. CustomerId={CustomerId}, CustomerTitle={CustomerTitle}, LucaCode={LucaCode}, TaxNo={TaxNo}",
+                order.Customer.Id, order.Customer.Title, order.Customer.LucaCode, order.Customer.TaxNo);
+
             var request = MappingHelper.MapToLucaInvoiceFromSalesOrder(order, order.Customer, depoKodu);
+            
+            // 🔍 DETAYLI LOGLAMA: Mapping sonrası
+            _logger.LogInformation(
+                "✅ Mapping tamamlandı. CariKodu={CariKodu}, ParaBirimKod={ParaBirimKod}, KurBedeli={KurBedeli}, DetayCount={DetayCount}",
+                request.CariKodu, request.ParaBirimKod, request.KurBedeli, request.DetayList?.Count ?? 0);
+
             var response = await CreateInvoiceRawAsync(request);
 
             var success = TryGetSuccess(response);
@@ -221,6 +237,20 @@ public partial class LucaService
             var message = TryGetMessage(response);
 
             var isOk = success ?? invoiceId.HasValue;
+            
+            if (isOk)
+            {
+                _logger.LogInformation(
+                    "✅ Luca fatura başarıyla oluşturuldu. OrderId={OrderId}, OrderNo={OrderNo}, LucaInvoiceId={LucaInvoiceId}",
+                    order.Id, order.OrderNo, invoiceId);
+            }
+            else
+            {
+                _logger.LogError(
+                    "❌ Luca fatura oluşturma başarısız. OrderId={OrderId}, OrderNo={OrderNo}, Error={Error}",
+                    order.Id, order.OrderNo, message ?? "Bilinmeyen hata");
+            }
+
             return new SalesOrderSyncResultDto
             {
                 IsSuccess = isOk,
@@ -232,7 +262,9 @@ public partial class LucaService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "CreateSalesOrderInvoiceAsync failed. OrderId={OrderId}, OrderNo={OrderNo}", order.Id, order.OrderNo);
+            _logger.LogError(ex, 
+                "❌ CreateSalesOrderInvoiceAsync exception. OrderId={OrderId}, OrderNo={OrderNo}, Currency={Currency}, ConversionRate={ConversionRate}",
+                order.Id, order.OrderNo, order.Currency, order.ConversionRate);
             return new SalesOrderSyncResultDto
             {
                 IsSuccess = false,

@@ -490,6 +490,8 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
             BelgeTakipNo = belgeTakipNo,
             FaturaTur = MAL_HIZMET.ToString(),
             ParaBirimKod = currency,
+            // KurBedeli: Dövizli faturalar için zorunlu - TRY için 1, diğerleri için ConversionRate kullan
+            KurBedeli = currency.ToUpperInvariant() == "TRY" ? 1.0 : (double)(order.ConversionRate ?? 1m),
             KdvFlag = false,
             MusteriTedarikci = MUSTERI.ToString(),
             CariKodu = cariKodu,
@@ -510,6 +512,13 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
             SiparisTarihi = orderDate,
             DetayList = new List<LucaCreateInvoiceDetailRequest>()
         };
+        
+        // Dövizli fatura için kur bilgisini logla
+        if (currency.ToUpperInvariant() != "TRY")
+        {
+            _logger.LogInformation("Dövizli fatura oluşturuluyor: Order {OrderNo}, Currency={Currency}, KurBedeli={KurBedeli}", 
+                orderNo, currency, request.KurBedeli);
+        }
 
         // DepoKodu: LocationId'den mapping bul, yoksa default "001"
         var depoKodu = "001";
