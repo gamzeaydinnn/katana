@@ -452,7 +452,24 @@ const OrderInvoiceSyncPage: React.FC = () => {
                       {getStatusChip(order)}
                     </Box>
 
-                    {/* Grid (2x2): Müşteri + Tarih | Tutar (bold, right aligned) */}
+                    {/* Müşteri - Tam genişlik */}
+                    <Box sx={{ mb: 1.5 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Müşteri
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 600,
+                          wordBreak: "break-word",
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {order.customer}
+                      </Typography>
+                    </Box>
+
+                    {/* Grid (2 sütun): Tarih | Tutar */}
                     <Box
                       sx={{
                         display: "grid",
@@ -461,20 +478,13 @@ const OrderInvoiceSyncPage: React.FC = () => {
                         mb: 1.5,
                       }}
                     >
-                      {/* Müşteri */}
+                      {/* Tarih */}
                       <Box>
                         <Typography variant="caption" color="text.secondary">
-                          Müşteri
+                          Tarih
                         </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            whiteSpace: "nowrap",
-                            textOverflow: "ellipsis",
-                            overflow: "hidden",
-                          }}
-                        >
-                          {order.customer}
+                        <Typography variant="body2">
+                          {order.date}
                         </Typography>
                       </Box>
 
@@ -488,16 +498,6 @@ const OrderInvoiceSyncPage: React.FC = () => {
                             minimumFractionDigits: 2,
                           })}{" "}
                           {order.currency}
-                        </Typography>
-                      </Box>
-
-                      {/* Tarih */}
-                      <Box sx={{ gridColumn: "1 / -1" }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Tarih
-                        </Typography>
-                        <Typography variant="body2">
-                          {order.date}
                         </Typography>
                       </Box>
                     </Box>
