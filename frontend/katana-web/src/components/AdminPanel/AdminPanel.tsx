@@ -364,6 +364,7 @@ const AdminPanel: React.FC = () => {
           sx={{
             fontFamily: '"Poppins", "Inter", sans-serif',
             letterSpacing: "-0.5px",
+            fontSize: { xs: "1.5rem", sm: "1.75rem", md: "2.125rem" },
             color: "text.primary",
             background: (theme) =>
               `linear-gradient(120deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
@@ -379,7 +380,11 @@ const AdminPanel: React.FC = () => {
           display="flex"
           gap={1}
           alignItems="center"
-          sx={{ flexShrink: 0, width: { xs: "100%", md: "auto" } }}
+          sx={{ 
+            flexShrink: 0, 
+            width: { xs: "100%", md: "auto" },
+            flexWrap: { xs: "wrap", sm: "nowrap" }
+          }}
         >
           <IconButton
             onClick={() => setActiveTab(9)}
@@ -411,11 +416,16 @@ const AdminPanel: React.FC = () => {
             <Chip
               icon={katanaHealth ? <CheckCircle /> : <ErrorIcon />}
               label={
-                katanaHealth ? "Katana API Bağlı" : "Katana API Bağlı Değil"
+                isMobile 
+                  ? (katanaHealth ? "API Bağlı" : "API Bağlı Değil")
+                  : (katanaHealth ? "Katana API Bağlı" : "Katana API Bağlı Değil")
               }
               color={katanaHealth ? "success" : "error"}
               size={isMobile ? "small" : "medium"}
-              sx={{ maxWidth: { xs: "100%", md: "none" } }}
+              sx={{ 
+                maxWidth: { xs: "100%", md: "none" },
+                fontSize: { xs: "0.75rem", sm: "0.8125rem" }
+              }}
             />
           )}
           <IconButton
