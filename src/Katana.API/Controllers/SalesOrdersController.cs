@@ -6,10 +6,12 @@ using Katana.Core.Helpers;
 using Katana.Core.Interfaces;
 using Katana.Business.Services;
 using Katana.Data.Context;
+using Katana.Data.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Options;
 
 namespace Katana.API.Controllers;
 
@@ -17,32 +19,35 @@ namespace Katana.API.Controllers;
 [ApiController]
 [Route("api/sales-orders")]
 public class SalesOrdersController : ControllerBase
-{
-    private readonly IntegrationDbContext _context;
-    private readonly ILucaService _lucaService;
-    private readonly ILoggingService _loggingService;
-    private readonly IAuditService _auditService;
-    private readonly ILogger<SalesOrdersController> _logger;
-    private readonly IKatanaService _katanaService;
-    private readonly ILocationMappingService _locationMappingService;
-
-    public SalesOrdersController(
-        IntegrationDbContext context,
-        ILucaService lucaService,
-        ILoggingService loggingService,
-        IAuditService auditService,
-        ILogger<SalesOrdersController> logger,
-        IKatanaService katanaService,
-        ILocationMappingService locationMappingService)
     {
-        _context = context;
-        _lucaService = lucaService;
-        _loggingService = loggingService;
-        _auditService = auditService;
-        _logger = logger;
-        _katanaService = katanaService;
-        _locationMappingService = locationMappingService;
-    }
+        private readonly IntegrationDbContext _context;
+        private readonly ILucaService _lucaService;
+        private readonly ILoggingService _loggingService;
+        private readonly IAuditService _auditService;
+        private readonly ILogger<SalesOrdersController> _logger;
+        private readonly IKatanaService _katanaService;
+        private readonly ILocationMappingService _locationMappingService;
+        private readonly IOptions<LucaApiSettings> _lucaSettings;
+
+        public SalesOrdersController(
+            IntegrationDbContext context,
+            ILucaService lucaService,
+            ILoggingService loggingService,
+            IAuditService auditService,
+            ILogger<SalesOrdersController> logger,
+            IKatanaService katanaService,
+            ILocationMappingService locationMappingService,
+            IOptions<LucaApiSettings> lucaSettings)
+        {
+            _context = context;
+            _lucaService = lucaService;
+            _loggingService = loggingService;
+            _auditService = auditService;
+            _logger = logger;
+            _katanaService = katanaService;
+            _locationMappingService = locationMappingService;
+            _lucaSettings = lucaSettings;
+        }
 
     /// <summary>
     /// Tüm satış siparişlerini listele
@@ -180,28 +185,37 @@ public class SalesOrdersController : ControllerBase
         var customer = order.Customer;
         var validationErrors = new List<string>();
 
-        // Cari kodu kontrolü
-        var customerCode = !string.IsNullOrWhiteSpace(customer.LucaCode) 
-            ? customer.LucaCode 
-            : customer.TaxNo;
-        
+        // Cari kodu / vergi no kontrolü (DB'yi değiştirmeden, Luca için sanitize et)
+        string? customerCode = null;
+        string? sanitizedTaxNo = null;
+
+        if (!string.IsNullOrWhiteSpace(customer.LucaCode))
+        {
+            customerCode = customer.LucaCode.Trim();
+        }
+
+        var taxNoDigits = string.IsNullOrWhiteSpace(customer.TaxNo)
+            ? string.Empty
+            : new string(customer.TaxNo.Where(char.IsDigit).ToArray());
+
+        if (taxNoDigits.Length == 10 || taxNoDigits.Length == 11)
+        {
+            sanitizedTaxNo = taxNoDigits;
+            if (string.IsNullOrWhiteSpace(customerCode))
+                customerCode = taxNoDigits;
+        }
+
         if (string.IsNullOrWhiteSpace(customerCode))
         {
-            validationErrors.Add("Müşterinin Vergi No veya Luca Cari Kodu eksik");
+            // Benzersiz, geçici bir cari kod üret (DB’ye yazmayacağız): TEMP-{CustomerId}
+            customerCode = $"TEMP-{customer.Id}";
+            sanitizedTaxNo ??= $"999{customer.Id:D8}";
+            _logger.LogWarning("SyncToLuca: Müşteri vergi no/cari kod eksik. CustomerId={CustomerId}, RawTax='{Raw}', GeneratedCode={GeneratedCode}, GeneratedTaxNo={GeneratedTaxNo}",
+                customer.Id, customer.TaxNo, customerCode, sanitizedTaxNo);
         }
         else if (customerCode.StartsWith("CUST", StringComparison.OrdinalIgnoreCase))
         {
             validationErrors.Add($"Geçersiz cari kodu: '{customerCode}'. Müşteriye geçerli bir Vergi No veya Luca Cari Kodu atayın");
-        }
-
-        // Vergi No / TC Kimlik No formatı kontrolü
-        if (!string.IsNullOrWhiteSpace(customer.TaxNo))
-        {
-            var taxNoDigits = new string(customer.TaxNo.Where(char.IsDigit).ToArray());
-            if (taxNoDigits.Length != 10 && taxNoDigits.Length != 11)
-            {
-                validationErrors.Add($"Geçersiz Vergi No/TC Kimlik No formatı: '{customer.TaxNo}' (10 veya 11 haneli olmalı)");
-            }
         }
 
         // Müşteri adı kontrolü
@@ -265,13 +279,83 @@ public class SalesOrdersController : ControllerBase
             if (lucaFields.TeklifSiparisTur.HasValue) order.TeklifSiparisTur = lucaFields.TeklifSiparisTur;
             if (lucaFields.OnayFlag.HasValue) order.OnayFlag = lucaFields.OnayFlag.Value;
             if (lucaFields.BelgeAciklama != null) order.AdditionalInfo = lucaFields.BelgeAciklama;
-
-            order.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
         }
 
+        // Luca’ya giderken kullanılacak belgeSeri/null normalize et (DB’yi güncellemeden)
+        var effectiveBelgeSeri = !string.IsNullOrWhiteSpace(order.BelgeSeri)
+            ? order.BelgeSeri.Trim()
+            : (_lucaSettings.Value.DefaultBelgeSeri ?? "EFA2025");
+
+        // Luca'ya gönderirken müşteri/sipariş bilgilerini sanitize edip kopyala (DB state'ini etkilemeden)
+        var safeCustomer = new Customer
+        {
+            Id = customer.Id,
+            Title = customer.Title,
+            LucaCode = customerCode,
+            TaxNo = sanitizedTaxNo ?? customer.TaxNo,
+            TaxOffice = customer.TaxOffice,
+            Address = customer.Address,
+            City = customer.City,
+            District = customer.District,
+            Country = customer.Country,
+            Phone = customer.Phone,
+            Email = customer.Email,
+            Currency = customer.Currency,
+            IsActive = customer.IsActive
+        };
+
+        var safeOrder = new SalesOrder
+        {
+            Id = order.Id,
+            OrderNo = order.OrderNo,
+            Customer = safeCustomer,
+            CustomerId = order.CustomerId,
+            OrderCreatedDate = order.OrderCreatedDate,
+            DeliveryDate = order.DeliveryDate,
+            Currency = order.Currency,
+            ConversionRate = order.ConversionRate,
+            Status = order.Status,
+            Total = order.Total,
+            TotalInBaseCurrency = order.TotalInBaseCurrency,
+            AdditionalInfo = order.AdditionalInfo,
+            CustomerRef = order.CustomerRef,
+            Source = order.Source,
+            LocationId = order.LocationId,
+            BelgeSeri = effectiveBelgeSeri,
+            BelgeNo = order.BelgeNo,
+            DuzenlemeSaati = order.DuzenlemeSaati,
+            BelgeTurDetayId = order.BelgeTurDetayId,
+            NakliyeBedeliTuru = order.NakliyeBedeliTuru,
+            TeklifSiparisTur = order.TeklifSiparisTur,
+            OnayFlag = order.OnayFlag,
+            Lines = order.Lines.Select(l => new SalesOrderLine
+            {
+                Id = l.Id,
+                SalesOrderId = l.SalesOrderId,
+                KatanaRowId = l.KatanaRowId,
+                VariantId = l.VariantId,
+                SKU = l.SKU,
+                ProductName = l.ProductName,
+                Quantity = l.Quantity,
+                PricePerUnit = l.PricePerUnit,
+                PricePerUnitInBaseCurrency = l.PricePerUnitInBaseCurrency,
+                Total = l.Total,
+                TotalInBaseCurrency = l.TotalInBaseCurrency,
+                TaxRate = l.TaxRate,
+                TaxRateId = l.TaxRateId,
+                LocationId = l.LocationId,
+                ProductAvailability = l.ProductAvailability,
+                ProductExpectedDate = l.ProductExpectedDate,
+                LucaDetayId = l.LucaDetayId,
+                LucaStokId = l.LucaStokId,
+                LucaDepoId = l.LucaDepoId,
+                CreatedAt = l.CreatedAt,
+                UpdatedAt = l.UpdatedAt
+            }).ToList()
+        };
+
         // Dış entegrasyon çağrısı (Luca) retry stratejisinin içine sokulmaz: transient DB retry durumunda Luca'ya duplicate gitmesin.
-        var lucaResult = await _lucaService.CreateSalesOrderInvoiceAsync(order, depoKodu);
+        var lucaResult = await _lucaService.CreateSalesOrderInvoiceAsync(safeOrder, depoKodu);
 
         var strategy = _context.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
@@ -508,7 +592,8 @@ public class SalesOrdersController : ControllerBase
     }
 
     /// <summary>
-    /// Admin onayı - Siparişi onayla ve Katana'ya Sales Order olarak gönder
+    /// Admin onayı - Siparişi onayla ve Katana'da stok artırımı yap (Stock Adjustment / ürün oluşturma).
+    /// Not: Siparişler Katana'dan geldiği için Katana'da yeni Sales Order oluşturulmaz.
     /// </summary>
     [HttpPost("{id}/approve")]
     [Authorize(Roles = "Admin,Manager")]
@@ -544,75 +629,36 @@ public class SalesOrdersController : ControllerBase
                 });
             }
 
-            _logger.LogInformation("Approving SalesOrder and sending to Katana. OrderId={OrderId}, OrderNo={OrderNo}, LineCount={LineCount}", id, order.OrderNo, order.Lines.Count);
-            _loggingService.LogInfo($"SalesOrder approve started: {order.OrderNo} (lines={order.Lines.Count})",
+            var linesToSync = order.Lines
+                .Where(l => !string.IsNullOrWhiteSpace(l.SKU) && l.Quantity > 0)
+                .ToList();
+            if (linesToSync.Count == 0)
+            {
+                _logger.LogWarning("SalesOrder approve requested but order has no valid lines (SKU/Quantity). OrderId={OrderId}, OrderNo={OrderNo}", id, order.OrderNo);
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Katana'ya stok güncellemesi için geçerli sipariş satırı bulunamadı (SKU/Quantity kontrol edin).",
+                    orderNo = order.OrderNo
+                });
+            }
+
+            _logger.LogInformation("Approving SalesOrder: Katana stock adjustment. OrderId={OrderId}, OrderNo={OrderNo}, LineCount={LineCount}", id, order.OrderNo, order.Lines.Count);
+            _loggingService.LogInfo($"SalesOrder approve started (Katana stock adjustment): {order.OrderNo} (lines={order.Lines.Count})",
                 User.Identity?.Name, $"SalesOrderId={id}", LogCategory.Business);
 
-            // Katana'ya Sales Order gönder
-            long? katanaOrderId = null;
-            string? katanaError = null;
-            
+            // Katana'da stok artırımı yap (her satır için). Bu işlem idempotent değildir; aynı sipariş tekrar onaylanmamalıdır.
+            var successCount = 0;
+            var failCount = 0;
+            var lineResults = new List<(string Sku, decimal Quantity, bool Success, string? Error)>();
+
             try
             {
-                // Önce müşteri ID'sini bul veya oluştur
-                long? katanaCustomerId = null;
-                if (order.Customer != null &&
-                    !string.IsNullOrWhiteSpace(order.Customer.ReferenceId) &&
-                    long.TryParse(order.Customer.ReferenceId, out var parsedKatanaCustomerId))
+                foreach (var line in linesToSync)
                 {
-                    katanaCustomerId = parsedKatanaCustomerId;
-                }
-                
-                if (!katanaCustomerId.HasValue && order.Customer != null)
-                {
-                    // Müşteri Katana'da yoksa, müşteri adıyla ara
-                    var customers = await _katanaService.GetCustomersAsync();
-                    var existingCustomer = customers?.FirstOrDefault(c => 
-                        c.Name?.Equals(order.Customer.Title, StringComparison.OrdinalIgnoreCase) == true ||
-                        c.Email?.Equals(order.Customer.Email, StringComparison.OrdinalIgnoreCase) == true);
-                    
-                    if (existingCustomer != null)
+                    try
                     {
-                        katanaCustomerId = existingCustomer.Id;
-                        // Müşteri ID'sini kaydet
-                        order.Customer.ReferenceId = katanaCustomerId.Value.ToString();
-                    }
-                    else
-                    {
-                        // Yeni müşteri oluştur
-                        var newCustomer = await _katanaService.CreateCustomerAsync(new KatanaCustomerDto
-                        {
-                            Name = order.Customer.Title ?? "Bilinmeyen Müşteri",
-                            Email = order.Customer.Email,
-                            Phone = order.Customer.Phone
-                        });
-                        
-                        if (newCustomer != null)
-                        {
-                            katanaCustomerId = newCustomer.Id;
-                            order.Customer.ReferenceId = katanaCustomerId.Value.ToString();
-                        }
-                    }
-                }
-
-                if (!katanaCustomerId.HasValue)
-                {
-                    katanaError = "Katana müşteri ID'si bulunamadı veya oluşturulamadı";
-                    _logger.LogWarning("ApproveOrder: {Error}. OrderId={OrderId}", katanaError, id);
-                }
-                else
-                {
-                    // Sipariş satırlarını Katana formatına dönüştür
-                    // Not: Bu senaryoda "admin onayı" = önce stoğa giriş (+), sonra satış siparişi ile rezerve et.
-                    var salesOrderRows = new List<SalesOrderRowDto>();
-
-                    foreach (var line in order.Lines)
-                    {
-                        if (string.IsNullOrWhiteSpace(line.SKU) || line.Quantity <= 0)
-                            continue;
-
-                        // 1) Ürünü bul/oluştur ve stoğu artır (Stock Adjustment)
-                        var stockSyncSuccess = await _katanaService.SyncProductStockAsync(
+                        var ok = await _katanaService.SyncProductStockAsync(
                             sku: line.SKU,
                             quantity: line.Quantity,
                             locationId: line.LocationId ?? order.LocationId,
@@ -620,82 +666,33 @@ public class SalesOrdersController : ControllerBase
                             salesPrice: line.PricePerUnit
                         );
 
-                        if (!stockSyncSuccess)
+                        if (ok)
                         {
-                            _logger.LogWarning("Stok artışı/ürün oluşturma başarısız oldu: {SKU}", line.SKU);
-                        }
-
-                        // 2) Variant ID'yi çöz (line.VariantId 0 gelebilir)
-                        long? variantId = line.VariantId > 0 ? line.VariantId : null;
-
-                        if (!variantId.HasValue)
-                        {
-                            variantId = await _katanaService.FindVariantIdBySkuAsync(line.SKU);
-                            if (variantId.HasValue)
-                                line.VariantId = variantId.Value;
-                        }
-
-                        if (!variantId.HasValue)
-                        {
-                            _logger.LogWarning("Variant not found for SKU {SKU}, skipping line", line.SKU);
-                            continue;
-                        }
-
-                        // 3) Satış siparişi satırını ekle (rezervasyon/committed)
-                        salesOrderRows.Add(new SalesOrderRowDto
-                        {
-                            VariantId = variantId.Value,
-                            Quantity = line.Quantity,
-                            PricePerUnit = line.PricePerUnit,
-                            TaxRateId = line.TaxRateId,
-                            LocationId = line.LocationId ?? order.LocationId
-                        });
-                    }
-
-                    if (salesOrderRows.Count == 0)
-                    {
-                        katanaError = "Katana'ya gönderilecek geçerli sipariş satırı bulunamadı (SKU/Quantity/Variant kontrol edin).";
-                        _logger.LogWarning("ApproveOrder: {Error}. OrderId={OrderId}", katanaError, id);
-                    }
-                    else
-                    {
-                        // Katana Sales Order oluştur
-                        var katanaSalesOrder = new SalesOrderDto
-                        {
-                            OrderNo = $"SO-{order.OrderNo}",
-                            CustomerId = katanaCustomerId.Value,
-                            OrderCreatedDate = order.OrderCreatedDate ?? DateTime.UtcNow,
-                            DeliveryDate = order.DeliveryDate,
-                            Currency = order.Currency ?? "EUR",
-                            Status = "NOT_SHIPPED",
-                            LocationId = order.LocationId,
-                            AdditionalInfo = order.AdditionalInfo ?? $"Admin onayı ile oluşturuldu - {DateTime.UtcNow:yyyy-MM-dd HH:mm}",
-                            CustomerRef = order.CustomerRef,
-                            SalesOrderRows = salesOrderRows
-                        };
-
-                        var createdOrder = await _katanaService.CreateSalesOrderAsync(katanaSalesOrder);
-                        
-                        if (createdOrder != null)
-                        {
-                            katanaOrderId = createdOrder.Id;
-                            _logger.LogInformation("Katana Sales Order created. KatanaOrderId={KatanaOrderId}, OrderNo={OrderNo}", katanaOrderId, createdOrder.OrderNo);
+                            successCount++;
+                            lineResults.Add((line.SKU, line.Quantity, true, null));
                         }
                         else
                         {
-                            katanaError = "Katana sipariş oluşturma başarısız (null response)";
-                            _logger.LogWarning("ApproveOrder: {Error}. OrderId={OrderId}", katanaError, id);
+                            failCount++;
+                            var err = $"Stok artışı/ürün oluşturma başarısız: {line.SKU}";
+                            lineResults.Add((line.SKU, line.Quantity, false, err));
+                            _logger.LogWarning("ApproveOrder: {Error}. OrderId={OrderId}, OrderNo={OrderNo}", err, id, order.OrderNo);
                         }
+                    }
+                    catch (Exception exLine)
+                    {
+                        failCount++;
+                        lineResults.Add((line.SKU, line.Quantity, false, exLine.Message));
+                        _logger.LogWarning(exLine, "ApproveOrder: Stock sync failed. OrderId={OrderId}, OrderNo={OrderNo}, SKU={SKU}", id, order.OrderNo, line.SKU);
                     }
                 }
             }
             catch (Exception ex)
             {
-                katanaError = $"Katana API hatası: {ex.Message}";
                 _logger.LogError(ex, "ApproveOrder Katana sync failed. OrderId={OrderId}", id);
             }
 
-            // Veritabanını güncelle
+            // Veritabanını güncelle (onay durumu). Luca senkronizasyon sonucu ayrı güncellenir.
             try
             {
                 var strategy = _context.Database.CreateExecutionStrategy();
@@ -704,11 +701,9 @@ public class SalesOrdersController : ControllerBase
                     await using var tx = await _context.Database.BeginTransactionAsync();
                     try
                     {
-                        var isSuccess = katanaOrderId.HasValue;
+                        var isSuccess = failCount == 0 && successCount > 0;
                         order.Status = isSuccess ? "APPROVED" : "APPROVED_WITH_ERRORS";
-                        if (katanaOrderId.HasValue)
-                            order.KatanaOrderId = katanaOrderId.Value;
-                        order.LastSyncError = isSuccess ? null : Truncate(katanaError ?? "Bilinmeyen hata", 1900);
+
                         order.UpdatedAt = DateTime.UtcNow;
 
                         await _context.SaveChangesAsync();
@@ -728,30 +723,131 @@ public class SalesOrdersController : ControllerBase
                 return StatusCode(500, new { success = false, message = "Onay sonucu kaydedilirken hata oluştu." });
             }
 
+            // ✅ Onay sonrası Luca'ya senkronizasyon (fatura)
+            // Not: Luca çağrısı DB retry stratejisinin dışında kalmalı; aksi halde transient DB retry sırasında duplicate fatura oluşabilir.
+            SalesOrderSyncResultDto? lucaSync = null;
+            var lucaSkippedReason = (string?)null;
+
+            if (failCount == 0 && successCount > 0)
+            {
+                if (order.IsSyncedToLuca && string.IsNullOrEmpty(order.LastSyncError))
+                {
+                    lucaSkippedReason = $"Sipariş zaten Koza'ya senkronize edilmiş (LucaId={order.LucaOrderId})";
+                }
+                else if (order.Customer == null)
+                {
+                    lucaSkippedReason = "Müşteri bilgisi eksik";
+                }
+                else
+                {
+                    var validationErrors = new List<string>();
+                    var customer = order.Customer;
+                    var customerCode = !string.IsNullOrWhiteSpace(customer.LucaCode) ? customer.LucaCode : customer.TaxNo;
+
+                    if (string.IsNullOrWhiteSpace(customerCode))
+                    {
+                        validationErrors.Add("Müşterinin Vergi No veya Luca Cari Kodu eksik");
+                    }
+                    else if (customerCode.StartsWith("CUST", StringComparison.OrdinalIgnoreCase))
+                    {
+                        validationErrors.Add($"Geçersiz cari kodu: '{customerCode}'. Müşteriye geçerli bir Vergi No veya Luca Cari Kodu atayın");
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(customer.TaxNo))
+                    {
+                        var taxNoDigits = new string(customer.TaxNo.Where(char.IsDigit).ToArray());
+                        if (taxNoDigits.Length != 10 && taxNoDigits.Length != 11)
+                        {
+                            validationErrors.Add($"Geçersiz Vergi No/TC Kimlik No formatı: '{customer.TaxNo}' (10 veya 11 haneli olmalı)");
+                        }
+                    }
+
+                    if (string.IsNullOrWhiteSpace(customer.Title))
+                    {
+                        validationErrors.Add("Müşteri adı/unvanı eksik");
+                    }
+
+                    if (validationErrors.Count > 0)
+                    {
+                        lucaSkippedReason = string.Join("; ", validationErrors);
+                    }
+                    else
+                    {
+                        var depoKodu = await _locationMappingService.GetDepoKoduByLocationIdAsync(order.LocationId?.ToString() ?? string.Empty);
+                        lucaSync = await _lucaService.CreateSalesOrderInvoiceAsync(order, depoKodu);
+
+                        var strategy = _context.Database.CreateExecutionStrategy();
+                        await strategy.ExecuteAsync(async () =>
+                        {
+                            await using var tx = await _context.Database.BeginTransactionAsync();
+                            try
+                            {
+                                var current = await _context.SalesOrders.FirstOrDefaultAsync(s => s.Id == id);
+                                if (current == null) return;
+
+                                current.LastSyncAt = DateTime.UtcNow;
+                                current.UpdatedAt = DateTime.UtcNow;
+
+                                if (lucaSync.IsSuccess && lucaSync.LucaOrderId.HasValue)
+                                {
+                                    current.IsSyncedToLuca = true;
+                                    current.LucaOrderId = lucaSync.LucaOrderId;
+                                    current.LastSyncError = null;
+                                }
+                                else
+                                {
+                                    current.IsSyncedToLuca = false;
+                                    current.LastSyncError = Truncate(lucaSync.ErrorDetails ?? "Luca satış faturası oluşturma başarısız", 950);
+                                }
+
+                                await _context.SaveChangesAsync();
+                                await tx.CommitAsync();
+                            }
+                            catch
+                            {
+                                await tx.RollbackAsync();
+                                throw;
+                            }
+                        });
+                    }
+                }
+            }
+            else
+            {
+                lucaSkippedReason = "Katana stok güncellemesi kısmi başarısız olduğu için Luca senkronu atlandı";
+            }
+
             _auditService.LogUpdate(
                 "SalesOrder",
                 id.ToString(),
                 User.Identity?.Name ?? "System",
                 null,
-                katanaOrderId.HasValue 
-                    ? $"Sipariş onaylandı ve Katana'ya gönderildi (KatanaOrderId={katanaOrderId})"
-                    : $"Sipariş onaylandı ama Katana'ya gönderilemedi: {katanaError}");
+                failCount == 0 && successCount > 0
+                    ? $"Sipariş onaylandı ve Katana stok güncellendi (KatanaOrderId={order.KatanaOrderId})"
+                    : $"Sipariş onaylandı ama bazı stok güncellemeleri başarısız oldu (KatanaOrderId={order.KatanaOrderId})");
 
-            _logger.LogInformation("SalesOrder approval completed. OrderId={OrderId}, OrderNo={OrderNo}, KatanaOrderId={KatanaOrderId}, Status={Status}",
-                id, order.OrderNo, katanaOrderId, order.Status);
-            _loggingService.LogInfo($"SalesOrder approve completed: {order.OrderNo} (katanaId={katanaOrderId}, status={order.Status})",
+            _logger.LogInformation("SalesOrder approval completed. OrderId={OrderId}, OrderNo={OrderNo}, KatanaOrderId={KatanaOrderId}, Status={Status}, Success={SuccessCount}, Fail={FailCount}",
+                id, order.OrderNo, order.KatanaOrderId, order.Status, successCount, failCount);
+            _loggingService.LogInfo($"SalesOrder approve completed: {order.OrderNo} (katanaOrderId={order.KatanaOrderId}, status={order.Status}, success={successCount}, fail={failCount})",
                 User.Identity?.Name, $"SalesOrderId={id}", LogCategory.Business);
+
+            object lucaSyncPayload = lucaSync != null
+                ? new { attempted = true, isSuccess = lucaSync.IsSuccess, lucaOrderId = lucaSync.LucaOrderId, message = lucaSync.Message, errorDetails = lucaSync.ErrorDetails }
+                : new { attempted = false, reason = lucaSkippedReason };
 
             return Ok(new
             {
-                success = katanaOrderId.HasValue,
-                message = katanaOrderId.HasValue
-                    ? $"Sipariş onaylandı ve Katana'ya gönderildi. Katana Order ID: {katanaOrderId}"
-                    : $"Sipariş onaylandı ama Katana'ya gönderilemedi: {katanaError}",
+                success = failCount == 0 && successCount > 0,
+                message = (failCount == 0 && successCount > 0)
+                    ? "Sipariş onaylandı"
+                    : $"Sipariş onaylandı ancak Katana stok güncellemesi kısmi başarısız oldu (başarılı={successCount}, hatalı={failCount}).",
                 orderNo = order.OrderNo,
                 orderStatus = order.Status,
-                katanaOrderId = katanaOrderId,
-                error = katanaError
+                katanaOrderId = order.KatanaOrderId,
+                successCount,
+                failCount,
+                syncResults = lineResults.Select(r => new { sku = r.Sku, quantity = r.Quantity, success = r.Success, error = r.Error }).ToList(),
+                lucaSync = lucaSyncPayload
             });
         }
         catch (Exception ex)

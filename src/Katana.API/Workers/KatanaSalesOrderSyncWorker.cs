@@ -122,8 +122,16 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                 .Select(s => s.KatanaOrderId)
                 .ToListAsync(cancellationToken);
             var existingKatanaOrderIds = new HashSet<long>(existingKatanaOrderIdsList);
+
+            // ✅ OrderNo bazlı duplicate prevention için hazırla
+            var existingOrderNosList = await context.SalesOrders
+                .Where(s => !string.IsNullOrWhiteSpace(s.OrderNo))
+                .Select(s => s.OrderNo!)
+                .ToListAsync(cancellationToken);
+            var existingOrderNos = new HashSet<string>(existingOrderNosList, StringComparer.OrdinalIgnoreCase);
             
-            _logger.LogInformation("Found {Count} existing sales orders in database", existingKatanaOrderIds.Count);
+            _logger.LogInformation("Found {Count} existing sales orders in database (KatanaIds)", existingKatanaOrderIds.Count);
+            _logger.LogInformation("Found {Count} existing sales orders in database (OrderNos)", existingOrderNos.Count);
             
             // 🔍 DEBUG: Mevcut siparişleri logla
             if (existingKatanaOrderIds.Count > 0)
@@ -133,20 +141,19 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
             }
             
             // ✅ Composite key kontrolü - Sipariş güncellemelerini yakala
-            // ExternalOrderId + ProductId + Quantity ile duplicate prevention
+            // ExternalOrderId + SKU ile duplicate prevention (qty değişse de aynı satır ikinci kez açılmasın)
             var processedItems = await context.PendingStockAdjustments
                 .Where(p => p.ExternalOrderId != null)
                 .Select(p => new 
                 { 
                     p.ExternalOrderId, 
-                    p.Sku,
-                    p.Quantity 
+                    p.Sku
                 })
                 .ToListAsync(cancellationToken);
             
             // HashSet ile O(1) lookup performance
             var processedItemsSet = new HashSet<string>(
-                processedItems.Select(p => $"{p.ExternalOrderId}|{p.Sku}|{p.Quantity}")
+                processedItems.Select(p => $"{p.ExternalOrderId}|{(p.Sku ?? string.Empty).Trim().ToUpperInvariant()}")
             );
             
             _logger.LogInformation("Found {Count} already processed order items", processedItemsSet.Count);
@@ -209,7 +216,8 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                 foreach (var order in orderBatch)
                 {
                     // Sipariş numarası veya ID'si
-                    var orderId = !string.IsNullOrEmpty(order.OrderNo) ? order.OrderNo : order.Id.ToString();
+                    var orderNo = !string.IsNullOrWhiteSpace(order.OrderNo) ? order.OrderNo.Trim() : $"SO-{order.Id}";
+                    var orderId = orderNo;
 
                     // Sadece tamamlanmamış siparişleri işle (PendingStockAdjustment için)
                     // NOT_SHIPPED/OPEN siparişler için pending adjustment oluştur
@@ -218,6 +226,16 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                     var skipPendingAdjustment = status == "cancelled" || status == "done" || status == "shipped" || status == "delivered" || status == "fully_shipped";
 
                     // ✅ SalesOrders tablosuna kaydet (tüm siparişler için - duplicate check ile)
+                    var isDuplicateByKatanaId = existingKatanaOrderIds.Contains(order.Id);
+                    var isDuplicateByOrderNo = existingOrderNos.Contains(orderNo);
+
+                    if (isDuplicateByKatanaId || isDuplicateByOrderNo)
+                    {
+                        _logger.LogWarning("Duplicate order detected, skipping. OrderNo={OrderNo}, KatanaId={KatanaId}, duplicateByKatanaId={ById}, duplicateByOrderNo={ByNo}",
+                            orderNo, order.Id, isDuplicateByKatanaId, isDuplicateByOrderNo);
+                        continue;
+                    }
+
                     if (!existingKatanaOrderIds.Contains(order.Id))
                     {
                         var localCustomerId = 0;
@@ -360,8 +378,11 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                             }
                         }
                         
+                        _logger.LogInformation("INSERT_SALES_ORDER OrderNo={OrderNo}, KatanaId={KatanaId}, LineCount={LineCount}", orderNo, order.Id, salesOrder.Lines.Count);
+
                         context.SalesOrders.Add(salesOrder);
                         existingKatanaOrderIds.Add(order.Id); // Duplicate prevention için ekle
+                        existingOrderNos.Add(orderNo);
                         savedSalesOrdersCount++;
                         
                         // 📊 Debug: Status mapping kontrolü
@@ -395,14 +416,13 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                             int productId = resolvedProductId;
 
                             var quantity = (int)row.Quantity;
-                            var negativeQuantity = -Math.Abs(quantity);
                             
-                            // ✅ Composite key ile duplicate check
-                            var itemKey = $"{orderId}|{sku}|{negativeQuantity}";
+                            // ✅ Composite key ile duplicate check (ExternalOrderId + SKU)
+                            var itemKey = $"{orderId}|{sku}";
                             if (processedItemsSet.Contains(itemKey))
                             {
                                 _logger.LogDebug("Skipping already processed item: Order {OrderId}, SKU: {SKU}, Qty: {Qty}",
-                                    orderId, sku, negativeQuantity);
+                                    orderId, sku, quantity);
                                 skippedItemsCount++;
                                 continue;
                             }
@@ -413,7 +433,7 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                                 ExternalOrderId = orderId,
                                 ProductId = productId,
                                 Sku = sku,
-                                Quantity = negativeQuantity, // Sipariş = stok çıkışı
+                                Quantity = -Math.Abs(quantity), // Sipariş = stok çıkışı
                                 RequestedBy = "Katana-Sync",
                                 RequestedAt = order.CreatedAt,
                                 Status = "Pending",
@@ -425,7 +445,7 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                             orderHasNewItems = true;
 
                             _logger.LogDebug("Created pending adjustment for order {OrderId}, SKU: {SKU}, Qty: {Qty}",
-                                orderId, sku, negativeQuantity);
+                                orderId, sku, quantity);
                         }
                     }
                     
@@ -453,19 +473,19 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                     "Synced {OrderCount} new orders with {ItemCount} items from Katana ({SkippedItems} duplicate items skipped)",
                     newOrdersCount, newItemsCount, skippedItemsCount);
 
-                // 1. Luca'ya stok kartı senkronizasyonu
+                // 1. Luca'ya stok kartı senkronizasyonu (yeni siparişler geldiyse)
                 await SyncProductsToLucaWithRetryAsync(scope);
 
-                // 2. Onaylanan siparişleri Luca'ya fatura olarak gönder
-                await SyncApprovedOrdersToLucaWithRetryAsync(scope, cancellationToken);
-
-                // 3. Yeni sipariş bildirimi oluştur
+                // 2. Yeni sipariş bildirimi oluştur
                 await CreateNewOrderNotificationAsync(scope, newOrdersCount, newItemsCount, cancellationToken);
             }
             else
             {
                 _logger.LogInformation("No new sales orders to process");
             }
+
+            // 3. Onaylanan siparişleri Luca'ya fatura olarak gönder (yeni sipariş olmasa da çalışmalı)
+            await SyncApprovedOrdersToLucaWithRetryAsync(scope, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -517,7 +537,7 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
     {
         try
         {
-            var orderInvoiceSync = scope.ServiceProvider.GetService<OrderInvoiceSyncService>();
+            var orderInvoiceSync = scope.ServiceProvider.GetService<IOrderInvoiceSyncService>();
             var context = scope.ServiceProvider.GetRequiredService<IntegrationDbContext>();
 
             if (orderInvoiceSync == null)
@@ -541,25 +561,26 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
 
             _logger.LogInformation("Found {Count} approved orders to sync to Luca", approvedAdjustments.Count);
 
-            var retryContext = new Context("SyncOrderToLuca");
-            retryContext["logger"] = _logger;
-
             foreach (var adjustment in approvedAdjustments)
             {
                 try
                 {
-                    // OrderInvoiceSyncService orderId (int) bekliyor
-                    // ExternalOrderId string olduğu için parse etmemiz gerekiyor
-                    if (int.TryParse(adjustment.ExternalOrderId, out var orderId))
+                    var externalOrderId = adjustment.ExternalOrderId?.Trim();
+                    if (string.IsNullOrWhiteSpace(externalOrderId))
                     {
-                        await orderInvoiceSync.SyncSalesOrderToLucaAsync(orderId);
-                        _logger.LogInformation("Successfully synced order {OrderId} to Luca", adjustment.ExternalOrderId);
+                        _logger.LogWarning("Cannot sync order - ExternalOrderId is empty. PendingAdjustmentId={Id}", adjustment.Id);
+                        continue;
                     }
-                    else
+
+                    var localOrderId = await ResolveLocalSalesOrderIdAsync(context, externalOrderId, cancellationToken);
+                    if (!localOrderId.HasValue)
                     {
-                        _logger.LogWarning("Cannot sync order {OrderId} - invalid order ID format", 
-                            adjustment.ExternalOrderId);
+                        _logger.LogWarning("Cannot sync order {ExternalOrderId} - local SalesOrder not found", externalOrderId);
+                        continue;
                     }
+
+                    await orderInvoiceSync.SyncSalesOrderToLucaAsync(localOrderId.Value);
+                    _logger.LogInformation("Successfully synced order {ExternalOrderId} (LocalId={LocalId}) to Luca", externalOrderId, localOrderId.Value);
                 }
                 catch (Exception ex)
                 {
@@ -572,6 +593,43 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
         {
             _logger.LogWarning(ex, "Failed to process approved orders for Luca sync");
         }
+    }
+
+    private static async Task<int?> ResolveLocalSalesOrderIdAsync(IntegrationDbContext context, string externalOrderId, CancellationToken ct)
+    {
+        if (int.TryParse(externalOrderId, out var localId))
+        {
+            var exists = await context.SalesOrders.AsNoTracking().AnyAsync(o => o.Id == localId, ct);
+            return exists ? localId : null;
+        }
+
+        if (long.TryParse(externalOrderId, out var katanaOrderId))
+        {
+            var byKatanaId = await context.SalesOrders.AsNoTracking()
+                .Where(o => o.KatanaOrderId == katanaOrderId)
+                .Select(o => (int?)o.Id)
+                .FirstOrDefaultAsync(ct);
+            if (byKatanaId.HasValue) return byKatanaId.Value;
+        }
+
+        var byOrderNo = await context.SalesOrders.AsNoTracking()
+            .Where(o => o.OrderNo == externalOrderId)
+            .Select(o => (int?)o.Id)
+            .FirstOrDefaultAsync(ct);
+        if (byOrderNo.HasValue) return byOrderNo.Value;
+
+        // Backward-compat: geçmişte yanlışlıkla "SO-" prefix'i çiftlenen siparişlerde arama kolaylığı
+        if (externalOrderId.StartsWith("SO-SO-", StringComparison.OrdinalIgnoreCase))
+        {
+            var normalized = "SO-" + externalOrderId.Substring("SO-SO-".Length);
+            var byNormalized = await context.SalesOrders.AsNoTracking()
+                .Where(o => o.OrderNo == normalized)
+                .Select(o => (int?)o.Id)
+                .FirstOrDefaultAsync(ct);
+            if (byNormalized.HasValue) return byNormalized.Value;
+        }
+
+        return null;
     }
 
     private static async Task<(int ProductId, string Sku)> ResolveVariantMappingAsync(

@@ -151,6 +151,12 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                 result.Message = "Luca fatura request'i oluşturulamadı - mapping eksik olabilir";
                 return result;
             }
+            _logger.LogInformation("BUILD_INVOICE BelgeTakipNo={BelgeNo} OrderId={OrderId} LineCount={LineCount}",
+                order.OrderNo ?? orderId.ToString(), orderId, order.Lines?.Count ?? 0);
+            _logger.LogInformation("BUILD_INVOICE BelgeTakipNo={BelgeNo} OrderId={OrderId} LineCount={LineCount}",
+                order.OrderNo ?? orderId.ToString(), orderId, order.Lines?.Count ?? 0);
+            _logger.LogInformation("BUILD_INVOICE BelgeTakipNo={BelgeNo} OrderId={OrderId} LineCount={LineCount}",
+                order.OrderNo ?? order.Id.ToString(), order.Id, order.Lines?.Count ?? 0);
 
             // 4. Circuit Breaker kontrolü - API down ise hızlı fail
             if (_lucaCircuitBreaker.CircuitState == CircuitState.Open)
@@ -239,6 +245,9 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                 result.LucaFaturaId = lucaFaturaId.Value;
                 result.Message = $"Satış faturası Luca'ya başarıyla gönderildi. Fatura ID: {lucaFaturaId.Value}";
 
+                _logger.LogInformation("CREATE_INVOICE_OK BelgeTakipNo={BelgeNo} OrderId={OrderId} LucaInvoiceId={LucaInvoiceId} DetayCount={DetayCount}",
+                    order.OrderNo ?? orderId.ToString(), orderId, lucaFaturaId.Value, lucaRequest.DetayList?.Count ?? 0);
+
                 _logger.LogInformation(
                     "Sales Order {OrderNo} successfully synced to Luca. Fatura ID: {FaturaId}",
                     order.OrderNo, lucaFaturaId.Value
@@ -288,6 +297,8 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                     "Failed to sync Sales Order {OrderNo} to Luca: {Message}", 
                     order.OrderNo, errorMsg
                 );
+                _logger.LogError("CREATE_INVOICE_FAIL BelgeTakipNo={BelgeNo} OrderId={OrderId} Error={Error}",
+                    order.OrderNo ?? orderId.ToString(), orderId, errorMsg);
             }
 
             return result;
@@ -295,6 +306,7 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error syncing Sales Order {OrderId} to Luca", orderId);
+            _logger.LogError("CREATE_INVOICE_FAIL OrderId={OrderId} Error={Error}", orderId, ex.Message);
             result.Success = false;
             result.Message = $"Hata: {ex.Message}";
             return result;

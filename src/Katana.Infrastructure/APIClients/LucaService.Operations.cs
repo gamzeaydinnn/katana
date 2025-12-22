@@ -154,19 +154,19 @@ public partial class LucaService
         return false;
     }
 
-    public async Task<SalesOrderSyncResultDto> CreateSalesOrderInvoiceAsync(SalesOrder order, string? depoKodu = null, CancellationToken ct = default)
-    {
-        if (order == null) throw new ArgumentNullException(nameof(order));
-
-        if (order.Customer == null)
+        public async Task<SalesOrderSyncResultDto> CreateSalesOrderInvoiceAsync(SalesOrder order, string? depoKodu = null, CancellationToken ct = default)
         {
-            return new SalesOrderSyncResultDto
+            if (order == null) throw new ArgumentNullException(nameof(order));
+
+            if (order.Customer == null)
             {
-                IsSuccess = false,
-                Message = "Müşteri bilgisi eksik",
-                ErrorDetails = "Customer is null"
-            };
-        }
+                return new SalesOrderSyncResultDto
+                {
+                    IsSuccess = false,
+                    Message = "Müşteri bilgisi eksik",
+                    ErrorDetails = "Customer is null"
+                };
+            }
 
         if (order.Lines == null || order.Lines.Count == 0)
         {
@@ -178,10 +178,10 @@ public partial class LucaService
             };
         }
 
-        // 🔍 DETAYLI LOGLAMA: Sipariş bilgileri
-        _logger.LogInformation(
-            "📤 Luca fatura oluşturma başlatıldı. OrderId={OrderId}, OrderNo={OrderNo}, Currency={Currency}, ConversionRate={ConversionRate}, LineCount={LineCount}",
-            order.Id, order.OrderNo, order.Currency, order.ConversionRate, order.Lines.Count);
+            // 🔍 DETAYLI LOGLAMA: Sipariş bilgileri
+            _logger.LogInformation(
+                "📤 Luca fatura oluşturma başlatıldı. OrderId={OrderId}, OrderNo={OrderNo}, Currency={Currency}, ConversionRate={ConversionRate}, LineCount={LineCount}",
+                order.Id, order.OrderNo, order.Currency, order.ConversionRate, order.Lines?.Count ?? 0);
 
         static string? TryGetMessage(JsonElement el)
         {
@@ -220,8 +220,8 @@ public partial class LucaService
         {
             // 🔍 DETAYLI LOGLAMA: Mapping öncesi
             _logger.LogInformation(
-                "🔄 Mapping başlatılıyor. CustomerId={CustomerId}, CustomerTitle={CustomerTitle}, LucaCode={LucaCode}, TaxNo={TaxNo}",
-                order.Customer.Id, order.Customer.Title, order.Customer.LucaCode, order.Customer.TaxNo);
+                "🔄 Mapping başlatılıyor. CustomerId={CustomerId}, CustomerTitle={CustomerTitle}, LucaCode={LucaCode}, TaxNo={TaxNo}, Lines={LineCount}",
+                order.Customer.Id, order.Customer.Title, order.Customer.LucaCode, order.Customer.TaxNo, order.Lines?.Count ?? 0);
 
             var request = MappingHelper.MapToLucaInvoiceFromSalesOrder(order, order.Customer, depoKodu);
             
@@ -238,17 +238,17 @@ public partial class LucaService
 
             var isOk = success ?? invoiceId.HasValue;
             
-            if (isOk)
-            {
-                _logger.LogInformation(
-                    "✅ Luca fatura başarıyla oluşturuldu. OrderId={OrderId}, OrderNo={OrderNo}, LucaInvoiceId={LucaInvoiceId}",
-                    order.Id, order.OrderNo, invoiceId);
-            }
-            else
-            {
-                _logger.LogError(
-                    "❌ Luca fatura oluşturma başarısız. OrderId={OrderId}, OrderNo={OrderNo}, Error={Error}",
-                    order.Id, order.OrderNo, message ?? "Bilinmeyen hata");
+                if (isOk)
+                {
+                    _logger.LogInformation(
+                        "✅ Luca fatura başarıyla oluşturuldu. OrderId={OrderId}, OrderNo={OrderNo}, LucaInvoiceId={LucaInvoiceId}, DetayCount={DetayCount}",
+                        order.Id, order.OrderNo, invoiceId, request.DetayList?.Count ?? 0);
+                }
+                else
+                {
+                    _logger.LogError(
+                        "❌ Luca fatura oluşturma başarısız. OrderId={OrderId}, OrderNo={OrderNo}, Error={Error}, DetayCount={DetayCount}",
+                        order.Id, order.OrderNo, message ?? "Bilinmeyen hata", request.DetayList?.Count ?? 0);
             }
 
             return new SalesOrderSyncResultDto
