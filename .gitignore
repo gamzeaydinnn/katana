@@ -116,6 +116,9 @@ temp_*.txt
 
 # Build Artifacts
 publish/
+publish_fast/
+publish_new/
+publish_test/
 dist/
 build/
 
