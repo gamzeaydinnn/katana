@@ -567,8 +567,11 @@ public class SalesOrdersController : ControllerBase
 
                         if (!stockSyncSuccess)
                         {
-                            _logger.LogWarning("Stok artışı/ürün oluşturma başarısız oldu: {SKU}", line.SKU);
+                            _logger.LogError("❌ KRITIK: Stok artışı/ürün oluşturma başarısız oldu: {SKU}. Satış siparişi satırı atlanıyor!", line.SKU);
+                            continue; // ⚠️ ÖNEMLI: Başarısız olursa satırı atla!
                         }
+
+                        _logger.LogInformation("✅ Stok artışı başarılı: {SKU}, Qty={Qty}", line.SKU, line.Quantity);
 
                         // 2) Variant ID'yi çöz (line.VariantId 0 gelebilir)
                         long? variantId = line.VariantId > 0 ? line.VariantId : null;
@@ -582,7 +585,7 @@ public class SalesOrdersController : ControllerBase
 
                         if (!variantId.HasValue)
                         {
-                            _logger.LogWarning("Variant not found for SKU {SKU}, skipping line", line.SKU);
+                            _logger.LogError("❌ KRITIK: Variant not found for SKU {SKU}, skipping line", line.SKU);
                             continue;
                         }
 
@@ -595,6 +598,8 @@ public class SalesOrdersController : ControllerBase
                             TaxRateId = line.TaxRateId,
                             LocationId = line.LocationId ?? order.LocationId
                         });
+                        
+                        _logger.LogInformation("✅ Satış siparişi satırı eklendi: SKU={SKU}, VariantId={VariantId}, Qty={Qty}", line.SKU, variantId, line.Quantity);
                     }
 
                     if (salesOrderRows.Count == 0)

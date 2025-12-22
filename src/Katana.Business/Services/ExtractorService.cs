@@ -91,6 +91,7 @@ public class ExtractorService : IExtractorService
         // Cache default category and category name lookups to avoid N+1 database queries
         Katana.Core.Entities.Category? defaultCat = null;
         var categoryNameCache = new Dictionary<int, string>();
+        var nonZeroStockCount = 0;
 
         foreach (var product in katanaProducts)
         {
@@ -98,6 +99,27 @@ public class ExtractorService : IExtractorService
             {
                 _logger.LogWarning("ExtractorService => Product extraction cancelled.");
                 break;
+            }
+
+            // Determine stock value and source field for logging
+            var stockValue = product.InStock ?? product.OnHand ?? product.Available ?? 0;
+            var stockSource = product.InStock.HasValue ? "InStock" :
+                              product.OnHand.HasValue ? "OnHand" :
+                              product.Available.HasValue ? "Available" : "Default(0)";
+
+            // Log stock mapping details at debug level
+            if (product.InStock == null && product.OnHand == null && product.Available == null)
+            {
+                _logger.LogWarning("ExtractorService => No stock data for SKU={SKU}. All stock fields (InStock, OnHand, Available) are null.", product.SKU);
+            }
+            else
+            {
+                _logger.LogDebug("ExtractorService => Stock mapped for SKU={SKU}: Source={StockSource}, Value={StockValue}", product.SKU, stockSource, stockValue);
+            }
+
+            if (stockValue > 0)
+            {
+                nonZeroStockCount++;
             }
 
             var dto = new ProductDto
@@ -109,7 +131,8 @@ public class ExtractorService : IExtractorService
                 MainImageUrl = product.ImageUrl,
                 Description = product.Description,
                 IsActive = product.IsActive,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                Stock = stockValue
             };
 
             var validationErrors = ProductValidator.ValidateUpdate(new UpdateProductDto
@@ -220,7 +243,7 @@ public class ExtractorService : IExtractorService
             }
         }
 
-        _logger.LogInformation("ExtractorService => {Count} products ready for transformation.", result.Count);
+        _logger.LogInformation("ExtractorService => {Count} products ready for transformation. NonZeroStock={NonZeroStockCount}, TotalProcessed={TotalProcessed}", result.Count, nonZeroStockCount, katanaProducts.Count);
         return result;
     }
 
