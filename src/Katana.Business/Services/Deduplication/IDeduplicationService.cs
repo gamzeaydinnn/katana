@@ -41,4 +41,34 @@ public interface IDeduplicationService
     /// Updates deduplication rules configuration
     /// </summary>
     Task UpdateRulesAsync(DeduplicationRules rules);
+
+    // ============ Variant-Aware Deduplication Methods ============
+
+    /// <summary>
+    /// Varyant bazlı duplicate tespiti yapar
+    /// Property 4: Duplicate Detection Consistency
+    /// </summary>
+    Task<List<VariantDuplicateGroup>> DetectVariantDuplicatesAsync(double similarityThreshold = 0.85, CancellationToken ct = default);
+
+    /// <summary>
+    /// Varyantları canonical ürüne birleştirir
+    /// Property 5: Merge Data Integrity
+    /// </summary>
+    Task<VariantMergeResult> MergeVariantsAsync(long canonicalProductId, List<long> duplicateProductIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// Aktif siparişi olan ürünleri kontrol eder
+    /// Property 6: Active Order Protection
+    /// </summary>
+    Task<List<ActiveOrderReference>> GetActiveOrdersForProductAsync(long productId, CancellationToken ct = default);
+
+    /// <summary>
+    /// SKU base koduna gore birlestirme plani olusturur
+    /// </summary>
+    Task<SkuBaseMergePlan> BuildSkuBaseMergePlanAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// SKU base koduna gore urunleri birlestirir
+    /// </summary>
+    Task<List<VariantMergeResult>> MergeProductsBySkuBaseAsync(CancellationToken ct = default);
 }

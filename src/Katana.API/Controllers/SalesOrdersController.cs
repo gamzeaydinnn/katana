@@ -105,9 +105,53 @@ public class SalesOrdersController : ControllerBase
     }
 
     /// <summary>
+    /// KatanaOrderId bazında gruplu satış siparişlerini getir
+    /// </summary>
+    [HttpGet("grouped")]
+    public async Task<ActionResult<IEnumerable<GroupedSalesOrderDto>>> GetGrouped(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? status = null,
+        [FromQuery] string? syncStatus = null)
+    {
+        var query = _context.SalesOrders
+            .Include(s => s.Customer)
+            .Include(s => s.Lines)
+            .AsQueryable();
+
+        if (!string.IsNullOrEmpty(status))
+        {
+            query = query.Where(s => s.Status == status);
+        }
+
+        if (!string.IsNullOrEmpty(syncStatus))
+        {
+            query = syncStatus switch
+            {
+                "synced" => query.Where(s => s.IsSyncedToLuca && string.IsNullOrEmpty(s.LastSyncError)),
+                "error" => query.Where(s => !string.IsNullOrEmpty(s.LastSyncError)),
+                "not_synced" => query.Where(s => !s.IsSyncedToLuca && string.IsNullOrEmpty(s.LastSyncError)),
+                _ => query
+            };
+        }
+
+        var orders = await query.ToListAsync();
+
+        var grouped = orders
+            .GroupBy(o => o.KatanaOrderId > 0 ? o.KatanaOrderId : o.Id)
+            .Select(BuildGroupedOrder)
+            .OrderByDescending(g => g.OrderCreatedDate)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        return Ok(grouped);
+    }
+
+    /// <summary>
     /// Satış siparişi detayını getir
     /// </summary>
-    [HttpGet("{id}")]
+    [HttpGet("{id:int}")]
     public async Task<ActionResult<LocalSalesOrderDto>> GetById(int id)
     {
         var order = await _context.SalesOrders
@@ -913,6 +957,67 @@ public class SalesOrdersController : ControllerBase
         };
     }
 
+    private static GroupedSalesOrderDto BuildGroupedOrder(IGrouping<long, SalesOrder> group)
+    {
+        var orders = group.ToList();
+        var header = orders.FirstOrDefault(o => o.Customer != null)
+            ?? orders.OrderBy(o => o.OrderCreatedDate ?? o.CreatedAt).First();
+
+        var lines = orders
+            .SelectMany(o => o.Lines ?? new List<SalesOrderLine>())
+            .GroupBy(l => l.KatanaRowId != 0 ? $"K:{l.KatanaRowId}" : $"L:{l.Id}")
+            .Select(g => g.First())
+            .OrderBy(l => l.KatanaRowId)
+            .ThenBy(l => l.Id)
+            .Select(MapLineDto)
+            .ToList();
+
+        return new GroupedSalesOrderDto
+        {
+            GroupKatanaOrderId = group.Key,
+            OrderNo = header.OrderNo,
+            OrderNos = orders.Select(o => o.OrderNo).Where(o => !string.IsNullOrWhiteSpace(o)).Distinct().ToList(),
+            CustomerId = header.CustomerId,
+            CustomerName = header.Customer?.Title,
+            OrderCreatedDate = header.OrderCreatedDate,
+            DeliveryDate = header.DeliveryDate,
+            Currency = header.Currency,
+            Status = header.Status,
+            Total = orders.Sum(o => o.Total ?? 0m),
+            TotalInBaseCurrency = orders.Sum(o => o.TotalInBaseCurrency ?? 0m),
+            IsSyncedToLuca = orders.Any(o => o.IsSyncedToLuca),
+            LastSyncError = orders.Select(o => o.LastSyncError).FirstOrDefault(e => !string.IsNullOrWhiteSpace(e)),
+            LastSyncAt = orders.Max(o => o.LastSyncAt),
+            Lines = lines
+        };
+    }
+
+    private static LocalSalesOrderLineDto MapLineDto(SalesOrderLine line)
+    {
+        return new LocalSalesOrderLineDto
+        {
+            Id = line.Id,
+            SalesOrderId = line.SalesOrderId,
+            KatanaRowId = line.KatanaRowId,
+            VariantId = line.VariantId,
+            SKU = line.SKU,
+            ProductName = line.ProductName,
+            Quantity = line.Quantity,
+            PricePerUnit = line.PricePerUnit,
+            PricePerUnitInBaseCurrency = line.PricePerUnitInBaseCurrency,
+            Total = line.Total,
+            TotalInBaseCurrency = line.TotalInBaseCurrency,
+            TaxRate = line.TaxRate,
+            TaxRateId = line.TaxRateId,
+            LocationId = line.LocationId,
+            ProductAvailability = line.ProductAvailability,
+            ProductExpectedDate = line.ProductExpectedDate,
+            LucaDetayId = line.LucaDetayId,
+            LucaStokId = line.LucaStokId,
+            LucaDepoId = line.LucaDepoId
+        };
+    }
+
     /// <summary>
     /// APPROVED_WITH_ERRORS durumundaki siparişlerin durumunu temizle
     /// Charset sorunu düzeltildikten sonra eski hataları temizlemek için kullanılır
@@ -962,5 +1067,87 @@ public class SalesOrdersController : ControllerBase
             _logger.LogError(ex, "ClearApprovedErrors: Unexpected error");
             return StatusCode(500, new { success = false, message = "Hata durumu temizlenirken hata oluştu.", error = ex.Message });
         }
+    }
+
+    /// <summary>
+    /// Sipariş detayını varyant gruplarıyla birlikte getir
+    /// Multi-variant siparişler için ürün bazlı gruplama ve alt toplamlar
+    /// </summary>
+    [HttpGet("{id}/grouped-summary")]
+    public async Task<ActionResult<OrderGroupedSummaryDto>> GetGroupedSummary(int id)
+    {
+        var order = await _context.SalesOrders
+            .Include(s => s.Customer)
+            .Include(s => s.Lines)
+            .FirstOrDefaultAsync(s => s.Id == id);
+
+        if (order == null)
+            return NotFound($"Sipariş bulunamadı: {id}");
+
+        // Satırları ürün bazında grupla
+        var productGroups = order.Lines
+            .GroupBy(l => GetProductBaseCode(l.SKU))
+            .Select(g => new OrderProductGroupDto
+            {
+                ProductBaseCode = g.Key,
+                ProductName = g.First().ProductName?.Split('-').FirstOrDefault()?.Trim() ?? g.Key,
+                VariantCount = g.Count(),
+                Lines = g.Select(l => new LocalSalesOrderLineDto
+                {
+                    Id = l.Id,
+                    SalesOrderId = l.SalesOrderId,
+                    KatanaRowId = l.KatanaRowId,
+                    VariantId = l.VariantId,
+                    SKU = l.SKU,
+                    ProductName = l.ProductName,
+                    Quantity = l.Quantity,
+                    PricePerUnit = l.PricePerUnit,
+                    PricePerUnitInBaseCurrency = l.PricePerUnitInBaseCurrency,
+                    Total = l.Total,
+                    TotalInBaseCurrency = l.TotalInBaseCurrency,
+                    TaxRate = l.TaxRate,
+                    TaxRateId = l.TaxRateId,
+                    LocationId = l.LocationId,
+                    ProductAvailability = l.ProductAvailability,
+                    ProductExpectedDate = l.ProductExpectedDate,
+                    LucaDetayId = l.LucaDetayId,
+                    LucaStokId = l.LucaStokId,
+                    LucaDepoId = l.LucaDepoId
+                }).ToList(),
+                SubtotalQuantity = g.Sum(l => l.Quantity),
+                SubtotalAmount = g.Sum(l => l.Total ?? 0),
+                SubtotalAmountInBaseCurrency = g.Sum(l => l.TotalInBaseCurrency ?? 0)
+            })
+            .OrderBy(g => g.ProductBaseCode)
+            .ToList();
+
+        var summary = new OrderGroupedSummaryDto
+        {
+            OrderId = order.Id,
+            OrderNo = order.OrderNo,
+            CustomerName = order.Customer?.Title,
+            OrderDate = order.OrderCreatedDate,
+            Status = order.Status,
+            Currency = order.Currency,
+            TotalLineCount = order.Lines.Count,
+            UniqueProductCount = productGroups.Count,
+            ProductGroups = productGroups,
+            GrandTotal = order.Total ?? 0,
+            GrandTotalInBaseCurrency = order.TotalInBaseCurrency ?? 0
+        };
+
+        return Ok(summary);
+    }
+
+    /// <summary>
+    /// SKU'dan ana ürün kodunu çıkarır (PRODUCT-VARIANT-ATTR formatından PRODUCT kısmını alır)
+    /// </summary>
+    private static string GetProductBaseCode(string? sku)
+    {
+        if (string.IsNullOrWhiteSpace(sku))
+            return "UNKNOWN";
+
+        var parts = sku.Split('-');
+        return parts.Length > 0 ? parts[0] : sku;
     }
 }

@@ -164,3 +164,25 @@ public enum ExportFormat
     Json,
     Csv
 }
+
+/// <summary>
+/// Plan for merging duplicate products by SKU base code
+/// </summary>
+public class SkuBaseMergePlan
+{
+    public List<SkuBaseMergeGroup> Groups { get; set; } = new();
+    public int TotalGroups { get; set; }
+    public int TotalDuplicates { get; set; }
+    public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// A group of products that share the same SKU base code
+/// </summary>
+public class SkuBaseMergeGroup
+{
+    public string BaseSku { get; set; } = string.Empty;
+    public long CanonicalProductId { get; set; }
+    public List<long> DuplicateProductIds { get; set; } = new();
+    public List<string> ProductSkus { get; set; } = new();
+}

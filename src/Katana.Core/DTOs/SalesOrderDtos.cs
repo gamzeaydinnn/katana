@@ -98,6 +98,28 @@ public class SalesOrderSummaryDto
 }
 
 /// <summary>
+/// Grouped sales order DTO (by KatanaOrderId)
+/// </summary>
+public class GroupedSalesOrderDto
+{
+    public long GroupKatanaOrderId { get; set; }
+    public string OrderNo { get; set; } = string.Empty;
+    public List<string> OrderNos { get; set; } = new();
+    public int CustomerId { get; set; }
+    public string? CustomerName { get; set; }
+    public DateTime? OrderCreatedDate { get; set; }
+    public DateTime? DeliveryDate { get; set; }
+    public string? Currency { get; set; }
+    public string Status { get; set; } = "NOT_SHIPPED";
+    public decimal? Total { get; set; }
+    public decimal? TotalInBaseCurrency { get; set; }
+    public bool IsSyncedToLuca { get; set; }
+    public string? LastSyncError { get; set; }
+    public DateTime? LastSyncAt { get; set; }
+    public List<LocalSalesOrderLineDto> Lines { get; set; } = new();
+}
+
+/// <summary>
 /// DTO for updating Luca-specific fields
 /// </summary>
 public class UpdateSalesOrderLucaFieldsDto
@@ -233,6 +255,43 @@ public class PurchaseOrderSyncResultDto
     public int? LucaOrderId { get; set; }
     public DateTime? SyncedAt { get; set; }
     public string? ErrorDetails { get; set; }
+}
+
+#endregion
+
+
+#region Order Grouped Summary DTOs
+
+/// <summary>
+/// Sipariş özeti - varyant gruplarıyla birlikte
+/// </summary>
+public class OrderGroupedSummaryDto
+{
+    public int OrderId { get; set; }
+    public string OrderNo { get; set; } = string.Empty;
+    public string? CustomerName { get; set; }
+    public DateTime? OrderDate { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string? Currency { get; set; }
+    public int TotalLineCount { get; set; }
+    public int UniqueProductCount { get; set; }
+    public List<OrderProductGroupDto> ProductGroups { get; set; } = new();
+    public decimal GrandTotal { get; set; }
+    public decimal GrandTotalInBaseCurrency { get; set; }
+}
+
+/// <summary>
+/// Sipariş içindeki ürün grubu (aynı ana ürünün varyantları)
+/// </summary>
+public class OrderProductGroupDto
+{
+    public string ProductBaseCode { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    public int VariantCount { get; set; }
+    public List<LocalSalesOrderLineDto> Lines { get; set; } = new();
+    public decimal SubtotalQuantity { get; set; }
+    public decimal SubtotalAmount { get; set; }
+    public decimal SubtotalAmountInBaseCurrency { get; set; }
 }
 
 #endregion

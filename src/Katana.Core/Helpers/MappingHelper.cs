@@ -736,7 +736,7 @@ public static class MappingHelper
                 Miktar = (double)l.Quantity,
                 Tutar = null, // Luca hesaplar
                 IskontoOran1 = 0.0,
-                Aciklama = l.ProductName,
+                Aciklama = BuildInvoiceLineDescription(l.ProductName, l.SKU),
                 LotNo = null
             }).ToList()
         };
@@ -2102,6 +2102,45 @@ public static class MappingHelper
         {
             throw new ArgumentException($"Depo kodu geçersiz: '{code}'. Normalize edilmiş değer boş.", paramName);
         }
+    }
+
+    /// <summary>
+    /// Fatura satırı açıklaması oluşturur - varyant attribute'larını içerir
+    /// SKU formatı: PRODUCT-VARIANT-ATTRIBUTE (örn: TSHIRT-RED-M)
+    /// </summary>
+    private static string BuildInvoiceLineDescription(string? productName, string? sku)
+    {
+        var description = !string.IsNullOrWhiteSpace(productName) ? productName : sku ?? string.Empty;
+        
+        // SKU'dan varyant bilgilerini çıkar
+        if (!string.IsNullOrWhiteSpace(sku))
+        {
+            var parts = sku.Split('-');
+            if (parts.Length >= 2)
+            {
+                var variantInfo = new List<string>();
+                
+                // İkinci parça genellikle renk/varyant
+                if (parts.Length >= 2 && !string.IsNullOrWhiteSpace(parts[1]))
+                {
+                    variantInfo.Add($"Varyant: {parts[1]}");
+                }
+                
+                // Üçüncü parça genellikle beden/attribute
+                if (parts.Length >= 3 && !string.IsNullOrWhiteSpace(parts[2]))
+                {
+                    variantInfo.Add($"Özellik: {parts[2]}");
+                }
+                
+                if (variantInfo.Any())
+                {
+                    description = $"{description} ({string.Join(", ", variantInfo)})";
+                }
+            }
+        }
+        
+        // Luca açıklama alanı max 500 karakter
+        return TrimAndTruncate(description, 500) ?? description;
     }
 
     // Core Entity -> Katana DTO mapping
