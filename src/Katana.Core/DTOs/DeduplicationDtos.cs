@@ -24,6 +24,40 @@ public class DuplicateGroup
 }
 
 /// <summary>
+/// A group of products with duplicate names for merge operations
+/// </summary>
+public class ProductDuplicateGroup
+{
+    public string ProductName { get; set; } = string.Empty;
+    public int Count { get; set; }
+    public long? KatanaOrderId { get; set; }
+    public List<ProductSummary> Products { get; set; } = new();
+    public bool IsKeepSeparate { get; set; }
+    public string? KeepSeparateReason { get; set; }
+    public DateTime? KeepSeparateDate { get; set; }
+    public string? KeepSeparateBy { get; set; }
+}
+
+/// <summary>
+/// Summary information about a product in a duplicate group
+/// </summary>
+public class ProductSummary
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string SKU { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string CategoryName { get; set; } = string.Empty;
+    public int? SalesOrderId { get; set; }
+    public int SalesOrderCount { get; set; }
+    public int BOMCount { get; set; }
+    public int StockMovementCount { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsSuggestedCanonical { get; set; }
+    public long? KatanaOrderId { get; set; }
+}
+
+/// <summary>
 /// Information about a single stock card within a duplicate group
 /// </summary>
 public class StockCardInfo
@@ -185,4 +219,78 @@ public class SkuBaseMergeGroup
     public long CanonicalProductId { get; set; }
     public List<long> DuplicateProductIds { get; set; } = new();
     public List<string> ProductSkus { get; set; } = new();
+}
+
+/// <summary>
+/// Request to merge duplicate products into a canonical product
+/// </summary>
+public class MergeRequest
+{
+    public int CanonicalProductId { get; set; }
+    public List<int> ProductIdsToMerge { get; set; } = new();
+    public bool UpdateSalesOrders { get; set; } = true;
+    public bool UpdateBOMs { get; set; } = true;
+    public bool UpdateStockMovements { get; set; } = true;
+    public string? Reason { get; set; }
+}
+
+/// <summary>
+/// Preview of the impact of a merge operation
+/// </summary>
+public class MergePreview
+{
+    public ProductSummary? CanonicalProduct { get; set; }
+    public List<ProductSummary> ProductsToMerge { get; set; } = new();
+    public int SalesOrdersToUpdate { get; set; }
+    public int BOMsToUpdate { get; set; }
+    public int StockMovementsToUpdate { get; set; }
+    public List<string> Warnings { get; set; } = new();
+    public List<string> CriticalWarnings { get; set; } = new();
+    public bool CanProceed { get; set; }
+}
+
+/// <summary>
+/// Result of a merge operation
+/// </summary>
+public class MergeResult
+{
+    public bool Success { get; set; }
+    public int MergeHistoryId { get; set; }
+    public int SalesOrdersUpdated { get; set; }
+    public int BOMsUpdated { get; set; }
+    public int StockMovementsUpdated { get; set; }
+    public int ProductsInactivated { get; set; }
+    public List<string> Errors { get; set; } = new();
+    public DateTime CompletedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Entry in the merge history audit log
+/// </summary>
+public class MergeHistoryEntry
+{
+    public int Id { get; set; }
+    public int CanonicalProductId { get; set; }
+    public string CanonicalProductName { get; set; } = string.Empty;
+    public string CanonicalProductSKU { get; set; } = string.Empty;
+    public List<int> MergedProductIds { get; set; } = new();
+    public int SalesOrdersUpdated { get; set; }
+    public int BOMsUpdated { get; set; }
+    public int StockMovementsUpdated { get; set; }
+    public string AdminUserId { get; set; } = string.Empty;
+    public string AdminUserName { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public MergeStatus Status { get; set; }
+    public string? Reason { get; set; }
+}
+
+/// <summary>
+/// Status of a merge operation
+/// </summary>
+public enum MergeStatus
+{
+    Pending,
+    Completed,
+    RolledBack,
+    Failed
 }

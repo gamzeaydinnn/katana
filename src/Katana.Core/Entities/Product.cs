@@ -123,6 +123,20 @@ public class Product
     /// </summary>
     public long? LucaId { get; set; }
     
+    /// <summary>
+    /// Katana API'deki ürün ID'si
+    /// Merge işlemlerinde Katana API'den silme için kullanılır
+    /// </summary>
+    [Column("katana_product_id")]
+    public int? KatanaProductId { get; set; }
+    
+    /// <summary>
+    /// Katana sipariş ID'si - Aynı siparişten gelen ürünleri gruplamak için
+    /// Aynı KatanaOrderId'ye sahip ürünler tek ürünün varyantları olarak kabul edilir
+    /// </summary>
+    [Column("katana_order_id")]
+    public long? KatanaOrderId { get; set; }
+    
     public bool IsActive { get; set; } = true;
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

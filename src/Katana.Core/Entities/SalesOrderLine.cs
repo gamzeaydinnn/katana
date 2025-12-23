@@ -76,6 +76,12 @@ public class SalesOrderLine
     /// </summary>
     public int? LucaDepoId { get; set; }
 
+    /// <summary>
+    /// Katana'ya gönderildiğinde oluşturulan order ID
+    /// Her satır için ayrı order oluşturulmuşsa bu değer farklı olabilir
+    /// </summary>
+    public int? KatanaOrderId { get; set; }
+
     // ==================== Navigation Properties ====================
 
     public virtual SalesOrder? SalesOrder { get; set; }
