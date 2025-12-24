@@ -225,19 +225,56 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                     var status = order.Status?.ToLower() ?? "";
                     var skipPendingAdjustment = status == "cancelled" || status == "done" || status == "shipped" || status == "delivered" || status == "fully_shipped";
 
-                    // ✅ SalesOrders tablosuna kaydet (tüm siparişler için - duplicate check ile)
-                    var isDuplicateByKatanaId = existingKatanaOrderIds.Contains(order.Id);
-                    var isDuplicateByOrderNo = existingOrderNos.Contains(orderNo);
+                    // ✅ SalesOrders tablosuna kaydet (upsert mantığı - varsa güncelle, yoksa oluştur)
+                    var existingOrderByKatanaId = await context.SalesOrders
+                        .FirstOrDefaultAsync(o => o.KatanaOrderId == order.Id, cancellationToken);
+                    var existingOrderByOrderNo = existingOrderByKatanaId == null 
+                        ? await context.SalesOrders.FirstOrDefaultAsync(o => o.OrderNo == orderNo, cancellationToken)
+                        : null;
+                    var existingOrder = existingOrderByKatanaId ?? existingOrderByOrderNo;
 
-                    if (isDuplicateByKatanaId || isDuplicateByOrderNo)
+                    // ✅ Mevcut sipariş varsa güncelle (upsert - Requirements 4.2, 4.3)
+                    if (existingOrder != null)
                     {
-                        _logger.LogWarning("Duplicate order detected, skipping. OrderNo={OrderNo}, KatanaId={KatanaId}, duplicateByKatanaId={ById}, duplicateByOrderNo={ByNo}",
-                            orderNo, order.Id, isDuplicateByKatanaId, isDuplicateByOrderNo);
-                        continue;
+                        // ✅ Approved siparişleri Katana'dan gelen veriyle güncelleme (Requirements 4.4)
+                        // Approved sipariş korunur, Katana'dan gelen değişiklikler uygulanmaz
+                        if (existingOrder.Status?.ToUpperInvariant() == "APPROVED")
+                        {
+                            _logger.LogInformation("SKIP_UPDATE_APPROVED_ORDER OrderNo={OrderNo}, KatanaId={KatanaId} - Order already approved, preserving local data",
+                                orderNo, order.Id);
+                            // Duplicate prevention için ekle ama güncelleme yapma
+                            existingKatanaOrderIds.Add(order.Id);
+                            existingOrderNos.Add(orderNo);
+                            // PendingStockAdjustment işlemi için devam et (approved siparişler için skip edilecek zaten)
+                        }
+                        else
+                        {
+                            // UPDATE: Mevcut siparişi güncelle (ID ve sync status korunur - Requirements 4.3)
+                            existingOrder.KatanaOrderId = order.Id;
+                            existingOrder.DeliveryDate = order.DeliveryDate;
+                            existingOrder.Currency = order.Currency ?? existingOrder.Currency;
+                            existingOrder.ConversionRate = order.ConversionRate;
+                            existingOrder.Status = order.Status ?? existingOrder.Status;
+                            existingOrder.Total = order.Total;
+                            existingOrder.TotalInBaseCurrency = order.TotalInBaseCurrency;
+                            existingOrder.AdditionalInfo = order.AdditionalInfo;
+                            existingOrder.CustomerRef = order.CustomerRef;
+                            existingOrder.Source = order.Source;
+                            existingOrder.LocationId = order.LocationId;
+                            existingOrder.UpdatedAt = DateTime.UtcNow;
+                            // IsSyncedToLuca korunur (Requirements 4.3)
+
+                            _logger.LogInformation("UPDATE_SALES_ORDER OrderNo={OrderNo}, KatanaId={KatanaId}, LocalId={LocalId} - Existing order updated",
+                                orderNo, order.Id, existingOrder.Id);
+                            
+                            // Duplicate prevention için ekle
+                            existingKatanaOrderIds.Add(order.Id);
+                            existingOrderNos.Add(orderNo);
+                        }
                     }
-
-                    if (!existingKatanaOrderIds.Contains(order.Id))
+                    else
                     {
+                        // CREATE: Yeni sipariş oluştur
                         var localCustomerId = 0;
                         var katanaCustomerIdStr = order.CustomerId.ToString();
                         if (customerMapping.TryGetValue(katanaCustomerIdStr, out var mappedCustomerId))
@@ -378,7 +415,7 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                             }
                         }
                         
-                        _logger.LogInformation("INSERT_SALES_ORDER OrderNo={OrderNo}, KatanaId={KatanaId}, LineCount={LineCount}", orderNo, order.Id, salesOrder.Lines.Count);
+                        _logger.LogInformation("CREATE_SALES_ORDER OrderNo={OrderNo}, KatanaId={KatanaId}, LineCount={LineCount}", orderNo, order.Id, salesOrder.Lines.Count);
 
                         context.SalesOrders.Add(salesOrder);
                         existingKatanaOrderIds.Add(order.Id); // Duplicate prevention için ekle
@@ -391,7 +428,7 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                         
                         _logger.LogDebug("Saved sales order to database: {OrderNo} (KatanaId: {KatanaId})", 
                             salesOrder.OrderNo, order.Id);
-                    }
+                    } // End of else (CREATE new order)
 
                     // PendingStockAdjustment için - sadece aktif siparişler
                     if (skipPendingAdjustment)

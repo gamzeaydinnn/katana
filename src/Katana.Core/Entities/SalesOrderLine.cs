@@ -78,9 +78,9 @@ public class SalesOrderLine
 
     /// <summary>
     /// Katana'ya gönderildiğinde oluşturulan order ID
-    /// Her satır için ayrı order oluşturulmuşsa bu değer farklı olabilir
+    /// Tüm satırlar aynı KatanaOrderId'ye sahip olmalı (tek sipariş olarak gönderilir)
     /// </summary>
-    public int? KatanaOrderId { get; set; }
+    public long? KatanaOrderId { get; set; }
 
     // ==================== Navigation Properties ====================
 

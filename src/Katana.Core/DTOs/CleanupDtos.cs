@@ -15,7 +15,7 @@ public class OrderProductInfo
     public string OrderNo { get; set; } = string.Empty;
     public string SKU { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
-    public int? KatanaOrderId { get; set; }
+    public long? KatanaOrderId { get; set; }
     public DateTime ApprovedDate { get; set; }
 }
 

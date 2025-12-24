@@ -275,6 +275,12 @@ builder.Services.AddScoped<ISKUValidationService, Katana.Business.Services.SKUVa
 builder.Services.AddScoped<ICleanupRepository, CleanupRepository>();
 builder.Services.AddScoped<IKatanaCleanupService, KatanaCleanupService>();
 
+// Archive Sync Services
+builder.Services.AddScoped<IKatanaArchiveSyncService, KatanaArchiveSyncService>();
+
+// Duplicate Order Cleanup Services
+builder.Services.AddScoped<IDuplicateOrderCleanupService, DuplicateOrderCleanupService>();
+
 builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();
