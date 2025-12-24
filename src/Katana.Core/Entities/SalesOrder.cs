@@ -120,6 +120,25 @@ public class SalesOrder
     /// </summary>
     public bool IsSyncedToLuca { get; set; } = false;
 
+    // ==================== Admin Approval Fields ====================
+
+    /// <summary>
+    /// Admin tarafından onaylanma tarihi
+    /// </summary>
+    public DateTime? ApprovedDate { get; set; }
+
+    /// <summary>
+    /// Onaylayan admin kullanıcı adı
+    /// </summary>
+    [MaxLength(100)]
+    public string? ApprovedBy { get; set; }
+
+    /// <summary>
+    /// Senkronizasyon durumu (Pending, InProgress, Completed, Failed)
+    /// </summary>
+    [MaxLength(50)]
+    public string? SyncStatus { get; set; }
+
     // ==================== Navigation Properties ====================
 
     public virtual Customer? Customer { get; set; }

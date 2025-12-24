@@ -1,0 +1,2050 @@
+﻿{
+    "groups":  [
+                   {
+                       "baseSku":  "Ø38x1,5",
+                       "canonicalProductId":  3,
+                       "duplicateProductIds":  [
+                                                   4
+                                               ],
+                       "productSkus":  [
+                                           "Ø38x1,5-2",
+                                           "Ø38x1,5-1"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "Ø38x2",
+                       "canonicalProductId":  5,
+                       "duplicateProductIds":  [
+                                                   6
+                                               ],
+                       "productSkus":  [
+                                           "Ø38x2-2",
+                                           "Ø38x2-1"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "Ø63x1,5",
+                       "canonicalProductId":  7,
+                       "duplicateProductIds":  [
+                                                   8,
+                                                   9,
+                                                   3008
+                                               ],
+                       "productSkus":  [
+                                           "Ø63x1,5-3",
+                                           "Ø63x1,5-2",
+                                           "Ø63x1,5-1",
+                                           "Ø63x1,5-4"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "Ø76x1,5",
+                       "canonicalProductId":  10,
+                       "duplicateProductIds":  [
+                                                   11,
+                                                   12,
+                                                   13
+                                               ],
+                       "productSkus":  [
+                                           "Ø76x1,5-4",
+                                           "Ø76x1,5-3",
+                                           "Ø76x1,5-2",
+                                           "Ø76x1,5-1"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "9855411580",
+                       "canonicalProductId":  14,
+                       "duplicateProductIds":  [
+                                                   3006,
+                                                   3007
+                                               ],
+                       "productSkus":  [
+                                           "9855411580",
+                                           "9855411580-B",
+                                           "9855411580-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "81.06301",
+                       "canonicalProductId":  15,
+                       "duplicateProductIds":  [
+                                                   16
+                                               ],
+                       "productSkus":  [
+                                           "81.06301-8212",
+                                           "81.06301-8211"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "CL",
+                       "canonicalProductId":  36,
+                       "duplicateProductIds":  [
+                                                   435,
+                                                   436,
+                                                   437,
+                                                   438,
+                                                   439,
+                                                   440,
+                                                   441,
+                                                   443,
+                                                   444,
+                                                   445,
+                                                   446,
+                                                   447,
+                                                   448,
+                                                   449,
+                                                   450,
+                                                   451,
+                                                   454,
+                                                   456,
+                                                   458
+                                               ],
+                       "productSkus":  [
+                                           "CL-29 02 00347 01",
+                                           "CL-32 11 00070 03",
+                                           "CL-32 11 00098 01",
+                                           "CL-32 11 00100 05",
+                                           "CL-32 11 00059 04",
+                                           "CL-32 11 00051 03",
+                                           "CL-32 11 00121 02",
+                                           "CL-32 11 00125 04",
+                                           "CL-29 02 00347 00",
+                                           "CL-29 02 00355 00",
+                                           "CL-29 02 00312 03",
+                                           "CL-29 02 00313 01",
+                                           "CL-29 02 00328 00",
+                                           "CL-29 02 00311 01",
+                                           "CL-29 02 00329 02",
+                                           "CL-29 02 00243 01",
+                                           "CL-29 02 00252 01",
+                                           "CL-29 02 00036 04",
+                                           "CL-29 02 00045 05",
+                                           "CL-29 02 00196 05"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "BFM",
+                       "canonicalProductId":  50,
+                       "duplicateProductIds":  [
+                                                   52,
+                                                   54,
+                                                   58,
+                                                   60,
+                                                   62,
+                                                   63
+                                               ],
+                       "productSkus":  [
+                                           "BFM-03",
+                                           "BFM-07",
+                                           "BFM-04",
+                                           "BFM-06",
+                                           "BFM-05",
+                                           "BFM-02",
+                                           "BFM-01"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "OR",
+                       "canonicalProductId":  67,
+                       "duplicateProductIds":  [
+                                                   69,
+                                                   95
+                                               ],
+                       "productSkus":  [
+                                           "OR-AA22-01",
+                                           "OR-AA24-01",
+                                           "OR-AA30-01"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "OIO",
+                       "canonicalProductId":  70,
+                       "duplicateProductIds":  [
+                                                   71,
+                                                   101
+                                               ],
+                       "productSkus":  [
+                                           "OIO-AA19-01",
+                                           "OIO-AA24-01",
+                                           "OIO-AA17-01"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "14206",
+                       "canonicalProductId":  72,
+                       "duplicateProductIds":  [
+                                                   75
+                                               ],
+                       "productSkus":  [
+                                           "14206-HRT 2",
+                                           "14206-HRT 1"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "29 02 00045 05",
+                       "canonicalProductId":  73,
+                       "duplicateProductIds":  [
+                                                   209,
+                                                   223
+                                               ],
+                       "productSkus":  [
+                                           "29 02 00045 05-03",
+                                           "29 02 00045 05-02",
+                                           "29 02 00045 05-01"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "1",
+                       "canonicalProductId":  74,
+                       "duplicateProductIds":  [
+                                                   78,
+                                                   81,
+                                                   97,
+                                                   217,
+                                                   218,
+                                                   220,
+                                                   224,
+                                                   225,
+                                                   299,
+                                                   300,
+                                                   301,
+                                                   302,
+                                                   304,
+                                                   305,
+                                                   319,
+                                                   798,
+                                                   799,
+                                                   800,
+                                                   801,
+                                                   802,
+                                                   803,
+                                                   804,
+                                                   805,
+                                                   806,
+                                                   807,
+                                                   808,
+                                                   809,
+                                                   810,
+                                                   811,
+                                                   812,
+                                                   813,
+                                                   814,
+                                                   816,
+                                                   893,
+                                                   894,
+                                                   895,
+                                                   896,
+                                                   897,
+                                                   898,
+                                                   899,
+                                                   901,
+                                                   906,
+                                                   907,
+                                                   910,
+                                                   911,
+                                                   912,
+                                                   913,
+                                                   914
+                                               ],
+                       "productSkus":  [
+                                           "1-1020-FLANS",
+                                           "1-18447-KOVAN",
+                                           "1-1020-KOVAN",
+                                           "1-130040 CEKIRDEK",
+                                           "1-03879-SOMUN",
+                                           "1-23760-BORU",
+                                           "1-110535-A",
+                                           "1-108761-SOMUN",
+                                           "1-23760-CEKIRDEK",
+                                           "1-24164",
+                                           "1-24179",
+                                           "1-23760",
+                                           "1-24025",
+                                           "1-108761",
+                                           "1-19058",
+                                           "1-130052",
+                                           "1-29830",
+                                           "1-26075",
+                                           "1-23627",
+                                           "1-22610",
+                                           "1-20044",
+                                           "1-18447",
+                                           "1-16101",
+                                           "1-134411",
+                                           "1-134397",
+                                           "1-134377",
+                                           "1-130050",
+                                           "1-130049",
+                                           "1-00963",
+                                           "1-130040",
+                                           "1-110535",
+                                           "1-105963",
+                                           "1-105492",
+                                           "1-03879",
+                                           "1-29088 SOMUN",
+                                           "1-29088 RAKOR",
+                                           "1-29088 CEKIRDEK",
+                                           "1-24179-BANJO",
+                                           "1-22610-BANJO",
+                                           "1-20044-CEKIRDEK",
+                                           "1-18496-BANJO",
+                                           "1-18447-SOMUN",
+                                           "1-130040 RAKOR",
+                                           "1-108761-A",
+                                           "1-00963-CEKIRDEK",
+                                           "1-00963-BORU",
+                                           "1-00648-YUZUK",
+                                           "1-134397-FLANS",
+                                           "1-134397-BORU"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "8020 51469",
+                       "canonicalProductId":  317,
+                       "duplicateProductIds":  [
+                                                   77,
+                                                   83
+                                               ],
+                       "productSkus":  [
+                                           "8020 51469-C",
+                                           "8020 51469-B",
+                                           "8020 51469"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "A1121",
+                       "canonicalProductId":  486,
+                       "duplicateProductIds":  [
+                                                   80,
+                                                   144
+                                               ],
+                       "productSkus":  [
+                                           "A1121-EM",
+                                           "A1121-A",
+                                           "A1121"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "32 11 00100 05",
+                       "canonicalProductId":  82,
+                       "duplicateProductIds":  [
+                                                   86,
+                                                   88,
+                                                   89,
+                                                   90,
+                                                   91,
+                                                   92,
+                                                   105
+                                               ],
+                       "productSkus":  [
+                                           "32 11 00100 05-08",
+                                           "32 11 00100 05-06",
+                                           "32 11 00100 05-07",
+                                           "32 11 00100 05-03",
+                                           "32 11 00100 05-04",
+                                           "32 11 00100 05-05",
+                                           "32 11 00100 05-02",
+                                           "32 11 00100 05-01"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "XLH.622003",
+                       "canonicalProductId":  84,
+                       "duplicateProductIds":  [
+                                                   104,
+                                                   119,
+                                                   120,
+                                                   973
+                                               ],
+                       "productSkus":  [
+                                           "XLH.622003-B",
+                                           "XLH.622003-A",
+                                           "XLH.622003-D",
+                                           "XLH.622003-DELIKLI-KAPAK",
+                                           "XLH.622003-C"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "CSC.622022.AHA",
+                       "canonicalProductId":  85,
+                       "duplicateProductIds":  [
+                                                   128,
+                                                   245
+                                               ],
+                       "productSkus":  [
+                                           "CSC.622022.AHA-PSL-B",
+                                           "CSC.622022.AHA-PSL-A",
+                                           "CSC.622022.AHA-PSL"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "8020 51468",
+                       "canonicalProductId":  516,
+                       "duplicateProductIds":  [
+                                                   87,
+                                                   109,
+                                                   849
+                                               ],
+                       "productSkus":  [
+                                           "8020 51468-B",
+                                           "8020 51468-A",
+                                           "8020 51468",
+                                           "8020 51468-C"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "RAPRO",
+                       "canonicalProductId":  93,
+                       "duplicateProductIds":  [
+                                                   349
+                                               ],
+                       "productSkus":  [
+                                           "RAPRO-RENULT BORU",
+                                           "RAPRO-RENULT BANJOLU"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "32 11 00051 03",
+                       "canonicalProductId":  94,
+                       "duplicateProductIds":  [
+                                                   110
+                                               ],
+                       "productSkus":  [
+                                           "32 11 00051 03-02",
+                                           "32 11 00051 03-01"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "Y16",
+                       "canonicalProductId":  98,
+                       "duplicateProductIds":  [
+                                                   966
+                                               ],
+                       "productSkus":  [
+                                           "Y16-NP-B12/41,5",
+                                           "Y16-HC-11/16-8,5"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "Y28",
+                       "canonicalProductId":  103,
+                       "duplicateProductIds":  [
+                                                   956
+                                               ],
+                       "productSkus":  [
+                                           "Y28-YZ-CAP23,5-KLM-32 YF88107",
+                                           "Y28-YZ-5/8-KLM-32 (92104-T-92113-T)"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "13R35",
+                       "canonicalProductId":  108,
+                       "duplicateProductIds":  [
+                                                   796
+                                               ],
+                       "productSkus":  [
+                                           "13R35-08874-AA-EM BORU",
+                                           "13R35-08874-AA TEKNIK HORTUM"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "Y32",
+                       "canonicalProductId":  113,
+                       "duplicateProductIds":  [
+                                                   954
+                                               ],
+                       "productSkus":  [
+                                           "Y32-BJ-B15/42,5",
+                                           "Y32-PCOL-10/16-27"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "Y20",
+                       "canonicalProductId":  114,
+                       "duplicateProductIds":  [
+                                                   322,
+                                                   965,
+                                                   975,
+                                                   984
+                                               ],
+                       "productSkus":  [
+                                           "Y20-NP-B15/42",
+                                           "Y20-NP-B14/40",
+                                           "Y20-HC-13/16-10,5",
+                                           "Y20-ODY-1/4-38,5",
+                                           "Y20-NP-B12/41,5"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "Y30",
+                       "canonicalProductId":  115,
+                       "duplicateProductIds":  [
+                                                   955
+                                               ],
+                       "productSkus":  [
+                                           "Y30-YZ-5/8-25,5-32-AKIMSIZ N",
+                                           "Y30-YZ-5/8-24,5-32-AKIMSIZ N"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "Y28P",
+                       "canonicalProductId":  116,
+                       "duplicateProductIds":  [
+                                                   957
+                                               ],
+                       "productSkus":  [
+                                           "Y28P-620-M30x2/22",
+                                           "Y28P-620-M30x2/21,5"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "XLC.622014.AEB",
+                       "canonicalProductId":  117,
+                       "duplicateProductIds":  [
+                                                   121,
+                                                   237
+                                               ],
+                       "productSkus":  [
+                                           "XLC.622014.AEB-PSL-B",
+                                           "XLC.622014.AEB-PSL-A",
+                                           "XLC.622014.AEB-PSL"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "XLH.622002",
+                       "canonicalProductId":  118,
+                       "duplicateProductIds":  [
+                                                   974,
+                                                   976,
+                                                   977,
+                                                   978
+                                               ],
+                       "productSkus":  [
+                                           "XLH.622002-KAPAK",
+                                           "XLH.622002-DELIKLI-KAPAK",
+                                           "XLH.622002-C",
+                                           "XLH.622002-B",
+                                           "XLH.622002-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "XLC.622014.ACB",
+                       "canonicalProductId":  122,
+                       "duplicateProductIds":  [
+                                                   123,
+                                                   334
+                                               ],
+                       "productSkus":  [
+                                           "XLC.622014.ACB-PSL-A",
+                                           "XLC.622014.ACB-PSL-B",
+                                           "XLC.622014.ACB-PSL"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "VIT",
+                       "canonicalProductId":  124,
+                       "duplicateProductIds":  [
+                                                   331,
+                                                   332,
+                                                   335,
+                                                   336,
+                                                   337,
+                                                   340,
+                                                   983,
+                                                   988
+                                               ],
+                       "productSkus":  [
+                                           "VIT-249-A",
+                                           "VIT-266",
+                                           "VIT-286",
+                                           "VIT-114",
+                                           "VIT-202",
+                                           "VIT-228",
+                                           "VIT-249",
+                                           "VIT-286 SOMUN",
+                                           "VIT-286 BORU"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA27",
+                       "canonicalProductId":  125,
+                       "duplicateProductIds":  [
+                                                   1075,
+                                                   1077
+                                               ],
+                       "productSkus":  [
+                                           "AA27-BJ-B14/37",
+                                           "AA27-BJ-B12/37",
+                                           "AA27-15L-M22x1,5-17"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA19P",
+                       "canonicalProductId":  126,
+                       "duplicateProductIds":  [
+                                                   134,
+                                                   1102,
+                                                   1103,
+                                                   1104,
+                                                   1105,
+                                                   1106,
+                                                   1107,
+                                                   1108,
+                                                   1109,
+                                                   1110,
+                                                   1111,
+                                                   1112,
+                                                   1113,
+                                                   1115
+                                               ],
+                       "productSkus":  [
+                                           "AA19P-621-5/8-18UNF/7",
+                                           "AA19P-621-5/8-18UNF/25",
+                                           "AA19P-B8-M18/17",
+                                           "AA19P-B12-HR-3/4-16/29",
+                                           "AA19P-B12-3/4-16UNF/29",
+                                           "AA19P-B10-3/4-16UNF/29",
+                                           "AA19P-621-5/8-18UNF/6",
+                                           "AA19P-621-5/8-18UNF/33,2",
+                                           "AA19P-610-3/4-16UNF/30",
+                                           "AA19P-5/8-UNF18-18",
+                                           "AA19P-5/8-18UNF/24.5",
+                                           "AA19P-5/8-18-33",
+                                           "AA19P-5/8-18 UNF-17.8",
+                                           "AA19P-3/4 INC UNF16-20,5",
+                                           "AA19P-B10-M18/17"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "KBEX0205",
+                       "canonicalProductId":  358,
+                       "duplicateProductIds":  [
+                                                   127,
+                                                   132,
+                                                   995
+                                               ],
+                       "productSkus":  [
+                                           "KBEX0205-C",
+                                           "KBEX0205-B",
+                                           "KBEX0205",
+                                           "KBEX0205-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "EDEL",
+                       "canonicalProductId":  129,
+                       "duplicateProductIds":  [
+                                                   131,
+                                                   307,
+                                                   431,
+                                                   1033,
+                                                   1034,
+                                                   1035,
+                                                   1040,
+                                                   1041,
+                                                   1042
+                                               ],
+                       "productSkus":  [
+                                           "EDEL-SOMUN-8",
+                                           "EDEL-SOMUN-EM",
+                                           "EDEL-CEKIRDEK",
+                                           "EDEL-1-29088",
+                                           "EDEL-CEKIRDEK-14",
+                                           "EDEL-SOMUN",
+                                           "EDEL-4435-SOMUN-M14",
+                                           "EDEL-4435-CEKIRDEK-O",
+                                           "EDEL-4435-SOMUN-M12",
+                                           "EDEL-1-108761-CEKIRDEK"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "CSC.622022.AGA",
+                       "canonicalProductId":  130,
+                       "duplicateProductIds":  [
+                                                   244,
+                                                   1048
+                                               ],
+                       "productSkus":  [
+                                           "CSC.622022.AGA-PSL-A",
+                                           "CSC.622022.AGA-PSL",
+                                           "CSC.622022.AGA-PSL-B"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA30P",
+                       "canonicalProductId":  135,
+                       "duplicateProductIds":  [
+                                                   1067,
+                                                   1068,
+                                                   1069,
+                                                   1070,
+                                                   1071,
+                                                   1072
+                                               ],
+                       "productSkus":  [
+                                           "AA30P-621-7/8-14UNF/23",
+                                           "AA30P-621-R3/4-14/14",
+                                           "AA30P-621-R3/4/13,5",
+                                           "AA30P-613-1-1/16-12-42",
+                                           "AA30P-600-5/8-18 / 8",
+                                           "AA30P-1-1/16-12/7",
+                                           "AA30P-013M30x2/27"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA36P",
+                       "canonicalProductId":  136,
+                       "duplicateProductIds":  [
+                                                   312,
+                                                   316,
+                                                   1051,
+                                                   1057,
+                                                   1058,
+                                                   1059,
+                                                   1060,
+                                                   1061,
+                                                   1062
+                                               ],
+                       "productSkus":  [
+                                           "AA36P-620-M30x2/26",
+                                           "AA36P-T28-M36*2/27",
+                                           "AA36P-B22-M36*2/27",
+                                           "AA36P-T22-M36*2/27",
+                                           "AA36P-OS-1\" 1/16\"-12UNF/25",
+                                           "AA36P-M36*2/27",
+                                           "AA36P-B28-M36*2/27",
+                                           "AA36P-620-M30x2/23",
+                                           "AA36P-600-M30x2/10",
+                                           "AA36P-013M36*2/32"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "A1170",
+                       "canonicalProductId":  258,
+                       "duplicateProductIds":  [
+                                                   138,
+                                                   1140
+                                               ],
+                       "productSkus":  [
+                                           "A1170-EM",
+                                           "A1170",
+                                           "A1170-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "A1281",
+                       "canonicalProductId":  471,
+                       "duplicateProductIds":  [
+                                                   139,
+                                                   1139
+                                               ],
+                       "productSkus":  [
+                                           "A1281-RAPRO-C",
+                                           "A1281",
+                                           "A1281-RAPRO-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "A1131",
+                       "canonicalProductId":  482,
+                       "duplicateProductIds":  [
+                                                   140
+                                               ],
+                       "productSkus":  [
+                                           "A1131-A",
+                                           "A1131"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA17P",
+                       "canonicalProductId":  141,
+                       "duplicateProductIds":  [
+                                                   310,
+                                                   313,
+                                                   1117,
+                                                   1118,
+                                                   1119,
+                                                   1120,
+                                                   1121,
+                                                   1122,
+                                                   1123,
+                                                   1124,
+                                                   1125
+                                               ],
+                       "productSkus":  [
+                                           "AA17P-621-5/8-18UNF/30",
+                                           "AA17P-BU-5/8-18/30",
+                                           "AA17P-621-5/8-18UNF/25",
+                                           "AA17P-R1/4-19-14",
+                                           "AA17P-KR-5/8-18,5",
+                                           "AA17P-HR-5/8-18,5",
+                                           "AA17P-621-7/16-20/15",
+                                           "AA17P-613-5/8-18 UNF/28",
+                                           "AA17P-600-7/16-20/5",
+                                           "AA17P-5/8-18UNF/29.2",
+                                           "AA17P-5/8\"18UNF/18,5",
+                                           "AA17P-1/2-20-14"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "A1114",
+                       "canonicalProductId":  484,
+                       "duplicateProductIds":  [
+                                                   142,
+                                                   1144
+                                               ],
+                       "productSkus":  [
+                                           "A1114-EM",
+                                           "A1114",
+                                           "A1114-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "A1120",
+                       "canonicalProductId":  485,
+                       "duplicateProductIds":  [
+                                                   145
+                                               ],
+                       "productSkus":  [
+                                           "A1120-A",
+                                           "A1120"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "9340004",
+                       "canonicalProductId":  1153,
+                       "duplicateProductIds":  [
+                                                   146
+                                               ],
+                       "productSkus":  [
+                                           "9340004-1",
+                                           "9340004"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "A1130",
+                       "canonicalProductId":  487,
+                       "duplicateProductIds":  [
+                                                   147
+                                               ],
+                       "productSkus":  [
+                                           "A1130-A",
+                                           "A1130"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "9328535",
+                       "canonicalProductId":  153,
+                       "duplicateProductIds":  [
+                                                   1157
+                                               ],
+                       "productSkus":  [
+                                           "9328535-3",
+                                           "9328535-2"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "9327821",
+                       "canonicalProductId":  154,
+                       "duplicateProductIds":  [
+                                                   157,
+                                                   158
+                                               ],
+                       "productSkus":  [
+                                           "9327821-1_TMS",
+                                           "9327821-3_TMS",
+                                           "9327821-2_TMS"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "9327645",
+                       "canonicalProductId":  161,
+                       "duplicateProductIds":  [
+                                                   162,
+                                                   163
+                                               ],
+                       "productSkus":  [
+                                           "9327645-1_TMS",
+                                           "9327645-2",
+                                           "9327645-1"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "8020 47981",
+                       "canonicalProductId":  164,
+                       "duplicateProductIds":  [
+                                                   166,
+                                                   519,
+                                                   852
+                                               ],
+                       "productSkus":  [
+                                           "8020 47981-B",
+                                           "8020 47981-A1",
+                                           "8020 47981-A04",
+                                           "8020 47981-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "7070 47375 B02",
+                       "canonicalProductId":  545,
+                       "duplicateProductIds":  [
+                                                   165
+                                               ],
+                       "productSkus":  [
+                                           "7070 47375 B02-A",
+                                           "7070 47375 B02"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "6543685",
+                       "canonicalProductId":  292,
+                       "duplicateProductIds":  [
+                                                   171,
+                                                   177
+                                               ],
+                       "productSkus":  [
+                                           "6543685-B",
+                                           "6543685-A",
+                                           "6543685"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "6543682",
+                       "canonicalProductId":  289,
+                       "duplicateProductIds":  [
+                                                   172,
+                                                   176
+                                               ],
+                       "productSkus":  [
+                                           "6543682-B",
+                                           "6543682-A",
+                                           "6543682"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "6543680",
+                       "canonicalProductId":  286,
+                       "duplicateProductIds":  [
+                                                   173,
+                                                   179
+                                               ],
+                       "productSkus":  [
+                                           "6543680-B",
+                                           "6543680-A",
+                                           "6543680"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "6543639",
+                       "canonicalProductId":  285,
+                       "duplicateProductIds":  [
+                                                   174,
+                                                   178
+                                               ],
+                       "productSkus":  [
+                                           "6543639-B",
+                                           "6543639-A",
+                                           "6543639"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "7043 47931",
+                       "canonicalProductId":  546,
+                       "duplicateProductIds":  [
+                                                   175,
+                                                   181
+                                               ],
+                       "productSkus":  [
+                                           "7043 47931-B",
+                                           "7043 47931-A",
+                                           "7043 47931"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "6543633",
+                       "canonicalProductId":  296,
+                       "duplicateProductIds":  [
+                                                   180,
+                                                   182
+                                               ],
+                       "productSkus":  [
+                                           "6543633-B",
+                                           "6543633-A",
+                                           "6543633"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "6543631",
+                       "canonicalProductId":  287,
+                       "duplicateProductIds":  [
+                                                   183,
+                                                   186
+                                               ],
+                       "productSkus":  [
+                                           "6543631-B",
+                                           "6543631-A",
+                                           "6543631"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "6543628",
+                       "canonicalProductId":  288,
+                       "duplicateProductIds":  [
+                                                   187,
+                                                   189
+                                               ],
+                       "productSkus":  [
+                                           "6543628-A",
+                                           "6543628-B",
+                                           "6543628"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "6543625",
+                       "canonicalProductId":  576,
+                       "duplicateProductIds":  [
+                                                   190,
+                                                   858
+                                               ],
+                       "productSkus":  [
+                                           "6543625-A",
+                                           "6543625",
+                                           "6543625-B"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "32 11 00125 04",
+                       "canonicalProductId":  193,
+                       "duplicateProductIds":  [
+                                                   200
+                                               ],
+                       "productSkus":  [
+                                           "32 11 00125 04-02",
+                                           "32 11 00125 04-01"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "32 11 00070 03",
+                       "canonicalProductId":  194,
+                       "duplicateProductIds":  [
+                                                   195,
+                                                   197
+                                               ],
+                       "productSkus":  [
+                                           "32 11 00070 03-01",
+                                           "32 11 00070 03-03",
+                                           "32 11 00070 03-02"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "32 11 00121 02",
+                       "canonicalProductId":  196,
+                       "duplicateProductIds":  [
+                                                   198,
+                                                   199
+                                               ],
+                       "productSkus":  [
+                                           "32 11 00121 02-01",
+                                           "32 11 00121 02-02",
+                                           "32 11 00121 02-03"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "29 02 00355 00",
+                       "canonicalProductId":  203,
+                       "duplicateProductIds":  [
+                                                   205,
+                                                   211
+                                               ],
+                       "productSkus":  [
+                                           "29 02 00355 00-01",
+                                           "29 02 00355 00-03",
+                                           "29 02 00355 00-02"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "29 02 00328 00",
+                       "canonicalProductId":  204,
+                       "duplicateProductIds":  [
+                                                   206
+                                               ],
+                       "productSkus":  [
+                                           "29 02 00328 00-02",
+                                           "29 02 00328 00-01"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "32 11 00059 04",
+                       "canonicalProductId":  207,
+                       "duplicateProductIds":  [
+                                                   210,
+                                                   212,
+                                                   216
+                                               ],
+                       "productSkus":  [
+                                           "32 11 00059 04-03",
+                                           "32 11 00059 04-02",
+                                           "32 11 00059 04-04",
+                                           "32 11 00059 04-01"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "29 02 00252 01",
+                       "canonicalProductId":  213,
+                       "duplicateProductIds":  [
+                                                   876,
+                                                   877,
+                                                   878
+                                               ],
+                       "productSkus":  [
+                                           "29 02 00252 01-02",
+                                           "29 02 00252 01-04",
+                                           "29 02 00252 01-03",
+                                           "29 02 00252 01-01"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "32 11 00051",
+                       "canonicalProductId":  215,
+                       "duplicateProductIds":  [
+                                                   867
+                                               ],
+                       "productSkus":  [
+                                           "32 11 00051-A",
+                                           "32 11 00051-B"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "YF31133",
+                       "canonicalProductId":  229,
+                       "duplicateProductIds":  [
+                                                   947
+                                               ],
+                       "productSkus":  [
+                                           "YF31133-T-AKIMSIZ NIKEL",
+                                           "YF31133-T EM"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "T14AA5001",
+                       "canonicalProductId":  232,
+                       "duplicateProductIds":  [
+                                                   241
+                                               ],
+                       "productSkus":  [
+                                           "T14AA5001-GIRIS",
+                                           "T14AA5001-CIKIS"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "ADAS",
+                       "canonicalProductId":  259,
+                       "duplicateProductIds":  [
+                                                   467,
+                                                   468
+                                               ],
+                       "productSkus":  [
+                                           "ADAS-03",
+                                           "ADAS-01",
+                                           "ADAS-02"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "400",
+                       "canonicalProductId":  295,
+                       "duplicateProductIds":  [
+                                                   298,
+                                                   773,
+                                                   774
+                                               ],
+                       "productSkus":  [
+                                           "400-D7284-SUP",
+                                           "400-D7281-SUP",
+                                           "400-D7216-SUP",
+                                           "400-D7208-SUP"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "503",
+                       "canonicalProductId":  297,
+                       "duplicateProductIds":  [
+                                                   751
+                                               ],
+                       "productSkus":  [
+                                           "503-8271-SUP",
+                                           "503-8270-SUP"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA24P",
+                       "canonicalProductId":  308,
+                       "duplicateProductIds":  [
+                                                   1079,
+                                                   1080,
+                                                   1082,
+                                                   1083,
+                                                   1084,
+                                                   1085
+                                               ],
+                       "productSkus":  [
+                                           "AA24P-621-3/4-16UNF/18,5",
+                                           "AA24P-HR-7/8\"-14/31",
+                                           "AA24P-621-3/4-16UNF/22",
+                                           "AA24P-613-5/8-18UNF/35",
+                                           "AA24P-610-3/4-16/38",
+                                           "AA24P-600-5/8-18UNF/5",
+                                           "AA24P-600-3/4-16/7"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA36",
+                       "canonicalProductId":  309,
+                       "duplicateProductIds":  [
+                                                   1052,
+                                                   1053
+                                               ],
+                       "productSkus":  [
+                                           "AA36-013M36*2/45",
+                                           "AA36-620-M30x2/26",
+                                           "AA36-013M36*2/27"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "98402078",
+                       "canonicalProductId":  491,
+                       "duplicateProductIds":  [
+                                                   311
+                                               ],
+                       "productSkus":  [
+                                           "98402078-A",
+                                           "98402078"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA22P",
+                       "canonicalProductId":  315,
+                       "duplicateProductIds":  [
+                                                   1088,
+                                                   1089,
+                                                   1090,
+                                                   1091,
+                                                   1092,
+                                                   1093,
+                                                   1094,
+                                                   1095,
+                                                   1096,
+                                                   1097,
+                                                   1098,
+                                                   1099
+                                               ],
+                       "productSkus":  [
+                                           "AA22P-7-8 INC 2A UNF14-28",
+                                           "AA22P-3/4-16UNF-2B",
+                                           "AA22P-B10-M20*1,5/20",
+                                           "AA22P-7-8 INC 2A UNF14-24",
+                                           "AA22P-621-5/8-18 UNF/21",
+                                           "AA22P-621-5/8-18 UNF/19",
+                                           "AA22P-620-5/8-18 UNF/16",
+                                           "AA22P-613-5/8-18UNF/58",
+                                           "AA22P-613-5/8-18UNF/37",
+                                           "AA22P-600-5/8-18/7",
+                                           "AA22P-5/8-18UNF/7",
+                                           "AA22P-3-4-16-UNF-2B-20,5",
+                                           "AA22P-3.4 16UNF2A 26,5"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "Y32P",
+                       "canonicalProductId":  320,
+                       "duplicateProductIds":  [
+                                                   953
+                                               ],
+                       "productSkus":  [
+                                           "Y32P-NP52/24",
+                                           "Y32P-KUO-28"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "YF31132",
+                       "canonicalProductId":  321,
+                       "duplicateProductIds":  [
+                                                   948
+                                               ],
+                       "productSkus":  [
+                                           "YF31132-T-AKIMSIZ NIKEL",
+                                           "YF31132-T-EM"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "XLC.622014.ADB",
+                       "canonicalProductId":  338,
+                       "duplicateProductIds":  [
+                                                   979,
+                                                   980
+                                               ],
+                       "productSkus":  [
+                                           "XLC.622014.ADB-PSL",
+                                           "XLC.622014.ADB-PSL-B",
+                                           "XLC.622014.ADB-PSL-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "PZH",
+                       "canonicalProductId":  353,
+                       "duplicateProductIds":  [
+                                                   3009
+                                               ],
+                       "productSkus":  [
+                                           "PZH-4124",
+                                           "PZH-4039"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "KBEX0589",
+                       "canonicalProductId":  354,
+                       "duplicateProductIds":  [
+                                                   992,
+                                                   993,
+                                                   994
+                                               ],
+                       "productSkus":  [
+                                           "KBEX0589",
+                                           "KBEX0589-C",
+                                           "KBEX0589-B",
+                                           "KBEX0589-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "HAM H14 01 114",
+                       "canonicalProductId":  1010,
+                       "duplicateProductIds":  [
+                                                   361
+                                               ],
+                       "productSkus":  [
+                                           "HAM H14 01 114-A",
+                                           "HAM H14 01 114"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "HAM H14 01 110",
+                       "canonicalProductId":  1012,
+                       "duplicateProductIds":  [
+                                                   365
+                                               ],
+                       "productSkus":  [
+                                           "HAM H14 01 110-A",
+                                           "HAM H14 01 110"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "HAM H14 01 111",
+                       "canonicalProductId":  1014,
+                       "duplicateProductIds":  [
+                                                   367
+                                               ],
+                       "productSkus":  [
+                                           "HAM H14 01 111-A",
+                                           "HAM H14 01 111"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "HAM H14 01 108",
+                       "canonicalProductId":  1013,
+                       "duplicateProductIds":  [
+                                                   368
+                                               ],
+                       "productSkus":  [
+                                           "HAM H14 01 108-A",
+                                           "HAM H14 01 108"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "HAM H14 01 104",
+                       "canonicalProductId":  1024,
+                       "duplicateProductIds":  [
+                                                   377
+                                               ],
+                       "productSkus":  [
+                                           "HAM H14 01 104-A",
+                                           "HAM H14 01 104"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "HAM H14 01 105",
+                       "canonicalProductId":  1015,
+                       "duplicateProductIds":  [
+                                                   384
+                                               ],
+                       "productSkus":  [
+                                           "HAM H14 01 105-A",
+                                           "HAM H14 01 105"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "ERDEM",
+                       "canonicalProductId":  424,
+                       "duplicateProductIds":  [
+                                                   425,
+                                                   429,
+                                                   434
+                                               ],
+                       "productSkus":  [
+                                           "ERDEM-1005",
+                                           "ERDEM-1003",
+                                           "ERDEM-1002",
+                                           "ERDEM-1001"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "CSH.622020.AA",
+                       "canonicalProductId":  430,
+                       "duplicateProductIds":  [
+                                                   1038,
+                                                   1039
+                                               ],
+                       "productSkus":  [
+                                           "CSH.622020.AA-A",
+                                           "CSH.622020.AA-A-B",
+                                           "CSH.622020.AA-A-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "A1163/A",
+                       "canonicalProductId":  478,
+                       "duplicateProductIds":  [
+                                                   1141
+                                               ],
+                       "productSkus":  [
+                                           "A1163/A",
+                                           "A1163/A-FASON ISCILIK"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "A1160",
+                       "canonicalProductId":  481,
+                       "duplicateProductIds":  [
+                                                   1142
+                                               ],
+                       "productSkus":  [
+                                           "A1160",
+                                           "A1160-EM"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "98400846",
+                       "canonicalProductId":  489,
+                       "duplicateProductIds":  [
+                                                   1146
+                                               ],
+                       "productSkus":  [
+                                           "98400846",
+                                           "98400846-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "98400847",
+                       "canonicalProductId":  490,
+                       "duplicateProductIds":  [
+                                                   1145
+                                               ],
+                       "productSkus":  [
+                                           "98400847",
+                                           "98400847-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "8020 50141 A02",
+                       "canonicalProductId":  517,
+                       "duplicateProductIds":  [
+                                                   850,
+                                                   851
+                                               ],
+                       "productSkus":  [
+                                           "8020 50141 A02",
+                                           "8020 50141 A02-B",
+                                           "8020 50141 A02-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "8020 38940",
+                       "canonicalProductId":  528,
+                       "duplicateProductIds":  [
+                                                   856
+                                               ],
+                       "productSkus":  [
+                                           "8020 38940",
+                                           "8020 38940-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "403",
+                       "canonicalProductId":  768,
+                       "duplicateProductIds":  [
+                                                   769,
+                                                   770
+                                               ],
+                       "productSkus":  [
+                                           "403-S1601-SUP",
+                                           "403-S1600-SUP",
+                                           "403-P4167-SUP"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "1000",
+                       "canonicalProductId":  820,
+                       "duplicateProductIds":  [
+                                                   821,
+                                                   822
+                                               ],
+                       "productSkus":  [
+                                           "1000-3",
+                                           "1000-2",
+                                           "1000-1"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "9327887",
+                       "canonicalProductId":  826,
+                       "duplicateProductIds":  [
+                                                   831,
+                                                   832,
+                                                   833
+                                               ],
+                       "productSkus":  [
+                                           "9327887-4",
+                                           "9327887-3",
+                                           "9327887-2",
+                                           "9327887-1"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "9327880",
+                       "canonicalProductId":  830,
+                       "duplicateProductIds":  [
+                                                   837,
+                                                   844
+                                               ],
+                       "productSkus":  [
+                                           "9327880-3",
+                                           "9327880-1",
+                                           "9327880-2"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "9327016",
+                       "canonicalProductId":  840,
+                       "duplicateProductIds":  [
+                                                   841
+                                               ],
+                       "productSkus":  [
+                                           "9327016-B",
+                                           "9327016-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "820G100002",
+                       "canonicalProductId":  845,
+                       "duplicateProductIds":  [
+                                                   847
+                                               ],
+                       "productSkus":  [
+                                           "820G100002-A",
+                                           "820G100002-B"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "8020 47697",
+                       "canonicalProductId":  854,
+                       "duplicateProductIds":  [
+                                                   855
+                                               ],
+                       "productSkus":  [
+                                           "8020 47697-B",
+                                           "8020 47697-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "41192",
+                       "canonicalProductId":  859,
+                       "duplicateProductIds":  [
+                                                   860
+                                               ],
+                       "productSkus":  [
+                                           "41192-B",
+                                           "41192-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "38263",
+                       "canonicalProductId":  861,
+                       "duplicateProductIds":  [
+                                                   862,
+                                                   863
+                                               ],
+                       "productSkus":  [
+                                           "38263-C",
+                                           "38263-B",
+                                           "38263-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "29 02 00313 01",
+                       "canonicalProductId":  871,
+                       "duplicateProductIds":  [
+                                                   872
+                                               ],
+                       "productSkus":  [
+                                           "29 02 00313 01-02",
+                                           "29 02 00313 01-01"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "29 02 00312 03",
+                       "canonicalProductId":  873,
+                       "duplicateProductIds":  [
+                                                   874,
+                                                   875
+                                               ],
+                       "productSkus":  [
+                                           "29 02 00312 03-03",
+                                           "29 02 00312 03-02",
+                                           "29 02 00312 03-01"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "2405",
+                       "canonicalProductId":  887,
+                       "duplicateProductIds":  [
+                                                   888,
+                                                   889
+                                               ],
+                       "productSkus":  [
+                                           "2405-12007",
+                                           "2405-12006",
+                                           "2405-12005"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "030595",
+                       "canonicalProductId":  905,
+                       "duplicateProductIds":  [
+                                                   915
+                                               ],
+                       "productSkus":  [
+                                           "030595-C13",
+                                           "030595-C24"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "0205B301",
+                       "canonicalProductId":  916,
+                       "duplicateProductIds":  [
+                                                   917,
+                                                   918
+                                               ],
+                       "productSkus":  [
+                                           "0205B301-BRK2",
+                                           "0205B301-BRK",
+                                           "0205B301-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "0200B501",
+                       "canonicalProductId":  919,
+                       "duplicateProductIds":  [
+                                                   920,
+                                                   921,
+                                                   922
+                                               ],
+                       "productSkus":  [
+                                           "0200B501-A",
+                                           "0200B501-0003",
+                                           "0200B501-0002",
+                                           "0200B501-0001"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "01 315 000 007/P",
+                       "canonicalProductId":  924,
+                       "duplicateProductIds":  [
+                                                   925,
+                                                   926
+                                               ],
+                       "productSkus":  [
+                                           "01 315 000 007/P-PUL2",
+                                           "01 315 000 007/P-PUL1",
+                                           "01 315 000 007/P-BRK"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "Y26",
+                       "canonicalProductId":  958,
+                       "duplicateProductIds":  [
+                                                   959,
+                                                   960
+                                               ],
+                       "productSkus":  [
+                                           "Y26-YZ-CAP20.5-KLM-30",
+                                           "Y26-DERLIN-3",
+                                           "Y26-620-M30*2/24"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "SUNLINE 180...300",
+                       "canonicalProductId":  985,
+                       "duplicateProductIds":  [
+                                                   986,
+                                                   987
+                                               ],
+                       "productSkus":  [
+                                           "SUNLINE 180...300-C",
+                                           "SUNLINE 180...300-B",
+                                           "SUNLINE 180...300-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "HR",
+                       "canonicalProductId":  998,
+                       "duplicateProductIds":  [
+                                                   999
+                                               ],
+                       "productSkus":  [
+                                           "HR-AA24-01",
+                                           "HR-AA22-01"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AHR",
+                       "canonicalProductId":  1049,
+                       "duplicateProductIds":  [
+                                                   1054
+                                               ],
+                       "productSkus":  [
+                                           "AHR-AA30-01",
+                                           "AHR-AA22-01"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA32P",
+                       "canonicalProductId":  1063,
+                       "duplicateProductIds":  [
+                                                   1064,
+                                                   1065,
+                                                   1074
+                                               ],
+                       "productSkus":  [
+                                           "AA32P-B19-M30X2/36",
+                                           "AA32P-620-7/8-14/7",
+                                           "AA32P-GGB-16-15",
+                                           "AA32P-612-7/8-14/38"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA27P",
+                       "canonicalProductId":  1073,
+                       "duplicateProductIds":  [
+                                                   1076
+                                               ],
+                       "productSkus":  [
+                                           "AA27P-621-7/8-14 UNF/27",
+                                           "AA27P-610-7/8-14/41"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA24",
+                       "canonicalProductId":  1081,
+                       "duplicateProductIds":  [
+                                                   1087
+                                               ],
+                       "productSkus":  [
+                                           "AA24-HS-13/16-20",
+                                           "AA24-M16*1,5-42"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA19",
+                       "canonicalProductId":  1101,
+                       "duplicateProductIds":  [
+                                                   1114
+                                               ],
+                       "productSkus":  [
+                                           "AA19-PS-9/16-18UNF/18",
+                                           "AA19-AOS-5/8-16"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA17",
+                       "canonicalProductId":  1126,
+                       "duplicateProductIds":  [
+                                                   1127
+                                               ],
+                       "productSkus":  [
+                                           "AA17-OTK-M10*1-39",
+                                           "AA17-620M14X1/14"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA14P",
+                       "canonicalProductId":  1130,
+                       "duplicateProductIds":  [
+                                                   1131
+                                               ],
+                       "productSkus":  [
+                                           "AA14P-M10*1/10,7",
+                                           "AA14P-M10*1,25-13"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA14",
+                       "canonicalProductId":  1133,
+                       "duplicateProductIds":  [
+                                                   1134
+                                               ],
+                       "productSkus":  [
+                                           "AA14-OTK-M10*1-40,7",
+                                           "AA14-620M12X1,5/14"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "AA12P",
+                       "canonicalProductId":  1135,
+                       "duplicateProductIds":  [
+                                                   1136,
+                                                   1137,
+                                                   1138
+                                               ],
+                       "productSkus":  [
+                                           "AA12P-B6.35-7/16-20",
+                                           "AA12P-610-7/16-20/19",
+                                           "AA12P-610-7/16-20",
+                                           "AA12P-5/16B-7/16-20"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "98400666",
+                       "canonicalProductId":  1147,
+                       "duplicateProductIds":  [
+                                                   1148
+                                               ],
+                       "productSkus":  [
+                                           "98400666-BRK-B10-KOMPLE",
+                                           "98400666-BRK-B10"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "98400665",
+                       "canonicalProductId":  1149,
+                       "duplicateProductIds":  [
+                                                   1150
+                                               ],
+                       "productSkus":  [
+                                           "98400665-BRK-B8-KOMPLE",
+                                           "98400665-BRK-B8"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "9423084",
+                       "canonicalProductId":  1151,
+                       "duplicateProductIds":  [
+                                                   1152
+                                               ],
+                       "productSkus":  [
+                                           "9423084-B",
+                                           "9423084-A"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "9340003",
+                       "canonicalProductId":  1155,
+                       "duplicateProductIds":  [
+                                                   1154
+                                               ],
+                       "productSkus":  [
+                                           "9340003-1",
+                                           "9340003"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "TEST",
+                       "canonicalProductId":  2002,
+                       "duplicateProductIds":  [
+                                                   2003,
+                                                   2004
+                                               ],
+                       "productSkus":  [
+                                           "TEST-SKU-23280",
+                                           "TEST-SKU-69004",
+                                           "TEST-SKU-7905"
+                                       ]
+                   },
+                   {
+                       "baseSku":  "VARIANT",
+                       "canonicalProductId":  6002,
+                       "duplicateProductIds":  [
+                                                   6003,
+                                                   6005,
+                                                   6006,
+                                                   6007,
+                                                   7004,
+                                                   7005,
+                                                   8003,
+                                                   8004,
+                                                   11002,
+                                                   11003,
+                                                   11004,
+                                                   11006,
+                                                   11007,
+                                                   11008,
+                                                   11009,
+                                                   11010,
+                                                   11011,
+                                                   11012,
+                                                   11013,
+                                                   11014,
+                                                   11015,
+                                                   11016,
+                                                   11017,
+                                                   11018,
+                                                   11019,
+                                                   11020,
+                                                   11021,
+                                                   11022,
+                                                   11023,
+                                                   11024,
+                                                   11025,
+                                                   11026,
+                                                   11027,
+                                                   11028,
+                                                   11029,
+                                                   11030,
+                                                   11031,
+                                                   11032,
+                                                   11033,
+                                                   12002,
+                                                   12003,
+                                                   12004,
+                                                   12005,
+                                                   13002,
+                                                   13003,
+                                                   14003,
+                                                   14004,
+                                                   14007,
+                                                   14008,
+                                                   14009,
+                                                   14010,
+                                                   14011,
+                                                   14012,
+                                                   14013,
+                                                   14014,
+                                                   14015,
+                                                   14016,
+                                                   14017,
+                                                   14018,
+                                                   14019,
+                                                   14020,
+                                                   14021,
+                                                   14022,
+                                                   14023,
+                                                   14024,
+                                                   14025,
+                                                   14026,
+                                                   14027,
+                                                   14028,
+                                                   14029,
+                                                   14030,
+                                                   14031,
+                                                   14032,
+                                                   14033,
+                                                   14034,
+                                                   14035,
+                                                   14036,
+                                                   14037
+                                               ],
+                       "productSkus":  [
+                                           "VARIANT-37482022",
+                                           "VARIANT-37563761",
+                                           "VARIANT-37563840",
+                                           "VARIANT-37563839",
+                                           "VARIANT-37563692",
+                                           "VARIANT-36652312",
+                                           "VARIANT-36652313",
+                                           "VARIANT-36652543",
+                                           "VARIANT-36652542",
+                                           "VARIANT-36652492",
+                                           "VARIANT-36652491",
+                                           "VARIANT-36652493",
+                                           "VARIANT-36652266",
+                                           "VARIANT-36652518",
+                                           "VARIANT-36652516",
+                                           "VARIANT-36652517",
+                                           "VARIANT-36652633",
+                                           "VARIANT-36652632",
+                                           "VARIANT-36652631",
+                                           "VARIANT-36652630",
+                                           "VARIANT-36652629",
+                                           "VARIANT-36652628",
+                                           "VARIANT-36652627",
+                                           "VARIANT-36652626",
+                                           "VARIANT-36652625",
+                                           "VARIANT-36652624",
+                                           "VARIANT-36651966",
+                                           "VARIANT-36651965",
+                                           "VARIANT-36651964",
+                                           "VARIANT-36651963",
+                                           "VARIANT-36651962",
+                                           "VARIANT-36651961",
+                                           "VARIANT-36652623",
+                                           "VARIANT-36652622",
+                                           "VARIANT-36652621",
+                                           "VARIANT-36651971",
+                                           "VARIANT-36651970",
+                                           "VARIANT-36651969",
+                                           "VARIANT-36651968",
+                                           "VARIANT-36651967",
+                                           "VARIANT-36652304",
+                                           "VARIANT-37627730",
+                                           "VARIANT-37627732",
+                                           "VARIANT-36652605",
+                                           "VARIANT-37481770",
+                                           "VARIANT-37481769",
+                                           "VARIANT-36652237",
+                                           "VARIANT-36652282",
+                                           "VARIANT-36652677",
+                                           "VARIANT-36704802",
+                                           "VARIANT-36652215",
+                                           "VARIANT-36652229",
+                                           "VARIANT-36652524",
+                                           "VARIANT-36652210",
+                                           "VARIANT-36652537",
+                                           "VARIANT-36704744",
+                                           "VARIANT-36652655",
+                                           "VARIANT-36704760",
+                                           "VARIANT-36652464",
+                                           "VARIANT-36652466",
+                                           "VARIANT-36704769",
+                                           "VARIANT-36704768",
+                                           "VARIANT-36704764",
+                                           "VARIANT-36652472",
+                                           "VARIANT-36704758",
+                                           "VARIANT-36704757",
+                                           "VARIANT-36704756",
+                                           "VARIANT-36704755",
+                                           "VARIANT-36704767",
+                                           "VARIANT-36652462",
+                                           "VARIANT-36652471",
+                                           "VARIANT-36704759",
+                                           "VARIANT-36652465",
+                                           "VARIANT-36704743",
+                                           "VARIANT-36652654",
+                                           "VARIANT-36652182",
+                                           "VARIANT-36652183",
+                                           "VARIANT-36652181",
+                                           "VARIANT-36704798"
+                                       ]
+                   }
+               ],
+    "totalGroups":  131,
+    "totalDuplicates":  432,
+    "generatedAt":  "2025-12-22T22:22:00.483037Z"
+}

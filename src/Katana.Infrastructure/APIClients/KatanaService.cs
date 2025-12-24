@@ -3466,4 +3466,57 @@ public class KatanaService : IKatanaService
             throw;
         }
     }
+
+    /// <summary>
+    /// Archives a product in Katana by setting is_archived to true.
+    /// Uses PATCH endpoint with {"is_archived": true} payload.
+    /// </summary>
+    public async Task<bool> ArchiveProductAsync(int productId)
+    {
+        if (productId <= 0)
+        {
+            _logger.LogWarning("ArchiveProductAsync called with invalid productId: {ProductId}", productId);
+            return false;
+        }
+
+        try
+        {
+            _logger.LogInformation("Archiving Katana product ID: {ProductId}", productId);
+
+            var payload = new { is_archived = true };
+            var jsonPayload = JsonSerializer.Serialize(payload, _jsonOptions);
+            
+            using var request = new HttpRequestMessage(HttpMethod.Patch, $"{_settings.Endpoints.Products}/{productId}");
+            var bytes = Encoding.UTF8.GetBytes(jsonPayload);
+            request.Content = new ByteArrayContent(bytes);
+            request.Content.Headers.Clear();
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            request.Headers.Clear();
+            request.Headers.Authorization = _httpClient.DefaultRequestHeaders.Authorization;
+            request.Headers.Accept.Clear();
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            _logger.LogDebug("Archive request to: {Endpoint}, Payload: {Payload}", 
+                $"{_settings.Endpoints.Products}/{productId}", jsonPayload);
+
+            var response = await _httpClient.SendAsync(request);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Failed to archive product {ProductId}. Status: {Status}, Error: {Error}", 
+                    productId, response.StatusCode, responseContent);
+                return false;
+            }
+
+            _logger.LogInformation("✅ Successfully archived Katana product ID: {ProductId}", productId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error archiving Katana product ID: {ProductId}", productId);
+            _loggingService.LogError($"Katana ArchiveProductAsync failed for product {productId}", ex, null, "ArchiveProductAsync", LogCategory.ExternalAPI);
+            return false;
+        }
+    }
 }

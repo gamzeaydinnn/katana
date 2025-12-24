@@ -79,4 +79,12 @@ public interface IKatanaService
     Task<List<UserDto>> GetUsersAsync();
     Task<List<BomRowDto>> GetBomRowsAsync();
     Task<List<MaterialDto>> GetMaterialsAsync();
+    
+    /// <summary>
+    /// Archives a product in Katana by setting is_archived to true.
+    /// Used to soft-delete products that no longer exist in local database.
+    /// </summary>
+    /// <param name="productId">Katana product ID</param>
+    /// <returns>True if archived successfully, false otherwise</returns>
+    Task<bool> ArchiveProductAsync(int productId);
 }

@@ -1,5 +1,8 @@
 using Katana.Business.Interfaces;
 using Katana.Core.DTOs;
+using Katana.Core.Entities;
+using Katana.Data.Context;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -13,6 +16,7 @@ public class DeduplicationService : IDeduplicationService
     private readonly ILucaService _lucaService;
     private readonly IDuplicateDetector _duplicateDetector;
     private readonly ICanonicalSelector _canonicalSelector;
+    private readonly IntegrationDbContext _context;
     private readonly ILogger<DeduplicationService> _logger;
     private readonly DeduplicationRules _rules;
 
@@ -20,12 +24,14 @@ public class DeduplicationService : IDeduplicationService
         ILucaService lucaService,
         IDuplicateDetector duplicateDetector,
         ICanonicalSelector canonicalSelector,
+        IntegrationDbContext context,
         ILogger<DeduplicationService> logger,
         IOptions<DeduplicationRules> rulesOptions)
     {
         _lucaService = lucaService;
         _duplicateDetector = duplicateDetector;
         _canonicalSelector = canonicalSelector;
+        _context = context;
         _logger = logger;
         _rules = rulesOptions.Value;
     }
@@ -418,5 +424,368 @@ public class DeduplicationService : IDeduplicationService
         
         // TODO: Implement actual deletion
         // await _lucaService.DeleteStockCardAsync(skartId, ct);
+    }
+
+    // ============ Variant-Aware Deduplication Methods ============
+
+    /// <summary>
+    /// Varyant bazlı duplicate tespiti yapar
+    /// Property 4: Duplicate Detection Consistency
+    /// </summary>
+    public async Task<List<VariantDuplicateGroup>> DetectVariantDuplicatesAsync(
+        double similarityThreshold = 0.85, 
+        CancellationToken ct = default)
+    {
+        _logger.LogInformation("Starting variant duplicate detection with threshold {Threshold}", similarityThreshold);
+
+        var products = await _context.Products
+            .Include(p => p.Variants)
+            .Where(p => p.IsActive)
+            .ToListAsync(ct);
+
+        var duplicateGroups = new List<VariantDuplicateGroup>();
+        var processedIds = new HashSet<int>();
+
+        foreach (var product in products)
+        {
+            if (processedIds.Contains(product.Id))
+                continue;
+
+            var similarProducts = products
+                .Where(p => p.Id != product.Id && !processedIds.Contains(p.Id))
+                .Where(p => CalculateSimilarity(product.Name, p.Name) >= similarityThreshold)
+                .ToList();
+
+            if (similarProducts.Any())
+            {
+                var allInGroup = new List<Product> { product };
+                allInGroup.AddRange(similarProducts);
+
+                // Mark all as processed
+                foreach (var p in allInGroup)
+                    processedIds.Add(p.Id);
+
+                // Select canonical (the one with most order lines or oldest)
+                var canonical = await SelectCanonicalProductAsync(allInGroup, ct);
+
+                var group = new VariantDuplicateGroup
+                {
+                    GroupKey = product.Name.ToLowerInvariant().Trim(),
+                    SimilarityScore = similarProducts.Average(p => CalculateSimilarity(product.Name, p.Name)),
+                    RecommendedCanonical = MapToVariantDetail(canonical),
+                    Duplicates = allInGroup
+                        .Where(p => p.Id != canonical.Id)
+                        .Select(MapToVariantDetail)
+                        .ToList(),
+                    TotalOrderLines = await GetTotalOrderLinesAsync(allInGroup.Select(p => p.Id).ToList(), ct),
+                    TotalStockMovements = await GetTotalStockMovementsAsync(allInGroup.Select(p => p.Id).ToList(), ct)
+                };
+
+                duplicateGroups.Add(group);
+            }
+        }
+
+        _logger.LogInformation("Detected {GroupCount} variant duplicate groups", duplicateGroups.Count);
+        return duplicateGroups;
+    }
+
+    /// <summary>
+    /// Varyantları canonical ürüne birleştirir
+    /// Property 5: Merge Data Integrity
+    /// </summary>
+    public async Task<VariantMergeResult> MergeVariantsAsync(
+        long canonicalProductId, 
+        List<long> duplicateProductIds, 
+        CancellationToken ct = default)
+    {
+        _logger.LogInformation("Merging {Count} products into canonical {CanonicalId}", 
+            duplicateProductIds.Count, canonicalProductId);
+
+        var result = new VariantMergeResult
+        {
+            CanonicalProductId = canonicalProductId,
+            MergedProductIds = duplicateProductIds
+        };
+
+        using var transaction = await _context.Database.BeginTransactionAsync(ct);
+
+        try
+        {
+            // Check for active orders first
+            foreach (var productId in duplicateProductIds)
+            {
+                var activeOrders = await GetActiveOrdersForProductAsync(productId, ct);
+                if (activeOrders.Any())
+                {
+                    result.Success = false;
+                    result.Errors.Add($"Product {productId} has {activeOrders.Count} active orders. Cannot merge.");
+                    return result;
+                }
+            }
+
+            // Transfer order lines
+            var orderLines = await _context.SalesOrderLines
+                .Where(l => duplicateProductIds.Contains(l.VariantId))
+                .ToListAsync(ct);
+
+            foreach (var line in orderLines)
+            {
+                line.VariantId = (int)canonicalProductId;
+            }
+            result.TransferredOrderLines = orderLines.Count;
+
+            // Transfer stock movements
+            var stockMovements = await _context.StockMovements
+                .Where(m => duplicateProductIds.Contains(m.ProductId))
+                .ToListAsync(ct);
+
+            foreach (var movement in stockMovements)
+            {
+                movement.ProductId = (int)canonicalProductId;
+            }
+            result.TransferredStockMovements = stockMovements.Count;
+
+            // Update Luca mappings
+            var mappings = await _context.MappingTables
+                .Where(m => m.MappingType == "Product" && 
+                           duplicateProductIds.Select(id => id.ToString()).Contains(m.SourceValue))
+                .ToListAsync(ct);
+
+            foreach (var mapping in mappings)
+            {
+                mapping.SourceValue = canonicalProductId.ToString();
+                mapping.UpdatedAt = DateTime.UtcNow;
+            }
+            result.UpdatedLucaMappings = mappings.Count;
+
+            // Mark duplicate products as inactive
+            var duplicateProducts = await _context.Products
+                .Where(p => duplicateProductIds.Contains(p.Id))
+                .ToListAsync(ct);
+
+            foreach (var product in duplicateProducts)
+            {
+                product.IsActive = false;
+                product.UpdatedAt = DateTime.UtcNow;
+                product.Description = $"[MERGED INTO {canonicalProductId}] {product.Description}";
+            }
+
+            await _context.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            result.Success = true;
+            _logger.LogInformation("Successfully merged {Count} products into {CanonicalId}", 
+                duplicateProductIds.Count, canonicalProductId);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync(ct);
+            result.Success = false;
+            result.Errors.Add(ex.Message);
+            _logger.LogError(ex, "Failed to merge products into {CanonicalId}", canonicalProductId);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Aktif siparişi olan ürünleri kontrol eder
+    /// Property 6: Active Order Protection
+    /// </summary>
+    public async Task<List<ActiveOrderReference>> GetActiveOrdersForProductAsync(
+        long productId, 
+        CancellationToken ct = default)
+    {
+        _logger.LogDebug("Checking active orders for product {ProductId}", productId);
+
+        var activeStatuses = new[] { "PENDING", "CONFIRMED", "IN_PROGRESS", "PROCESSING" };
+
+        var activeOrders = await _context.SalesOrderLines
+            .Include(l => l.SalesOrder)
+            .ThenInclude(o => o.Customer)
+            .Where(l => l.VariantId == productId || l.SalesOrder.Lines.Any(ol => ol.VariantId == productId))
+            .Where(l => activeStatuses.Contains(l.SalesOrder.Status))
+            .Select(l => new ActiveOrderReference
+            {
+                OrderId = l.SalesOrderId,
+                OrderNo = l.SalesOrder.OrderNo,
+                Status = l.SalesOrder.Status,
+                OrderDate = l.SalesOrder.OrderCreatedDate ?? DateTime.MinValue,
+                CustomerName = l.SalesOrder.Customer != null ? l.SalesOrder.Customer.Title : null,
+                Quantity = l.Quantity
+            })
+            .Distinct()
+            .ToListAsync(ct);
+
+        return activeOrders;
+    }
+
+    // ============ Helper Methods for Variant Deduplication ============
+
+    private double CalculateSimilarity(string s1, string s2)
+    {
+        if (string.IsNullOrEmpty(s1) || string.IsNullOrEmpty(s2))
+            return 0;
+
+        s1 = s1.ToLowerInvariant().Trim();
+        s2 = s2.ToLowerInvariant().Trim();
+
+        if (s1 == s2)
+            return 1.0;
+
+        // Levenshtein distance based similarity
+        var distance = LevenshteinDistance(s1, s2);
+        var maxLength = Math.Max(s1.Length, s2.Length);
+        return 1.0 - ((double)distance / maxLength);
+    }
+
+    private int LevenshteinDistance(string s1, string s2)
+    {
+        var n = s1.Length;
+        var m = s2.Length;
+        var d = new int[n + 1, m + 1];
+
+        for (var i = 0; i <= n; i++)
+            d[i, 0] = i;
+        for (var j = 0; j <= m; j++)
+            d[0, j] = j;
+
+        for (var i = 1; i <= n; i++)
+        {
+            for (var j = 1; j <= m; j++)
+            {
+                var cost = s1[i - 1] == s2[j - 1] ? 0 : 1;
+                d[i, j] = Math.Min(
+                    Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+                    d[i - 1, j - 1] + cost);
+            }
+        }
+
+        return d[n, m];
+    }
+
+    private async Task<Product> SelectCanonicalProductAsync(List<Product> products, CancellationToken ct)
+    {
+        // Select the product with most order lines, or oldest if tied
+        var productOrderCounts = new Dictionary<int, int>();
+
+        foreach (var product in products)
+        {
+            var orderCount = await _context.SalesOrderLines
+                .CountAsync(l => l.VariantId == product.Id, ct);
+            productOrderCounts[product.Id] = orderCount;
+        }
+
+        return products
+            .OrderByDescending(p => productOrderCounts[p.Id])
+            .ThenBy(p => p.CreatedAt)
+            .First();
+    }
+
+    private VariantDetail MapToVariantDetail(Product product)
+    {
+        return new VariantDetail
+        {
+            VariantId = product.Id,
+            ProductId = product.Id,
+            SKU = product.SKU,
+            Barcode = product.Barcode,
+            Name = product.Name,
+            InStock = product.Stock,
+            Available = product.Stock,
+            SalesPrice = product.Price,
+            PurchasePrice = product.PurchasePrice,
+            IsOrphan = false
+        };
+    }
+
+    private async Task<int> GetTotalOrderLinesAsync(List<int> productIds, CancellationToken ct)
+    {
+        var longProductIds = productIds.Select(id => (long)id).ToList();
+        return await _context.SalesOrderLines
+            .CountAsync(l => longProductIds.Contains(l.VariantId), ct);
+    }
+
+    private async Task<int> GetTotalStockMovementsAsync(List<int> productIds, CancellationToken ct)
+    {
+        return await _context.StockMovements
+            .CountAsync(m => productIds.Contains(m.ProductId), ct);
+    }
+
+    public async Task<SkuBaseMergePlan> BuildSkuBaseMergePlanAsync(CancellationToken ct = default)
+    {
+        var products = await _context.Products
+            .Where(p => p.IsActive)
+            .ToListAsync(ct);
+
+        var grouped = products
+            .GroupBy(p => GetSkuBaseCode(p.SKU))
+            .Where(g => !string.IsNullOrWhiteSpace(g.Key))
+            .Where(g => g.Count() > 1)
+            .ToList();
+
+        var plan = new SkuBaseMergePlan();
+
+        foreach (var group in grouped)
+        {
+            var baseSku = group.Key!;
+            var groupProducts = group.ToList();
+
+            var canonical = groupProducts
+                .FirstOrDefault(p => string.Equals(p.SKU, baseSku, StringComparison.OrdinalIgnoreCase));
+
+            if (canonical == null)
+            {
+                canonical = await SelectCanonicalProductAsync(groupProducts, ct);
+            }
+
+            var duplicates = groupProducts
+                .Where(p => p.Id != canonical.Id)
+                .Select(p => (long)p.Id)
+                .ToList();
+
+            if (duplicates.Count == 0)
+            {
+                continue;
+            }
+
+            plan.Groups.Add(new SkuBaseMergeGroup
+            {
+                BaseSku = baseSku,
+                CanonicalProductId = canonical.Id,
+                DuplicateProductIds = duplicates,
+                ProductSkus = groupProducts.Select(p => p.SKU).ToList()
+            });
+        }
+
+        plan.TotalGroups = plan.Groups.Count;
+        plan.TotalDuplicates = plan.Groups.Sum(g => g.DuplicateProductIds.Count);
+
+        return plan;
+    }
+
+    public async Task<List<VariantMergeResult>> MergeProductsBySkuBaseAsync(CancellationToken ct = default)
+    {
+        var plan = await BuildSkuBaseMergePlanAsync(ct);
+        var results = new List<VariantMergeResult>();
+
+        foreach (var group in plan.Groups)
+        {
+            var result = await MergeVariantsAsync(group.CanonicalProductId, group.DuplicateProductIds, ct);
+            results.Add(result);
+        }
+
+        return results;
+    }
+
+    private static string? GetSkuBaseCode(string? sku)
+    {
+        if (string.IsNullOrWhiteSpace(sku))
+        {
+            return null;
+        }
+
+        var parts = sku.Split('-', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length > 0 ? parts[0] : sku;
     }
 }

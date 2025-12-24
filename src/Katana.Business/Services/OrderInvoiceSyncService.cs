@@ -38,6 +38,7 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
     private readonly IntegrationDbContext _context;
     private readonly ILucaService _lucaService;
     private readonly IOrderMappingRepository _mappingRepo;
+    private readonly IVariantMappingService _variantMappingService;
     private readonly ILogger<OrderInvoiceSyncService> _logger;
     private readonly IAuditService _auditService;
     private readonly IEventPublisher _eventPublisher;
@@ -95,6 +96,7 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
         IntegrationDbContext context,
         ILucaService lucaService,
         IOrderMappingRepository mappingRepo,
+        IVariantMappingService variantMappingService,
         ILogger<OrderInvoiceSyncService> logger,
         IAuditService auditService,
         IEventPublisher eventPublisher,
@@ -104,6 +106,7 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
         _lucaService = lucaService;
         _lucaSettings = lucaSettings.Value;
         _mappingRepo = mappingRepo;
+        _variantMappingService = variantMappingService;
         _logger = logger;
         _auditService = auditService;
         _eventPublisher = eventPublisher;
@@ -133,18 +136,27 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                 return result;
             }
 
-            // 2. Daha önce gönderilmiş mi kontrol et (LucaInvoiceId > 0 olmalı)
-            var existingLucaId = await _mappingRepo.GetLucaInvoiceIdByOrderIdAsync(orderId, "SalesOrder");
-            if (existingLucaId.HasValue && existingLucaId.Value > 0)
+            var group = await LoadSalesOrderGroupAsync(order);
+            var groupOrderIds = group.Orders.Select(o => o.Id).ToList();
+
+            // 2. Daha önce gönderilmiş mi kontrol et (grup içinden herhangi biri SYNCED ise)
+            var existingMapping = await _context.OrderMappings
+                .AsNoTracking()
+                .Where(m => m.EntityType == "SalesOrder" && groupOrderIds.Contains(m.OrderId) && m.LucaInvoiceId > 0)
+                .OrderBy(m => m.OrderId)
+                .FirstOrDefaultAsync();
+
+            if (existingMapping != null && existingMapping.LucaInvoiceId > 0)
             {
+                await MarkSalesOrdersSyncedAsync(group.Orders, existingMapping.LucaInvoiceId, null);
                 result.Success = true;
-                result.LucaFaturaId = existingLucaId.Value;
-                result.Message = $"Order zaten Luca'ya gönderilmiş. Fatura ID: {existingLucaId.Value}";
+                result.LucaFaturaId = existingMapping.LucaInvoiceId;
+                result.Message = $"Order zaten Luca'ya gönderilmiş. Fatura ID: {existingMapping.LucaInvoiceId}";
                 return result;
             }
 
             // 3. Luca request'i oluştur
-            var lucaRequest = await BuildSalesInvoiceRequestFromSalesOrderAsync(order);
+            var lucaRequest = await BuildSalesInvoiceRequestFromSalesOrderAsync(group.HeaderOrder, group.Lines);
             if (lucaRequest == null)
             {
                 result.Success = false;
@@ -152,11 +164,11 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                 return result;
             }
             _logger.LogInformation("BUILD_INVOICE BelgeTakipNo={BelgeNo} OrderId={OrderId} LineCount={LineCount}",
-                order.OrderNo ?? orderId.ToString(), orderId, order.Lines?.Count ?? 0);
+                order.OrderNo ?? orderId.ToString(), orderId, group.Lines.Count);
             _logger.LogInformation("BUILD_INVOICE BelgeTakipNo={BelgeNo} OrderId={OrderId} LineCount={LineCount}",
-                order.OrderNo ?? orderId.ToString(), orderId, order.Lines?.Count ?? 0);
+                order.OrderNo ?? orderId.ToString(), orderId, group.Lines.Count);
             _logger.LogInformation("BUILD_INVOICE BelgeTakipNo={BelgeNo} OrderId={OrderId} LineCount={LineCount}",
-                order.OrderNo ?? order.Id.ToString(), order.Id, order.Lines?.Count ?? 0);
+                order.OrderNo ?? order.Id.ToString(), order.Id, group.Lines.Count);
 
             // 4. Circuit Breaker kontrolü - API down ise hızlı fail
             if (_lucaCircuitBreaker.CircuitState == CircuitState.Open)
@@ -216,21 +228,8 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                     await using var transaction = await _context.Database.BeginTransactionAsync();
                     try
                     {
-                        // 6. Luca ID'yi mapping tablosuna kaydet
-                        await _mappingRepo.SaveLucaInvoiceIdAsync(
-                            orderId,
-                            lucaFaturaId.Value,
-                            "SalesOrder",
-                            externalOrderId: order.OrderNo,
-                            belgeSeri: lucaRequest.BelgeSeri,
-                            belgeNo: lucaRequest.BelgeNo?.ToString(),
-                            belgeTakipNo: lucaRequest.BelgeTakipNo ?? order.OrderNo);
-
-                        // 7. SalesOrder'ı synced olarak işaretle
-                        order.IsSyncedToLuca = true;
-                        order.LastSyncAt = DateTime.UtcNow;
-                        order.UpdatedAt = DateTime.UtcNow;
-                        await _context.SaveChangesAsync();
+                        // 6. Luca ID'yi tüm grup siparişlerine kaydet
+                        await MarkSalesOrdersSyncedAsync(group.Orders, lucaFaturaId.Value, lucaRequest);
 
                         await transaction.CommitAsync();
                     }
@@ -257,7 +256,7 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                 _auditService.LogSync(
                     "OrderInvoiceSync",
                     "system",
-                    $"Order {orderId} synced to Luca as Invoice {lucaFaturaId.Value}"
+                    $"Order {orderId} synced to Luca as Invoice {lucaFaturaId.Value} (KatanaOrderId={order.KatanaOrderId})"
                 );
 
                 // 9. InvoiceSyncedEvent publish et (bildirim için)
@@ -269,7 +268,7 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                         { 
                             InvoiceNo = order.OrderNo, 
                             CustomerId = order.CustomerId,
-                            Amount = order.Total ?? 0m,
+                            Amount = group.Lines.Sum(l => l.Total ?? 0m),
                             IsSynced = true
                         };
                     
@@ -313,10 +312,83 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
         }
     }
 
+    private sealed record SalesOrderGroup(SalesOrder HeaderOrder, List<SalesOrder> Orders, List<SalesOrderLine> Lines);
+
+    private async Task<SalesOrderGroup> LoadSalesOrderGroupAsync(SalesOrder order)
+    {
+        if (order.KatanaOrderId <= 0)
+        {
+            var fallbackLines = order.Lines?.ToList() ?? new List<SalesOrderLine>();
+            return new SalesOrderGroup(order, new List<SalesOrder> { order }, fallbackLines);
+        }
+
+        var orders = await _context.SalesOrders
+            .Include(o => o.Customer)
+            .Include(o => o.Lines)
+            .Where(o => o.KatanaOrderId == order.KatanaOrderId)
+            .OrderBy(o => o.OrderCreatedDate ?? o.CreatedAt)
+            .ThenBy(o => o.Id)
+            .ToListAsync();
+
+        if (orders.Count == 0)
+        {
+            var fallbackLines = order.Lines?.ToList() ?? new List<SalesOrderLine>();
+            return new SalesOrderGroup(order, new List<SalesOrder> { order }, fallbackLines);
+        }
+
+        var header = orders.FirstOrDefault(o => o.Customer != null) ?? orders.First();
+        var mergedLines = MergeSalesOrderLines(orders);
+
+        return new SalesOrderGroup(header, orders, mergedLines);
+    }
+
+    private static List<SalesOrderLine> MergeSalesOrderLines(IEnumerable<SalesOrder> orders)
+    {
+        var lines = orders
+            .SelectMany(o => o.Lines ?? Enumerable.Empty<SalesOrderLine>())
+            .ToList();
+
+        return lines
+            .GroupBy(l => l.KatanaRowId != 0 ? $"K:{l.KatanaRowId}" : $"L:{l.Id}")
+            .Select(g => g.First())
+            .OrderBy(l => l.KatanaRowId)
+            .ThenBy(l => l.Id)
+            .ToList();
+    }
+
+    private async Task MarkSalesOrdersSyncedAsync(
+        List<SalesOrder> orders,
+        long lucaInvoiceId,
+        LucaCreateInvoiceHeaderRequest? request)
+    {
+        var now = DateTime.UtcNow;
+
+        foreach (var groupOrder in orders)
+        {
+            await _mappingRepo.SaveLucaInvoiceIdAsync(
+                groupOrder.Id,
+                lucaInvoiceId,
+                "SalesOrder",
+                externalOrderId: groupOrder.OrderNo,
+                belgeSeri: request?.BelgeSeri ?? groupOrder.BelgeSeri,
+                belgeNo: request?.BelgeNo?.ToString() ?? groupOrder.BelgeNo,
+                belgeTakipNo: request?.BelgeTakipNo ?? groupOrder.OrderNo);
+
+            groupOrder.IsSyncedToLuca = true;
+            groupOrder.LastSyncAt = now;
+            groupOrder.LastSyncError = null;
+            groupOrder.UpdatedAt = now;
+        }
+
+        await _context.SaveChangesAsync();
+    }
+
     /// <summary>
     /// SalesOrder'ı Luca fatura formatına çevirir
     /// </summary>
-    private async Task<LucaCreateInvoiceHeaderRequest?> BuildSalesInvoiceRequestFromSalesOrderAsync(SalesOrder order)
+    private async Task<LucaCreateInvoiceHeaderRequest?> BuildSalesInvoiceRequestFromSalesOrderAsync(
+        SalesOrder order,
+        IReadOnlyList<SalesOrderLine> lines)
     {
         var validationErrors = new List<string>();
         const string entityType = "SalesOrder";
@@ -555,21 +627,19 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
         }
 
         // Satırları dönüştür
-        foreach (var line in order.Lines)
+        foreach (var line in lines)
         {
-            // VariantId'yi kullan
-            var productId = line.VariantId;
-            var kartKodu = await _mappingRepo.GetLucaStokKoduByProductIdAsync((int)productId);
+            var kartKodu = await ResolveParentStockCodeAsync(line);
 
             // Validation: Stok kodu
             var stokValidation = Validators.LucaDataValidator.ValidateStokKodu(kartKodu, line.ProductName);
             if (!stokValidation.IsValid)
             {
-                _logger.LogWarning("Product {ProductId} stok kodu validation failed: {Error}",
-                    productId, stokValidation.ErrorMessage);
+                _logger.LogWarning("Stock code validation failed for VariantId {VariantId}: {Error}",
+                    line.VariantId, stokValidation.ErrorMessage);
 
                 // Fallback: SKU kullan
-                kartKodu = line.SKU ?? $"PRD-{productId:D5}";
+                kartKodu = line.SKU ?? $"PRD-{line.VariantId:D5}";
                 _logger.LogWarning("Fallback stok kodu kullanılıyor: {KartKodu}", kartKodu);
             }
 
@@ -653,6 +723,46 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
             orderNo);
 
         return request;
+    }
+
+    private async Task<string?> ResolveParentStockCodeAsync(SalesOrderLine line)
+    {
+        var mapping = await _variantMappingService.GetMappingAsync(line.VariantId);
+        if (mapping != null)
+        {
+            var mappedSku = await _mappingRepo.GetLucaStokKoduByProductIdAsync(mapping.ProductId);
+            if (!string.IsNullOrWhiteSpace(mappedSku))
+            {
+                return mappedSku;
+            }
+        }
+
+        var baseSku = GetSkuBaseCode(line.SKU);
+        if (!string.IsNullOrWhiteSpace(baseSku))
+        {
+            var productSku = await _context.Products
+                .Where(p => p.SKU == baseSku)
+                .Select(p => p.SKU)
+                .FirstOrDefaultAsync();
+
+            if (!string.IsNullOrWhiteSpace(productSku))
+            {
+                return productSku;
+            }
+        }
+
+        return line.SKU;
+    }
+
+    private static string? GetSkuBaseCode(string? sku)
+    {
+        if (string.IsNullOrWhiteSpace(sku))
+        {
+            return null;
+        }
+
+        var parts = sku.Split('-', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length > 0 ? parts[0] : sku;
     }
 
     /// <summary>

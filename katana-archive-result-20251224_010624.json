@@ -1,0 +1,1906 @@
+﻿{
+    "totalKatanaProducts":  1258,
+    "totalLocalProducts":  954,
+    "productsToArchive":  315,
+    "archivedSuccessfully":  315,
+    "archiveFailed":  0,
+    "archivedProducts":  [
+                             {
+                                 "katanaProductId":  16018444,
+                                 "sku":  "6389953",
+                                 "name":  "6389953",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16011006,
+                                 "sku":  "VARIANT-36652237",
+                                 "name":  "VARIANT-36652237",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16010970,
+                                 "sku":  "VARIANT-36652282",
+                                 "name":  "VARIANT-36652282",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007114,
+                                 "sku":  "VARIANT-36652677",
+                                 "name":  "VARIANT-36652677",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007113,
+                                 "sku":  "VARIANT-36704802",
+                                 "name":  "VARIANT-36704802",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007112,
+                                 "sku":  "VARIANT-36652215",
+                                 "name":  "VARIANT-36652215",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007111,
+                                 "sku":  "VARIANT-36652229",
+                                 "name":  "VARIANT-36652229",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007110,
+                                 "sku":  "VARIANT-36652524",
+                                 "name":  "VARIANT-36652524",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007109,
+                                 "sku":  "VARIANT-36652210",
+                                 "name":  "VARIANT-36652210",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007108,
+                                 "sku":  "VARIANT-36652537",
+                                 "name":  "VARIANT-36652537",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007107,
+                                 "sku":  "VARIANT-36704744",
+                                 "name":  "VARIANT-36704744",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007106,
+                                 "sku":  "VARIANT-36652655",
+                                 "name":  "VARIANT-36652655",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007105,
+                                 "sku":  "VARIANT-36704760",
+                                 "name":  "VARIANT-36704760",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007104,
+                                 "sku":  "VARIANT-36652464",
+                                 "name":  "VARIANT-36652464",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007103,
+                                 "sku":  "VARIANT-36652466",
+                                 "name":  "VARIANT-36652466",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007102,
+                                 "sku":  "VARIANT-36704769",
+                                 "name":  "VARIANT-36704769",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007101,
+                                 "sku":  "VARIANT-36704768",
+                                 "name":  "VARIANT-36704768",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007100,
+                                 "sku":  "VARIANT-36704764",
+                                 "name":  "VARIANT-36704764",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007099,
+                                 "sku":  "VARIANT-36652472",
+                                 "name":  "VARIANT-36652472",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007098,
+                                 "sku":  "VARIANT-36704758",
+                                 "name":  "VARIANT-36704758",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007097,
+                                 "sku":  "VARIANT-36704757",
+                                 "name":  "VARIANT-36704757",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007096,
+                                 "sku":  "VARIANT-36704756",
+                                 "name":  "VARIANT-36704756",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007095,
+                                 "sku":  "VARIANT-36704755",
+                                 "name":  "VARIANT-36704755",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007094,
+                                 "sku":  "VARIANT-36704767",
+                                 "name":  "VARIANT-36704767",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007093,
+                                 "sku":  "VARIANT-36652462",
+                                 "name":  "VARIANT-36652462",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007092,
+                                 "sku":  "VARIANT-36652471",
+                                 "name":  "VARIANT-36652471",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007091,
+                                 "sku":  "VARIANT-36704759",
+                                 "name":  "VARIANT-36704759",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007090,
+                                 "sku":  "VARIANT-36652465",
+                                 "name":  "VARIANT-36652465",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007089,
+                                 "sku":  "VARIANT-36704743",
+                                 "name":  "VARIANT-36704743",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007042,
+                                 "sku":  "VARIANT-36652654",
+                                 "name":  "VARIANT-36652654",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007021,
+                                 "sku":  "VARIANT-36652182",
+                                 "name":  "VARIANT-36652182",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007020,
+                                 "sku":  "VARIANT-36652183",
+                                 "name":  "VARIANT-36652183",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16007019,
+                                 "sku":  "VARIANT-36652181",
+                                 "name":  "VARIANT-36652181",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16006929,
+                                 "sku":  "VARIANT-36704798",
+                                 "name":  "VARIANT-36704798",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16006195,
+                                 "sku":  "VARIANT-37481770",
+                                 "name":  "VARIANT-37481770",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16006193,
+                                 "sku":  "VARIANT-37481769",
+                                 "name":  "VARIANT-37481769",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16006174,
+                                 "sku":  "VARIANT-36652304",
+                                 "name":  "VARIANT-36652304",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16006173,
+                                 "sku":  "VARIANT-37627730",
+                                 "name":  "VARIANT-37627730",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16006172,
+                                 "sku":  "VARIANT-37627732",
+                                 "name":  "VARIANT-37627732",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16005650,
+                                 "sku":  "VARIANT-36652605",
+                                 "name":  "VARIANT-36652605",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16003174,
+                                 "sku":  "VARIANT-36652492",
+                                 "name":  "VARIANT-36652492",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16003173,
+                                 "sku":  "VARIANT-36652491",
+                                 "name":  "VARIANT-36652491",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16003172,
+                                 "sku":  "VARIANT-36652493",
+                                 "name":  "VARIANT-36652493",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002273,
+                                 "sku":  "VARIANT-36652266",
+                                 "name":  "VARIANT-36652266",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002272,
+                                 "sku":  "VARIANT-36652518",
+                                 "name":  "VARIANT-36652518",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002271,
+                                 "sku":  "VARIANT-36652516",
+                                 "name":  "VARIANT-36652516",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002270,
+                                 "sku":  "VARIANT-36652517",
+                                 "name":  "VARIANT-36652517",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002252,
+                                 "sku":  "VARIANT-36652633",
+                                 "name":  "VARIANT-36652633",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002251,
+                                 "sku":  "VARIANT-36652632",
+                                 "name":  "VARIANT-36652632",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002250,
+                                 "sku":  "VARIANT-36652631",
+                                 "name":  "VARIANT-36652631",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002249,
+                                 "sku":  "VARIANT-36652630",
+                                 "name":  "VARIANT-36652630",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002248,
+                                 "sku":  "VARIANT-36652629",
+                                 "name":  "VARIANT-36652629",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002247,
+                                 "sku":  "VARIANT-36652628",
+                                 "name":  "VARIANT-36652628",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002246,
+                                 "sku":  "VARIANT-36652627",
+                                 "name":  "VARIANT-36652627",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002245,
+                                 "sku":  "VARIANT-36652626",
+                                 "name":  "VARIANT-36652626",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002244,
+                                 "sku":  "VARIANT-36652625",
+                                 "name":  "VARIANT-36652625",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002243,
+                                 "sku":  "VARIANT-36652624",
+                                 "name":  "VARIANT-36652624",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002242,
+                                 "sku":  "VARIANT-36651966",
+                                 "name":  "VARIANT-36651966",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002241,
+                                 "sku":  "VARIANT-36651965",
+                                 "name":  "VARIANT-36651965",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002240,
+                                 "sku":  "VARIANT-36651964",
+                                 "name":  "VARIANT-36651964",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002239,
+                                 "sku":  "VARIANT-36651963",
+                                 "name":  "VARIANT-36651963",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002238,
+                                 "sku":  "VARIANT-36651962",
+                                 "name":  "VARIANT-36651962",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002237,
+                                 "sku":  "VARIANT-36651961",
+                                 "name":  "VARIANT-36651961",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002236,
+                                 "sku":  "VARIANT-36652623",
+                                 "name":  "VARIANT-36652623",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002235,
+                                 "sku":  "VARIANT-36652622",
+                                 "name":  "VARIANT-36652622",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002234,
+                                 "sku":  "VARIANT-36652621",
+                                 "name":  "VARIANT-36652621",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002232,
+                                 "sku":  "VARIANT-36651971",
+                                 "name":  "VARIANT-36651971",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002231,
+                                 "sku":  "VARIANT-36651970",
+                                 "name":  "VARIANT-36651970",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002230,
+                                 "sku":  "VARIANT-36651969",
+                                 "name":  "VARIANT-36651969",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002229,
+                                 "sku":  "VARIANT-36651968",
+                                 "name":  "VARIANT-36651968",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  16002228,
+                                 "sku":  "VARIANT-36651967",
+                                 "name":  "VARIANT-36651967",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15982729,
+                                 "sku":  "VARIANT-36652543",
+                                 "name":  "VARIANT-36652543",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15982728,
+                                 "sku":  "VARIANT-36652542",
+                                 "name":  "VARIANT-36652542",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15974183,
+                                 "sku":  "VARIANT-36652312",
+                                 "name":  "VARIANT-36652312",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15974182,
+                                 "sku":  "VARIANT-36652313",
+                                 "name":  "VARIANT-36652313",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15970110,
+                                 "sku":  "VARIANT-37482022",
+                                 "name":  "VARIANT-37482022",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15970074,
+                                 "sku":  "VARIANT-37563761",
+                                 "name":  "VARIANT-37563761",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15970049,
+                                 "sku":  "GENEL",
+                                 "name":  "GENEL",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15970025,
+                                 "sku":  "VARIANT-37563840",
+                                 "name":  "VARIANT-37563840",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15970024,
+                                 "sku":  "VARIANT-37563839",
+                                 "name":  "VARIANT-37563839",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15970023,
+                                 "sku":  "VARIANT-37563692",
+                                 "name":  "VARIANT-37563692",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15888905,
+                                 "sku":  "235802001AA02",
+                                 "name":  "BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482149,
+                                 "sku":  "PIPE_52_VWGH_160_V5",
+                                 "name":  "Ø35*1,5 PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482150,
+                                 "sku":  "PIPE_6_VWGH_160_V5",
+                                 "name":  "Ø35*1,5 PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482148,
+                                 "sku":  "PIPE_51_VWGH_160_V5",
+                                 "name":  "Ø35*1,5 PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482147,
+                                 "sku":  "PIPE_5_VWGH_160_V5",
+                                 "name":  "Ø35*1,5 PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482146,
+                                 "sku":  "PIPE_43_VWGH_160_V5",
+                                 "name":  "COPPER PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482138,
+                                 "sku":  "PIPE_24_VWGH_160_V5",
+                                 "name":  "Ø35*1,5 PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482144,
+                                 "sku":  "PIPE_4_VWGH_160_V5",
+                                 "name":  "Ø35*1,5 PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482145,
+                                 "sku":  "PIPE_42_VWGH_160_V5",
+                                 "name":  "COPPER PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482136,
+                                 "sku":  "PIPE_2_VWGH_160_V5",
+                                 "name":  "COPPER PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482142,
+                                 "sku":  "PIPE_3_VWGH_160_V5",
+                                 "name":  "Ø35*1,5 PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482140,
+                                 "sku":  "PIPE_26_VWGH_160_V5",
+                                 "name":  "Ø35*1,5 PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482139,
+                                 "sku":  "PIPE_25_VWGH_160_V5",
+                                 "name":  "Ø35*1,5 PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482143,
+                                 "sku":  "PIPE_31_VWGH_160_V5",
+                                 "name":  "Ø35*1,5 PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482137,
+                                 "sku":  "PIPE_22_VWGH_160_V5",
+                                 "name":  "COPPER PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482141,
+                                 "sku":  "PIPE_27_VWGH_160_V5",
+                                 "name":  "COPPER PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482122,
+                                 "sku":  "PIPE_1_VWGH_160_V5",
+                                 "name":  "COPPER PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15482123,
+                                 "sku":  "PIPE_23_VWGH_160_V5",
+                                 "name":  "Ø35*1,5 PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465940,
+                                 "sku":  "XLH.622003-DELIKLI-KAPAK",
+                                 "name":  "2 MM KAPAK",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465927,
+                                 "sku":  "CSC.622022.AGA-PSL-A",
+                                 "name":  "DÜZ BORU 1",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465930,
+                                 "sku":  "EDEL-SOMUN-EM",
+                                 "name":  "CNC SOMUN",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465928,
+                                 "sku":  "CSC.622022.AHA-PSL-A",
+                                 "name":  "DÜZ BORU 1",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465931,
+                                 "sku":  "KBEX0205-B",
+                                 "name":  "BUKUMLU BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465926,
+                                 "sku":  "BNO50111-A",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465925,
+                                 "sku":  "BN052035 -A",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465921,
+                                 "sku":  "AA27-BJ-B14/37",
+                                 "name":  "BANJO RAPRO",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465915,
+                                 "sku":  "A1131-A",
+                                 "name":  "BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465918,
+                                 "sku":  "AA17P-621-5/8-18UNF/30",
+                                 "name":  "RAKOR O-RİNGLİ 5/8-18 DİŞ",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465917,
+                                 "sku":  "A1281-RAPRO-C",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465913,
+                                 "sku":  "A1130-A",
+                                 "name":  "BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465912,
+                                 "sku":  "A1121-A",
+                                 "name":  "BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465910,
+                                 "sku":  "A1114-EM",
+                                 "name":  "BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465911,
+                                 "sku":  "A1120-A",
+                                 "name":  "BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465904,
+                                 "sku":  "9327821-2_TMS",
+                                 "name":  "TUBO ALTA LIQUIDO BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465905,
+                                 "sku":  "9327821-3_TMS",
+                                 "name":  "TUBO ALTA LIQUIDO BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465903,
+                                 "sku":  "9327821-1_TMS",
+                                 "name":  "TUBO ALTA LIQUIDO BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465900,
+                                 "sku":  "9327815_1-TMS",
+                                 "name":  "TUBO GAS BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465899,
+                                 "sku":  "93278103_TMS",
+                                 "name":  "TUBO ALTA LIQUIDO BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465893,
+                                 "sku":  "9327645-1",
+                                 "name":  "TUBO VALVULA EXPANSION CABINA",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465894,
+                                 "sku":  "9327645-1_TMS",
+                                 "name":  "TUBO VALVULA EXPANSION CABINA",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465895,
+                                 "sku":  "9327645-2",
+                                 "name":  "TUBO VALVULA EXPANSION CABINA",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465892,
+                                 "sku":  "8020 47981-B",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465887,
+                                 "sku":  "7070 47472-A",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465886,
+                                 "sku":  "7070 47375 B02-A",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465889,
+                                 "sku":  "8020 47739-A",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465888,
+                                 "sku":  "8020 47586-A",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465891,
+                                 "sku":  "8020 47981-A1",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465890,
+                                 "sku":  "8020 47856-A",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465882,
+                                 "sku":  "6543685-A",
+                                 "name":  "ANA GOVDE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465884,
+                                 "sku":  "7043 47931-A",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465876,
+                                 "sku":  "6543639-A",
+                                 "name":  "ANA GOVDE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465878,
+                                 "sku":  "6543680-A",
+                                 "name":  "ANA GOVDE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465875,
+                                 "sku":  "6543633-B",
+                                 "name":  "PIPO BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465879,
+                                 "sku":  "6543680-B",
+                                 "name":  "PIPO BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465877,
+                                 "sku":  "6543639-B",
+                                 "name":  "PIPO BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465881,
+                                 "sku":  "6543682-B",
+                                 "name":  "PIPO BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465867,
+                                 "sku":  "3382011833",
+                                 "name":  "PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465868,
+                                 "sku":  "3382011837",
+                                 "name":  "PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465871,
+                                 "sku":  "6543628-B",
+                                 "name":  "PIPO BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465873,
+                                 "sku":  "6543631-B",
+                                 "name":  "PIPO BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465869,
+                                 "sku":  "6543625-A",
+                                 "name":  "ANA GOVDE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465872,
+                                 "sku":  "6543631-A",
+                                 "name":  "ANA GOVDE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465870,
+                                 "sku":  "6543628-A",
+                                 "name":  "ANA GOVDE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465874,
+                                 "sku":  "6543633-A",
+                                 "name":  "ANA GOVDE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465865,
+                                 "sku":  "3382011831",
+                                 "name":  "PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465857,
+                                 "sku":  "32 11 00070 03-03",
+                                 "name":  "Ø12 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465855,
+                                 "sku":  "32 11 00070 03-01",
+                                 "name":  "Ø12 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465858,
+                                 "sku":  "32 11 00121 02-01",
+                                 "name":  "Ø12 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465859,
+                                 "sku":  "32 11 00121 02-02",
+                                 "name":  "Ø12 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465860,
+                                 "sku":  "32 11 00121 02-03",
+                                 "name":  "Ø12 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465861,
+                                 "sku":  "32 11 00125 04-01",
+                                 "name":  "Ø12 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465863,
+                                 "sku":  "3382011827",
+                                 "name":  "PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465864,
+                                 "sku":  "3382011829",
+                                 "name":  "PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465849,
+                                 "sku":  "29 02 00355 00-03",
+                                 "name":  "Ø16 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465843,
+                                 "sku":  "29 02 00328 00-01",
+                                 "name":  "Ø16 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465853,
+                                 "sku":  "32 11 00059 04-03",
+                                 "name":  "Ø12 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465848,
+                                 "sku":  "29 02 00355 00-02",
+                                 "name":  "Ø10 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465846,
+                                 "sku":  "29 02 00347 00-01",
+                                 "name":  "Ø12 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465842,
+                                 "sku":  "29 02 00311 01-01",
+                                 "name":  "Ø10 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465854,
+                                 "sku":  "32 11 00059 04-04",
+                                 "name":  "Ø10 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465848,
+                                 "sku":  "29 02 00355 00-02",
+                                 "name":  "Ø10 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465846,
+                                 "sku":  "29 02 00347 00-01",
+                                 "name":  "Ø12 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465843,
+                                 "sku":  "29 02 00328 00-01",
+                                 "name":  "Ø16 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465850,
+                                 "sku":  "32 11 00051-A",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465849,
+                                 "sku":  "29 02 00355 00-03",
+                                 "name":  "Ø16 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465839,
+                                 "sku":  "29 02 00045 05-01",
+                                 "name":  "Ø10 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465834,
+                                 "sku":  "1-03879-SOMUN",
+                                 "name":  "CNC SOMUN",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465833,
+                                 "sku":  "30242",
+                                 "name":  "TUBO ALTA GAS COMPRESOR C1-1",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465827,
+                                 "sku":  "YF31133-T-AKIMSIZ NIKEL",
+                                 "name":  "PRESLEME - AKIMSIZ NİKEL",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465815,
+                                 "sku":  "T14AA5001 GIRIS BORU (6MM)",
+                                 "name":  "Ø16*2 ALUMINYUM BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465816,
+                                 "sku":  "T14AA5001 GIRIS BORU (8MM)",
+                                 "name":  "Ø16*2 ALUMINYUM BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465817,
+                                 "sku":  "T14AA5001-CIKIS",
+                                 "name":  "Ø16*2 ALUMINYUM BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465826,
+                                 "sku":  "YF31129-T-AKIMSIZ NIKEL",
+                                 "name":  "PRESLEME",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465825,
+                                 "sku":  "YF14207",
+                                 "name":  "PRESLEME",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465813,
+                                 "sku":  "T14AA5001 GIRIS BORU (2,5MM)",
+                                 "name":  "Ø16*2 ALUMINYUM BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465814,
+                                 "sku":  "T14AA5001 GIRIS BORU (5MM)",
+                                 "name":  "Ø16*2 ALUMINYUM BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465808,
+                                 "sku":  "T14AA5001 CIKIS BORU (2,5MM)",
+                                 "name":  "Ø16*2 ALUMINYUM BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465809,
+                                 "sku":  "T14AA5001 CIKIS BORU (4MM)",
+                                 "name":  "Ø16*2 ALUMINYUM BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465804,
+                                 "sku":  "FPE370273P03-SAG",
+                                 "name":  "BORU EGZOZ CAP Ø42,16",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465805,
+                                 "sku":  "KBEX0294",
+                                 "name":  "BUKUMLU BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465803,
+                                 "sku":  "CSC.622022.AHA-PSL",
+                                 "name":  "PIPE D.22   (KARSAN) - PASLANMAZ",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465801,
+                                 "sku":  "CSC.622022.AEA-PSL",
+                                 "name":  "PIPE D.22   (KARSAN) - PASLANMAZ",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465807,
+                                 "sku":  "PZH-4039",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465812,
+                                 "sku":  "T14AA5001 CIKIS BORU (8MM)",
+                                 "name":  "Ø16*2 ALUMINYUM BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465810,
+                                 "sku":  "T14AA5001 CIKIS BORU (5MM)",
+                                 "name":  "Ø16*2 ALUMINYUM BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465811,
+                                 "sku":  "T14AA5001 CIKIS BORU (6MM)",
+                                 "name":  "Ø16*2 ALUMINYUM BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465793,
+                                 "sku":  "9412495-SUP",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465792,
+                                 "sku":  "93501364-SUP",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465795,
+                                 "sku":  "A1170",
+                                 "name":  "A1170 BÜKÜMLÜ ALÜM. BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465789,
+                                 "sku":  "8.271.0.919.002.5",
+                                 "name":  "Ø28x2 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465784,
+                                 "sku":  "8.181.0.919.002.5",
+                                 "name":  "Ø28x2 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465781,
+                                 "sku":  "8.090.0.919.032.5",
+                                 "name":  "Ø18*1,5 BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465786,
+                                 "sku":  "8.181.0.919.005.5",
+                                 "name":  "Ø28x2 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465787,
+                                 "sku":  "8.181.0.919.026.5",
+                                 "name":  "Ø28*2 BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465788,
+                                 "sku":  "8.271.0.919.001.5",
+                                 "name":  "Ø28x2 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465785,
+                                 "sku":  "8.181.0.919.004.5",
+                                 "name":  "Ø28x2 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465777,
+                                 "sku":  "8.090.0.919.027.5",
+                                 "name":  "Ø18x1,5 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465779,
+                                 "sku":  "8.090.0.919.029.5",
+                                 "name":  "Ø18x1,5 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465773,
+                                 "sku":  "8.090.0.919.004.5",
+                                 "name":  "Ø15x1,5 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465772,
+                                 "sku":  "8.090.0.919.003.5",
+                                 "name":  "Ø18x1,5 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465769,
+                                 "sku":  "8.040.0.919.014.5",
+                                 "name":  "Ø15x1,5 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465770,
+                                 "sku":  "8.040.0.919.015.5",
+                                 "name":  "Ø15x1,5 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465771,
+                                 "sku":  "8.080.0.919.006.5",
+                                 "name":  "Ø15x1,5 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465763,
+                                 "sku":  "6543685",
+                                 "name":  "BTMS INLET PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465767,
+                                 "sku":  "8.010.0.919.017.5",
+                                 "name":  "Ø15x1,5 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465768,
+                                 "sku":  "8.040.0.919.012.5",
+                                 "name":  "Ø15x1,5 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465758,
+                                 "sku":  "6543631",
+                                 "name":  "BTMS INLET PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465759,
+                                 "sku":  "6543633",
+                                 "name":  "BTMS INLET PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465756,
+                                 "sku":  "6543628",
+                                 "name":  "BTMS INLET PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465761,
+                                 "sku":  "6543680",
+                                 "name":  "BTMS INLET PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465762,
+                                 "sku":  "6543682",
+                                 "name":  "BTMS INLET PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465747,
+                                 "sku":  "1-19058",
+                                 "name":  "YAG BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465746,
+                                 "sku":  "1-108761",
+                                 "name":  "KOMPLE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465749,
+                                 "sku":  "1-24025",
+                                 "name":  "EDEL BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15465743,
+                                 "sku":  "6835064016-SUP",
+                                 "name":  "Ø25*5 ÇELİK ÇEKME",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15453297,
+                                 "sku":  "AA17P-621-5/8-18UNF/25",
+                                 "name":  "RAKOR O-RİNGLİ 5/8-18 DİŞ",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15453294,
+                                 "sku":  "6834064017-SUP",
+                                 "name":  "Ø25*5 ÇELİK ÇEKME",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15453290,
+                                 "sku":  "Y20-NP-B14/40",
+                                 "name":  "NİPEL RAPRO",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15453292,
+                                 "sku":  "YF31132-T-AKIMSIZ NIKEL",
+                                 "name":  "PRESLEME - AKIMSIZ NİKEL",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15426045,
+                                 "sku":  "XLD.123301.AA",
+                                 "name":  "PIPE-DELTA PRESSURE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15426046,
+                                 "sku":  "XLH.622002.AA_A",
+                                 "name":  "SU DAGITICI",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15426044,
+                                 "sku":  "XLC.622014.ADB-PSL",
+                                 "name":  "HEATING LINE PIPE 20X16X20 - PASLANMAZ",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15426042,
+                                 "sku":  "XLC.622014.AAB-PSL",
+                                 "name":  "HEATING LINE PIPE  (KARSAN) - PASLANMAZ",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15426047,
+                                 "sku":  "YF19156-T-AKIMSIZ NİKEL",
+                                 "name":  "PRESLEME - AKIMSIZ NİKEL",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15426029,
+                                 "sku":  "TF0608.7",
+                                 "name":  "Ø23*1,5 BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15426026,
+                                 "sku":  "T14AA500 1GIRIS BORU (4MM)",
+                                 "name":  "Ø16*2 ALUMINYUM BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15426023,
+                                 "sku":  "PZH-4124",
+                                 "name":  "Ø25*1,5 BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425944,
+                                 "sku":  "EDEL-1-29088",
+                                 "name":  "ÇELİK BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425941,
+                                 "sku":  "CSC.622022.AAA-PSL",
+                                 "name":  "PIPE D.22   (KARSAN) - PASLANMAZ",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425940,
+                                 "sku":  "CSC.622016.CA-PSL",
+                                 "name":  "PIPE D.16  (KARSAN) - PASLANMAZ",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425931,
+                                 "sku":  "CL-29 02 00347 00",
+                                 "name":  "32 20 00126 ART3000-3300-4000-4400 LİKİT DEPO ÇIKIŞ-DRYER GİRİŞ BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425917,
+                                 "sku":  "BMW E30 SAG",
+                                 "name":  "Ø40 ÇEKME BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425912,
+                                 "sku":  "AB112264",
+                                 "name":  "BATARYA SOGUTMA",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425914,
+                                 "sku":  "ADAS-01",
+                                 "name":  "MOBILYA AYAĞI - Profil Yüzük",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425908,
+                                 "sku":  "A1920",
+                                 "name":  "Ø19*1,5 ALUMINYUM BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425856,
+                                 "sku":  "8020 51468",
+                                 "name":  "DİKİŞSİZ TAVLI BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425840,
+                                 "sku":  "8.121.0.919.009.5",
+                                 "name":  "Ø28x2 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425842,
+                                 "sku":  "8_121-ISCILIK",
+                                 "name":  "Ø28*2 PASLANMAZ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425834,
+                                 "sku":  "8.080.0.919.004.5",
+                                 "name":  "Ø18x1,5 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425838,
+                                 "sku":  "8.121.0.919.004.5",
+                                 "name":  "Ø28*2 BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425837,
+                                 "sku":  "8.090.0.919.031.5",
+                                 "name":  "Ø18*1,5 BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425836,
+                                 "sku":  "8.090.0.919.001.5",
+                                 "name":  "Ø18x2 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425832,
+                                 "sku":  "8.040.0.919.002.5",
+                                 "name":  "Ø15*1,5 BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425831,
+                                 "sku":  "8.010.0.919.001.5",
+                                 "name":  "Ø15x1,5 HAVA BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425821,
+                                 "sku":  "6834064016-SUP",
+                                 "name":  "Ø25*5 ÇELİK ÇEKME",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425792,
+                                 "sku":  "6543625",
+                                 "name":  "BTMS INLET PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425793,
+                                 "sku":  "6543627",
+                                 "name":  "BTMS PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425632,
+                                 "sku":  "53406898",
+                                 "name":  "EJECTOR CONE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425619,
+                                 "sku":  "503-8270-SUP",
+                                 "name":  "Ø38*3 BUKUMLU  BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425607,
+                                 "sku":  "410932",
+                                 "name":  "BAKIR BORU - 075-37977-000 - TUBE RELIEF",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425597,
+                                 "sku":  "400-D7216-SUP",
+                                 "name":  "Ø25*3,5 Ç ÇEKME BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425596,
+                                 "sku":  "400-D7208-SUP",
+                                 "name":  "Ø16*2,5 Ç ÇEKME BUKUMLU BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425584,
+                                 "sku":  "335-G5185-SUP",
+                                 "name":  "Ø32*4 BUKUMLU BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425570,
+                                 "sku":  "1-23627",
+                                 "name":  "EDEL BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425566,
+                                 "sku":  "1-16101",
+                                 "name":  "YAG BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425553,
+                                 "sku":  "1-00963",
+                                 "name":  "ENJEKTOR BORUSU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425560,
+                                 "sku":  "1-130040",
+                                 "name":  "ÇELİK BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425540,
+                                 "sku":  "9328196-1",
+                                 "name":  "TUBO CU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425529,
+                                 "sku":  "9327813-1_TMS",
+                                 "name":  "TUBO PREMONTAJE BAT",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425528,
+                                 "sku":  "93278101_TMS",
+                                 "name":  "TUBO ALTA LIQUIDO BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425527,
+                                 "sku":  "93278091_TMS",
+                                 "name":  "TUBO ALTA GAZ VALVULA ATIRRETORNO C1",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425526,
+                                 "sku":  "9327646-1",
+                                 "name":  "TUBO BAJA KABINA/LOW PRESSURE TUBE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425501,
+                                 "sku":  "3382011826",
+                                 "name":  "PIPE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425498,
+                                 "sku":  "32 11 00051-B",
+                                 "name":  "DÜZ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425507,
+                                 "sku":  "6543625-B",
+                                 "name":  "PIPO BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425491,
+                                 "sku":  "29 02 00312 03-02",
+                                 "name":  "Ø16 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425490,
+                                 "sku":  "29 02 00312 03-01",
+                                 "name":  "Ø12 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425487,
+                                 "sku":  "29 02 00252 01-01",
+                                 "name":  "Ø10 ALÜM. BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425482,
+                                 "sku":  "29 02 00036 04-01",
+                                 "name":  "Ø10 BAKIR BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425455,
+                                 "sku":  "1-108761-A",
+                                 "name":  "8*1 Ç ÇEKME BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425453,
+                                 "sku":  "10308754-MIL",
+                                 "name":  "Ø8 BÜKÜMLÜ DOLU MALZEME",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425452,
+                                 "sku":  "1-00963-CEKIRDEK",
+                                 "name":  "Y10 CEKIRDEK",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425451,
+                                 "sku":  "1-00963-BORU",
+                                 "name":  "Ø6*1 BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425424,
+                                 "sku":  "30209",
+                                 "name":  "TUBO BAJA GAS COMPRESOR C2-1",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425418,
+                                 "sku":  "30174",
+                                 "name":  "TUBO ALTA GAS COMPRESOR C1-1",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425416,
+                                 "sku":  "YF92104-T",
+                                 "name":  "PRESLEME",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425407,
+                                 "sku":  "Y28P-620-M30x2/21,5",
+                                 "name":  "M30*2 UÇ HAVŞA (SAFKAR)",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425411,
+                                 "sku":  "Y32P-KUO-28",
+                                 "name":  "KAYNAK UCU (12 DERECE Ø22 BORU İÇİN) PİRİNÇ",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425409,
+                                 "sku":  "Y30-YZ-5/8-24,5-32-AKIMSIZ N",
+                                 "name":  "7/6\" DOLU YÜZÜK",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425387,
+                                 "sku":  "XLH.622002-DELIKLI-KAPAK",
+                                 "name":  "2 MM KAPAK",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425385,
+                                 "sku":  "XLH.622002-B",
+                                 "name":  "Ø20*1 PASLANMAZ",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425383,
+                                 "sku":  "XLC.622014.ADB-PSL-B",
+                                 "name":  "BÜKÜMLÜ BORU 2",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425382,
+                                 "sku":  "XLC.622014.ADB-PSL-A",
+                                 "name":  "BÜKÜMLÜ BORU 1",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425397,
+                                 "sku":  "Y20-NP-B12/41,5",
+                                 "name":  "NİPEL RAPRO",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425361,
+                                 "sku":  "KBEX0205-A",
+                                 "name":  "BUKUMLU BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425366,
+                                 "sku":  "SC15-AL400/21",
+                                 "name":  "YÜKSÜK SAÇ ALÇAK BASINÇ HORTUM İÇİN",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425334,
+                                 "sku":  "HAM H11 01 206",
+                                 "name":  "30189 - TUBO ALTA LIQ VALVULA-FILTRO-VISOR C3",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425313,
+                                 "sku":  "EDEL-4435-SOMUN-M14",
+                                 "name":  "M14*1,5 SOMUN",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425315,
+                                 "sku":  "EDEL-SOMUN",
+                                 "name":  "CNC SOMUN",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425310,
+                                 "sku":  "EDEL-1-108761-CEKIRDEK",
+                                 "name":  "EDEL ÇEKİRDEK",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425301,
+                                 "sku":  "CSC.622020.CA-A-PSL",
+                                 "name":  "DÜZ BORU 1",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425302,
+                                 "sku":  "CSC.622022.AGA-PSL-B",
+                                 "name":  "DÜZ BORU 2",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425282,
+                                 "sku":  "AA36-620-M30x2/26",
+                                 "name":  "M30*2 UÇ HAVŞA SOMUNU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425281,
+                                 "sku":  "AA36-013M36*2/27",
+                                 "name":  "İNYON M36*2",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425286,
+                                 "sku":  "AA36P-B28-M36*2/27",
+                                 "name":  "M36x2 İNYON ( ESR 007 )",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425283,
+                                 "sku":  "AA36P-013M36*2/32",
+                                 "name":  "M36x2 İNYON ( RAKOR )",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425269,
+                                 "sku":  "AA27P-621-7/8-14 UNF/27",
+                                 "name":  "SOMUN HAVŞALI 7/8-14 UNF",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425267,
+                                 "sku":  "AA27-BJ-B12/37",
+                                 "name":  "BANJO RAPRO",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425254,
+                                 "sku":  "AA22P-7-8 INC 2A UNF14-24",
+                                 "name":  "7/8 - 14 2A DİŞ Ø15,87 BAKIR BORU ARA RAKORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425244,
+                                 "sku":  "AA22P-3.4 16UNF2A 26,5",
+                                 "name":  "SOMUN O-RİNGLİ 3/4-16 UNF",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425236,
+                                 "sku":  "AA19P-621-5/8-18UNF/6",
+                                 "name":  "WEBASTO KONTRA SOMUN",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425220,
+                                 "sku":  "AA17P-5/8-18UNF/29.2",
+                                 "name":  "RAKOR O-RİNGLİ 5/8-18 DİŞ",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425219,
+                                 "sku":  "AA17P-5/8\"18UNF/18,5",
+                                 "name":  "RAKOR O-RİNGLİ 5/8-18 DİŞ (BORU ÜSTÜNE)",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425204,
+                                 "sku":  "A1281-RAPRO-A",
+                                 "name":  "BÜKÜMLÜ BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425203,
+                                 "sku":  "A1170-A",
+                                 "name":  "A1170 BÜKÜMLÜ ALÜM. BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425199,
+                                 "sku":  "A1114-A",
+                                 "name":  "BORU",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425198,
+                                 "sku":  "98400847-A",
+                                 "name":  "BÜKÜMLÜ BORU  (Ø8X1 PASLANMAZ DİNEX)",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425197,
+                                 "sku":  "98400846-A",
+                                 "name":  "BÜKÜMLÜ BORU (Ø10 X1 PASLANMAZ DİNEX )",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425200,
+                                 "sku":  "A1120/A-T-EM",
+                                 "name":  "KOMPLE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425190,
+                                 "sku":  "9340004",
+                                 "name":  "RACOR 7/16\"-20 UNUF",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425187,
+                                 "sku":  "9328536-1",
+                                 "name":  "TUBO ALTA GAS VALVULA ANTIRRETORNO C1-1",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425186,
+                                 "sku":  "9328535-2",
+                                 "name":  "TUBO VALVULA EXPANSION CABINA",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425191,
+                                 "sku":  "9423084-A",
+                                 "name":  "ANA GOVDE",
+                                 "isAlreadyArchived":  false
+                             },
+                             {
+                                 "katanaProductId":  15425182,
+                                 "sku":  "9328519-1",
+                                 "name":  "TUBO GAS BORU",
+                                 "isAlreadyArchived":  false
+                             }
+                         ],
+    "errors":  [
+
+               ],
+    "syncStartedAt":  "2025-12-23T22:06:25.1322353Z",
+    "syncCompletedAt":  "2025-12-23T22:11:41.6374947Z",
+    "isPreviewOnly":  false,
+    "durationSeconds":  316.5052594
+}

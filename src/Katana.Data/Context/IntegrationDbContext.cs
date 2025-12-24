@@ -48,6 +48,8 @@ public class IntegrationDbContext : DbContext
     public DbSet<Katana.Core.Entities.FailedNotification> FailedNotifications { get; set; } = null!;
     public DbSet<DashboardMetric> DashboardMetrics { get; set; } = null!;
     public DbSet<StockMovement> StockMovements { get; set; } = null!;
+    public DbSet<KeepSeparateGroup> KeepSeparateGroups { get; set; } = null!;
+    public DbSet<MergeHistory> MergeHistories { get; set; } = null!;
     public DbSet<InventoryMovement> InventoryMovements { get; set; } = null!;
     public DbSet<DataCorrectionLog> DataCorrectionLogs { get; set; } = null!;
     public DbSet<Category> Categories { get; set; }

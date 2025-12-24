@@ -76,6 +76,12 @@ public class SalesOrderLine
     /// </summary>
     public int? LucaDepoId { get; set; }
 
+    /// <summary>
+    /// Katana'ya gönderildiğinde oluşturulan order ID
+    /// Tüm satırlar aynı KatanaOrderId'ye sahip olmalı (tek sipariş olarak gönderilir)
+    /// </summary>
+    public long? KatanaOrderId { get; set; }
+
     // ==================== Navigation Properties ====================
 
     public virtual SalesOrder? SalesOrder { get; set; }

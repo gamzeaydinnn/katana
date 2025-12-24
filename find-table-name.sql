@@ -1,0 +1,14 @@
+-- Tablo ismini bul
+USE KatanaDB;
+GO
+
+-- Tüm tabloları listele
+SELECT 
+    TABLE_SCHEMA,
+    TABLE_NAME
+FROM INFORMATION_SCHEMA.TABLES
+WHERE TABLE_TYPE = 'BASE TABLE'
+AND TABLE_NAME LIKE '%product%'
+ORDER BY TABLE_NAME;
+
+GO

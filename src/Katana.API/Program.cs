@@ -259,6 +259,28 @@ builder.Services.AddScoped<Katana.Business.Services.Deduplication.IDuplicateDete
 builder.Services.AddScoped<Katana.Business.Services.Deduplication.ICanonicalSelector, Katana.Business.Services.Deduplication.CanonicalSelector>();
 builder.Services.AddScoped<Katana.Business.Services.Deduplication.IDeduplicationService, Katana.Business.Services.Deduplication.DeduplicationService>();
 
+// Product Name Deduplication Services
+builder.Services.AddScoped<IDuplicateAnalysisService, DuplicateAnalysisService>();
+builder.Services.AddScoped<IMergeValidationService, MergeValidationService>();
+builder.Services.AddScoped<IProductMergeService, ProductMergeService>();
+builder.Services.AddScoped<IMergeHistoryService, MergeHistoryService>();
+
+// Variant & BOM Services
+builder.Services.AddScoped<IVariantGroupingService, Katana.Business.Services.VariantGroupingService>();
+builder.Services.AddScoped<IBOMService, Katana.Business.Services.BOMService>();
+builder.Services.AddScoped<IManufacturingOrderSyncService, Katana.Business.Services.ManufacturingOrderSyncService>();
+builder.Services.AddScoped<ISKUValidationService, Katana.Business.Services.SKUValidationService>();
+
+// Cleanup Services
+builder.Services.AddScoped<ICleanupRepository, CleanupRepository>();
+builder.Services.AddScoped<IKatanaCleanupService, KatanaCleanupService>();
+
+// Archive Sync Services
+builder.Services.AddScoped<IKatanaArchiveSyncService, KatanaArchiveSyncService>();
+
+// Duplicate Order Cleanup Services
+builder.Services.AddScoped<IDuplicateOrderCleanupService, DuplicateOrderCleanupService>();
+
 builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();

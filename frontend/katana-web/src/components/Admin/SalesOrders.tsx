@@ -395,7 +395,9 @@ const SalesOrders: React.FC = () => {
       // Backend'den gelen hata mesajını göster
       let errorMessage = "Senkronizasyon hatası";
       if (err && typeof err === "object" && "response" in err) {
-        const axiosErr = err as { response?: { data?: { message?: string; errorDetails?: string } } };
+        const axiosErr = err as {
+          response?: { data?: { message?: string; errorDetails?: string } };
+        };
         const data = axiosErr.response?.data;
         if (data?.message) {
           errorMessage = data.message;
@@ -414,21 +416,37 @@ const SalesOrders: React.FC = () => {
     }
   };
 
-  // Admin Approval - Siparişi onayla ve Katana'ya stok olarak ekle
+  // Admin Approval - Siparişi onayla ve Katana'ya tek sipariş olarak gönder
   const handleApproveOrder = async (orderId: number) => {
     try {
       setApproving(orderId);
       setApprovalDialog({ open: false, orderId: null, orderNo: "" });
 
-      // Backend'e onay isteği gönder - bu Katana'ya stok ekleyecek
-      const response = await api.post<{ success: boolean; message?: string }>(
-        `/sales-orders/${orderId}/approve`
-      );
+      // Backend'e onay isteği gönder - bu Katana'ya tek sipariş olarak gönderecek
+      const response = await api.post<{
+        success: boolean;
+        message?: string;
+        katanaOrderId?: number;
+        lineCount?: number;
+        lucaSync?: {
+          attempted: boolean;
+          isSuccess?: boolean;
+          lucaOrderId?: number;
+          reason?: string;
+        };
+      }>(`/sales-orders/${orderId}/approve`);
 
       if (response.data.success) {
+        let successMsg = `✅ Sipariş onaylandı ve Katana'ya gönderildi (KatanaOrderId: ${response.data.katanaOrderId})`;
+        if (response.data.lineCount) {
+          successMsg += ` - ${response.data.lineCount} satır`;
+        }
+        if (response.data.lucaSync?.isSuccess) {
+          successMsg += ` | Luca: ✓`;
+        }
         setSnackbar({
           open: true,
-          message: `✅ Sipariş onaylandı ve Katana'ya stok olarak eklendi!`,
+          message: successMsg,
           severity: "success",
         });
       } else {
@@ -583,7 +601,12 @@ const SalesOrders: React.FC = () => {
               <CircularProgress />
             </Box>
           ) : orders.length === 0 ? (
-            <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 3 }}>
+            <Typography
+              variant="body2"
+              color="textSecondary"
+              align="center"
+              sx={{ py: 3 }}
+            >
               Sipariş bulunamadı
             </Typography>
           ) : (
@@ -670,8 +693,8 @@ const SalesOrders: React.FC = () => {
                     >
                       <ViewIcon fontSize="small" />
                     </IconButton>
-                    {(order.status === "PENDING" ||
-                      order.status === "NOT_SHIPPED") && (
+                    {(order.status?.toUpperCase() === "PENDING" ||
+                      order.status?.toUpperCase() === "NOT_SHIPPED") && (
                       <IconButton
                         size="small"
                         onClick={() =>
@@ -832,8 +855,8 @@ const SalesOrders: React.FC = () => {
                           </IconButton>
                         </Tooltip>
                         {/* Admin Onay Butonu - PENDING durumundaki siparişler için */}
-                        {(order.status === "PENDING" ||
-                          order.status === "NOT_SHIPPED") && (
+                        {(order.status?.toUpperCase() === "PENDING" ||
+                          order.status?.toUpperCase() === "NOT_SHIPPED") && (
                           <Tooltip title="Onayla">
                             <IconButton
                               size="small"
@@ -1283,8 +1306,9 @@ const SalesOrders: React.FC = () => {
               }}
             >
               <StockIcon sx={{ mr: 1, verticalAlign: "middle" }} />
-              Bu işlem siparişi onaylayacak ve ürünleri{" "}
-              <strong>Katana sistemine stok olarak ekleyecektir</strong>.
+              Bu işlem siparişi onaylayacak ve{" "}
+              <strong>Katana sistemine tek sipariş olarak gönderecektir</strong>
+              . Tüm satırlar aynı sipariş içinde yer alacaktır.
             </Box>
           </DialogContentText>
         </DialogContent>
@@ -1308,7 +1332,7 @@ const SalesOrders: React.FC = () => {
               )
             }
           >
-            Onayla ve Stoğa Ekle
+            Onayla ve Katana'ya Gönder
           </Button>
         </DialogActions>
       </Dialog>

@@ -285,4 +285,38 @@ public class DeduplicationController : ControllerBase
             });
         }
     }
+
+    /// <summary>
+    /// Merges duplicate products by SKU base code
+    /// </summary>
+    [HttpPost("merge-by-sku-base")]
+    [ProducesResponseType(typeof(SkuBaseMergePlan), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<VariantMergeResult>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> MergeBySkuBase([FromQuery] bool dryRun = true, CancellationToken ct = default)
+    {
+        try
+        {
+            _logger.LogWarning("SKU base merge requested by {User}, DryRun={DryRun}", User.Identity?.Name, dryRun);
+
+            if (dryRun)
+            {
+                var plan = await _deduplicationService.BuildSkuBaseMergePlanAsync(ct);
+                return Ok(plan);
+            }
+
+            var results = await _deduplicationService.MergeProductsBySkuBaseAsync(ct);
+            return Ok(results);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error merging products by SKU base");
+            return StatusCode(500, new ProblemDetails
+            {
+                Title = "Merge Failed",
+                Detail = ex.Message,
+                Status = 500
+            });
+        }
+    }
 }

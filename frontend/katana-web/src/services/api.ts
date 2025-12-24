@@ -339,6 +339,13 @@ export const stockAPI = {
   getHealthStatus: () => api.get("/health").then((res) => res.data),
 };
 
+export const salesOrdersAPI = {
+  getGrouped: (queryString?: string) =>
+    api
+      .get(`/sales-orders/grouped${queryString ? `?${queryString}` : ""}`)
+      .then((res) => res.data),
+};
+
 export const pendingAdjustmentsAPI = {
   list: () =>
     api.get("/adminpanel/pending-adjustments").then((res) => res.data),
