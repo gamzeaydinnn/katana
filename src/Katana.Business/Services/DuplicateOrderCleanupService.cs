@@ -94,10 +94,31 @@ public class DuplicateOrderCleanupService : IDuplicateOrderCleanupService
 
         result.TotalOrders = orders.Count;
 
-        // OrderNo'ya göre grupla
+        // ✅ GELİŞTİRİLMİŞ DUPLICATE KRİTERLERİ:
+        // 1. OrderNo aynı olmalı
+        // 2. CustomerId aynı olmalı (farklı müşterilerin aynı OrderNo'su olabilir)
+        // 3. TotalAmount aynı veya çok yakın olmalı (±%1 tolerans)
+        // 4. Son 7 gün içinde oluşturulmuş olmalı (yanlış pozitif önleme)
+        // 5. ID farkı < 1000 olmalı (aynı batch'te oluşturulmuş olmalı)
+        var recentCutoff = DateTime.UtcNow.AddDays(-7);
+        
         var groups = orders
-            .GroupBy(o => o.OrderNo?.Trim().ToUpperInvariant() ?? $"NULL-{o.Id}")
+            .Where(o => o.CreatedAt >= recentCutoff) // Son 7 gün
+            .GroupBy(o => new 
+            { 
+                OrderNo = o.OrderNo?.Trim().ToUpperInvariant() ?? $"NULL-{o.Id}",
+                CustomerId = o.CustomerId,
+                // TotalAmount'u yuvarlayarak grupla (küçük farkları tolere et)
+                TotalRounded = Math.Round((double)(o.Total ?? 0), 0)
+            })
             .Where(g => g.Count() > 1)
+            .Where(g => 
+            {
+                // ID farkı kontrolü - aynı batch'te oluşturulmuş olmalı
+                var ids = g.Select(o => o.Id).ToList();
+                var idDiff = ids.Max() - ids.Min();
+                return idDiff < 1000;
+            })
             .ToList();
 
         result.DuplicateGroups = groups.Count;
@@ -114,7 +135,7 @@ public class DuplicateOrderCleanupService : IDuplicateOrderCleanupService
 
             var duplicateGroup = new DuplicateOrderGroup
             {
-                OrderNo = group.Key,
+                OrderNo = group.Key.OrderNo,
                 Count = group.Count(),
                 OrderToKeep = MapToInfo(orderToKeep, GetKeepReason(orderToKeep, orderedList)),
                 OrdersToDelete = ordersToDelete.Select(o => MapToInfo(o, null)).ToList()
@@ -124,7 +145,7 @@ public class DuplicateOrderCleanupService : IDuplicateOrderCleanupService
             result.OrdersToDelete += ordersToDelete.Count;
         }
 
-        _logger.LogInformation("Duplicate analysis complete: {Groups} groups, {ToDelete} orders to delete",
+        _logger.LogInformation("Duplicate analysis complete: {Groups} groups, {ToDelete} orders to delete (criteria: same OrderNo+CustomerId+Total, last 7 days, ID diff < 1000)",
             result.DuplicateGroups, result.OrdersToDelete);
 
         return result;

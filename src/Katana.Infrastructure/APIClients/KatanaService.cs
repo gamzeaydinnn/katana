@@ -187,39 +187,13 @@ public class KatanaService : IKatanaService
             }
 
             var (variantId, _) = await FindVariantAsync(sku);
-            var createdNewProduct = false;
             if (!variantId.HasValue)
             {
-                _logger.LogWarning("SyncProductStockAsync: variant not found in Katana for SKU {Sku}. Attempting create...", sku);
-
-                var createDto = new KatanaProductDto
-                {
-                    Name = string.IsNullOrWhiteSpace(productName) ? $"Yeni Ürün ({sku})" : productName.Trim(),
-                    SKU = sku,
-                    SalesPrice = salesPrice ?? 0,
-                    Unit = "pcs",
-                    IsActive = true
-                };
-
-                var created = await CreateProductAsync(createDto);
-                if (created == null)
-                {
-                    // SKU already exists / race condition scenarios may yield null (e.g., 422),
-                    // so we fall back to re-querying variants before failing hard.
-                    _logger.LogWarning("SyncProductStockAsync: CreateProductAsync returned null. Will retry variant lookup. Sku={Sku}", sku);
-                }
-                else
-                {
-                    createdNewProduct = true;
-                }
-
-                // After creating product (or if creation raced), re-query variants by SKU to obtain variant_id.
-                (variantId, _) = await FindVariantAsync(sku);
-                if (!variantId.HasValue)
-                {
-                    _logger.LogWarning("SyncProductStockAsync: variant still not found after create attempt. Sku={Sku}", sku);
-                    return false;
-                }
+                // 🚨 HARD BLOCK: SKU Katana'da yoksa CREATE YASAK!
+                // Katana = Source of Truth. Ürün önce Katana'da oluşturulmalı.
+                _logger.LogError("🚨 BLOCKED: SyncProductStockAsync - SKU not found in Katana and CREATE is FORBIDDEN. SKU={Sku}. " +
+                    "Product must be created in Katana first, then synced.", sku);
+                return false;
             }
 
             var resolvedLocationId = await ResolveLocationIdAsync();
@@ -231,15 +205,13 @@ public class KatanaService : IKatanaService
 
             var req = new StockAdjustmentCreateRequest
             {
-                StockAdjustmentNumber = $"{(createdNewProduct ? "ADMIN-NEW" : "ADMIN")}-{DateTime.UtcNow:yyyyMMddHHmmss}-{sku}".Length > 50
-                    ? $"{(createdNewProduct ? "ADMIN-NEW" : "ADMIN")}-{DateTime.UtcNow:yyyyMMddHHmmss}-{sku}".Substring(0, 50)
-                    : $"{(createdNewProduct ? "ADMIN-NEW" : "ADMIN")}-{DateTime.UtcNow:yyyyMMddHHmmss}-{sku}",
+                StockAdjustmentNumber = $"ADMIN-{DateTime.UtcNow:yyyyMMddHHmmss}-{sku}".Length > 50
+                    ? $"ADMIN-{DateTime.UtcNow:yyyyMMddHHmmss}-{sku}".Substring(0, 50)
+                    : $"ADMIN-{DateTime.UtcNow:yyyyMMddHHmmss}-{sku}",
                 StockAdjustmentDate = DateTime.UtcNow,
                 LocationId = resolvedLocationId.Value,
                 Reason = "Admin approval",
-                AdditionalInfo = createdNewProduct
-                    ? $"SalesOrder approval stock increase for NEW SKU={sku}"
-                    : $"SalesOrder approval stock increase for SKU={sku}",
+                AdditionalInfo = $"SalesOrder approval stock increase for SKU={sku}",
                 StockAdjustmentRows = new List<StockAdjustmentRowDto>
                 {
                     new StockAdjustmentRowDto
@@ -1205,6 +1177,168 @@ public class KatanaService : IKatanaService
         return null;
     }
 
+    /// <summary>
+    /// Variant ID'den hem SKU hem ProductName döndürür.
+    /// Önce /variants/{id} endpoint'inden SKU ve product_id alır,
+    /// sonra /products/{product_id} endpoint'inden ProductName alır.
+    /// </summary>
+    public async Task<(string? Sku, string? ProductName)> GetVariantWithProductNameAsync(long variantId)
+    {
+        var cacheKey = $"variant-with-product-{variantId}";
+        if (_cache.TryGetValue<(string?, string?)>(cacheKey, out var cached))
+            return cached;
+
+        const int MAX_RETRIES = 3;
+        var retryDelays = new[] { 2000, 4000, 8000 };
+
+        string? sku = null;
+        long? productId = null;
+        string? productName = null;
+
+        // Step 1: Get variant info (SKU + product_id)
+        for (int attempt = 0; attempt <= MAX_RETRIES; attempt++)
+        {
+            try
+            {
+                var resp = await _httpClient.GetAsync($"variants/{variantId}");
+                
+                if (resp.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    if (attempt < MAX_RETRIES)
+                    {
+                        var delay = GetRetryAfterDelay(resp) ?? TimeSpan.FromMilliseconds(retryDelays[attempt]);
+                        _logger.LogWarning("⚠️ Rate limit (429) for variant {VariantId}. Waiting {Delay}ms", variantId, delay.TotalMilliseconds);
+                        await Task.Delay(delay);
+                        continue;
+                    }
+                    break;
+                }
+                
+                if (!resp.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Failed to get variant {VariantId}. Status: {StatusCode}", variantId, resp.StatusCode);
+                    break;
+                }
+
+                var content = await resp.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(content);
+                var root = doc.RootElement;
+                
+                JsonElement varEl = root;
+                if (root.TryGetProperty("data", out var dataEl))
+                {
+                    if (dataEl.ValueKind == JsonValueKind.Array)
+                        varEl = dataEl.EnumerateArray().FirstOrDefault();
+                    else if (dataEl.ValueKind == JsonValueKind.Object)
+                        varEl = dataEl;
+                }
+
+                if (varEl.ValueKind == JsonValueKind.Object)
+                {
+                    // Get SKU
+                    if (varEl.TryGetProperty("sku", out var skuEl) && skuEl.ValueKind == JsonValueKind.String)
+                        sku = skuEl.GetString();
+                    
+                    // Get product_id for fetching product name
+                    if (varEl.TryGetProperty("product_id", out var pidEl))
+                    {
+                        if (pidEl.ValueKind == JsonValueKind.Number)
+                            productId = pidEl.GetInt64();
+                        else if (pidEl.ValueKind == JsonValueKind.String && long.TryParse(pidEl.GetString(), out var parsed))
+                            productId = parsed;
+                    }
+                }
+                break;
+            }
+            catch (Exception ex)
+            {
+                if (attempt < MAX_RETRIES)
+                {
+                    _logger.LogWarning(ex, "Error getting variant {VariantId}. Attempt {Attempt}/{MaxRetries}", variantId, attempt + 1, MAX_RETRIES);
+                    await Task.Delay(retryDelays[attempt]);
+                }
+                else
+                {
+                    _logger.LogWarning(ex, "Failed to get variant {VariantId} after {MaxRetries} attempts", variantId, MAX_RETRIES);
+                }
+            }
+        }
+
+        // Step 2: Get product name from product endpoint
+        if (productId.HasValue)
+        {
+            for (int attempt = 0; attempt <= MAX_RETRIES; attempt++)
+            {
+                try
+                {
+                    var resp = await _httpClient.GetAsync($"products/{productId}");
+                    
+                    if (resp.StatusCode == HttpStatusCode.TooManyRequests)
+                    {
+                        if (attempt < MAX_RETRIES)
+                        {
+                            var delay = GetRetryAfterDelay(resp) ?? TimeSpan.FromMilliseconds(retryDelays[attempt]);
+                            _logger.LogWarning("⚠️ Rate limit (429) for product {ProductId}. Waiting {Delay}ms", productId, delay.TotalMilliseconds);
+                            await Task.Delay(delay);
+                            continue;
+                        }
+                        break;
+                    }
+                    
+                    if (!resp.IsSuccessStatusCode)
+                    {
+                        _logger.LogWarning("Failed to get product {ProductId}. Status: {StatusCode}", productId, resp.StatusCode);
+                        break;
+                    }
+
+                    var content = await resp.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(content);
+                    var root = doc.RootElement;
+                    
+                    JsonElement prodEl = root;
+                    if (root.TryGetProperty("data", out var dataEl))
+                    {
+                        if (dataEl.ValueKind == JsonValueKind.Array)
+                            prodEl = dataEl.EnumerateArray().FirstOrDefault();
+                        else if (dataEl.ValueKind == JsonValueKind.Object)
+                            prodEl = dataEl;
+                    }
+
+                    if (prodEl.ValueKind == JsonValueKind.Object && prodEl.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String)
+                    {
+                        productName = nameEl.GetString();
+                    }
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    if (attempt < MAX_RETRIES)
+                    {
+                        _logger.LogWarning(ex, "Error getting product {ProductId}. Attempt {Attempt}/{MaxRetries}", productId, attempt + 1, MAX_RETRIES);
+                        await Task.Delay(retryDelays[attempt]);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(ex, "Failed to get product {ProductId} after {MaxRetries} attempts", productId, MAX_RETRIES);
+                    }
+                }
+            }
+        }
+
+        var result = (sku, productName);
+        
+        // Cache for 60 minutes
+        if (!string.IsNullOrEmpty(sku) || !string.IsNullOrEmpty(productName))
+        {
+            _cache.Set(cacheKey, result, TimeSpan.FromMinutes(60));
+        }
+        
+        _logger.LogDebug("GetVariantWithProductNameAsync: VariantId={VariantId} → SKU='{Sku}', ProductName='{ProductName}'", 
+            variantId, sku, productName);
+        
+        return result;
+    }
+
     private TimeSpan? GetRetryAfterDelay(HttpResponseMessage response)
     {
         if (response.Headers.TryGetValues("Retry-After", out var values))
@@ -1659,6 +1793,8 @@ public class KatanaService : IKatanaService
     {
         try
         {
+            // 🚨 HARD GUARD: Prevent updates from Luca-sourced context
+            // Note: This method doesn't have direct access to source, but we log for audit
             _logger.LogInformation("Updating Katana product ID: {ProductId}, Name: {Name}, Price: {Price}, Stock: {Stock}", 
                 katanaProductId, name, salesPrice, stock);
 
@@ -1803,6 +1939,15 @@ public class KatanaService : IKatanaService
     {
         try
         {
+            // 🚨 HARD GUARD: Luca-sourced products cannot be created in Katana
+            if (product?.LucaId.HasValue == true || 
+                string.Equals(product?.Source, "LUCA", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogError("🚨 BLOCKED: Luca-sourced product write to Katana. SKU={SKU}, LucaId={LucaId}, Source={Source}", 
+                    product?.SKU, product?.LucaId, product?.Source);
+                throw new InvalidOperationException($"BLOCKED: Luca-sourced product cannot be created in Katana. SKU={product?.SKU}");
+            }
+
             // Validate input
             if (product == null)
             {
@@ -3257,6 +3402,149 @@ public class KatanaService : IKatanaService
         }
         
         return JsonSerializer.Deserialize<SalesOrderDto>(content, _jsonOptions);
+    }
+
+    public async Task<SalesOrderDto?> GetSalesOrderByIdAsync(long katanaOrderId)
+    {
+        try
+        {
+            _logger.LogInformation("GetSalesOrderByIdAsync called for ID: {KatanaOrderId}", katanaOrderId);
+            
+            var url = $"{_settings.Endpoints.SalesOrders}/{katanaOrderId}";
+            var response = await _httpClient.GetAsync(url);
+            var content = await response.Content.ReadAsStringAsync();
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    _logger.LogWarning("Sales order {KatanaOrderId} not found in Katana", katanaOrderId);
+                    return null;
+                }
+                
+                _logger.LogWarning("GetSalesOrderByIdAsync failed. Status {Status}, Body {Body}", 
+                    response.StatusCode, content);
+                return null;
+            }
+            
+            using var doc = JsonDocument.Parse(content);
+            var root = doc.RootElement;
+            
+            // Katana API wraps response in "data" object
+            if (root.TryGetProperty("data", out var dataEl))
+            {
+                return JsonSerializer.Deserialize<SalesOrderDto>(dataEl.GetRawText(), _jsonOptions);
+            }
+            
+            return JsonSerializer.Deserialize<SalesOrderDto>(content, _jsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting sales order {KatanaOrderId} from Katana", katanaOrderId);
+            return null;
+        }
+    }
+
+    public async Task<bool> CancelSalesOrderAsync(long katanaOrderId)
+    {
+        try
+        {
+            _logger.LogInformation("CancelSalesOrderAsync called for ID: {KatanaOrderId}", katanaOrderId);
+            
+            // First, get the current order to preserve other fields
+            var existingOrder = await GetSalesOrderByIdAsync(katanaOrderId);
+            if (existingOrder == null)
+            {
+                _logger.LogWarning("Cannot cancel order {KatanaOrderId} - not found in Katana", katanaOrderId);
+                return false;
+            }
+            
+            // Update only the status to CANCELLED
+            var updatePayload = new
+            {
+                status = "CANCELLED"
+            };
+            
+            var json = JsonSerializer.Serialize(updatePayload, _jsonOptions);
+            
+            using var request = new HttpRequestMessage(new HttpMethod("PATCH"), $"{_settings.Endpoints.SalesOrders}/{katanaOrderId}");
+            
+            var bytes = Encoding.UTF8.GetBytes(json);
+            request.Content = new ByteArrayContent(bytes);
+            request.Content.Headers.Clear();
+            request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+            
+            request.Headers.Clear();
+            request.Headers.Authorization = _httpClient.DefaultRequestHeaders.Authorization;
+            request.Headers.Accept.Clear();
+            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+            
+            var response = await _httpClient.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("CancelSalesOrderAsync failed. Status {Status}, Body {Body}", 
+                    response.StatusCode, content);
+                return false;
+            }
+            
+            _logger.LogInformation("✅ Successfully cancelled sales order {KatanaOrderId} in Katana", katanaOrderId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling sales order {KatanaOrderId} in Katana", katanaOrderId);
+            return false;
+        }
+    }
+
+    public async Task<bool> DeleteSalesOrderAsync(long katanaOrderId)
+    {
+        try
+        {
+            _logger.LogInformation("DeleteSalesOrderAsync called for ID: {KatanaOrderId}", katanaOrderId);
+            
+            // Try DELETE first
+            using var request = new HttpRequestMessage(HttpMethod.Delete, $"{_settings.Endpoints.SalesOrders}/{katanaOrderId}");
+            request.Headers.Clear();
+            request.Headers.Authorization = _httpClient.DefaultRequestHeaders.Authorization;
+            request.Headers.Accept.Clear();
+            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+            
+            var response = await _httpClient.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
+            
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("✅ Successfully deleted sales order {KatanaOrderId} from Katana", katanaOrderId);
+                return true;
+            }
+            
+            // If DELETE is not supported (405 Method Not Allowed), fall back to cancellation
+            if (response.StatusCode == HttpStatusCode.MethodNotAllowed || 
+                response.StatusCode == HttpStatusCode.NotImplemented)
+            {
+                _logger.LogWarning("DELETE not supported for sales orders, falling back to cancellation for {KatanaOrderId}", katanaOrderId);
+                return await CancelSalesOrderAsync(katanaOrderId);
+            }
+            
+            // If order not found, consider it already deleted
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning("Sales order {KatanaOrderId} not found in Katana - may already be deleted", katanaOrderId);
+                return true;
+            }
+            
+            _logger.LogWarning("DeleteSalesOrderAsync failed. Status {Status}, Body {Body}", 
+                response.StatusCode, content);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting sales order {KatanaOrderId} from Katana", katanaOrderId);
+            return false;
+        }
     }
 
     public Task<List<LocationDto>> GetLocationsAsync()

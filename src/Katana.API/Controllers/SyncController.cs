@@ -1360,6 +1360,167 @@ public class SyncController : ControllerBase
             return BadRequest(new { success = false, error = ex.Message });
         }
     }
+
+    /// <summary>
+    /// ✅ Mevcut NULL ProductName'leri Katana API'den çekerek günceller (SADECE Admin)
+    /// SalesOrderLines tablosundaki ProductName = NULL olan kayıtları bulur,
+    /// her biri için Katana API'den variant/product bilgisi çeker ve günceller.
+    /// </summary>
+    [HttpPost("backfill-product-names")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult> BackfillProductNames([FromQuery] int? limit = 100)
+    {
+        try
+        {
+            _logger.LogInformation("🔄 ProductName backfill başlatılıyor (limit: {Limit})", limit);
+            
+            var katanaService = HttpContext.RequestServices.GetRequiredService<IKatanaService>();
+            
+            // NULL ProductName olan SalesOrderLines'ları bul
+            var linesWithNullProductName = await _context.SalesOrderLines
+                .Where(sol => string.IsNullOrEmpty(sol.ProductName) || sol.ProductName.StartsWith("VARIANT-"))
+                .Take(limit ?? 100)
+                .ToListAsync();
+            
+            if (linesWithNullProductName.Count == 0)
+            {
+                return Ok(new { 
+                    success = true, 
+                    message = "Güncellenecek kayıt bulunamadı - tüm ProductName'ler dolu",
+                    updatedCount = 0
+                });
+            }
+            
+            _logger.LogInformation("📋 {Count} adet NULL/VARIANT ProductName bulundu", linesWithNullProductName.Count);
+            
+            var updatedCount = 0;
+            var failedCount = 0;
+            var details = new List<object>();
+            
+            // Her satır için Katana API'den bilgi çek
+            foreach (var line in linesWithNullProductName)
+            {
+                try
+                {
+                    var (sku, productName) = await katanaService.GetVariantWithProductNameAsync(line.VariantId);
+                    
+                    var updated = false;
+                    var oldSku = line.SKU;
+                    var oldProductName = line.ProductName;
+                    
+                    // SKU güncelle (eğer VARIANT- ile başlıyorsa veya boşsa)
+                    if (!string.IsNullOrEmpty(sku) && (string.IsNullOrEmpty(line.SKU) || line.SKU.StartsWith("VARIANT-")))
+                    {
+                        line.SKU = sku;
+                        updated = true;
+                    }
+                    
+                    // ProductName güncelle
+                    if (!string.IsNullOrEmpty(productName) && (string.IsNullOrEmpty(line.ProductName) || line.ProductName.StartsWith("VARIANT-")))
+                    {
+                        line.ProductName = productName;
+                        updated = true;
+                    }
+                    
+                    if (updated)
+                    {
+                        updatedCount++;
+                        details.Add(new
+                        {
+                            lineId = line.Id,
+                            variantId = line.VariantId,
+                            oldSku,
+                            newSku = line.SKU,
+                            oldProductName,
+                            newProductName = line.ProductName
+                        });
+                        
+                        _logger.LogInformation("✅ Line {LineId} güncellendi: SKU='{Sku}', ProductName='{ProductName}'", 
+                            line.Id, line.SKU, line.ProductName);
+                    }
+                    
+                    // Rate limit için kısa bekleme
+                    await Task.Delay(100);
+                }
+                catch (Exception ex)
+                {
+                    failedCount++;
+                    _logger.LogWarning(ex, "❌ Line {LineId} (VariantId: {VariantId}) güncellenemedi", line.Id, line.VariantId);
+                }
+            }
+            
+            // Değişiklikleri kaydet
+            if (updatedCount > 0)
+            {
+                await _context.SaveChangesAsync();
+            }
+            
+            _logger.LogInformation("🎉 ProductName backfill tamamlandı: {Updated} güncellendi, {Failed} başarısız", updatedCount, failedCount);
+            
+            return Ok(new
+            {
+                success = true,
+                message = $"ProductName backfill tamamlandı",
+                totalProcessed = linesWithNullProductName.Count,
+                updatedCount,
+                failedCount,
+                details = details.Take(20) // İlk 20 detayı göster
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ ProductName backfill hatası");
+            return StatusCode(500, new { success = false, error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// ✅ Tek bir SalesOrderLine'ın ProductName'ini Katana'dan günceller (SADECE Admin)
+    /// </summary>
+    [HttpPost("backfill-product-name/{lineId}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult> BackfillSingleProductName(int lineId)
+    {
+        try
+        {
+            var katanaService = HttpContext.RequestServices.GetRequiredService<IKatanaService>();
+            
+            var line = await _context.SalesOrderLines.FindAsync(lineId);
+            if (line == null)
+            {
+                return NotFound(new { success = false, error = $"SalesOrderLine bulunamadı: {lineId}" });
+            }
+            
+            var (sku, productName) = await katanaService.GetVariantWithProductNameAsync(line.VariantId);
+            
+            var oldSku = line.SKU;
+            var oldProductName = line.ProductName;
+            
+            if (!string.IsNullOrEmpty(sku))
+                line.SKU = sku;
+            
+            if (!string.IsNullOrEmpty(productName))
+                line.ProductName = productName;
+            
+            await _context.SaveChangesAsync();
+            
+            return Ok(new
+            {
+                success = true,
+                lineId,
+                variantId = line.VariantId,
+                oldSku,
+                newSku = line.SKU,
+                oldProductName,
+                newProductName = line.ProductName
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Single ProductName backfill hatası: LineId={LineId}", lineId);
+            return StatusCode(500, new { success = false, error = ex.Message });
+        }
+    }
 }
 
 public class StartSyncRequest

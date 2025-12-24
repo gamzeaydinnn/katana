@@ -31,6 +31,15 @@ public class KatanaProductDto
     public int? VatRate { get; set; }
     public string? Currency { get; set; }
     
+    /// <summary>
+    /// Luca/Koza sistemindeki stok kartı ID'si - Sync koruması için
+    /// </summary>
+    public long? LucaId { get; set; }
+    
+    /// <summary>
+    /// Ürünün kaynağı - KATANA, LUCA, MANUAL
+    /// </summary>
+    public string? Source { get; set; } = "KATANA";
     
     public int? OnHand { get; set; }
     public int? Available { get; set; }

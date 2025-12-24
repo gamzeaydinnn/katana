@@ -58,6 +58,15 @@ public interface IKatanaService
     Task<string?> GetVariantSkuAsync(long variantId);
     
     /// <summary>
+    /// Variant ID'den hem SKU hem ProductName döndürür.
+    /// Önce /variants/{id} endpoint'inden SKU ve product_id alır,
+    /// sonra /products/{product_id} endpoint'inden ProductName alır.
+    /// </summary>
+    /// <param name="variantId">Katana variant ID</param>
+    /// <returns>Tuple: (SKU, ProductName) - her ikisi de null olabilir</returns>
+    Task<(string? Sku, string? ProductName)> GetVariantWithProductNameAsync(long variantId);
+    
+    /// <summary>
     /// Memory-efficient batched sales order retrieval for large datasets
     /// Prevents memory leaks when processing 1000+ orders
     /// </summary>
@@ -65,6 +74,29 @@ public interface IKatanaService
     
     Task<SalesOrderDto?> CreateSalesOrderAsync(SalesOrderDto salesOrder);
     Task<SalesOrderDto?> UpdateSalesOrderAsync(SalesOrderDto salesOrder);
+    
+    /// <summary>
+    /// Cancels a sales order in Katana by updating its status to CANCELLED.
+    /// Used for cleaning up duplicate orders.
+    /// </summary>
+    /// <param name="katanaOrderId">Katana sales order ID</param>
+    /// <returns>True if cancelled successfully, false otherwise</returns>
+    Task<bool> CancelSalesOrderAsync(long katanaOrderId);
+    
+    /// <summary>
+    /// Deletes a sales order from Katana (if API supports it).
+    /// Falls back to cancellation if deletion is not supported.
+    /// </summary>
+    /// <param name="katanaOrderId">Katana sales order ID</param>
+    /// <returns>True if deleted/cancelled successfully, false otherwise</returns>
+    Task<bool> DeleteSalesOrderAsync(long katanaOrderId);
+    
+    /// <summary>
+    /// Gets a single sales order by ID from Katana.
+    /// </summary>
+    /// <param name="katanaOrderId">Katana sales order ID</param>
+    /// <returns>Sales order DTO or null if not found</returns>
+    Task<SalesOrderDto?> GetSalesOrderByIdAsync(long katanaOrderId);
     Task<List<LocationDto>> GetLocationsAsync();
     Task<LocationDto?> CreateLocationAsync(LocationDto location);
     Task<LocationDto?> UpdateLocationAsync(int locationId, LocationDto location);

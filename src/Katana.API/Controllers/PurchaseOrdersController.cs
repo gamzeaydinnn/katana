@@ -728,30 +728,11 @@ public class PurchaseOrdersController : ControllerBase
                             }
                             else
                             {
-                                // Ürün yoksa oluştur
-                                _logger.LogInformation("➕ Katana'da ürün yok, oluşturuluyor: {SKU}", item.Product.SKU);
-                                
-                                var newProduct = new KatanaProductDto
-                                {
-                                    Name = item.Product.Name,
-                                    SKU = item.Product.SKU,
-                                    SalesPrice = item.UnitPrice,
-                                    InStock = item.Quantity,
-                                    Description = item.Product.Description,
-                                    IsActive = true
-                                };
-                                
-                                var created = await _katanaService.CreateProductAsync(newProduct);
-                                
-                                if (created != null)
-                                {
-                                    _logger.LogInformation("✅ Katana ürün oluşturuldu: {SKU}, Stok: {Stock}", 
-                                        item.Product.SKU, item.Quantity);
-                                }
-                                else
-                                {
-                                    _logger.LogWarning("⚠️ Katana ürün oluşturulamadı: {SKU}", item.Product.SKU);
-                                }
+                                // 🚨 BLOCKED: Luca-sourced products cannot be created in Katana
+                                // Katana is the ONLY Source of Truth for products
+                                _logger.LogWarning("🚨 BLOCKED: Cannot create product in Katana from PurchaseOrder. SKU={SKU}. " +
+                                    "Products must be created in Katana first, then synced to Local DB.", item.Product.SKU);
+                                // DO NOT create product in Katana - this violates Source of Truth principle
                             }
                         }
                         catch (Exception itemEx)

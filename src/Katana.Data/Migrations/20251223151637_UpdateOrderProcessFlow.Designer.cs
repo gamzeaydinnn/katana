@@ -4,6 +4,7 @@ using Katana.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Katana.Data.Migrations
 {
     [DbContext(typeof(IntegrationDbContext))]
-    partial class IntegrationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251223151637_UpdateOrderProcessFlow")]
+    partial class UpdateOrderProcessFlow
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1081,14 +1084,6 @@ namespace Katana.Data.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<long?>("KatanaOrderId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("katana_order_id");
-
-                    b.Property<int?>("KatanaProductId")
-                        .HasColumnType("int")
-                        .HasColumnName("katana_product_id");
-
                     b.Property<string>("KategoriAgacKod")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -1115,10 +1110,6 @@ namespace Katana.Data.Migrations
 
                     b.Property<string>("SKU")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("Source")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
@@ -1447,13 +1438,6 @@ namespace Katana.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("ApprovedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime?>("ApprovedDate")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("BelgeNo")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -1531,10 +1515,6 @@ namespace Katana.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("SyncStatus")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<int?>("TeklifSiparisTur")
                         .HasColumnType("int");
 
@@ -1573,9 +1553,6 @@ namespace Katana.Data.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<long?>("KatanaOrderId")
-                        .HasColumnType("bigint");
 
                     b.Property<long>("KatanaRowId")
                         .HasColumnType("bigint");
@@ -2451,50 +2428,6 @@ namespace Katana.Data.Migrations
                     b.ToTable("IntegrationLogs");
                 });
 
-            modelBuilder.Entity("Katana.Data.Models.KeepSeparateGroup", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("created_by");
-
-                    b.Property<string>("ProductName")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
-                        .HasColumnName("product_name");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("reason");
-
-                    b.Property<DateTime?>("RemovedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("removed_at");
-
-                    b.Property<string>("RemovedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("removed_by");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("keep_separate_groups");
-                });
-
             modelBuilder.Entity("Katana.Data.Models.LucaProduct", b =>
                 {
                     b.Property<int>("Id")
@@ -2602,80 +2535,6 @@ namespace Katana.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("MappingTables");
-                });
-
-            modelBuilder.Entity("Katana.Data.Models.MergeHistory", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AdminUserId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("admin_user_id");
-
-                    b.Property<string>("AdminUserName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
-                        .HasColumnName("admin_user_name");
-
-                    b.Property<int>("BOMsUpdated")
-                        .HasColumnType("int")
-                        .HasColumnName("boms_updated");
-
-                    b.Property<int>("CanonicalProductId")
-                        .HasColumnType("int")
-                        .HasColumnName("canonical_product_id");
-
-                    b.Property<string>("CanonicalProductName")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
-                        .HasColumnName("canonical_product_name");
-
-                    b.Property<string>("CanonicalProductSKU")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
-                        .HasColumnName("canonical_product_sku");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("MergedProductIds")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("merged_product_ids");
-
-                    b.Property<string>("Reason")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("reason");
-
-                    b.Property<int>("SalesOrdersUpdated")
-                        .HasColumnType("int")
-                        .HasColumnName("sales_orders_updated");
-
-                    b.Property<int>("Status")
-                        .HasMaxLength(50)
-                        .HasColumnType("int")
-                        .HasColumnName("status");
-
-                    b.Property<int>("StockMovementsUpdated")
-                        .HasColumnType("int")
-                        .HasColumnName("stock_movements_updated");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CanonicalProductId");
-
-                    b.ToTable("merge_history");
                 });
 
             modelBuilder.Entity("Katana.Data.Models.OrderMapping", b =>
@@ -3094,17 +2953,6 @@ namespace Katana.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("IntegrationLog");
-                });
-
-            modelBuilder.Entity("Katana.Data.Models.MergeHistory", b =>
-                {
-                    b.HasOne("Katana.Core.Entities.Product", "CanonicalProduct")
-                        .WithMany()
-                        .HasForeignKey("CanonicalProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CanonicalProduct");
                 });
 
             modelBuilder.Entity("Katana.Core.Entities.Category", b =>

@@ -158,6 +158,20 @@ public partial class LucaService
         {
             if (order == null) throw new ArgumentNullException(nameof(order));
 
+            // 🚨 IDEMPOTENCY CHECK: Same OrderNo must NEVER create a second invoice
+            if (order.IsSyncedToLuca && order.LucaOrderId.HasValue && order.LucaOrderId.Value > 0)
+            {
+                _logger.LogWarning("🚨 IDEMPOTENCY: Invoice already exists for OrderNo={OrderNo}, LucaOrderId={LucaOrderId}. Returning existing.", 
+                    order.OrderNo, order.LucaOrderId);
+                return new SalesOrderSyncResultDto
+                {
+                    IsSuccess = true,
+                    Message = "Fatura zaten mevcut (idempotent)",
+                    LucaOrderId = (int)order.LucaOrderId.Value,
+                    SyncedAt = order.LastSyncAt ?? DateTime.UtcNow
+                };
+            }
+
             if (order.Customer == null)
             {
                 return new SalesOrderSyncResultDto

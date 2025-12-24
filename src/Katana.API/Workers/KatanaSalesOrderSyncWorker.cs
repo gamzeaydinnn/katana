@@ -388,16 +388,58 @@ public class KatanaSalesOrderSyncWorker : BackgroundService
                                     variantMappingCache,
                                     variantMappingService);
                                 
-                                var productName = variantToProduct.TryGetValue(row.VariantId, out var pInfo) 
+                                // ✅ FIX: Katana API'den gelen gerçek ürün bilgilerini kullan
+                                // Öncelik: row.VariantSku > resolvedSku > VARIANT-{id}
+                                var finalSku = !string.IsNullOrWhiteSpace(row.VariantSku) 
+                                    ? row.VariantSku 
+                                    : resolvedSku;
+                                
+                                // ✅ FIX: ProductName için Katana API'den gelen değeri kullan
+                                // Öncelik: row.ProductName > variantToProduct cache > VariantSku > VARIANT-{id}
+                                var productNameFromCache = variantToProduct.TryGetValue(row.VariantId, out var pInfo) 
                                     ? pInfo.ProductName 
                                     : null;
+                                var finalProductName = !string.IsNullOrWhiteSpace(row.ProductName) 
+                                    ? row.ProductName 
+                                    : (!string.IsNullOrWhiteSpace(productNameFromCache) 
+                                        ? productNameFromCache 
+                                        : (!string.IsNullOrWhiteSpace(row.VariantSku) 
+                                            ? $"{row.VariantSku} - {row.VariantCode}" 
+                                            : $"VARIANT-{row.VariantId}"));
+                                
+                                // ✅ NEW: Eğer hala VARIANT- ile başlıyorsa, Katana API'den direkt çek
+                                if (finalSku.StartsWith("VARIANT-") || finalProductName.StartsWith("VARIANT-"))
+                                {
+                                    try
+                                    {
+                                        var (apiSku, apiProductName) = await katanaService.GetVariantWithProductNameAsync(row.VariantId);
+                                        if (!string.IsNullOrWhiteSpace(apiSku) && finalSku.StartsWith("VARIANT-"))
+                                        {
+                                            finalSku = apiSku;
+                                        }
+                                        if (!string.IsNullOrWhiteSpace(apiProductName) && finalProductName.StartsWith("VARIANT-"))
+                                        {
+                                            finalProductName = apiProductName;
+                                        }
+                                        _logger.LogInformation("🔄 Katana API'den çekildi: VariantId={VariantId} → SKU='{Sku}', ProductName='{ProductName}'",
+                                            row.VariantId, finalSku, finalProductName);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogWarning(ex, "⚠️ Katana API'den variant bilgisi çekilemedi: VariantId={VariantId}", row.VariantId);
+                                    }
+                                }
+                                
+                                // 🔍 DEBUG: Katana'dan gelen değerleri logla
+                                _logger.LogDebug("📦 Row Mapping: VariantId={VariantId}, VariantSku='{VariantSku}', ProductName='{ProductName}', VariantCode='{VariantCode}' → FinalSKU='{FinalSku}', FinalName='{FinalName}'",
+                                    row.VariantId, row.VariantSku, row.ProductName, row.VariantCode, finalSku, finalProductName);
                                 
                                 var orderLine = new SalesOrderLine
                                 {
                                     KatanaRowId = row.Id,
                                     VariantId = row.VariantId,
-                                    SKU = resolvedSku,
-                                    ProductName = productName,
+                                    SKU = finalSku,
+                                    ProductName = finalProductName,
                                     Quantity = row.Quantity,
                                     PricePerUnit = row.PricePerUnit,
                                     PricePerUnitInBaseCurrency = row.PricePerUnitInBaseCurrency,

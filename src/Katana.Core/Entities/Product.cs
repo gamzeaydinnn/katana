@@ -137,6 +137,13 @@ public class Product
     [Column("katana_order_id")]
     public long? KatanaOrderId { get; set; }
     
+    /// <summary>
+    /// Ürünün kaynağı - KATANA, LUCA, MANUAL
+    /// Luca kaynaklı ürünler Katana'ya yazılamaz
+    /// </summary>
+    [MaxLength(50)]
+    public string? Source { get; set; } = "KATANA";
+    
     public bool IsActive { get; set; } = true;
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

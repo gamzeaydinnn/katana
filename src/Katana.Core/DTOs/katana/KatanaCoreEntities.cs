@@ -158,6 +158,7 @@ public class CreateProductDto
     public string? MainImageUrl { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? Source { get; set; } // KATANA, LUCA, MANUAL
 }
 
 public class UpdateProductDto

@@ -1537,18 +1537,19 @@ public class SyncService : ISyncService
     }
 
     /// <summary>
-    /// Luca'dan ürünleri çeker ve local DB'ye senkronize eder.
-    /// 🔥 LUCA = SINGLE SOURCE OF TRUTH - Timestamp karşılaştırması YOK!
-    /// Luca'daki veri her zaman local'in üzerine yazılır.
+    /// Luca'dan ürünleri çeker ve LOCAL DB'ye senkronize eder.
+    /// ⚠️ DİKKAT: Bu metod sadece Luca → Local DB sync yapar.
+    /// ❌ KATANA'YA YAZMA YASAK - Katana = Source of Truth
     /// </summary>
     public async Task<SyncResultDto> SyncProductsFromLucaAsync(DateTime? fromDate = null)
     {
         var stopwatch = Stopwatch.StartNew();
-        var logEntry = await StartOperationLogAsync("LUCA_TO_KATANA_PRODUCT");
+        var logEntry = await StartOperationLogAsync("LUCA_TO_LOCAL_PRODUCT");
 
         try
         {
-            _logger.LogInformation("🔄 Starting Luca → Katana PRODUCT sync (Luca = Single Source of Truth)");
+            // ⚠️ UYARI: Bu sync sadece Luca → Local DB'dir. Katana'ya YAZILMAZ!
+            _logger.LogInformation("🔄 Starting Luca → LOCAL DB PRODUCT sync (Katana = Source of Truth, Luca data for reference only)");
 
             var lucaProducts = await _lucaService.FetchProductsAsync(fromDate);
             _logger.LogInformation("✅ Fetched {Count} products from Luca", lucaProducts.Count);
@@ -1606,7 +1607,7 @@ public class SyncService : ISyncService
             await _dbContext.SaveChangesAsync();
             stopwatch.Stop();
 
-            var message = $"Luca'dan {created} yeni ürün oluşturuldu, {updated} ürün güncellendi.";
+            var message = $"Luca'dan Local DB'ye {created} yeni ürün oluşturuldu, {updated} ürün güncellendi. (Katana'ya YAZILMADI)";
             if (errors.Any())
             {
                 message += $" {errors.Count} hata oluştu.";
@@ -1614,12 +1615,12 @@ public class SyncService : ISyncService
 
             await FinalizeOperationAsync(logEntry, "SUCCESS", lucaProducts.Count, created + updated, errors.Count, errors.Any() ? string.Join("; ", errors) : null);
 
-            _logger.LogInformation("✅ Luca → Katana sync tamamlandı: Created={Created}, Updated={Updated}, Errors={Errors}", 
+            _logger.LogInformation("✅ Luca → LOCAL DB sync tamamlandı: Created={Created}, Updated={Updated}, Errors={Errors}", 
                 created, updated, errors.Count);
 
             return new SyncResultDto
             {
-                SyncType = "LUCA_TO_KATANA_PRODUCT",
+                SyncType = "LUCA_TO_LOCAL_PRODUCT",
                 IsSuccess = errors.Count == 0,
                 ProcessedRecords = lucaProducts.Count,
                 SuccessfulRecords = created + updated,
@@ -1632,11 +1633,11 @@ public class SyncService : ISyncService
         {
             stopwatch.Stop();
             await FinalizeOperationAsync(logEntry, "FAILED", 0, 0, 0, ex.Message);
-            _logger.LogError(ex, "❌ Luca → Katana product sync failed");
+            _logger.LogError(ex, "❌ Luca → LOCAL DB product sync failed");
 
             return new SyncResultDto
             {
-                SyncType = "LUCA_TO_KATANA_PRODUCT",
+                SyncType = "LUCA_TO_LOCAL_PRODUCT",
                 IsSuccess = false,
                 Message = ex.Message,
                 Duration = stopwatch.Elapsed,

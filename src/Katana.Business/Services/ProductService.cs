@@ -143,11 +143,19 @@ public class ProductService : IProductService
 
     public async Task<ProductDto> CreateProductAsync(CreateProductDto dto)
     {
+        // 🚨 SKU-based UPSERT: Aynı SKU varsa hata ver
         var existingProduct = await _context.Products
             .FirstOrDefaultAsync(p => p.SKU == dto.SKU);
 
         if (existingProduct != null)
             throw new InvalidOperationException($"Bu SKU'ya sahip ürün zaten mevcut: {dto.SKU}");
+
+        // 🚨 Source kontrolü: Sadece KATANA veya MANUAL kaynaklı ürünler oluşturulabilir
+        var source = dto.Source?.ToUpperInvariant() ?? "MANUAL";
+        if (source == "LUCA")
+        {
+            throw new InvalidOperationException($"BLOCKED: Luca-sourced products cannot be created directly. SKU={dto.SKU}. Use Katana sync instead.");
+        }
 
         var product = new Product
         {
@@ -160,7 +168,8 @@ public class ProductService : IProductService
             MainImageUrl = dto.MainImageUrl,
             Description = dto.Description,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            Source = source
         };
 
         _context.Products.Add(product);
@@ -175,7 +184,7 @@ public class ProductService : IProductService
                     product.Id,
                     product.SKU,
                     product.Name,
-                    "Manual",
+                    source,
                     DateTimeOffset.UtcNow
                 ));
             }

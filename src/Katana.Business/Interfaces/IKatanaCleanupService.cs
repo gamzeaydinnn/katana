@@ -10,4 +10,14 @@ public interface IKatanaCleanupService
     Task<CleanupReport> GenerateCleanupReportAsync();
     Task<BackupResult> CreateBackupAsync();
     Task<RollbackResult> RollbackAsync(string backupId);
+    
+    /// <summary>
+    /// Cancels duplicate orders in Katana based on provided Katana Order IDs.
+    /// </summary>
+    Task<KatanaOrderCleanupResult> CancelDuplicateOrdersAsync(List<long> katanaOrderIds, bool dryRun = true);
+    
+    /// <summary>
+    /// Finds duplicate orders in Katana based on order number patterns.
+    /// </summary>
+    Task<Dictionary<string, List<long>>> FindDuplicateOrdersAsync(DateTime? fromDate = null);
 }

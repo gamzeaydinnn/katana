@@ -87,4 +87,9 @@ public interface IOrderMappingRepository
     /// Varsayılan kasa hesap kodunu getirir
     /// </summary>
     Task<string> GetDefaultCashAccountCodeAsync();
+    
+    /// <summary>
+    /// ExternalOrderId (OrderNo) ile mevcut mapping'i getirir (idempotency için)
+    /// </summary>
+    Task<OrderMappingInfo?> GetByExternalOrderIdAsync(string externalOrderId, string orderType = "SalesOrder");
 }

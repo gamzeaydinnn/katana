@@ -51,8 +51,15 @@ public class KatanaApiClient : IKatanaApiClient
 
     public async Task<Product?> CreateProductAsync(Product product)
     {
+        // 🚨 HARD GUARD: Check source before creating in Katana
         if (product == null || string.IsNullOrWhiteSpace(product.Name))
             return null;
+
+        // Block Luca-sourced products
+        if (product.LucaId.HasValue || string.Equals(product.Source, "LUCA", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"BLOCKED: Luca-sourced product cannot be created in Katana. SKU={product.SKU}");
+        }
 
         // Map domain Product to KatanaProductDto
         var dto = MappingHelper.MapToKatanaProductDto(product);

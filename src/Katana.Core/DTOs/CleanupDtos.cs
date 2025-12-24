@@ -79,6 +79,21 @@ public class RollbackResult
     public string? ErrorMessage { get; set; }
 }
 
+/// <summary>
+/// Result of Katana duplicate order cleanup operation
+/// </summary>
+public class KatanaOrderCleanupResult
+{
+    public bool Success { get; set; }
+    public bool DryRun { get; set; }
+    public int TotalAttempted { get; set; }
+    public int SuccessCount { get; set; }
+    public int FailCount { get; set; }
+    public List<long> CancelledOrderIds { get; set; } = new();
+    public List<long> FailedOrderIds { get; set; } = new();
+    public List<CleanupError> Errors { get; set; } = new();
+}
+
 public class CleanupOperation
 {
     public int Id { get; set; }

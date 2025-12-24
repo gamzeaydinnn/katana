@@ -28,6 +28,7 @@ public class SalesOrdersController : ControllerBase
         private readonly IKatanaService _katanaService;
         private readonly ILocationMappingService _locationMappingService;
         private readonly IOptions<LucaApiSettings> _lucaSettings;
+        private readonly IOrderMappingRepository _orderMappingRepo;
 
         public SalesOrdersController(
             IntegrationDbContext context,
@@ -37,7 +38,8 @@ public class SalesOrdersController : ControllerBase
             ILogger<SalesOrdersController> logger,
             IKatanaService katanaService,
             ILocationMappingService locationMappingService,
-            IOptions<LucaApiSettings> lucaSettings)
+            IOptions<LucaApiSettings> lucaSettings,
+            IOrderMappingRepository orderMappingRepo)
         {
             _context = context;
             _lucaService = lucaService;
@@ -47,6 +49,7 @@ public class SalesOrdersController : ControllerBase
             _katanaService = katanaService;
             _locationMappingService = locationMappingService;
             _lucaSettings = lucaSettings;
+            _orderMappingRepo = orderMappingRepo;
         }
 
     /// <summary>
@@ -422,6 +425,16 @@ public class SalesOrdersController : ControllerBase
                     await _context.SaveChangesAsync();
                     await tx.CommitAsync();
 
+                    // ✅ OrderMapping kaydı oluştur (idempotency için)
+                    await _orderMappingRepo.SaveLucaInvoiceIdAsync(
+                        orderId: id,
+                        lucaFaturaId: lucaResult.LucaOrderId.Value,
+                        orderType: "SalesOrder",
+                        externalOrderId: order.OrderNo,
+                        belgeSeri: order.BelgeSeri,
+                        belgeNo: order.BelgeNo,
+                        belgeTakipNo: order.OrderNo);
+
                     _logger.LogInformation("SalesOrder synced to Luca. OrderId={OrderId}, OrderNo={OrderNo}, LucaId={LucaId}", id, order.OrderNo, lucaResult.LucaOrderId);
                     _loggingService.LogInfo($"SalesOrder {id} synced to Luca (invoice): {lucaResult.LucaOrderId}",
                         User?.Identity?.Name, null, LogCategory.Business);
@@ -719,57 +732,79 @@ public class SalesOrdersController : ControllerBase
             _logger.LogInformation("ApproveOrder: Validation passed. OrderId={OrderId}, OrderNo={OrderNo}, LineCount={LineCount}", 
                 id, order.OrderNo, order.Lines.Count);
 
-            // 6. Build Katana order payload (Requirements 1.2, 2.1, 2.2, 2.3, 2.4)
-            var katanaOrder = BuildKatanaOrderFromSalesOrder(order);
-            
-            _logger.LogInformation("ApproveOrder: Katana order built. OrderNo={OrderNo}, CustomerId={CustomerId}, RowCount={RowCount}", 
-                katanaOrder.OrderNo, katanaOrder.CustomerId, katanaOrder.SalesOrderRows?.Count ?? 0);
-
-            // 7. Send to Katana (Requirements 1.1)
+            // 6. Katana'ya gönder - SADECE YENİ SİPARİŞ İÇİN
+            // ✅ FIX: KatanaOrderId > 0 ise Katana'ya HİÇBİR ŞEY gönderme
             SalesOrderDto? katanaResult = null;
-            try
+            bool isNewKatanaOrder = false;
+            
+            if (order.KatanaOrderId > 0)
             {
-                _logger.LogInformation("ApproveOrder: Sending to Katana. OrderNo={OrderNo}", order.OrderNo);
-                katanaResult = await _katanaService.CreateSalesOrderAsync(katanaOrder);
-                
-                if (katanaResult == null || katanaResult.Id <= 0)
+                // ✅ Sipariş zaten Katana'dan gelmiş - Katana'ya YAZMA, sadece local status güncelle
+                _logger.LogInformation("ApproveOrder: Order already exists in Katana. Skipping Katana API call. OrderId={OrderId}, KatanaOrderId={KatanaOrderId}", 
+                    id, order.KatanaOrderId);
+                katanaResult = new SalesOrderDto { Id = order.KatanaOrderId };
+            }
+            else
+            {
+                // ✅ Yeni sipariş oluştur (normalde Katana'dan gelmemiş manuel sipariş)
+                try
                 {
-                    _logger.LogError("ApproveOrder: Katana returned null or invalid response. OrderId={OrderId}", id);
+                    _logger.LogInformation("ApproveOrder: Creating new order in Katana. OrderNo={OrderNo}", order.OrderNo);
+                    isNewKatanaOrder = true;
+                    
+                    var katanaOrder = BuildKatanaOrderFromSalesOrder(order);
+                    
+                    _logger.LogInformation("ApproveOrder: Katana order built. OrderNo={OrderNo}, CustomerId={CustomerId}, RowCount={RowCount}", 
+                        katanaOrder.OrderNo, katanaOrder.CustomerId, katanaOrder.SalesOrderRows?.Count ?? 0);
+                    
+                    katanaResult = await _katanaService.CreateSalesOrderAsync(katanaOrder);
+                    
+                    if (katanaResult == null || katanaResult.Id <= 0)
+                    {
+                        _logger.LogError("ApproveOrder: Katana returned null or invalid response. OrderId={OrderId}", id);
+                        return StatusCode(500, new { 
+                            success = false, 
+                            message = "Katana'da sipariş oluşturulamadı (boş yanıt)" 
+                        });
+                    }
+                    
+                    _logger.LogInformation("ApproveOrder: Katana order created. OrderId={OrderId}, KatanaOrderId={KatanaOrderId}", 
+                        id, katanaResult.Id);
+                }
+                catch (HttpRequestException ex)
+                {
+                    _logger.LogError(ex, "ApproveOrder: Katana API error. OrderId={OrderId}", id);
                     return StatusCode(500, new { 
                         success = false, 
-                        message = "Katana'da sipariş oluşturulamadı (boş yanıt)" 
+                        message = "Katana API hatası",
+                        error = ex.Message
                     });
                 }
-                
-                _logger.LogInformation("ApproveOrder: Katana order created. OrderId={OrderId}, KatanaOrderId={KatanaOrderId}", 
-                    id, katanaResult.Id);
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogError(ex, "ApproveOrder: Katana API error. OrderId={OrderId}", id);
-                return StatusCode(500, new { 
-                    success = false, 
-                    message = "Katana API hatası",
-                    error = ex.Message
-                });
             }
 
-            // 8. Update database with transaction (Requirements 1.4, 1.5)
+            // 7. Update database with transaction (Requirements 1.4, 1.5)
             var strategy = _context.Database.CreateExecutionStrategy();
             await strategy.ExecuteAsync(async () =>
             {
                 await using var tx = await _context.Database.BeginTransactionAsync();
                 try
                 {
-                    order.KatanaOrderId = katanaResult.Id;
-                    order.Status = "APPROVED";
-                    order.UpdatedAt = DateTime.UtcNow;
-
-                    // Update all lines with same KatanaOrderId (Requirements 1.5)
-                    foreach (var line in order.Lines)
+                    // ✅ Sadece yeni sipariş oluşturulduysa KatanaOrderId güncelle
+                    if (isNewKatanaOrder && katanaResult != null && katanaResult.Id > 0)
                     {
-                        line.KatanaOrderId = katanaResult.Id;
+                        order.KatanaOrderId = katanaResult.Id;
+                        
+                        // Update all lines with same KatanaOrderId (Requirements 1.5)
+                        foreach (var line in order.Lines)
+                        {
+                            line.KatanaOrderId = katanaResult.Id;
+                        }
                     }
+                    
+                    order.Status = "APPROVED";
+                    order.ApprovedDate = DateTime.UtcNow;
+                    order.ApprovedBy = User.Identity?.Name;
+                    order.UpdatedAt = DateTime.UtcNow;
 
                     await _context.SaveChangesAsync();
                     await tx.CommitAsync();
@@ -788,6 +823,7 @@ public class SalesOrdersController : ControllerBase
             // 9. Send to Luca (non-blocking) (Requirements 4.1, 4.2, 4.3, 4.4, 4.5)
             SalesOrderSyncResultDto? lucaSync = null;
             string? lucaSkippedReason = null;
+            var stockCardCreationResults = new List<object>();
 
             if (order.IsSyncedToLuca && string.IsNullOrEmpty(order.LastSyncError))
             {
@@ -801,6 +837,70 @@ public class SalesOrdersController : ControllerBase
             {
                 try
                 {
+                    // ✅ LUCA STOK KARTI KONTROLÜ - Fatura göndermeden önce SKU'ları kontrol et
+                    _logger.LogInformation("ApproveOrder: Checking Luca stock cards for {LineCount} lines. OrderId={OrderId}", 
+                        order.Lines.Count, id);
+                    
+                    foreach (var line in order.Lines)
+                    {
+                        if (string.IsNullOrWhiteSpace(line.SKU))
+                        {
+                            _logger.LogWarning("ApproveOrder: Line {LineId} has no SKU, skipping stock card check", line.Id);
+                            continue;
+                        }
+
+                        try
+                        {
+                            // Luca'da stok kartı var mı kontrol et
+                            var existingSkartId = await _lucaService.FindStockCardBySkuAsync(line.SKU);
+                            
+                            if (existingSkartId.HasValue)
+                            {
+                                _logger.LogDebug("ApproveOrder: Stock card exists for SKU={SKU}, SkartId={SkartId}", 
+                                    line.SKU, existingSkartId.Value);
+                                stockCardCreationResults.Add(new { sku = line.SKU, action = "exists", skartId = existingSkartId.Value });
+                            }
+                            else
+                            {
+                                // Stok kartı yoksa oluştur
+                                _logger.LogInformation("ApproveOrder: Creating stock card for SKU={SKU}, ProductName={ProductName}", 
+                                    line.SKU, line.ProductName);
+                                
+                                var stockCardRequest = new LucaCreateStokKartiRequest
+                                {
+                                    KartKodu = line.SKU,
+                                    KartAdi = line.ProductName ?? line.SKU,
+                                    KartAlisKdvOran = (double)(line.TaxRate ?? 20) / 100.0, // Yüzde → ondalık
+                                    KartSatisKdvOran = (double)(line.TaxRate ?? 20) / 100.0,
+                                    OlcumBirimiId = 1, // ADET
+                                    KartTuru = 1 // Stok kartı
+                                };
+                                
+                                var createResult = await _lucaService.UpsertStockCardAsync(stockCardRequest);
+                                
+                                if (createResult.IsSuccess)
+                                {
+                                    _logger.LogInformation("ApproveOrder: Stock card created for SKU={SKU}", line.SKU);
+                                    stockCardCreationResults.Add(new { sku = line.SKU, action = "created", message = createResult.Message });
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("ApproveOrder: Failed to create stock card for SKU={SKU}: {Error}", 
+                                        line.SKU, createResult.Message);
+                                    stockCardCreationResults.Add(new { sku = line.SKU, action = "failed", error = createResult.Message });
+                                }
+                            }
+                        }
+                        catch (Exception skuEx)
+                        {
+                            _logger.LogWarning(skuEx, "ApproveOrder: Stock card check/create failed for SKU={SKU}", line.SKU);
+                            stockCardCreationResults.Add(new { sku = line.SKU, action = "error", error = skuEx.Message });
+                        }
+                    }
+                    
+                    _logger.LogInformation("ApproveOrder: Stock card check complete. Results: {Results}", 
+                        string.Join(", ", stockCardCreationResults.Select(r => r.ToString())));
+
                     var depoKodu = await _locationMappingService.GetDepoKoduByLocationIdAsync(order.LocationId?.ToString() ?? string.Empty);
                     _logger.LogInformation("ApproveOrder: Sending to Luca. OrderId={OrderId}, DepoKodu={DepoKodu}", id, depoKodu);
                     
@@ -823,6 +923,18 @@ public class SalesOrdersController : ControllerBase
                                 current.LucaOrderId = lucaSync.LucaOrderId;
                                 current.LastSyncError = null;
                                 _logger.LogInformation("ApproveOrder: Luca sync successful. OrderId={OrderId}, LucaOrderId={LucaOrderId}", 
+                                    id, lucaSync.LucaOrderId);
+                                
+                                // ✅ OrderMapping kaydı oluştur (idempotency için)
+                                await _orderMappingRepo.SaveLucaInvoiceIdAsync(
+                                    orderId: id,
+                                    lucaFaturaId: lucaSync.LucaOrderId.Value,
+                                    orderType: "SalesOrder",
+                                    externalOrderId: order.OrderNo,
+                                    belgeSeri: order.BelgeSeri,
+                                    belgeNo: order.BelgeNo,
+                                    belgeTakipNo: order.OrderNo);
+                                _logger.LogInformation("ApproveOrder: OrderMapping created. OrderId={OrderId}, LucaInvoiceId={LucaInvoiceId}", 
                                     id, lucaSync.LucaOrderId);
                             }
                             else
@@ -874,8 +986,8 @@ public class SalesOrdersController : ControllerBase
 
             // Build response
             object lucaSyncPayload = lucaSync != null
-                ? new { attempted = true, isSuccess = lucaSync.IsSuccess, lucaOrderId = lucaSync.LucaOrderId, message = lucaSync.Message, errorDetails = lucaSync.ErrorDetails }
-                : new { attempted = false, reason = lucaSkippedReason };
+                ? new { attempted = true, isSuccess = lucaSync.IsSuccess, lucaOrderId = lucaSync.LucaOrderId, message = lucaSync.Message, errorDetails = lucaSync.ErrorDetails, stockCardResults = stockCardCreationResults }
+                : new { attempted = false, reason = lucaSkippedReason, stockCardResults = stockCardCreationResults };
 
             return Ok(new
             {

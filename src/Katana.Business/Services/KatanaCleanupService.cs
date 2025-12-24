@@ -375,4 +375,124 @@ public class KatanaCleanupService : IKatanaCleanupService
         }
         await _cleanupRepository.SaveChangesAsync();
     }
+
+    /// <summary>
+    /// Cancels duplicate orders in Katana based on provided Katana Order IDs.
+    /// Adds 500ms delay between API calls to respect rate limits.
+    /// </summary>
+    /// <param name="katanaOrderIds">List of Katana order IDs to cancel</param>
+    /// <param name="dryRun">If true, only logs what would be cancelled without making API calls</param>
+    /// <returns>Cleanup result with success/failure counts</returns>
+    public async Task<KatanaOrderCleanupResult> CancelDuplicateOrdersAsync(List<long> katanaOrderIds, bool dryRun = true)
+    {
+        var result = new KatanaOrderCleanupResult
+        {
+            TotalAttempted = katanaOrderIds.Count,
+            DryRun = dryRun
+        };
+
+        _logger.LogInformation(
+            "Starting Katana duplicate order cleanup for {Count} orders (DryRun: {DryRun})",
+            katanaOrderIds.Count,
+            dryRun);
+
+        if (dryRun)
+        {
+            _logger.LogInformation("DRY RUN MODE - No actual cancellations will occur");
+            foreach (var orderId in katanaOrderIds)
+            {
+                _logger.LogInformation("Would cancel Katana order: {OrderId}", orderId);
+                result.SuccessCount++;
+            }
+            result.Success = true;
+            return result;
+        }
+
+        foreach (var orderId in katanaOrderIds)
+        {
+            try
+            {
+                var success = await _katanaService.CancelSalesOrderAsync(orderId);
+                if (success)
+                {
+                    result.SuccessCount++;
+                    result.CancelledOrderIds.Add(orderId);
+                    _logger.LogInformation("✅ Successfully cancelled Katana order: {OrderId}", orderId);
+                }
+                else
+                {
+                    result.FailCount++;
+                    result.FailedOrderIds.Add(orderId);
+                    result.Errors.Add(new CleanupError
+                    {
+                        Message = $"Failed to cancel Katana order: {orderId}",
+                        ErrorType = "KatanaCancellationError",
+                        Details = "API returned false"
+                    });
+                    _logger.LogWarning("❌ Failed to cancel Katana order: {OrderId}", orderId);
+                }
+            }
+            catch (Exception ex)
+            {
+                result.FailCount++;
+                result.FailedOrderIds.Add(orderId);
+                result.Errors.Add(new CleanupError
+                {
+                    Message = $"Exception cancelling Katana order: {orderId}",
+                    ErrorType = "KatanaCancellationException",
+                    Details = ex.Message,
+                    StackTrace = ex.StackTrace
+                });
+                _logger.LogError(ex, "Exception cancelling Katana order: {OrderId}", orderId);
+            }
+
+            // Rate limit: 500ms delay between API calls
+            await Task.Delay(500);
+        }
+
+        result.Success = result.FailCount == 0;
+
+        _logger.LogInformation(
+            "Katana order cleanup complete: {Success}/{Total} successful, {Fail} failed",
+            result.SuccessCount,
+            result.TotalAttempted,
+            result.FailCount);
+
+        return result;
+    }
+
+    /// <summary>
+    /// Finds and returns duplicate orders in Katana based on order number patterns.
+    /// Duplicates are identified by having the same order_no prefix but different IDs.
+    /// </summary>
+    /// <param name="fromDate">Start date for order search</param>
+    /// <returns>Dictionary of order_no to list of duplicate Katana order IDs</returns>
+    public async Task<Dictionary<string, List<long>>> FindDuplicateOrdersAsync(DateTime? fromDate = null)
+    {
+        _logger.LogInformation("Searching for duplicate orders in Katana from {FromDate}", fromDate ?? DateTime.UtcNow.AddDays(-30));
+
+        var allOrders = await _katanaService.GetSalesOrdersAsync(fromDate ?? DateTime.UtcNow.AddDays(-30));
+        
+        // Group by order_no and find duplicates
+        var duplicates = allOrders
+            .Where(o => !string.IsNullOrEmpty(o.OrderNo))
+            .GroupBy(o => o.OrderNo)
+            .Where(g => g.Count() > 1)
+            .ToDictionary(
+                g => g.Key!,
+                g => g.Select(o => o.Id).ToList()
+            );
+
+        _logger.LogInformation("Found {Count} order numbers with duplicates", duplicates.Count);
+
+        foreach (var dup in duplicates)
+        {
+            _logger.LogInformation("Order {OrderNo} has {Count} duplicates: [{Ids}]", 
+                dup.Key, 
+                dup.Value.Count, 
+                string.Join(", ", dup.Value));
+        }
+
+        return duplicates;
+    }
 }

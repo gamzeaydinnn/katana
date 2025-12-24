@@ -4,6 +4,7 @@ using Katana.Core.DTOs;
 using Katana.Core.Entities;
 using Katana.Core.Enums;
 using Katana.Core.Events;
+using Katana.Core.Helpers;
 using Katana.Data.Context;
 using Katana.Data.Configuration;
 using Microsoft.EntityFrameworkCore;
@@ -116,6 +117,7 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
 
     /// <summary>
     /// Katana Sales Order'ı Luca'ya Satış Faturası olarak gönderir.
+    /// Tekrarlı fatura oluşumunu engeller ve sipariş onay durumunu kontrol eder.
     /// </summary>
     public async Task<OrderSyncResultDto> SyncSalesOrderToLucaAsync(int orderId)
     {
@@ -136,10 +138,41 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                 return result;
             }
 
+            // 2. ✅ Sipariş onaylanmış mı kontrol et
+            if (!string.IsNullOrEmpty(order.Status) && order.Status != "APPROVED" && order.Status != "Approved")
+            {
+                result.Success = false;
+                result.Message = $"Sipariş henüz onaylanmadı. Mevcut durum: {order.Status}";
+                _logger.LogWarning("Sipariş {OrderId} ({OrderNo}) onaysız olduğu için Luca'ya gönderilemedi. Status: {Status}", 
+                    orderId, order.OrderNo, order.Status);
+                return result;
+            }
+
+            // 3. ✅ IsSyncedToLuca flag kontrolü - zaten senkronize edilmişse tekrar gönderme
+            if (order.IsSyncedToLuca)
+            {
+                // Mapping'den LucaInvoiceId'yi bul
+                var existingInvoiceId = await _context.OrderMappings
+                    .AsNoTracking()
+                    .Where(m => m.EntityType == "SalesOrder" && m.OrderId == orderId && m.LucaInvoiceId > 0)
+                    .Select(m => m.LucaInvoiceId)
+                    .FirstOrDefaultAsync();
+
+                if (existingInvoiceId > 0)
+                {
+                    result.Success = true;
+                    result.LucaFaturaId = existingInvoiceId;
+                    result.Message = $"Sipariş zaten Luca'ya senkronize edilmiş. Fatura ID: {existingInvoiceId}";
+                    _logger.LogInformation("Sipariş {OrderId} ({OrderNo}) zaten Luca'da mevcut. InvoiceId: {InvoiceId}", 
+                        orderId, order.OrderNo, existingInvoiceId);
+                    return result;
+                }
+            }
+
             var group = await LoadSalesOrderGroupAsync(order);
             var groupOrderIds = group.Orders.Select(o => o.Id).ToList();
 
-            // 2. Daha önce gönderilmiş mi kontrol et (grup içinden herhangi biri SYNCED ise)
+            // 4. ✅ Daha önce gönderilmiş mi kontrol et (grup içinden herhangi biri SYNCED ise)
             var existingMapping = await _context.OrderMappings
                 .AsNoTracking()
                 .Where(m => m.EntityType == "SalesOrder" && groupOrderIds.Contains(m.OrderId) && m.LucaInvoiceId > 0)
@@ -152,10 +185,12 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                 result.Success = true;
                 result.LucaFaturaId = existingMapping.LucaInvoiceId;
                 result.Message = $"Order zaten Luca'ya gönderilmiş. Fatura ID: {existingMapping.LucaInvoiceId}";
+                _logger.LogInformation("Sipariş grubu {OrderId} için zaten Luca faturası mevcut: {InvoiceId}", 
+                    orderId, existingMapping.LucaInvoiceId);
                 return result;
             }
 
-            // 3. Luca request'i oluştur
+            // 5. Luca request'i oluştur
             var lucaRequest = await BuildSalesInvoiceRequestFromSalesOrderAsync(group.HeaderOrder, group.Lines);
             if (lucaRequest == null)
             {
@@ -165,12 +200,8 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
             }
             _logger.LogInformation("BUILD_INVOICE BelgeTakipNo={BelgeNo} OrderId={OrderId} LineCount={LineCount}",
                 order.OrderNo ?? orderId.ToString(), orderId, group.Lines.Count);
-            _logger.LogInformation("BUILD_INVOICE BelgeTakipNo={BelgeNo} OrderId={OrderId} LineCount={LineCount}",
-                order.OrderNo ?? orderId.ToString(), orderId, group.Lines.Count);
-            _logger.LogInformation("BUILD_INVOICE BelgeTakipNo={BelgeNo} OrderId={OrderId} LineCount={LineCount}",
-                order.OrderNo ?? order.Id.ToString(), order.Id, group.Lines.Count);
 
-            // 4. Circuit Breaker kontrolü - API down ise hızlı fail
+            // 6. Circuit Breaker kontrolü - API down ise hızlı fail
             if (_lucaCircuitBreaker.CircuitState == CircuitState.Open)
             {
                 result.Success = false;
@@ -179,7 +210,7 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                 return result;
             }
 
-            // 5. Luca'ya gönder (Circuit Breaker + Retry ile)
+            // 7. Luca'ya gönder (Circuit Breaker + Retry ile)
             var context = new Context();
             context["logger"] = _logger;
             
@@ -188,7 +219,7 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                 context
             );
 
-            // 5. Luca'dan dönen ID'yi parse et
+            // 8. Luca'dan dönen ID'yi parse et
             long? lucaFaturaId = null;
             bool isSuccess = false;
 
@@ -228,7 +259,7 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                     await using var transaction = await _context.Database.BeginTransactionAsync();
                     try
                     {
-                        // 6. Luca ID'yi tüm grup siparişlerine kaydet
+                        // 9. Luca ID'yi tüm grup siparişlerine kaydet
                         await MarkSalesOrdersSyncedAsync(group.Orders, lucaFaturaId.Value, lucaRequest);
 
                         await transaction.CommitAsync();
@@ -252,14 +283,14 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                     order.OrderNo, lucaFaturaId.Value
                 );
                 
-                // 8. Audit log ekle
+                // 10. Audit log ekle
                 _auditService.LogSync(
                     "OrderInvoiceSync",
                     "system",
                     $"Order {orderId} synced to Luca as Invoice {lucaFaturaId.Value} (KatanaOrderId={order.KatanaOrderId})"
                 );
 
-                // 9. InvoiceSyncedEvent publish et (bildirim için)
+                // 11. InvoiceSyncedEvent publish et (bildirim için)
                 try
                 {
                     // Invoice entity oluştur veya mevcut olanı bul
@@ -626,10 +657,31 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
             }
         }
 
-        // Satırları dönüştür
+        // Satırları dönüştür - Varyant bilgilerini de dahil et
         foreach (var line in lines)
         {
-            var kartKodu = await ResolveParentStockCodeAsync(line);
+            // Varyant mapping'den ürün bilgilerini çek
+            var variantMapping = await _variantMappingService.GetMappingAsync(line.VariantId);
+            Product? product = null;
+            ProductVariant? productVariant = null;
+            
+            if (variantMapping != null)
+            {
+                product = await _context.Products.FirstOrDefaultAsync(p => p.Id == variantMapping.ProductId);
+                if (variantMapping.ProductVariantId.HasValue)
+                {
+                    productVariant = await _context.ProductVariants.FirstOrDefaultAsync(pv => pv.Id == variantMapping.ProductVariantId.Value);
+                }
+            }
+            
+            // KartKodu'nu resolve et (varyant bilgilerini kullanarak)
+            var kartKodu = LucaVariantMappingHelper.ResolveKartKodu(line, variantMapping, product, productVariant);
+            
+            // Fallback: Eğer hala boşsa ResolveParentStockCodeAsync kullan
+            if (string.IsNullOrWhiteSpace(kartKodu))
+            {
+                kartKodu = await ResolveParentStockCodeAsync(line);
+            }
 
             // Validation: Stok kodu
             var stokValidation = Validators.LucaDataValidator.ValidateStokKodu(kartKodu, line.ProductName);
@@ -680,16 +732,30 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
                 taxRate = 20.0;
             }
 
+            // Varyant bilgilerini içeren açıklama oluştur
+            var aciklama = MappingHelper.BuildInvoiceLineDescriptionWithVariant(
+                product?.Name ?? line.ProductName,
+                productVariant?.SKU ?? line.SKU,
+                productVariant?.Attributes);
+            
+            // KartAdi: Varyant varsa varyant bilgilerini ekle
+            var kartAdi = line.ProductName;
+            if (productVariant != null && !string.IsNullOrWhiteSpace(productVariant.Attributes))
+            {
+                kartAdi = $"{product?.Name ?? line.ProductName} ({productVariant.Attributes})";
+            }
+
             request.DetayList.Add(new LucaCreateInvoiceDetailRequest
             {
                 KartTuru = STOK_KARTI,
                 KartKodu = kartKodu,
-                KartAdi = line.ProductName,
+                KartAdi = kartAdi,
                 Miktar = quantity,
                 BirimFiyat = (double)unitPrice,
                 KdvOran = taxRate,
                 DepoKodu = depoKodu,
-                Aciklama = line.ProductName
+                Aciklama = aciklama,
+                Barkod = productVariant?.Barcode ?? product?.Barcode
             });
         }
 

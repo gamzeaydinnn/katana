@@ -169,6 +169,60 @@ public class KatanaCleanupController : ControllerBase
             return StatusCode(500, new { error = "Failed to generate report", details = ex.Message });
         }
     }
+
+    /// <summary>
+    /// Find duplicate orders in Katana
+    /// </summary>
+    [HttpGet("duplicate-orders")]
+    [ProducesResponseType(typeof(Dictionary<string, List<long>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<Dictionary<string, List<long>>>> FindDuplicateOrders([FromQuery] DateTime? fromDate = null)
+    {
+        try
+        {
+            _logger.LogInformation("Admin requested duplicate order search from {FromDate}", fromDate ?? DateTime.UtcNow.AddDays(-30));
+            var result = await _cleanupService.FindDuplicateOrdersAsync(fromDate);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error finding duplicate orders");
+            return StatusCode(500, new { error = "Failed to find duplicate orders", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Cancel duplicate orders in Katana
+    /// </summary>
+    [HttpPost("cancel-duplicate-orders")]
+    [ProducesResponseType(typeof(KatanaOrderCleanupResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<KatanaOrderCleanupResult>> CancelDuplicateOrders([FromBody] CancelDuplicateOrdersRequest request)
+    {
+        if (request == null || request.KatanaOrderIds == null || !request.KatanaOrderIds.Any())
+        {
+            return BadRequest(new { error = "Katana order ID list is required" });
+        }
+
+        try
+        {
+            _logger.LogInformation(
+                "Admin requested duplicate order cancellation for {Count} orders (DryRun: {DryRun})",
+                request.KatanaOrderIds.Count,
+                request.DryRun);
+
+            var result = await _cleanupService.CancelDuplicateOrdersAsync(request.KatanaOrderIds, request.DryRun);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling duplicate orders");
+            return StatusCode(500, new { error = "Failed to cancel duplicate orders", details = ex.Message });
+        }
+    }
 }
 
 // Request DTOs
@@ -186,4 +240,10 @@ public class ResetOrdersRequest
 public class RollbackRequest
 {
     public string BackupId { get; set; } = string.Empty;
+}
+
+public class CancelDuplicateOrdersRequest
+{
+    public List<long> KatanaOrderIds { get; set; } = new();
+    public bool DryRun { get; set; } = true;
 }

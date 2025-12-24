@@ -122,6 +122,24 @@ public class SalesOrderRowDto
     [JsonPropertyName("variant_id")]
     public long VariantId { get; set; }
 
+    /// <summary>
+    /// Katana'dan gelen varyant SKU'su (örn: "URUN-001-M-SIYAH")
+    /// </summary>
+    [JsonPropertyName("variant_sku")]
+    public string? VariantSku { get; set; }
+
+    /// <summary>
+    /// Katana'dan gelen ürün adı
+    /// </summary>
+    [JsonPropertyName("product_name")]
+    public string? ProductName { get; set; }
+
+    /// <summary>
+    /// Katana'dan gelen varyant kodu (örn: "M-SIYAH")
+    /// </summary>
+    [JsonPropertyName("variant_code")]
+    public string? VariantCode { get; set; }
+
     [JsonPropertyName("tax_rate_id")]
     public long? TaxRateId { get; set; }
 

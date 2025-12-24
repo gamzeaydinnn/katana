@@ -1936,7 +1936,10 @@ public static class MappingHelper
     private const int MaxSkuLength = 50;
     private const double DefaultOrderKdvOran = 0.18;
 
-    private static string NormalizeSku(string sku)
+    /// <summary>
+    /// SKU'yu normalize eder - Türkçe karakterleri çevirir, sadece alfanumerik karakterleri alır
+    /// </summary>
+    internal static string NormalizeSku(string sku)
     {
         if (string.IsNullOrWhiteSpace(sku))
         {
@@ -1978,7 +1981,7 @@ public static class MappingHelper
     /// <summary>
     /// Türkçe karakterleri İngilizce'ye normalize eder
     /// </summary>
-    private static string NormalizeTurkishText(string? text)
+    internal static string NormalizeTurkishText(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -2143,6 +2146,104 @@ public static class MappingHelper
         return TrimAndTruncate(description, 500) ?? description;
     }
 
+    /// <summary>
+    /// Varyant bilgilerini içeren gelişmiş fatura satırı açıklaması oluşturur.
+    /// ProductVariant entity'sinden Attributes alanını kullanır.
+    /// </summary>
+    /// <param name="productName">Ana ürün adı</param>
+    /// <param name="sku">SKU kodu</param>
+    /// <param name="variantAttributes">ProductVariant.Attributes alanı (JSON veya string format)</param>
+    /// <returns>Varyant bilgilerini içeren açıklama</returns>
+    public static string BuildInvoiceLineDescriptionWithVariant(
+        string? productName, 
+        string? sku, 
+        string? variantAttributes)
+    {
+        var description = !string.IsNullOrWhiteSpace(productName) ? productName : sku ?? string.Empty;
+        var variantParts = new List<string>();
+        
+        // 1. Önce variantAttributes'tan bilgi çıkar (ProductVariant.Attributes)
+        if (!string.IsNullOrWhiteSpace(variantAttributes))
+        {
+            // JSON formatında olabilir: {"color": "Red", "size": "M"}
+            // veya string formatında: "Red / M" veya "Renk: Kırmızı, Beden: M"
+            try
+            {
+                if (variantAttributes.TrimStart().StartsWith("{"))
+                {
+                    // JSON parse dene
+                    var jsonDoc = System.Text.Json.JsonDocument.Parse(variantAttributes);
+                    foreach (var prop in jsonDoc.RootElement.EnumerateObject())
+                    {
+                        var key = NormalizeAttributeKey(prop.Name);
+                        var value = prop.Value.GetString() ?? prop.Value.ToString();
+                        variantParts.Add($"{key}: {value}");
+                    }
+                }
+                else
+                {
+                    // String format - direkt ekle
+                    variantParts.Add(variantAttributes);
+                }
+            }
+            catch
+            {
+                // JSON parse başarısız, string olarak ekle
+                variantParts.Add(variantAttributes);
+            }
+        }
+        
+        // 2. SKU'dan ek varyant bilgisi çıkar (eğer attributes boşsa)
+        if (!variantParts.Any() && !string.IsNullOrWhiteSpace(sku))
+        {
+            var parts = sku.Split('-');
+            if (parts.Length >= 2)
+            {
+                // İkinci parça genellikle renk/varyant
+                if (parts.Length >= 2 && !string.IsNullOrWhiteSpace(parts[1]))
+                {
+                    variantParts.Add($"Varyant: {parts[1]}");
+                }
+                
+                // Üçüncü parça genellikle beden/attribute
+                if (parts.Length >= 3 && !string.IsNullOrWhiteSpace(parts[2]))
+                {
+                    variantParts.Add($"Özellik: {parts[2]}");
+                }
+            }
+        }
+        
+        // 3. Açıklamayı birleştir
+        if (variantParts.Any())
+        {
+            description = $"{description} ({string.Join(", ", variantParts)})";
+        }
+        
+        // Luca açıklama alanı max 500 karakter
+        return TrimAndTruncate(description, 500) ?? description;
+    }
+
+    /// <summary>
+    /// Attribute key'lerini Türkçe'ye çevirir
+    /// </summary>
+    private static string NormalizeAttributeKey(string key)
+    {
+        return key.ToLowerInvariant() switch
+        {
+            "color" or "colour" => "Renk",
+            "size" => "Beden",
+            "material" => "Malzeme",
+            "weight" => "Ağırlık",
+            "length" => "Uzunluk",
+            "width" => "Genişlik",
+            "height" => "Yükseklik",
+            "style" => "Stil",
+            "pattern" => "Desen",
+            "brand" => "Marka",
+            _ => key
+        };
+    }
+
     // Core Entity -> Katana DTO mapping
     public static KatanaProductDto MapToKatanaProductDto(Product product)
     {
@@ -2195,4 +2296,92 @@ public static class MappingHelper
                item.Quantity > 0 &&
                item.UnitPrice >= 0;
     }
+
+    #region Status Mapping Helpers
+
+    /// <summary>
+    /// Katana sipariş durumunu Luca/Koza için Türkçe açıklamaya çevirir
+    /// </summary>
+    /// <param name="katanaStatus">Katana'dan gelen raw status (NOT_SHIPPED, OPEN, SHIPPED, etc.)</param>
+    /// <returns>Türkçe durum açıklaması</returns>
+    public static string MapKatanaStatusToLucaDescription(string? katanaStatus)
+    {
+        return katanaStatus?.ToUpperInvariant() switch
+        {
+            "NOT_SHIPPED" => "Beklemede",
+            "OPEN" => "Açık",
+            "SHIPPED" => "Kargoda",
+            "PARTIALLY_SHIPPED" => "Kısmen Gönderildi",
+            "FULLY_SHIPPED" => "Tamamen Gönderildi",
+            "DELIVERED" => "Teslim Edildi",
+            "CANCELLED" => "İptal",
+            "DONE" => "Tamamlandı",
+            "APPROVED" => "Onaylandı",
+            "DRAFT" => "Taslak",
+            _ => "Beklemede"
+        };
+    }
+
+    /// <summary>
+    /// Katana sipariş durumunu Luca fatura durumuna çevirir
+    /// </summary>
+    /// <param name="katanaStatus">Katana'dan gelen raw status</param>
+    /// <returns>Luca fatura durum kodu (1=Taslak, 2=Onaylı, 3=İptal)</returns>
+    public static int MapKatanaStatusToLucaInvoiceStatus(string? katanaStatus)
+    {
+        return katanaStatus?.ToUpperInvariant() switch
+        {
+            "APPROVED" or "SHIPPED" or "DELIVERED" or "DONE" or "FULLY_SHIPPED" => 2, // Onaylı
+            "CANCELLED" => 3, // İptal
+            _ => 1 // Taslak (NOT_SHIPPED, OPEN, DRAFT, etc.)
+        };
+    }
+
+    /// <summary>
+    /// Katana sipariş durumunun Luca'ya senkronize edilebilir olup olmadığını kontrol eder
+    /// </summary>
+    /// <param name="katanaStatus">Katana'dan gelen raw status</param>
+    /// <returns>true: senkronize edilebilir, false: edilemez</returns>
+    public static bool IsKatanaStatusSyncableToLuca(string? katanaStatus)
+    {
+        var status = katanaStatus?.ToUpperInvariant();
+        
+        // İptal edilmiş veya taslak siparişler Luca'ya gönderilmez
+        return status != "CANCELLED" && status != "DRAFT";
+    }
+
+    /// <summary>
+    /// Katana sipariş durumunun güncellenebilir olup olmadığını kontrol eder
+    /// </summary>
+    /// <param name="currentStatus">Mevcut lokal status</param>
+    /// <returns>true: güncellenebilir, false: korumalı</returns>
+    public static bool IsOrderStatusUpdatable(string? currentStatus)
+    {
+        var status = currentStatus?.ToUpperInvariant();
+        
+        // APPROVED ve SHIPPED siparişler güncellenemez (koruma)
+        return status != "APPROVED" && status != "SHIPPED" && status != "DELIVERED";
+    }
+
+    /// <summary>
+    /// Lokal sipariş durumunu Katana API formatına çevirir
+    /// </summary>
+    /// <param name="localStatus">Lokal veritabanındaki status</param>
+    /// <returns>Katana API'nin kabul ettiği status string</returns>
+    public static string MapLocalStatusToKatana(string? localStatus)
+    {
+        return localStatus?.ToUpperInvariant() switch
+        {
+            "APPROVED" => "OPEN", // Lokal onay → Katana'da OPEN
+            "BEKLEMEDE" => "NOT_SHIPPED",
+            "AÇIK" => "OPEN",
+            "KARGODA" => "SHIPPED",
+            "TESLİM EDİLDİ" => "DELIVERED",
+            "İPTAL" => "CANCELLED",
+            "TAMAMLANDI" => "DONE",
+            _ => localStatus ?? "NOT_SHIPPED"
+        };
+    }
+
+    #endregion
 }

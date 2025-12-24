@@ -224,4 +224,24 @@ public class OrderMappingRepository : IOrderMappingRepository
         return await _context.OrderMappings
             .FirstOrDefaultAsync(m => m.OrderId == orderId && m.EntityType == orderType);
     }
+    
+    public async Task<OrderMappingInfo?> GetByExternalOrderIdAsync(string externalOrderId, string orderType = "SalesOrder")
+    {
+        if (string.IsNullOrWhiteSpace(externalOrderId))
+            return null;
+            
+        var mapping = await _context.OrderMappings
+            .FirstOrDefaultAsync(m => m.ExternalOrderId == externalOrderId && m.EntityType == orderType);
+            
+        if (mapping == null)
+            return null;
+            
+        return new OrderMappingInfo
+        {
+            BelgeSeri = mapping.BelgeSeri,
+            BelgeNo = mapping.BelgeNo,
+            BelgeTakipNo = mapping.BelgeTakipNo,
+            LucaInvoiceId = mapping.LucaInvoiceId
+        };
+    }
 }
