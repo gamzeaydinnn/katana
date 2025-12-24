@@ -626,23 +626,25 @@ public class ProductsController : ControllerBase
 
                     KatanaToLucaMapper.ValidateLucaStockCard(stockCard);
 
-                    var sendResult = await _lucaService.SendStockCardsAsync(new List<LucaCreateStokKartiRequest> { stockCard });
+                    // UPSERT kullan: Mevcut SKU varsa UPDATE, yoksa CREATE
+                    var upsertResult = await _lucaService.UpsertStockCardAsync(stockCard);
 
-                    if (!sendResult.IsSuccess)
+                    if (!upsertResult.IsSuccess)
                     {
-                        _logger.LogError("[AUTO-SYNC ERROR] Luca stock card sync failed for SKU={Sku}. Processed={Processed}, Success={Success}, Failed={Failed}, Errors={Errors}",
+                        _logger.LogError("[AUTO-SYNC ERROR] Luca stock card UPSERT failed for SKU={Sku}. Processed={Processed}, Success={Success}, Failed={Failed}, Errors={Errors}",
                             product.SKU,
-                            sendResult.ProcessedRecords,
-                            sendResult.SuccessfulRecords,
-                            sendResult.FailedRecords,
-                            string.Join("; ", sendResult.Errors ?? new List<string>()));
+                            upsertResult.ProcessedRecords,
+                            upsertResult.SuccessfulRecords,
+                            upsertResult.FailedRecords,
+                            string.Join("; ", upsertResult.Errors ?? new List<string>()));
                     }
                     else
                     {
-                        _logger.LogInformation("[AUTO-SYNC SUCCESS] Luca stock card created for SKU={Sku}. Processed={Processed}, Success={Success}",
+                        _logger.LogInformation("[AUTO-SYNC SUCCESS] Luca stock card UPSERT completed for SKU={Sku}. Processed={Processed}, Success={Success}, Updated={Updated}",
                             product.SKU,
-                            sendResult.ProcessedRecords,
-                            sendResult.SuccessfulRecords);
+                            upsertResult.ProcessedRecords,
+                            upsertResult.SuccessfulRecords,
+                            upsertResult.DuplicateRecords);
                     }
                 }
                 catch (Exception ex)
@@ -737,20 +739,21 @@ public class ProductsController : ControllerBase
 
                     KatanaToLucaMapper.ValidateLucaStockCard(stockCard);
 
-                    var sendResult = await _lucaService.SendStockCardsAsync(new List<LucaCreateStokKartiRequest> { stockCard });
+                    // UPSERT kullan: Mevcut SKU varsa UPDATE, yoksa CREATE
+                    var upsertResult = await _lucaService.UpsertStockCardAsync(stockCard);
 
-                    if (!sendResult.IsSuccess)
+                    if (!upsertResult.IsSuccess)
                     {
-                        _logger.LogError("[AUTO-SYNC UPDATE ERROR] Luca stock card sync failed for SKU={Sku}. Errors={Errors}",
+                        _logger.LogError("[AUTO-SYNC UPDATE ERROR] Luca stock card UPSERT failed for SKU={Sku}. Errors={Errors}",
                             product.SKU,
-                            string.Join("; ", sendResult.Errors ?? new List<string>()));
+                            string.Join("; ", upsertResult.Errors ?? new List<string>()));
                     }
                     else
                     {
-                        _logger.LogInformation("[AUTO-SYNC UPDATE SUCCESS] Luca stock card synced for SKU={Sku}. Success={Success}, Duplicate={Duplicate}",
+                        _logger.LogInformation("[AUTO-SYNC UPDATE SUCCESS] Luca stock card UPSERT completed for SKU={Sku}. Success={Success}, Updated={Updated}",
                             product.SKU,
-                            sendResult.SuccessfulRecords,
-                            sendResult.DuplicateRecords);
+                            upsertResult.SuccessfulRecords,
+                            upsertResult.DuplicateRecords);
                     }
                 }
                 catch (Exception ex)
@@ -1095,6 +1098,8 @@ public class ProductsController : ControllerBase
                     var unitMappings = await GetUnitMappingsAsync();
 
                     // Luca update request oluştur
+                    // NOT: Luca GuncelleStkWsSkart.do endpoint'i sadece belirli alanları destekliyor
+                    // OlcumBirimiId, KartAlisKdvOran, KartSatisKdvOran güncellenemiyor
                     var lucaRequest = new LucaUpdateStokKartiRequest
                     {
                         SkartId = lucaId.Value,
@@ -1103,12 +1108,9 @@ public class ProductsController : ControllerBase
                         UzunAdi = request.UzunAdi,
                         Barkod = request.Barcode,
                         KategoriAgacKod = GetCategoryCode(request.CategoryId, categoryMappings),
-                        OlcumBirimiId = GetUnitId(request.UnitId, unitMappings),
-                        PerakendeAlisBirimFiyat = request.PurchasePrice,
-                        PerakendeSatisBirimFiyat = request.SalesPrice ?? updatedProduct.Price,
-                        GtipKodu = request.GtipCode,
-                        KartAlisKdvOran = request.KdvRate.HasValue ? (double)request.KdvRate.Value : null,
-                        KartSatisKdvOran = request.KdvRate.HasValue ? (double)request.KdvRate.Value : null
+                        PerakendeAlisBirimFiyat = request.PurchasePrice.HasValue ? (double)request.PurchasePrice.Value : null,
+                        PerakendeSatisBirimFiyat = (double)(request.SalesPrice ?? updatedProduct.Price),
+                        GtipKodu = request.GtipCode
                     };
 
                     lucaUpdated = await _lucaService.UpdateStockCardAsync(lucaRequest);
@@ -1246,8 +1248,8 @@ public class ProductsController : ControllerBase
                         UzunAdi = request.UzunAdi,
                         Barkod = request.Barcode,
                         KategoriAgacKod = request.KategoriAgacKod,
-                        PerakendeAlisBirimFiyat = request.PurchasePrice,
-                        PerakendeSatisBirimFiyat = request.SalesPrice,
+                        PerakendeAlisBirimFiyat = request.PurchasePrice.HasValue ? (double)request.PurchasePrice.Value : null,
+                        PerakendeSatisBirimFiyat = request.SalesPrice.HasValue ? (double)request.SalesPrice.Value : null,
                         GtipKodu = request.GtipCode
                     };
                     

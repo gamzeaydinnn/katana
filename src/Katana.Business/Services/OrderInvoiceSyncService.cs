@@ -600,14 +600,15 @@ public class OrderInvoiceSyncService : IOrderInvoiceSyncService
             BelgeNo = belgeNoStr,
             BelgeTarihi = orderDate.ToString("dd/MM/yyyy"),
             VadeTarihi = orderDate.AddDays(30).ToString("dd/MM/yyyy"),
-            BelgeAciklama = $"Katana Sales Order #{orderNo}",
+            BelgeAciklama = $"Katana Sipariş: {orderNo}",
             BelgeTurDetayId = belgeTurDetayId.ToString(),
             BelgeTakipNo = belgeTakipNo,
             FaturaTur = MAL_HIZMET.ToString(),
             ParaBirimKod = currency,
             // KurBedeli: Dövizli faturalar için zorunlu - TRY için 1, diğerleri için ConversionRate kullan
             KurBedeli = currency.ToUpperInvariant() == "TRY" ? 1.0 : (double)(order.ConversionRate ?? 1m),
-            KdvFlag = false,
+            KdvFlag = true, // KDV dahil fatura
+            ReferansNo = orderNo, // Sipariş referans numarası
             MusteriTedarikci = MUSTERI.ToString(),
             CariKodu = cariKodu,
             CariAd = cariAd,

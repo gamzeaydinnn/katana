@@ -3158,6 +3158,7 @@ public partial class LucaService
     /// <summary>
     /// UPSERT: If stock card exists in Luca, mark as duplicate (API doesn't support update).
     /// If not exists, create new card.
+    /// If exists, UPDATE the existing card using GuncelleStkWsSkart.do endpoint.
     /// </summary>
     public async Task<SyncResultDto> UpsertStockCardAsync(LucaCreateStokKartiRequest stockCard)
     {
@@ -3177,27 +3178,59 @@ public partial class LucaService
             
             if (existingSkartId.HasValue)
             {
-                // Card already exists in Luca
-                // NOTE: Luca Koza API does NOT support stock card updates!
-                // The card already exists, so we mark it as "duplicate" (already synced)
-                result.DuplicateRecords = 1;
-                result.IsSuccess = true;
-                result.Message = $"Stok kartı '{sku}' zaten Luca'da mevcut (skartId: {existingSkartId.Value}). Luca API stok kartı güncellemesini desteklemiyor.";
-                _logger.LogInformation("Stock card {SKU} already exists in Luca with skartId {SkartId}. Luca API does not support updates.", sku, existingSkartId.Value);
+                // 🔥 FIX: Card exists - UPDATE it using GuncelleStkWsSkart.do
+                _logger.LogInformation("Stock card {SKU} exists in Luca with skartId {SkartId}. Attempting UPDATE...", sku, existingSkartId.Value);
+                
+                // Map create request to update request
+                var updateRequest = KatanaToLucaMapper.MapToUpdateRequest(stockCard, existingSkartId.Value);
+                
+                // Call UpdateStockCardAsync
+                var updateSuccess = await UpdateStockCardAsync(updateRequest);
+                
+                if (updateSuccess)
+                {
+                    result.IsSuccess = true;
+                    result.SuccessfulRecords = 1;
+                    result.Message = $"Stok kartı '{sku}' Luca'da güncellendi (skartId: {existingSkartId.Value}).";
+                    _logger.LogInformation("Stock card {SKU} successfully UPDATED in Luca with skartId {SkartId}.", sku, existingSkartId.Value);
+                }
+                else
+                {
+                    result.IsSuccess = false;
+                    result.FailedRecords = 1;
+                    result.Errors.Add($"{sku}: Güncelleme başarısız");
+                    result.Message = $"Stok kartı '{sku}' Luca'da güncellenemedi (skartId: {existingSkartId.Value}).";
+                    _logger.LogWarning("Stock card {SKU} UPDATE FAILED in Luca with skartId {SkartId}.", sku, existingSkartId.Value);
+                }
+                
                 return result;
             }
 
             // Card doesn't exist, create new
+            _logger.LogInformation("Stock card {SKU} not found in Luca. Creating new card...", sku);
             var sendResult = await SendStockCardsAsync(new List<LucaCreateStokKartiRequest> { stockCard });
             
+            // 🔥 FIX: Treat duplicate error as success (Requirements 5.3, 5.5)
             result.IsSuccess = sendResult.IsSuccess || sendResult.DuplicateRecords > 0;
             result.SuccessfulRecords = sendResult.SuccessfulRecords;
             result.FailedRecords = sendResult.FailedRecords;
             result.DuplicateRecords = sendResult.DuplicateRecords;
             result.Errors = sendResult.Errors;
-            result.Message = sendResult.IsSuccess 
-                ? $"Stok kartı '{sku}' Luca'ya başarıyla eklendi."
-                : $"Stok kartı '{sku}' Luca'ya eklenemedi: {string.Join(", ", sendResult.Errors)}";
+            
+            // Set appropriate message based on result
+            if (sendResult.DuplicateRecords > 0)
+            {
+                result.Message = $"Stok kartı '{sku}' Luca'da zaten mevcut (duplicate olarak tespit edildi).";
+                _logger.LogInformation("Stock card {SKU} already exists in Luca (duplicate detected). Treating as success.", sku);
+            }
+            else if (sendResult.IsSuccess)
+            {
+                result.Message = $"Stok kartı '{sku}' Luca'ya başarıyla eklendi.";
+            }
+            else
+            {
+                result.Message = $"Stok kartı '{sku}' Luca'ya eklenemedi: {string.Join(", ", sendResult.Errors)}";
+            }
 
             return result;
         }

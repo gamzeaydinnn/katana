@@ -252,6 +252,7 @@ builder.Services.AddScoped<IOlcumBirimiSyncService, OlcumBirimiSyncService>();
 builder.Services.AddScoped<IIntegrationTestService, IntegrationTestService>();
 builder.Services.AddScoped<IDataCorrectionService, DataCorrectionService>();
 builder.Services.AddScoped<OrderInvoiceSyncService>();
+builder.Services.AddScoped<BidirectionalSyncService>();
 
 // Deduplication Services
 builder.Services.Configure<Katana.Core.DTOs.DeduplicationRules>(builder.Configuration.GetSection("Deduplication"));
@@ -280,6 +281,9 @@ builder.Services.AddScoped<IKatanaArchiveSyncService, KatanaArchiveSyncService>(
 
 // Duplicate Order Cleanup Services
 builder.Services.AddScoped<IDuplicateOrderCleanupService, DuplicateOrderCleanupService>();
+
+// Stock Card Preparation Service - Auto stock card creation on order approval
+builder.Services.AddScoped<IStockCardPreparationService, StockCardPreparationService>();
 
 builder.Services.AddSignalR(options =>
 {
@@ -350,6 +354,7 @@ var enableBackground = string.Equals(Environment.GetEnvironmentVariable("ENABLE_
 	    builder.Services.AddSingleton<Katana.Core.Services.PendingDbWriteQueue>();
 	    builder.Services.AddHostedService<Katana.Infrastructure.Workers.RetryPendingDbWritesService>();
 	    builder.Services.AddHostedService<Katana.API.Workers.KatanaSalesOrderSyncWorker>();
+	    builder.Services.AddHostedService<Katana.API.Workers.BidirectionalSyncWorker>();
 	}
 
 builder.Services.AddHostedService<HourlyMetricsAggregator>();

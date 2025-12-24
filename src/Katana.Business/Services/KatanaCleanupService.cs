@@ -473,17 +473,23 @@ public class KatanaCleanupService : IKatanaCleanupService
 
         var allOrders = await _katanaService.GetSalesOrdersAsync(fromDate ?? DateTime.UtcNow.AddDays(-30));
         
-        // Group by order_no and find duplicates
+        // ✅ NORMALIZE order numbers to detect variants like SO-SO-84 → SO-84
+        // Group by normalized order_no and find duplicates
         var duplicates = allOrders
             .Where(o => !string.IsNullOrEmpty(o.OrderNo))
-            .GroupBy(o => o.OrderNo)
+            .Select(o => new 
+            { 
+                Order = o,
+                NormalizedOrderNo = NormalizeOrderNo(o.OrderNo!)
+            })
+            .GroupBy(x => x.NormalizedOrderNo)
             .Where(g => g.Count() > 1)
             .ToDictionary(
-                g => g.Key!,
-                g => g.Select(o => o.Id).ToList()
+                g => g.Key,
+                g => g.Select(x => x.Order.Id).ToList()
             );
 
-        _logger.LogInformation("Found {Count} order numbers with duplicates", duplicates.Count);
+        _logger.LogInformation("Found {Count} order numbers with duplicates (after normalization)", duplicates.Count);
 
         foreach (var dup in duplicates)
         {
@@ -494,5 +500,36 @@ public class KatanaCleanupService : IKatanaCleanupService
         }
 
         return duplicates;
+    }
+
+    /// <summary>
+    /// Normalize order numbers to detect variants
+    /// SO-SO-84 → SO-84
+    /// SO-SO-SO-56 → SO-56
+    /// </summary>
+    private string NormalizeOrderNo(string orderNo)
+    {
+        if (string.IsNullOrWhiteSpace(orderNo))
+            return orderNo;
+
+        // Pattern: SO-SO-84 → SO-84
+        var match = System.Text.RegularExpressions.Regex.Match(orderNo, @"^(SO-)+SO-(\d+)$", 
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        
+        if (match.Success)
+        {
+            return $"SO-{match.Groups[2].Value}";
+        }
+
+        // Pattern: ABC-ABC-123 → ABC-123 (generic repeated prefix)
+        match = System.Text.RegularExpressions.Regex.Match(orderNo, @"^([A-Z]+-)\1+(\d+)$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        
+        if (match.Success)
+        {
+            return $"{match.Groups[1].Value}{match.Groups[2].Value}";
+        }
+
+        return orderNo;
     }
 }

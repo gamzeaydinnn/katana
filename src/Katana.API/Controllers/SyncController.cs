@@ -1,4 +1,5 @@
 using Katana.Business.Interfaces;
+using Katana.Business.Services;
 using Katana.Core.DTOs;
 using Katana.Core.Enums;
 using Katana.Core.Entities;
@@ -22,9 +23,11 @@ public class SyncController : ControllerBase
     private readonly ILoggingService _loggingService;
     private readonly IAuditService _auditService;
     private readonly LucaApiSettings _lucaSettings;
+    private readonly BidirectionalSyncService _bidirectionalSync;
 
     public SyncController(ISyncService syncService, IntegrationDbContext context, ILogger<SyncController> logger, 
-        ILoggingService loggingService, IAuditService auditService, IOptions<LucaApiSettings> lucaSettings)
+        ILoggingService loggingService, IAuditService auditService, IOptions<LucaApiSettings> lucaSettings,
+        BidirectionalSyncService bidirectionalSync)
     {
         _syncService = syncService;
         _context = context;
@@ -32,6 +35,7 @@ public class SyncController : ControllerBase
         _loggingService = loggingService;
         _auditService = auditService;
         _lucaSettings = lucaSettings.Value;
+        _bidirectionalSync = bidirectionalSync;
     }
 
     
@@ -147,6 +151,131 @@ public class SyncController : ControllerBase
                 stackTrace = ex.StackTrace?.Split('\n').Take(3).ToArray()
             });
         }
+    }
+
+    /// <summary>
+    /// LUCA -> KATANA: Luca'da guncellenen urunleri Katana'ya senkronize et
+    /// Mevcut urunler guncellenir, yeni SKU acilmaz
+    /// </summary>
+    /// <param name="hours">Kaç saat öncesine kadar kontrol edilecek (default: 1 saat)</param>
+    [HttpPost("luca-to-katana")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<ActionResult> SyncFromLucaToKatana([FromQuery] int hours = 1)
+    {
+        try
+        {
+            _logger.LogInformation("[API] Luca -> Katana senkronizasyon baslatildi (hours={Hours})", hours);
+            var sinceDate = DateTime.UtcNow.AddHours(-hours);
+            var result = await _bidirectionalSync.SyncFromLucaToKatanaAsync(sinceDate);
+
+            return Ok(new
+            {
+                success = true,
+                message = $"Senkronizasyon tamamlandı: {result.SuccessCount} başarılı, {result.FailCount} hata",
+                data = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[API] Luca -> Katana senkronizasyon hatasi");
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// KATANA -> LUCA: Katana'da guncellenen urunleri Luca'ya senkronize et
+    /// Mevcut urunler guncellenir, yeni versiyon acilmaz
+    /// </summary>
+    /// <param name="hours">Kaç saat öncesine kadar kontrol edilecek (default: 1 saat)</param>
+    [HttpPost("katana-to-luca")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<ActionResult> SyncFromKatanaToLuca([FromQuery] int hours = 1)
+    {
+        try
+        {
+            _logger.LogInformation("[API] Katana -> Luca senkronizasyon baslatildi (hours={Hours})", hours);
+            var sinceDate = DateTime.UtcNow.AddHours(-hours);
+            var result = await _bidirectionalSync.SyncFromKatanaToLucaAsync(sinceDate);
+
+            return Ok(new
+            {
+                success = true,
+                message = $"Senkronizasyon tamamlandı: {result.SuccessCount} başarılı, {result.FailCount} hata",
+                data = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[API] Katana -> Luca senkronizasyon hatasi");
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Iki yonlu tam senkronizasyon (Luca <-> Katana)
+    /// Once Luca'dan Katana'ya, sonra Katana'dan Luca'ya
+    /// </summary>
+    [HttpPost("bidirectional")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<ActionResult> FullBidirectionalSync([FromQuery] int hours = 1)
+    {
+        try
+        {
+            _logger.LogInformation("[API] Iki yonlu senkronizasyon baslatildi (hours={Hours})", hours);
+
+            var sinceDate = DateTime.UtcNow.AddHours(-hours);
+
+            _logger.LogInformation("[API] 1/2: Luca -> Katana basliyor...");
+            var lucaToKatana = await _bidirectionalSync.SyncFromLucaToKatanaAsync(sinceDate);
+
+            _logger.LogInformation("[API] 2/2: Katana -> Luca basliyor...");
+            var katanaToLuca = await _bidirectionalSync.SyncFromKatanaToLucaAsync(sinceDate);
+
+            return Ok(new
+            {
+                success = true,
+                message = "İki yönlü senkronizasyon tamamlandı",
+                lucaToKatana = new
+                {
+                    successCount = lucaToKatana.SuccessCount,
+                    failCount = lucaToKatana.FailCount,
+                    skippedCount = lucaToKatana.SkippedCount
+                },
+                katanaToLuca = new
+                {
+                    successCount = katanaToLuca.SuccessCount,
+                    failCount = katanaToLuca.FailCount,
+                    skippedCount = katanaToLuca.SkippedCount
+                },
+                totalSuccess = lucaToKatana.SuccessCount + katanaToLuca.SuccessCount,
+                totalFail = lucaToKatana.FailCount + katanaToLuca.FailCount
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[API] Iki yonlu senkronizasyon hatasi");
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Senkronizasyon endpoint ozetini getir
+    /// </summary>
+    [HttpGet("status-summary")]
+    [AllowAnonymous]
+    public ActionResult GetSyncStatusSummary()
+    {
+        return Ok(new
+        {
+            status = "running",
+            timestamp = DateTime.UtcNow,
+            endpoints = new
+            {
+                lucaToKatana = "/api/sync/luca-to-katana",
+                katanaToLuca = "/api/sync/katana-to-luca",
+                bidirectional = "/api/sync/bidirectional"
+            }
+        });
     }
 
     private Task<SyncResultDto> ConvertBatchResult(BatchSyncResultDto batch)

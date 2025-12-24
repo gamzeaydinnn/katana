@@ -29,6 +29,7 @@ public class SalesOrdersController : ControllerBase
         private readonly ILocationMappingService _locationMappingService;
         private readonly IOptions<LucaApiSettings> _lucaSettings;
         private readonly IOrderMappingRepository _orderMappingRepo;
+        private readonly IStockCardPreparationService _stockCardPreparationService;
 
         public SalesOrdersController(
             IntegrationDbContext context,
@@ -39,7 +40,8 @@ public class SalesOrdersController : ControllerBase
             IKatanaService katanaService,
             ILocationMappingService locationMappingService,
             IOptions<LucaApiSettings> lucaSettings,
-            IOrderMappingRepository orderMappingRepo)
+            IOrderMappingRepository orderMappingRepo,
+            IStockCardPreparationService stockCardPreparationService)
         {
             _context = context;
             _lucaService = lucaService;
@@ -50,6 +52,7 @@ public class SalesOrdersController : ControllerBase
             _locationMappingService = locationMappingService;
             _lucaSettings = lucaSettings;
             _orderMappingRepo = orderMappingRepo;
+            _stockCardPreparationService = stockCardPreparationService;
         }
 
     /// <summary>
@@ -838,68 +841,26 @@ public class SalesOrdersController : ControllerBase
                 try
                 {
                     // ✅ LUCA STOK KARTI KONTROLÜ - Fatura göndermeden önce SKU'ları kontrol et
-                    _logger.LogInformation("ApproveOrder: Checking Luca stock cards for {LineCount} lines. OrderId={OrderId}", 
+                    _logger.LogInformation("ApproveOrder: Preparing stock cards for {LineCount} lines. OrderId={OrderId}", 
                         order.Lines.Count, id);
                     
-                    foreach (var line in order.Lines)
+                    // Use StockCardPreparationService for stock card operations
+                    var stockCardResult = await _stockCardPreparationService.PrepareStockCardsForOrderAsync(order);
+                    
+                    // Convert results to response format
+                    foreach (var result in stockCardResult.Results)
                     {
-                        if (string.IsNullOrWhiteSpace(line.SKU))
-                        {
-                            _logger.LogWarning("ApproveOrder: Line {LineId} has no SKU, skipping stock card check", line.Id);
-                            continue;
-                        }
-
-                        try
-                        {
-                            // Luca'da stok kartı var mı kontrol et
-                            var existingSkartId = await _lucaService.FindStockCardBySkuAsync(line.SKU);
-                            
-                            if (existingSkartId.HasValue)
-                            {
-                                _logger.LogDebug("ApproveOrder: Stock card exists for SKU={SKU}, SkartId={SkartId}", 
-                                    line.SKU, existingSkartId.Value);
-                                stockCardCreationResults.Add(new { sku = line.SKU, action = "exists", skartId = existingSkartId.Value });
-                            }
-                            else
-                            {
-                                // Stok kartı yoksa oluştur
-                                _logger.LogInformation("ApproveOrder: Creating stock card for SKU={SKU}, ProductName={ProductName}", 
-                                    line.SKU, line.ProductName);
-                                
-                                var stockCardRequest = new LucaCreateStokKartiRequest
-                                {
-                                    KartKodu = line.SKU,
-                                    KartAdi = line.ProductName ?? line.SKU,
-                                    KartAlisKdvOran = (double)(line.TaxRate ?? 20) / 100.0, // Yüzde → ondalık
-                                    KartSatisKdvOran = (double)(line.TaxRate ?? 20) / 100.0,
-                                    OlcumBirimiId = 1, // ADET
-                                    KartTuru = 1 // Stok kartı
-                                };
-                                
-                                var createResult = await _lucaService.UpsertStockCardAsync(stockCardRequest);
-                                
-                                if (createResult.IsSuccess)
-                                {
-                                    _logger.LogInformation("ApproveOrder: Stock card created for SKU={SKU}", line.SKU);
-                                    stockCardCreationResults.Add(new { sku = line.SKU, action = "created", message = createResult.Message });
-                                }
-                                else
-                                {
-                                    _logger.LogWarning("ApproveOrder: Failed to create stock card for SKU={SKU}: {Error}", 
-                                        line.SKU, createResult.Message);
-                                    stockCardCreationResults.Add(new { sku = line.SKU, action = "failed", error = createResult.Message });
-                                }
-                            }
-                        }
-                        catch (Exception skuEx)
-                        {
-                            _logger.LogWarning(skuEx, "ApproveOrder: Stock card check/create failed for SKU={SKU}", line.SKU);
-                            stockCardCreationResults.Add(new { sku = line.SKU, action = "error", error = skuEx.Message });
-                        }
+                        stockCardCreationResults.Add(new { 
+                            sku = result.SKU, 
+                            action = result.Action, 
+                            skartId = result.SkartId,
+                            message = result.Message,
+                            error = result.Error
+                        });
                     }
                     
-                    _logger.LogInformation("ApproveOrder: Stock card check complete. Results: {Results}", 
-                        string.Join(", ", stockCardCreationResults.Select(r => r.ToString())));
+                    _logger.LogInformation("ApproveOrder: Stock card preparation complete. Total={Total}, Success={Success}, Failed={Failed}, Skipped={Skipped}", 
+                        stockCardResult.TotalLines, stockCardResult.SuccessCount, stockCardResult.FailedCount, stockCardResult.SkippedCount);
 
                     var depoKodu = await _locationMappingService.GetDepoKoduByLocationIdAsync(order.LocationId?.ToString() ?? string.Empty);
                     _logger.LogInformation("ApproveOrder: Sending to Luca. OrderId={OrderId}, DepoKodu={DepoKodu}", id, depoKodu);

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.6.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+    <PackageReference Include="FluentAssertions" Version="6.12.0" />
+    <PackageReference Include="Moq" Version="4.20.70" />
+    <PackageReference Include="FsCheck" Version="2.16.6" />
+    <PackageReference Include="FsCheck.Xunit" Version="2.16.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Katana.Core/Katana.Core.csproj" />
+    <ProjectReference Include="../../src/Katana.Business/Katana.Business.csproj" />
+    <ProjectReference Include="../../src/Katana.Data/Katana.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../Katana.Tests/Services/StockCardPreparationPropertyTests.cs" Link="StockCardPreparationPropertyTests.cs" />
+  </ItemGroup>
+
+</Project>

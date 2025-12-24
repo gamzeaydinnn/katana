@@ -23,26 +23,18 @@ RUN dotnet restore "src/Katana.API/Katana.API.csproj" --disable-parallel
 # ⚡ STEP 3: Copy source code (only invalidates cache when code changes)
 COPY src/ src/
 
-# ⚡ STEP 4: Build with optimizations
+# ⚡ STEP 4: Build and Publish in one step (faster, simpler)
 WORKDIR "/src/src/Katana.API"
-RUN dotnet build "Katana.API.csproj" \
-    -c $BUILD_CONFIGURATION \
-    -o /app/build \
-    --no-restore \
-    /p:UseSharedCompilation=false \
-    /p:BuildInParallel=true
-
-# ⚡ STEP 5: Publish (minimal, no symbols)
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish "Katana.API.csproj" \
     -c $BUILD_CONFIGURATION \
     -o /app/publish \
     --no-restore \
-    --no-build \
     /p:UseAppHost=false \
     /p:DebugType=None \
-    /p:DebugSymbols=false
+    /p:DebugSymbols=false \
+    /p:UseSharedCompilation=false
 
 # ⚡ STEP 6: Final image (minimal)
 FROM base AS final

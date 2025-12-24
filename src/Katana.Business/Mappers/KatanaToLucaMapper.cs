@@ -765,5 +765,33 @@ public static class KatanaToLucaMapper
         dto.KartAdi = EncodingHelper.ConvertToIso88599(dto.KartAdi);
         dto.UzunAdi = EncodingHelper.ConvertToIso88599(dto.UzunAdi);
     }
+
+    /// <summary>
+    /// LucaCreateStokKartiRequest'i LucaUpdateStokKartiRequest'e dönüştürür.
+    /// Mevcut stok kartı güncellenirken kullanılır.
+    /// </summary>
+    /// <param name="createRequest">Oluşturma isteği</param>
+    /// <param name="skartId">Güncellenecek stok kartının Luca ID'si</param>
+    /// <returns>Güncelleme isteği</returns>
+    public static LucaUpdateStokKartiRequest MapToUpdateRequest(
+        LucaCreateStokKartiRequest createRequest,
+        long skartId)
+    {
+        if (createRequest == null) throw new ArgumentNullException(nameof(createRequest));
+        if (skartId <= 0) throw new ArgumentException("skartId 0'dan büyük olmalı", nameof(skartId));
+
+        return new LucaUpdateStokKartiRequest
+        {
+            SkartId = skartId,
+            KartKodu = createRequest.KartKodu,
+            KartAdi = createRequest.KartAdi,
+            UzunAdi = createRequest.UzunAdi,
+            Barkod = createRequest.Barkod,
+            KategoriAgacKod = createRequest.KategoriAgacKod,
+            PerakendeAlisBirimFiyat = createRequest.PerakendeAlisBirimFiyat,
+            PerakendeSatisBirimFiyat = createRequest.PerakendeSatisBirimFiyat,
+            GtipKodu = null // GTIP kodu Katana'dan gelmiyor, null gönder
+        };
+    }
     
 }

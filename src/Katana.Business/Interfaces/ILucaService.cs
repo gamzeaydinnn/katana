@@ -186,6 +186,11 @@ public interface ILucaService
     /// Returns the skartId if found, null if not found.
     /// </summary>
     Task<long?> FindStockCardBySkuAsync(string sku);
+
+    /// <summary>
+    /// Luca'daki stok kartı detaylarını getir (karşılaştırma için)
+    /// </summary>
+    Task<LucaStockCardDetails?> GetStockCardDetailsBySkuAsync(string sku);
     
     /// <summary>
     /// UPSERT: If stock card exists in Luca, skip (API doesn't support update).

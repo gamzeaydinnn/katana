@@ -44,9 +44,13 @@ public partial class LucaService : ILucaService
         if (request == null) throw new ArgumentNullException(nameof(request));
 
         var originalBelgeSeri = request.BelgeSeri;
-        request.BelgeSeri = string.IsNullOrWhiteSpace(request.BelgeSeri)
+        // 🔥 FIX: "A" değeri eski/geçersiz bir seri - EFA2025 kullan
+        // Luca'da "A" serisi tanımlı değil, "Belge Seri bulunamadı!" hatası veriyor
+        var isInvalidSeri = string.IsNullOrWhiteSpace(request.BelgeSeri) || 
+                           string.Equals(request.BelgeSeri?.Trim(), "A", StringComparison.OrdinalIgnoreCase);
+        request.BelgeSeri = isInvalidSeri
             ? (_settings.DefaultBelgeSeri ?? "EFA2025")
-            : request.BelgeSeri.Trim();
+            : request.BelgeSeri!.Trim();
 
         if (!string.Equals(originalBelgeSeri ?? string.Empty, request.BelgeSeri ?? string.Empty, StringComparison.Ordinal))
         {

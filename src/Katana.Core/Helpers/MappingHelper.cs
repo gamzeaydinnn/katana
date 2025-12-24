@@ -709,7 +709,9 @@ public static class MappingHelper
             CariTip = cariTip,
             CariKisaAd = customerTitle.Length > 50 ? customerTitle.Substring(0, 50) : customerTitle,
             CariYasalUnvan = customerTitle,
-            VergiNo = taxNoDigits.Length == 10 ? taxNoDigits : null,
+            CariAd = cariAd, // Koza API zorunlu alan
+            CariSoyad = cariSoyad, // Koza API zorunlu alan
+            VergiNo = taxNoDigits.Length >= 10 ? taxNoDigits : "11111111111", // Fallback VKN
             TcKimlikNo = taxNoDigits.Length == 11 ? taxNoDigits : null,
             VergiDairesi = customer.TaxOffice ?? "Vergi Dairesi",
             Il = !string.IsNullOrWhiteSpace(customer.City) ? NormalizeTurkishText(customer.City) : "İstanbul",
@@ -1157,14 +1159,9 @@ public static class MappingHelper
             KartAdi = TrimAndTruncate(product.Name, 255) ?? sku ?? string.Empty,
             UzunAdi = TrimAndTruncate(product.Description, 500),
             Barkod = isVersionedSku ? null : (product.Barcode ?? sku),
-            PerakendeSatisBirimFiyat = (decimal)product.Price,
+            PerakendeSatisBirimFiyat = (double)product.Price,
             KategoriAgacKod = null,
-            KartTipi = 1,
-            KartTuru = 1,
-            OlcumBirimiId = 1, // ADET
-            SatilabilirFlag = 1,
-            SatinAlinabilirFlag = 1,
-            MaliyetHesaplanacakFlag = true
+            GtipKodu = null
         };
     }
 
@@ -1189,14 +1186,9 @@ public static class MappingHelper
             KartAdi = TrimAndTruncate(product.Name, 255) ?? normalizedSku ?? string.Empty,
             UzunAdi = TrimAndTruncate(product.Description, 500),
             Barkod = isVersionedSku ? null : normalizedSku,
-            PerakendeSatisBirimFiyat = product.Price,
+            PerakendeSatisBirimFiyat = (double)product.Price,
             KategoriAgacKod = product.CategoryId > 0 ? product.CategoryId.ToString() : null,
-            KartTipi = 1,
-            KartTuru = 1,
-            OlcumBirimiId = 1,
-            SatilabilirFlag = 1,
-            SatinAlinabilirFlag = 1,
-            MaliyetHesaplanacakFlag = true
+            GtipKodu = null
         };
     }
 
