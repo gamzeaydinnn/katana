@@ -3807,4 +3807,159 @@ public class KatanaService : IKatanaService
             return false;
         }
     }
+
+    /// <summary>
+    /// Creates a new webhook in Katana for receiving event notifications.
+    /// POST /webhooks with { url, subscribed_events, description }
+    /// Returns the created webhook with token for signature verification.
+    /// </summary>
+    public async Task<WebhookDto?> CreateWebhookAsync(string url, List<string> events, string? description = null)
+    {
+        if (string.IsNullOrWhiteSpace(url) || events == null || events.Count == 0)
+        {
+            _logger.LogWarning("CreateWebhookAsync called with invalid parameters. URL: {Url}, Events: {Events}", 
+                url, events?.Count ?? 0);
+            return null;
+        }
+
+        try
+        {
+            _logger.LogInformation("Creating Katana webhook. URL: {Url}, Events: {Events}", url, string.Join(", ", events));
+
+            var payload = new
+            {
+                url = url,
+                subscribed_events = events,
+                description = description ?? $"Katana Integration Webhook - {DateTime.UtcNow:yyyy-MM-dd}"
+            };
+
+            var jsonPayload = JsonSerializer.Serialize(payload, _jsonOptions);
+            var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync(_settings.Endpoints.Webhooks, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Failed to create webhook. Status: {Status}, Error: {Error}", 
+                    response.StatusCode, responseContent);
+                return null;
+            }
+
+            var createdWebhook = JsonSerializer.Deserialize<WebhookDto>(responseContent, _jsonOptions);
+            
+            _logger.LogInformation("✅ Successfully created Katana webhook. ID: {WebhookId}, Token: {Token}", 
+                createdWebhook?.Id, createdWebhook?.Token?.Substring(0, Math.Min(10, createdWebhook?.Token?.Length ?? 0)) + "...");
+            
+            return createdWebhook;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating Katana webhook. URL: {Url}", url);
+            _loggingService.LogError($"Katana CreateWebhookAsync failed for URL {url}", ex, null, "CreateWebhookAsync", LogCategory.ExternalAPI);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Deletes a webhook from Katana.
+    /// DELETE /webhooks/{id}
+    /// </summary>
+    public async Task<bool> DeleteWebhookAsync(int webhookId)
+    {
+        if (webhookId <= 0)
+        {
+            _logger.LogWarning("DeleteWebhookAsync called with invalid webhookId: {WebhookId}", webhookId);
+            return false;
+        }
+
+        try
+        {
+            _logger.LogInformation("Deleting Katana webhook ID: {WebhookId}", webhookId);
+
+            var response = await _httpClient.DeleteAsync($"{_settings.Endpoints.Webhooks}/{webhookId}");
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Failed to delete webhook {WebhookId}. Status: {Status}, Error: {Error}", 
+                    webhookId, response.StatusCode, responseContent);
+                return false;
+            }
+
+            _logger.LogInformation("✅ Successfully deleted Katana webhook ID: {WebhookId}", webhookId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting Katana webhook ID: {WebhookId}", webhookId);
+            _loggingService.LogError($"Katana DeleteWebhookAsync failed for webhook {webhookId}", ex, null, "DeleteWebhookAsync", LogCategory.ExternalAPI);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Updates an existing webhook in Katana.
+    /// PATCH /webhooks/{id} with optional { url, subscribed_events, description }
+    /// </summary>
+    public async Task<WebhookDto?> UpdateWebhookAsync(int webhookId, string? url = null, List<string>? events = null, string? description = null)
+    {
+        if (webhookId <= 0)
+        {
+            _logger.LogWarning("UpdateWebhookAsync called with invalid webhookId: {WebhookId}", webhookId);
+            return null;
+        }
+
+        try
+        {
+            _logger.LogInformation("Updating Katana webhook ID: {WebhookId}", webhookId);
+
+            var payloadDict = new Dictionary<string, object>();
+            if (!string.IsNullOrWhiteSpace(url))
+                payloadDict["url"] = url;
+            if (events != null && events.Count > 0)
+                payloadDict["subscribed_events"] = events;
+            if (!string.IsNullOrWhiteSpace(description))
+                payloadDict["description"] = description;
+
+            if (payloadDict.Count == 0)
+            {
+                _logger.LogWarning("UpdateWebhookAsync called with no update fields for webhook {WebhookId}", webhookId);
+                return null;
+            }
+
+            var jsonPayload = JsonSerializer.Serialize(payloadDict, _jsonOptions);
+            
+            using var request = new HttpRequestMessage(HttpMethod.Patch, $"{_settings.Endpoints.Webhooks}/{webhookId}");
+            var bytes = Encoding.UTF8.GetBytes(jsonPayload);
+            request.Content = new ByteArrayContent(bytes);
+            request.Content.Headers.Clear();
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            request.Headers.Clear();
+            request.Headers.Authorization = _httpClient.DefaultRequestHeaders.Authorization;
+            request.Headers.Accept.Clear();
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var response = await _httpClient.SendAsync(request);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Failed to update webhook {WebhookId}. Status: {Status}, Error: {Error}", 
+                    webhookId, response.StatusCode, responseContent);
+                return null;
+            }
+
+            var updatedWebhook = JsonSerializer.Deserialize<WebhookDto>(responseContent, _jsonOptions);
+            
+            _logger.LogInformation("✅ Successfully updated Katana webhook ID: {WebhookId}", webhookId);
+            return updatedWebhook;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating Katana webhook ID: {WebhookId}", webhookId);
+            _loggingService.LogError($"Katana UpdateWebhookAsync failed for webhook {webhookId}", ex, null, "UpdateWebhookAsync", LogCategory.ExternalAPI);
+            return null;
+        }
+    }
 }

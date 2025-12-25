@@ -113,6 +113,32 @@ public interface IKatanaService
     Task<List<MaterialDto>> GetMaterialsAsync();
     
     /// <summary>
+    /// Creates a new webhook in Katana for receiving event notifications.
+    /// </summary>
+    /// <param name="url">URL to receive webhook notifications</param>
+    /// <param name="events">List of event types to subscribe to (e.g., "product.created", "sales_order.updated")</param>
+    /// <param name="description">Optional description for the webhook</param>
+    /// <returns>Created webhook DTO with token for signature verification</returns>
+    Task<WebhookDto?> CreateWebhookAsync(string url, List<string> events, string? description = null);
+    
+    /// <summary>
+    /// Deletes a webhook from Katana.
+    /// </summary>
+    /// <param name="webhookId">Webhook ID to delete</param>
+    /// <returns>True if deleted successfully</returns>
+    Task<bool> DeleteWebhookAsync(int webhookId);
+    
+    /// <summary>
+    /// Updates an existing webhook in Katana.
+    /// </summary>
+    /// <param name="webhookId">Webhook ID to update</param>
+    /// <param name="url">New URL (optional)</param>
+    /// <param name="events">New list of events (optional)</param>
+    /// <param name="description">New description (optional)</param>
+    /// <returns>Updated webhook DTO</returns>
+    Task<WebhookDto?> UpdateWebhookAsync(int webhookId, string? url = null, List<string>? events = null, string? description = null);
+    
+    /// <summary>
     /// Archives a product in Katana by setting is_archived to true.
     /// Used to soft-delete products that no longer exist in local database.
     /// </summary>

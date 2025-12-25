@@ -1,4 +1,6 @@
-﻿namespace Katana.Core.DTOs;
+﻿using System.Text.Json.Serialization;
+
+namespace Katana.Core.DTOs;
 
 public class KatanaStockDto
 {
@@ -250,13 +252,40 @@ public class PriceListItemDto
 // Webhook DTOs
 public class WebhookDto
 {
+    [JsonPropertyName("id")]
     public string Id { get; set; } = string.Empty;
+    
+    [JsonPropertyName("url")]
     public string Url { get; set; } = string.Empty;
-    public string Event { get; set; } = string.Empty;
+    
+    [JsonPropertyName("subscribed_events")]
+    public List<string> SubscribedEvents { get; set; } = new();
+    
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+    
+    [JsonPropertyName("enabled")]
     public bool IsActive { get; set; } = true;
-    public string? Secret { get; set; }
+    
+    /// <summary>
+    /// Token for HMAC-SHA256 signature verification.
+    /// Only returned when webhook is created.
+    /// </summary>
+    [JsonPropertyName("token")]
+    public string? Token { get; set; }
+    
+    [JsonPropertyName("created_at")]
     public DateTime? CreatedAt { get; set; }
+    
+    [JsonPropertyName("updated_at")]
     public DateTime? UpdatedAt { get; set; }
+    
+    // Legacy field for backwards compatibility
+    [JsonPropertyName("event")]
+    public string Event { get; set; } = string.Empty;
+    
+    [JsonPropertyName("secret")]
+    public string? Secret { get; set; }
 }
 
 // Serial Number DTOs

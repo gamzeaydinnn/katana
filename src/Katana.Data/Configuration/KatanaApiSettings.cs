@@ -62,6 +62,7 @@ public class KatanaApiEndpoints
     public string PriceLists { get; set; } = "price_lists";
     public string TaxRates { get; set; } = "tax_rates";
     public string Suppliers { get; set; } = "suppliers";
+    public string Webhooks { get; set; } = "webhooks";
 
     
     public string Stock => StockAdjustments;
@@ -71,12 +72,47 @@ public class KatanaApiEndpoints
 
 public class KatanaWebhookEvents
 {
+    // Stock Adjustment Events
     public string StockAdjustmentCreated { get; set; } = "stock_adjustment.created";
     public string StockAdjustmentUpdated { get; set; } = "stock_adjustment.updated";
+    
+    // Product Events
     public string ProductCreated { get; set; } = "product.created";
     public string ProductUpdated { get; set; } = "product.updated";
+    public string ProductDeleted { get; set; } = "product.deleted";
+    
+    // Material Events
+    public string MaterialCreated { get; set; } = "material.created";
+    public string MaterialUpdated { get; set; } = "material.updated";
+    public string MaterialDeleted { get; set; } = "material.deleted";
+    
+    // Variant Events
+    public string VariantCreated { get; set; } = "variant.created";
+    public string VariantUpdated { get; set; } = "variant.updated";
+    public string VariantDeleted { get; set; } = "variant.deleted";
+    
+    // Sales Order Events
     public string SalesOrderCreated { get; set; } = "sales_order.created";
+    public string SalesOrderUpdated { get; set; } = "sales_order.updated";
+    public string SalesOrderDeleted { get; set; } = "sales_order.deleted";
+    public string SalesOrderPacked { get; set; } = "sales_order.packed";
+    public string SalesOrderDelivered { get; set; } = "sales_order.delivered";
     public string SalesOrderStatusChanged { get; set; } = "sales_order.status_changed";
+    
+    // Purchase Order Events
     public string PurchaseOrderCreated { get; set; } = "purchase_order.created";
+    public string PurchaseOrderUpdated { get; set; } = "purchase_order.updated";
+    public string PurchaseOrderDeleted { get; set; } = "purchase_order.deleted";
+    public string PurchaseOrderReceived { get; set; } = "purchase_order.received";
+    
+    // Manufacturing Order Events
+    public string ManufacturingOrderCreated { get; set; } = "manufacturing_order.created";
+    public string ManufacturingOrderUpdated { get; set; } = "manufacturing_order.updated";
+    public string ManufacturingOrderDeleted { get; set; } = "manufacturing_order.deleted";
+    public string ManufacturingOrderDone { get; set; } = "manufacturing_order.done";
     public string ManufacturingOrderCompleted { get; set; } = "manufacturing_order.completed";
+    
+    // Current Inventory Events
+    public string CurrentInventoryProductUpdated { get; set; } = "current_inventory.product_updated";
+    public string CurrentInventoryMaterialUpdated { get; set; } = "current_inventory.material_updated";
 }

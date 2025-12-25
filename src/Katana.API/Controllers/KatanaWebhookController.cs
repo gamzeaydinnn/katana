@@ -9,6 +9,9 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
+using Katana.Core.Helpers;
+using Katana.Core.Interfaces;
+using Katana.Core.Events;
 
 namespace Katana.API.Controllers;
 
@@ -26,6 +29,8 @@ public class KatanaWebhookController : ControllerBase
     private readonly IntegrationDbContext _context;
     private readonly IKatanaService _katanaService;
     private readonly IVariantMappingService _variantMappingService;
+    private readonly ILucaService _lucaService;
+    private readonly IPendingNotificationPublisher? _notificationPublisher;
 
     public KatanaWebhookController(
         IPendingStockAdjustmentService pendingService,
@@ -33,7 +38,9 @@ public class KatanaWebhookController : ControllerBase
         IConfiguration configuration,
         IntegrationDbContext context,
         IKatanaService katanaService,
-        IVariantMappingService variantMappingService)
+        IVariantMappingService variantMappingService,
+        ILucaService lucaService,
+        IPendingNotificationPublisher? notificationPublisher = null)
     {
         _pendingService = pendingService;
         _logger = logger;
@@ -41,6 +48,8 @@ public class KatanaWebhookController : ControllerBase
         _context = context;
         _katanaService = katanaService;
         _variantMappingService = variantMappingService;
+        _lucaService = lucaService;
+        _notificationPublisher = notificationPublisher;
     }
 
     
@@ -616,6 +625,244 @@ public class KatanaWebhookController : ControllerBase
 
         return await ReceiveSalesOrder(testWebhook);
     }
+
+    /// <summary>
+    /// Katana'dan ürün webhook'u al - Yeni ürün oluşturulduğunda Luca'da stok kartı oluştur
+    /// POST /api/webhook/katana/product
+    /// </summary>
+    /// <remarks>
+    /// Katana'dan gelen ürün event'leri:
+    /// - product.created: Yeni ürün oluşturuldu → Luca'da stok kartı oluştur
+    /// - product.updated: Ürün güncellendi → Luca'da stok kartını güncelle
+    /// - product.deleted: Ürün silindi → Luca'da stok kartını pasife al
+    /// </remarks>
+    [HttpPost("product")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ReceiveProduct([FromBody] KatanaProductWebhook webhook)
+    {
+        // Webhook signature doğrulama
+        var expectedApiKey = _configuration["KatanaApi:WebhookSecret"];
+        var receivedApiKey = Request.Headers["X-Katana-Signature"].FirstOrDefault();
+
+        if (string.IsNullOrEmpty(expectedApiKey) || !KatanaWebhookSecurity.SecureEquals(receivedApiKey, expectedApiKey))
+        {
+            _logger.LogWarning("Unauthorized product webhook attempt from IP: {IP}", HttpContext.Connection.RemoteIpAddress);
+            return Unauthorized(new { error = "Invalid webhook signature" });
+        }
+
+        try
+        {
+            _logger.LogInformation(
+                "📦 Received Katana product webhook: Event={Event}, ProductId={ProductId}, SKU={SKU}, Name={Name}",
+                webhook.Event,
+                webhook.ProductId,
+                webhook.SKU,
+                webhook.Name
+            );
+
+            // Event tipine göre işlem
+            var result = webhook.Event?.ToLowerInvariant() switch
+            {
+                "product.created" => await HandleProductCreatedAsync(webhook),
+                "product.updated" => await HandleProductUpdatedAsync(webhook),
+                "product.deleted" => await HandleProductDeletedAsync(webhook),
+                _ => await HandleProductCreatedAsync(webhook) // Default: create/update
+            };
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing Katana product webhook. ProductId={ProductId}, SKU={SKU}", 
+                webhook.ProductId, webhook.SKU);
+            return BadRequest(new { error = "Webhook processing failed", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Yeni ürün oluşturulduğunda Luca'da stok kartı oluştur
+    /// </summary>
+    private async Task<object> HandleProductCreatedAsync(KatanaProductWebhook webhook)
+    {
+        // 1. Önce local DB'de ürün var mı kontrol et
+        var existingProduct = await _context.Products
+            .FirstOrDefaultAsync(p => p.SKU == webhook.SKU || p.KatanaProductId == (int)webhook.ProductId);
+
+        if (existingProduct != null)
+        {
+            _logger.LogInformation("Product already exists in local DB. SKU={SKU}, LocalId={LocalId}", 
+                webhook.SKU, existingProduct.Id);
+        }
+        else
+        {
+            // Local DB'ye ürün ekle
+            existingProduct = new Product
+            {
+                SKU = webhook.SKU ?? $"KAT-{webhook.ProductId}",
+                Name = webhook.Name ?? "Unnamed Product",
+                KatanaProductId = (int)webhook.ProductId,
+                Price = webhook.SalesPrice ?? 0,
+                Source = "KATANA",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Products.Add(existingProduct);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("✅ Product added to local DB. SKU={SKU}, LocalId={LocalId}", 
+                existingProduct.SKU, existingProduct.Id);
+        }
+
+        // 2. Luca'da stok kartı oluştur/güncelle (UpsertStockCardAsync)
+        try
+        {
+            var lucaRequest = MappingHelper.MapToLucaStockCard(existingProduct);
+            var upsertResult = await _lucaService.UpsertStockCardAsync(lucaRequest);
+
+            if (upsertResult.IsSuccess)
+            {
+                // LucaId varsa kaydet (NewCreated > 0 veya DuplicateRecords > 0)
+                existingProduct.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                var action = upsertResult.NewCreated > 0 ? "created" : (upsertResult.DuplicateRecords > 0 ? "exists" : "updated");
+                _logger.LogInformation("✅ Luca stock card created/updated. SKU={SKU}, Action={Action}",
+                    webhook.SKU, action);
+
+                // 3. 🔔 Bildirim gönder - Real-time notification via SignalR
+                if (_notificationPublisher != null)
+                {
+                    try
+                    {
+                        var productEvent = new ProductCreatedEvent(
+                            productId: existingProduct.Id,
+                            sku: existingProduct.SKU,
+                            name: existingProduct.Name,
+                            source: "Katana",
+                            createdAt: DateTimeOffset.UtcNow
+                        );
+                        await _notificationPublisher.PublishProductCreatedAsync(productEvent);
+                        _logger.LogInformation("🔔 Notification sent for product created. SKU={SKU}", webhook.SKU);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to send notification for product created. SKU={SKU}", webhook.SKU);
+                        // Bildirim hatası kritik değil, devam et
+                    }
+                }
+
+                return new
+                {
+                    success = true,
+                    action = action,
+                    message = $"Ürün ve Luca stok kartı başarıyla işlendi ({action})",
+                    productId = existingProduct.Id,
+                    sku = existingProduct.SKU,
+                    lucaId = existingProduct.LucaId
+                };
+            }
+            else
+            {
+                var errorMsg = upsertResult.Errors?.FirstOrDefault() ?? upsertResult.Message;
+                _logger.LogWarning("⚠️ Luca stock card upsert failed. SKU={SKU}, Error={Error}",
+                    webhook.SKU, errorMsg);
+
+                return new
+                {
+                    success = false,
+                    action = "failed",
+                    message = "Ürün local DB'ye eklendi ama Luca stok kartı oluşturulamadı",
+                    productId = existingProduct.Id,
+                    sku = existingProduct.SKU,
+                    error = errorMsg
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating Luca stock card. SKU={SKU}", webhook.SKU);
+            return new
+            {
+                success = false,
+                action = "error",
+                message = "Luca stok kartı oluşturulurken hata oluştu",
+                productId = existingProduct.Id,
+                sku = existingProduct.SKU,
+                error = ex.Message
+            };
+        }
+    }
+
+    /// <summary>
+    /// Ürün güncellendiğinde Luca'da stok kartını güncelle
+    /// </summary>
+    private async Task<object> HandleProductUpdatedAsync(KatanaProductWebhook webhook)
+    {
+        // Aynı mantık - upsert kullan
+        return await HandleProductCreatedAsync(webhook);
+    }
+
+    /// <summary>
+    /// Ürün silindiğinde Luca'da stok kartını pasife al
+    /// </summary>
+    private async Task<object> HandleProductDeletedAsync(KatanaProductWebhook webhook)
+    {
+        var existingProduct = await _context.Products
+            .FirstOrDefaultAsync(p => p.SKU == webhook.SKU || p.KatanaProductId == (int)webhook.ProductId);
+
+        if (existingProduct == null)
+        {
+            return new
+            {
+                success = true,
+                action = "skipped",
+                message = "Ürün local DB'de bulunamadı, silme işlemi atlandı"
+            };
+        }
+
+        // Local DB'de pasife al
+        existingProduct.IsActive = false;
+        existingProduct.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("✅ Product deactivated in local DB. SKU={SKU}, LocalId={LocalId}",
+            webhook.SKU, existingProduct.Id);
+
+        // TODO: Luca'da stok kartını pasife almak için endpoint eklenebilir
+
+        return new
+        {
+            success = true,
+            action = "deactivated",
+            message = "Ürün pasife alındı",
+            productId = existingProduct.Id,
+            sku = existingProduct.SKU
+        };
+    }
+
+    /// <summary>
+    /// Test endpoint - Ürün webhook'u simüle et
+    /// </summary>
+    [HttpPost("test-product")]
+    [ApiExplorerSettings(IgnoreApi = false)]
+    public async Task<IActionResult> TestProductWebhook()
+    {
+        var testWebhook = new KatanaProductWebhook
+        {
+            Event = "product.created",
+            ProductId = 999999,
+            SKU = $"TEST-SKU-{DateTime.UtcNow:yyyyMMddHHmmss}",
+            Name = "Test Product from Webhook",
+            Unit = "Adet",
+            SalesPrice = 100m,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        Request.Headers["X-Katana-Signature"] = _configuration["KatanaApi:WebhookSecret"] ?? "test-secret";
+
+        return await ReceiveProduct(testWebhook);
+    }
 }
 
 /// <summary>
@@ -752,6 +999,60 @@ public class KatanaSalesOrderLineWebhook
 
     [JsonPropertyName("location_id")]
     public long? LocationId { get; set; }
+}
+
+/// <summary>
+/// Katana ürün webhook payload'u
+/// </summary>
+public class KatanaProductWebhook
+{
+    /// <summary>Event tipi: product.created, product.updated, product.deleted</summary>
+    [JsonPropertyName("event")]
+    public string? Event { get; set; }
+
+    /// <summary>Katana ürün ID'si</summary>
+    [JsonPropertyName("id")]
+    public long ProductId { get; set; }
+
+    /// <summary>Stok kodu (SKU)</summary>
+    [JsonPropertyName("sku")]
+    public string? SKU { get; set; }
+
+    /// <summary>Ürün adı</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    /// <summary>Birim (Adet, Kg, Metre vb.)</summary>
+    [JsonPropertyName("default_unit_of_measure")]
+    public string? Unit { get; set; }
+
+    /// <summary>Satış fiyatı</summary>
+    [JsonPropertyName("sales_price")]
+    public decimal? SalesPrice { get; set; }
+
+    /// <summary>Maliyet fiyatı</summary>
+    [JsonPropertyName("cost")]
+    public decimal? Cost { get; set; }
+
+    /// <summary>Kategori</summary>
+    [JsonPropertyName("category")]
+    public string? Category { get; set; }
+
+    /// <summary>Oluşturulma tarihi</summary>
+    [JsonPropertyName("created_at")]
+    public DateTime? CreatedAt { get; set; }
+
+    /// <summary>Güncellenme tarihi</summary>
+    [JsonPropertyName("updated_at")]
+    public DateTime? UpdatedAt { get; set; }
+
+    /// <summary>Aktif mi?</summary>
+    [JsonPropertyName("is_active")]
+    public bool IsActive { get; set; } = true;
+
+    /// <summary>Ek bilgiler</summary>
+    [JsonPropertyName("notes")]
+    public string? Notes { get; set; }
 }
 
 internal static class KatanaWebhookSecurity

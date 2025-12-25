@@ -60,7 +60,7 @@ const StatusActions: React.FC<StatusActionsProps> = ({
     if (confirmDialog.action === "approve") {
       return {
         title: "Siparişi Onayla",
-        message: `${orderNo} numaralı siparişi onaylamak istediğinizden emin misiniz? Onaylanan sipariş Katana sistemine gönderilecektir.`,
+        message: `${orderNo} numaralı siparişi onaylamak istediğinizden emin misiniz? Onaylanan sipariş için Luca'da stok kartları oluşturulacaktır.`,
       };
     }
     return {

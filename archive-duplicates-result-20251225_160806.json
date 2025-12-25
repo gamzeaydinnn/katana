@@ -1,0 +1,36 @@
+﻿{
+    "ArchivedProducts":  [
+                             {
+                                 "id":  15039,
+                                 "sku":  "29 02 00329 02-01",
+                                 "name":  "Ø10 BAKIR BORU"
+                             },
+                             {
+                                 "id":  15038,
+                                 "sku":  "29 02 00355 00-01",
+                                 "name":  "Ø10 BAKIR BORU"
+                             },
+                             {
+                                 "id":  15040,
+                                 "sku":  "32 11 00059 04-01",
+                                 "name":  "Ø10 BAKIR BORU"
+                             },
+                             {
+                                 "id":  15041,
+                                 "sku":  "32 11 00059 04-02",
+                                 "name":  "Ø10 BAKIR BORU"
+                             },
+                             {
+                                 "id":  197,
+                                 "sku":  "32 11 00070 03-02",
+                                 "name":  "Ø10 BAKIR BORU"
+                             }
+                         ],
+    "Timestamp":  "20251225_160806",
+    "Errors":  [
+
+               ],
+    "SuccessCount":  5,
+    "TotalProducts":  5,
+    "FailCount":  0
+}

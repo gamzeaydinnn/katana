@@ -416,13 +416,13 @@ const SalesOrders: React.FC = () => {
     }
   };
 
-  // Admin Approval - Siparişi onayla ve Katana'ya tek sipariş olarak gönder
+  // Admin Approval - Siparişi onayla ve Luca'ya stok kartı gönder
   const handleApproveOrder = async (orderId: number) => {
     try {
       setApproving(orderId);
       setApprovalDialog({ open: false, orderId: null, orderNo: "" });
 
-      // Backend'e onay isteği gönder - bu Katana'ya tek sipariş olarak gönderecek
+      // Backend'e onay isteği gönder - bu Luca'ya stok kartı gönderecek
       const response = await api.post<{
         success: boolean;
         message?: string;
@@ -437,12 +437,12 @@ const SalesOrders: React.FC = () => {
       }>(`/sales-orders/${orderId}/approve`);
 
       if (response.data.success) {
-        let successMsg = `✅ Sipariş onaylandı ve Katana'ya gönderildi (KatanaOrderId: ${response.data.katanaOrderId})`;
+        let successMsg = `✅ Sipariş onaylandı ve Luca'ya stok kartları gönderildi`;
         if (response.data.lineCount) {
-          successMsg += ` - ${response.data.lineCount} satır`;
+          successMsg += ` - ${response.data.lineCount} ürün`;
         }
         if (response.data.lucaSync?.isSuccess) {
-          successMsg += ` | Luca: ✓`;
+          successMsg += ` | Fatura: ✓`;
         }
         setSnackbar({
           open: true,
@@ -1306,9 +1306,9 @@ const SalesOrders: React.FC = () => {
               }}
             >
               <StockIcon sx={{ mr: 1, verticalAlign: "middle" }} />
-              Bu işlem siparişi onaylayacak ve{" "}
-              <strong>Katana sistemine tek sipariş olarak gönderecektir</strong>
-              . Tüm satırlar aynı sipariş içinde yer alacaktır.
+              Bu işlem siparişi onaylayacak ve siparişteki{" "}
+              <strong>tüm ürünler için Luca'da stok kartı oluşturacaktır</strong>
+              . Her ürün için ayrı stok kartı açılacaktır.
             </Box>
           </DialogContentText>
         </DialogContent>
@@ -1332,7 +1332,7 @@ const SalesOrders: React.FC = () => {
               )
             }
           >
-            Onayla ve Katana'ya Gönder
+            Onayla ve Luca'ya Gönder
           </Button>
         </DialogActions>
       </Dialog>

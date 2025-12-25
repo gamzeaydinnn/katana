@@ -1142,4 +1142,236 @@ public class AdminController : ControllerBase
             return StatusCode(500, new { success = false, error = ex.Message });
         }
     }
+
+    #region Katana Webhook Yönetimi
+
+    /// <summary>
+    /// Mevcut Katana webhook'larını listele
+    /// </summary>
+    [HttpGet("webhooks")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetWebhooks([FromServices] IKatanaService katanaService)
+    {
+        try
+        {
+            var webhooks = await katanaService.GetWebhooksAsync();
+            return Ok(new { 
+                success = true, 
+                count = webhooks.Count, 
+                webhooks = webhooks.Select(w => new {
+                    id = w.Id,
+                    url = w.Url,
+                    subscribedEvents = w.SubscribedEvents,
+                    description = w.Description,
+                    isActive = w.IsActive,
+                    createdAt = w.CreatedAt
+                })
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Webhook listesi alınırken hata");
+            return StatusCode(500, new { error = "Webhook listesi alınamadı", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Yeni Katana webhook oluştur
+    /// </summary>
+    [HttpPost("webhooks")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CreateWebhook(
+        [FromServices] IKatanaService katanaService,
+        [FromBody] CreateWebhookRequest request)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.Url))
+                return BadRequest(new { error = "URL gerekli" });
+            
+            if (request.Events == null || request.Events.Count == 0)
+                return BadRequest(new { error = "En az bir event gerekli" });
+
+            var webhook = await katanaService.CreateWebhookAsync(request.Url, request.Events, request.Description);
+            
+            if (webhook == null)
+                return BadRequest(new { error = "Webhook oluşturulamadı" });
+
+            return Ok(new { 
+                success = true, 
+                message = "Webhook başarıyla oluşturuldu",
+                webhook = new {
+                    id = webhook.Id,
+                    url = webhook.Url,
+                    subscribedEvents = webhook.SubscribedEvents,
+                    token = webhook.Token, // İmza doğrulaması için gerekli - sakla!
+                    description = webhook.Description
+                },
+                important = "⚠️ Token'ı kaydedin! Webhook imza doğrulaması için gerekli."
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Webhook oluşturulurken hata");
+            return StatusCode(500, new { error = "Webhook oluşturulamadı", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Katana webhook sil
+    /// </summary>
+    [HttpDelete("webhooks/{webhookId}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteWebhook(
+        [FromServices] IKatanaService katanaService,
+        int webhookId)
+    {
+        try
+        {
+            var result = await katanaService.DeleteWebhookAsync(webhookId);
+            
+            if (!result)
+                return BadRequest(new { error = "Webhook silinemedi" });
+
+            return Ok(new { success = true, message = $"Webhook {webhookId} silindi" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Webhook silinirken hata. ID: {WebhookId}", webhookId);
+            return StatusCode(500, new { error = "Webhook silinemedi", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Hızlı webhook kurulumu - Product event'leri için webhook oluştur
+    /// </summary>
+    [HttpPost("webhooks/setup-product-events")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SetupProductWebhook(
+        [FromServices] IKatanaService katanaService,
+        [FromServices] IConfiguration configuration)
+    {
+        try
+        {
+            // API base URL'i al
+            var baseUrl = configuration["AppSettings:PublicApiUrl"] 
+                ?? configuration["Kestrel:Endpoints:Http:Url"]
+                ?? "http://localhost:5055";
+            
+            var webhookUrl = $"{baseUrl.TrimEnd('/')}/api/webhook/katana/product";
+            
+            var events = new List<string>
+            {
+                "product.created",
+                "product.updated",
+                "product.deleted",
+                "variant.created",
+                "variant.updated",
+                "variant.deleted",
+                "material.created",
+                "material.updated",
+                "material.deleted"
+            };
+
+            _logger.LogInformation("Setting up product webhook. URL: {Url}, Events: {Events}", 
+                webhookUrl, string.Join(", ", events));
+
+            var webhook = await katanaService.CreateWebhookAsync(
+                webhookUrl, 
+                events, 
+                "Product/Variant/Material Events - Auto Setup");
+            
+            if (webhook == null)
+                return BadRequest(new { error = "Webhook oluşturulamadı" });
+
+            // Token'ı appsettings'e kaydetmek için bilgi ver
+            return Ok(new { 
+                success = true, 
+                message = "Product webhook'u başarıyla oluşturuldu!",
+                webhook = new {
+                    id = webhook.Id,
+                    url = webhookUrl,
+                    subscribedEvents = events,
+                    token = webhook.Token
+                },
+                nextSteps = new[] {
+                    "1. Token'ı appsettings.json'a kaydedin:",
+                    $"   \"KatanaApi\": {{ \"WebhookSecret\": \"{webhook.Token}\" }}",
+                    "2. API'yi yeniden başlatın",
+                    "3. Katana'da ürün ekleyin ve webhook'un çalıştığını doğrulayın"
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Product webhook kurulumu hatası");
+            return StatusCode(500, new { error = "Webhook kurulumu başarısız", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Hızlı webhook kurulumu - Sales Order event'leri için webhook oluştur
+    /// </summary>
+    [HttpPost("webhooks/setup-sales-order-events")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SetupSalesOrderWebhook(
+        [FromServices] IKatanaService katanaService,
+        [FromServices] IConfiguration configuration)
+    {
+        try
+        {
+            var baseUrl = configuration["AppSettings:PublicApiUrl"] 
+                ?? configuration["Kestrel:Endpoints:Http:Url"]
+                ?? "http://localhost:5055";
+            
+            var webhookUrl = $"{baseUrl.TrimEnd('/')}/api/webhook/katana/sales-order";
+            
+            var events = new List<string>
+            {
+                "sales_order.created",
+                "sales_order.updated",
+                "sales_order.deleted",
+                "sales_order.packed",
+                "sales_order.delivered"
+            };
+
+            var webhook = await katanaService.CreateWebhookAsync(
+                webhookUrl, 
+                events, 
+                "Sales Order Events - Auto Setup");
+            
+            if (webhook == null)
+                return BadRequest(new { error = "Webhook oluşturulamadı" });
+
+            return Ok(new { 
+                success = true, 
+                message = "Sales Order webhook'u başarıyla oluşturuldu!",
+                webhook = new {
+                    id = webhook.Id,
+                    url = webhookUrl,
+                    subscribedEvents = events,
+                    token = webhook.Token
+                },
+                nextSteps = new[] {
+                    "1. Token'ı appsettings.json'a kaydedin:",
+                    $"   \"KatanaApi\": {{ \"WebhookSecret\": \"{webhook.Token}\" }}",
+                    "2. API'yi yeniden başlatın"
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Sales Order webhook kurulumu hatası");
+            return StatusCode(500, new { error = "Webhook kurulumu başarısız", details = ex.Message });
+        }
+    }
+
+    #endregion
+}
+
+public class CreateWebhookRequest
+{
+    public string Url { get; set; } = string.Empty;
+    public List<string> Events { get; set; } = new();
+    public string? Description { get; set; }
 }
