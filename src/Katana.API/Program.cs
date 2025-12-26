@@ -457,7 +457,7 @@ app.MapControllers().RequireCors("DevCors");
 app.MapHealthChecks("/health");
 app.MapHub<Katana.API.Hubs.NotificationHub>("/hubs/notifications").RequireCors("DevCors");
 
-if (app.Environment.IsDevelopment())
+// Migration'ları her ortamda çalıştır (Production dahil)
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<IntegrationDbContext>();
