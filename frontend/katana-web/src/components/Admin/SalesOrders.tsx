@@ -1307,7 +1307,9 @@ const SalesOrders: React.FC = () => {
             >
               <StockIcon sx={{ mr: 1, verticalAlign: "middle" }} />
               Bu işlem siparişi onaylayacak ve siparişteki{" "}
-              <strong>tüm ürünler için Luca'da stok kartı oluşturacaktır</strong>
+              <strong>
+                tüm ürünler için Luca'da stok kartı oluşturacaktır
+              </strong>
               . Her ürün için ayrı stok kartı açılacaktır.
             </Box>
           </DialogContentText>
