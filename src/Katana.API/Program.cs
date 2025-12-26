@@ -521,10 +521,12 @@ app.MapHub<Katana.API.Hubs.NotificationHub>("/hubs/notifications").RequireCors("
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Dev DB init failed: {ex.Message}");
+        Console.WriteLine($"DB migration/init failed: {ex.Message}");
     }
 }
-else
+
+// Production için HSTS ve HTTPS
+if (!app.Environment.IsDevelopment())
 {
     app.UseHsts();
     app.UseHttpsRedirection();
